@@ -1,7 +1,10 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { loadReport, type StoredReport } from "@/lib/report-store";
+import { RealReportView } from "@/components/RealReportView";
 import {
   Share2,
   Download,
@@ -54,6 +57,35 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 ];
 
 export default function ReportPage() {
+  const params = useParams();
+  const id = Array.isArray(params.id) ? params.id[0] : String(params.id ?? "");
+  const [report, setReport] = useState<StoredReport | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReport(loadReport(id));
+    setReady(true);
+  }, [id]);
+
+  // Avoid a hydration flash: sessionStorage is only available client-side.
+  if (!ready) {
+    return (
+      <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
+        <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+        <div className="max-w-7xl mx-auto px-4 py-20 text-center text-sm" style={{ color: "var(--text-muted)" }}>
+          Loading report…
+        </div>
+      </div>
+    );
+  }
+
+  // A freshly generated real analysis renders the live report; otherwise the
+  // built-in demo (e.g. /report/rpt_001 from the dashboard) renders.
+  if (report) return <RealReportView report={report} />;
+  return <DemoReport />;
+}
+
+function DemoReport() {
   const [tab, setTab] = useState<Tab>("overview");
   const [mode, setMode] = useState<"buyer" | "investor">("buyer");
 

@@ -2,79 +2,93 @@
 
 import Navbar from "@/components/Navbar";
 import { useState } from "react";
-import { ArrowRight, Upload, Link2, Loader2, CheckCircle2, Home } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Upload, Link2, Loader2, CheckCircle2 } from "lucide-react";
+import { saveReport } from "@/lib/report-store";
 
 type Step = "input" | "scraping" | "analysing" | "done";
 
 const PORTALS = [
-  "trademe.co.nz/property",
+  "propertybrokers.co.nz",
   "realestate.co.nz",
-  "rwmetro.co.nz",
+  "oneroof.co.nz",
+  "trademe.co.nz/property",
   "harcourts.net/nz",
   "bayleys.co.nz",
   "barfoot.co.nz",
-  "propertybrokers.co.nz",
-  "oneroof.co.nz",
+  "raywhite.co.nz",
 ];
 
 const PIPELINE_STEPS = [
-  { id: "scrape", label: "Scraping listing data", sub: "Fetching photos, details, price" },
-  { id: "photos", label: "Analysing photos with AI", sub: "Claude vision — scoring each photo" },
-  { id: "market", label: "Pulling suburb market data", sub: "Avg values, yield, comparable sales" },
-  { id: "hazard", label: "Checking hazard database", sub: "TC zones, flood, coastal risk" },
-  { id: "score", label: "Calculating quality score", sub: "6 categories, 1,000 point rubric" },
-  { id: "report", label: "Building your report", sub: "Compiling findings and financials" },
+  { id: "scrape", label: "Scraping the listing", sub: "Address, price, details, photos" },
+  { id: "photos", label: "Downloading & resizing photos", sub: "Preparing images for Claude" },
+  { id: "vision", label: "Analysing with Claude vision", sub: "Scoring every visible element" },
+  { id: "score", label: "Calculating quality score", sub: "Cost-weighted 1,000-point rubric" },
+  { id: "report", label: "Building your report", sub: "Compiling findings and gaps" },
 ];
 
 export default function NewReportPage() {
+  const router = useRouter();
   const [url, setUrl] = useState("");
   const [step, setStep] = useState<Step>("input");
   const [pipelineStep, setPipelineStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [scrapedData, setScrapedData] = useState<Record<string, unknown> | null>(null);
 
   async function startAnalysis() {
-    if (!url.trim()) return;
+    const target = url.trim();
+    if (!target) return;
     setError(null);
-    setStep("scraping");
+    setStep("analysing");
     setPipelineStep(0);
 
-    // Step 1 — real scrape
-    let listing: Record<string, unknown> | null = null;
+    // Advance the visual pipeline while the one real request runs. We can't get
+    // true per-step progress from a single call, so this is indicative — it holds
+    // at the last step until the real result actually arrives.
+    let p = 0;
+    const timer = setInterval(() => {
+      p = Math.min(p + 1, PIPELINE_STEPS.length - 1);
+      setPipelineStep(p);
+    }, 9000);
+
     try {
-      const res = await fetch("/api/scrape", {
+      const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: target }),
       });
       const data = await res.json();
+      clearInterval(timer);
 
-      if (!res.ok && res.status !== 206) {
-        setError(data.message ?? data.error ?? "Scrape failed. Try uploading photos manually.");
+      if (!res.ok) {
+        setError(
+          res.status === 503
+            ? "Claude isn't configured — add a funded ANTHROPIC_API_KEY to .env.local and restart the server."
+            : data.message ?? data.error ?? `Analysis failed (HTTP ${res.status}).`
+        );
         setStep("input");
         return;
       }
 
-      listing = data.listing ?? null;
-      setScrapedData(listing);
+      const id = crypto.randomUUID();
+      saveReport({
+        id,
+        createdAt: new Date().toISOString(),
+        listing: data.listing,
+        data: data.data,
+        score: data.score,
+        gaps: data.gaps ?? [],
+        photosAnalysed: data.photosAnalysed ?? 0,
+        model: data.model,
+      });
+
+      setPipelineStep(PIPELINE_STEPS.length);
+      setStep("done");
+      router.push(`/report/${id}`);
     } catch {
+      clearInterval(timer);
       setError("Network error — check your connection and try again.");
       setStep("input");
-      return;
     }
-
-    setPipelineStep(1); // scrape done
-
-    // Steps 2–6 — remaining pipeline (AI analysis etc. — simulated until Claude API is wired)
-    for (let i = 1; i < PIPELINE_STEPS.length; i++) {
-      await new Promise((r) => setTimeout(r, 1000 + Math.random() * 600));
-      setPipelineStep(i + 1);
-    }
-
-    setStep("done");
-    await new Promise((r) => setTimeout(r, 600));
-    // TODO: once reports API is wired, navigate to the real report ID
-    window.location.href = "/report/rpt_001";
   }
 
   return (
@@ -285,7 +299,7 @@ function AnalysisPipeline({ pipelineStep, url }: { pipelineStep: number; url: st
       </div>
 
       <p className="text-center text-xs mt-8" style={{ color: "var(--text-muted)" }}>
-        Typically 30–90 seconds · Powered by Claude AI
+        Real Claude vision analysis · this can take 1–3 minutes on the current API tier
       </p>
     </div>
   );
