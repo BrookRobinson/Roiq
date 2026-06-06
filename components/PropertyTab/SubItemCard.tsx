@@ -1,0 +1,236 @@
+"use client";
+
+import { useState } from "react";
+import type { SubItem } from "@/lib/property-tab/types";
+import { urgencyColor, urgencyScoreToYears } from "@/lib/property-tab/types";
+import { UrgencyBadge } from "./UrgencyBadge";
+import { ConfidenceTierBadge } from "./ConfidenceTierBadge";
+import { CostWorkings } from "@/components/CostWorkings";
+import { useHoldPeriod } from "@/lib/hold-period/context";
+import {
+  roofReplacementCost,
+  windowReplacementCost,
+  ceilingInsulationCost,
+  claddingRepaintCost,
+  deckRepairCost,
+} from "@/lib/labour-rates";
+import { Camera, ArrowRight, Wrench, Shield } from "lucide-react";
+
+/** Build a CostItem for this sub-item where we have the data */
+function getCostItem(item: SubItem, region = "Auckland") {
+  if (!item.estimatedReplacementCost) return null;
+  // Match known sub-item IDs to specific cost calculators
+  if (item.id === "ext_roof")        return roofReplacementCost(185, region);
+  if (item.id === "ext_cladding")    return claddingRepaintCost(185, region);
+  if (item.id === "ext_windows")     return windowReplacementCost(3, region);
+  if (item.id === "kit_ceiling_ins" || item.id === "svc_insulation")
+                                     return ceilingInsulationCost(185, region);
+  if (item.id === "out_deck")        return deckRepairCost(28, region);
+  // Generic fallback — use raw replacement cost range
+  return null;
+}
+
+const accentColors = {
+  green: "#00e676",
+  amber: "#fbbf24",
+  red:   "#ff5f5f",
+  muted: "#3d7872",
+};
+
+export function SubItemCard({ item }: { item: SubItem }) {
+  const [expanded, setExpanded] = useState(false);
+  const { holdYears, withinHold } = useHoldPeriod();
+  const urgencyYears = urgencyScoreToYears(item.score);
+  const isWithinHold = withinHold(urgencyYears);
+  const color = accentColors[urgencyColor(item.score)];
+  const costItem = getCostItem(item);
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden transition-opacity"
+      style={{
+        background: "var(--surface-2)",
+        border: "1px solid var(--border)",
+        borderLeft: `3px solid ${color}`,
+        opacity: !isWithinHold && item.score !== null && item.score <= 7 ? 0.55 : 1,
+      }}
+    >
+      {/* Header row — always visible */}
+      <button
+        className="w-full text-left p-4 cursor-pointer"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+                {item.name}
+              </span>
+              {item.renovationLink && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(0,212,200,0.1)", color: "var(--brand)", border: "1px solid rgba(0,212,200,0.2)" }}
+                >
+                  <Wrench size={9} />
+                  Reno tab
+                </span>
+              )}
+              {item.healthyHomesLink && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+                  style={{ background: "rgba(251,191,36,0.1)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.2)" }}
+                >
+                  <Shield size={9} />
+                  Healthy Homes
+                </span>
+              )}
+            </div>
+
+            {/* Three inline data pills */}
+            <div className="flex flex-wrap gap-2 mb-2">
+              {[
+                { label: "Material", value: item.material },
+                { label: "Age",      value: item.estimatedAge },
+                { label: "Condition",value: item.condition },
+              ].map((pill) => (
+                <div
+                  key={pill.label}
+                  className="text-xs rounded-md px-2 py-1 max-w-xs"
+                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                >
+                  <span style={{ color: "var(--text-muted)" }}>{pill.label}: </span>
+                  <span className="font-medium" style={{ color: "var(--text-secondary)" }}>
+                    {pill.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Urgency badge */}
+          <div className="flex-shrink-0">
+            <UrgencyBadge score={item.score} label={item.urgencyLabel} size="sm" />
+          </div>
+        </div>
+
+        {/* Confidence + photo refs */}
+        <div className="flex items-center gap-3 flex-wrap mt-1">
+          <ConfidenceTierBadge tier={item.confidenceTier} />
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {item.evidenceSource}
+          </span>
+          {item.photoReferences.length > 0 && (
+            <div className="flex items-center gap-1">
+              <Camera size={11} style={{ color: "var(--text-muted)" }} />
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Photos: {item.photoReferences.join(", ")}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Outside hold period label */}
+        {!isWithinHold && item.score !== null && item.score <= 7 && (
+          <div
+            className="mt-2 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
+          >
+            Outside your {holdYears}-year hold period — monitor only
+          </div>
+        )}
+
+        {/* Expand toggle hint */}
+        <div className="flex items-center gap-1 mt-2">
+          <span className="text-xs" style={{ color: "var(--brand)" }}>
+            {expanded ? "Hide detail" : "Read AI assessment"}
+          </span>
+          <ArrowRight
+            size={11}
+            style={{
+              color: "var(--brand)",
+              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+            }}
+          />
+        </div>
+      </button>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div
+          className="px-4 pb-4 space-y-4"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          {/* AI summary */}
+          <div className="pt-4">
+            <div
+              className="text-xs font-semibold uppercase tracking-wider mb-2"
+              style={{ color: "var(--text-muted)" }}
+            >
+              AI Assessment
+            </div>
+            <p
+              className="text-sm leading-relaxed"
+              style={{ color: "var(--text-secondary)", lineHeight: 1.75 }}
+            >
+              {item.aiSummary}
+            </p>
+          </div>
+
+          {/* Replacement cost — use CostWorkings if we have a full calculator, otherwise simple display */}
+          {item.estimatedReplacementCost && (
+            costItem ? (
+              <CostWorkings item={costItem} withinHoldPeriod={isWithinHold} />
+            ) : (
+              <div
+                className="rounded-lg p-3"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)", opacity: isWithinHold ? 1 : 0.5 }}
+              >
+                <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
+                  Estimated replacement cost
+                  {!isWithinHold && (
+                    <span className="ml-2 font-normal" style={{ color: "var(--text-muted)" }}>
+                      (outside your {holdYears}-yr hold)
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-base font-bold mono" style={{ color: "var(--text-primary)" }}>
+                    ${item.estimatedReplacementCost.low.toLocaleString()} – ${item.estimatedReplacementCost.high.toLocaleString()}
+                  </span>
+                </div>
+                <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                  {item.estimatedReplacementCost.notes}
+                </div>
+              </div>
+            )
+          )}
+
+          {/* Renovation link */}
+          {item.renovationLink && (
+            <button
+              className="flex items-center gap-1.5 text-sm font-semibold cursor-pointer"
+              style={{ color: "var(--brand)" }}
+            >
+              <Wrench size={13} />
+              View in Renovation tab
+              <ArrowRight size={13} />
+            </button>
+          )}
+
+          {/* Healthy Homes link */}
+          {item.healthyHomesLink && (
+            <button
+              className="flex items-center gap-1.5 text-sm font-semibold cursor-pointer"
+              style={{ color: "#fbbf24" }}
+            >
+              <Shield size={13} />
+              View Healthy Homes assessment
+              <ArrowRight size={13} />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
