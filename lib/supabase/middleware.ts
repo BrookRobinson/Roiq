@@ -45,10 +45,12 @@ export async function updateSession(request: NextRequest) {
   const protectedPaths = ["/dashboard", "/report/new", "/account", "/map"];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
-  // Report view routes are also protected (but /report/demo is public)
+  // Report view routes are also protected (but /report/demo and the live
+  // analysis test page are public)
   const isProtectedReport =
     pathname.startsWith("/report/") &&
     !pathname.startsWith("/report/demo") &&
+    !pathname.startsWith("/report/analyze") &&
     pathname !== "/report/new";
 
   if (!user && (isProtected || isProtectedReport)) {
