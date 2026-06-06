@@ -72,6 +72,22 @@ export function urgencyLabel(score: UrgencyScore | null): string {
   return labels[score] ?? "Unknown";
 }
 
+// Years until replacement is needed, derived from the urgency score.
+// Upper bound of each label's range (spec 5.5); 99 = no replacement within any hold period.
+export function urgencyScoreToYears(score: UrgencyScore | null): number {
+  if (score === null) return 99;
+  const years: Record<number, number> = {
+    10: 99, 9: 99, 8: 99, 7: 99,
+    6: 7,  // plan replacement within 5–7 years
+    5: 5,  // 3–5 years
+    4: 3,  // 2–3 years
+    3: 2,  // 1–2 years
+    2: 1,  // within 12 months
+    1: 0,  // immediate
+  };
+  return years[score] ?? 99;
+}
+
 export function urgencyColor(score: UrgencyScore | null): "green" | "amber" | "red" | "muted" {
   if (score === null) return "muted";
   if (score >= 8) return "green";

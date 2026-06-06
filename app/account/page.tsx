@@ -3,7 +3,7 @@
 import Navbar from "@/components/Navbar";
 import { useState } from "react";
 import { CheckCircle2, AlertTriangle, ExternalLink, CreditCard, User, Bell, Moon, Sun } from "lucide-react";
-import { useTheme } from "@/app/layout";
+import { useTheme } from "@/lib/theme/context";
 
 export default function AccountPage() {
   const { theme, toggle } = useTheme();

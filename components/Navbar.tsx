@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { useTheme } from "@/app/layout";
+import { useTheme } from "@/lib/theme/context";
 import { Sun, Moon, Menu, X, BarChart3, Map, Home, User } from "lucide-react";
 
 export default function Navbar({

@@ -1,4 +1,4 @@
-import type { SubItem, Category, ExtraDwelling } from "./types";
+import type { SubItem, Category, ExtraDwelling, UrgencyScore } from "./types";
 
 // ── Point allocations per spec V3 ─────────────────────────────────────────
 
@@ -143,7 +143,7 @@ export function calculateScore(
       // Score: use actual score, or Tier 3 estimate, or 0 if missing
       let score = item.score;
       if (score === null && item.confidenceTier === 3) {
-        score = tier3DefaultScore(item.id, buildYear, region) as typeof score;
+        score = tier3DefaultScore(item.id, buildYear, region) as UrgencyScore;
       }
       const normalised = score !== null ? score / 10 : 0.6;
       catEarned += normalised * pts;
