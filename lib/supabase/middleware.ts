@@ -2,6 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/supabase/types";
 
+// REVIEW MODE: when true, every page is viewable without logging in so the whole
+// app can be clicked through for review. Set to false (or NEXT_PUBLIC_REVIEW_MODE=false)
+// to re-enable real auth gating before launch.
+const REVIEW_MODE = process.env.NEXT_PUBLIC_REVIEW_MODE !== "false";
+
 export async function updateSession(request: NextRequest) {
   // Skip auth enforcement when Supabase env vars are not configured (local dev without Supabase)
   if (
@@ -53,7 +58,7 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/report/analyze") &&
     pathname !== "/report/new";
 
-  if (!user && (isProtected || isProtectedReport)) {
+  if (!REVIEW_MODE && !user && (isProtected || isProtectedReport)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
