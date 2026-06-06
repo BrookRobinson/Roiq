@@ -1,9 +1,18 @@
-// Downloads listing photo URLs and prepares them as base64 image blocks for the
-// Claude vision API. Photo numbers are 1-based on the ORIGINAL url order and stay
-// stable even when individual fetches fail, so the model's photo_references line
-// up with what the user sees in the listing.
+// Downloads listing photo URLs, downscales them, and prepares them as base64
+// image blocks for the Claude vision API.
+//
+// Two things matter here:
+//  1. Photo numbers are 1-based on the ORIGINAL url order and stay stable even
+//     when individual fetches fail, so the model's photo_references line up with
+//     what the user sees in the listing.
+//  2. Images are downscaled to <=1568px before upload. The Anthropic API
+//     downscales anything larger server-side anyway (so token count / quality is
+//     unchanged), but sending full-res originals made the request ~9x larger and
+//     upload-bound — ~180s vs ~6s in testing. Resizing is the single biggest
+//     latency win for report generation.
 
 import type Anthropic from "@anthropic-ai/sdk";
+import sharp from "sharp";
 
 export interface PreparedImage {
   number: number; // 1-based, matches original listing order
@@ -18,8 +27,10 @@ const ALLOWED_MEDIA: ReadonlyArray<Anthropic.Base64ImageSource["media_type"]> = 
 ];
 
 const MAX_IMAGES = 20; // keep token cost bounded; typical NZ listing has ~12-20 photos
-const MAX_BYTES = 5 * 1024 * 1024; // skip anything over 5MB (API per-image limit)
-const MAX_TOTAL_BYTES = 18 * 1024 * 1024; // cap cumulative payload (~24MB base64) to stay under the API request limit
+const MAX_BYTES = 12 * 1024 * 1024; // skip absurdly large originals before downscaling
+const MAX_TOTAL_BYTES = 18 * 1024 * 1024; // safety cap on cumulative payload (post-downscale this rarely binds)
+const TARGET_MAX_DIM = 1568; // Anthropic downscales above this anyway
+const JPEG_QUALITY = 80;
 
 function mediaFromContentType(ct: string | null): Anthropic.Base64ImageSource["media_type"] | null {
   const base = (ct ?? "").split(";")[0]?.trim().toLowerCase();
@@ -37,38 +48,58 @@ function mediaFromUrl(url: string): Anthropic.Base64ImageSource["media_type"] | 
   return null;
 }
 
+interface Fetched {
+  number: number;
+  media: Anthropic.Base64ImageSource["media_type"];
+  buf: Buffer;
+}
+
+async function fetchAndDownscale(url: string, index: number): Promise<Fetched | null> {
+  try {
+    const res = await fetch(url, { redirect: "follow" });
+    if (!res.ok) return null;
+
+    const orig = Buffer.from(await res.arrayBuffer());
+    if (orig.length === 0 || orig.length > MAX_BYTES) return null;
+
+    try {
+      const out = await sharp(orig)
+        .rotate() // honour EXIF orientation
+        .resize(TARGET_MAX_DIM, TARGET_MAX_DIM, { fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: JPEG_QUALITY })
+        .toBuffer();
+      return { number: index + 1, media: "image/jpeg", buf: out };
+    } catch {
+      // sharp couldn't process this format — fall back to the original bytes
+      const m = mediaFromContentType(res.headers.get("content-type")) ?? mediaFromUrl(url);
+      return m ? { number: index + 1, media: m, buf: orig } : null;
+    }
+  } catch {
+    // unreachable / malformed image — skip, numbering stays stable
+    return null;
+  }
+}
+
 export async function prepareImages(
   urls: string[],
   max: number = MAX_IMAGES
 ): Promise<PreparedImage[]> {
+  const slice = urls.slice(0, max);
+
+  // Fetch + downscale concurrently (network is the slow part); order is preserved.
+  const fetched = (await Promise.all(slice.map((u, i) => fetchAndDownscale(u, i)))).filter(
+    (x): x is Fetched => x !== null
+  );
+
   const out: PreparedImage[] = [];
   let totalBytes = 0;
-
-  for (let i = 0; i < urls.length && out.length < max; i++) {
-    const url = urls[i];
-    try {
-      const res = await fetch(url, { redirect: "follow" });
-      if (!res.ok) continue;
-
-      const media = mediaFromContentType(res.headers.get("content-type")) ?? mediaFromUrl(url);
-      if (!media) continue;
-
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length === 0 || buf.length > MAX_BYTES) continue;
-      if (totalBytes + buf.length > MAX_TOTAL_BYTES) break; // payload budget reached
-      totalBytes += buf.length;
-
-      out.push({
-        number: i + 1,
-        block: {
-          type: "image",
-          source: { type: "base64", media_type: media, data: buf.toString("base64") },
-        },
-      });
-    } catch {
-      // skip unreachable / malformed images, keep numbering stable
-    }
+  for (const f of fetched) {
+    if (totalBytes + f.buf.length > MAX_TOTAL_BYTES) break;
+    totalBytes += f.buf.length;
+    out.push({
+      number: f.number,
+      block: { type: "image", source: { type: "base64", media_type: f.media, data: f.buf.toString("base64") } },
+    });
   }
-
   return out;
 }
