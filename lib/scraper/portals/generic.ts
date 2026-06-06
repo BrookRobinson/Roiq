@@ -119,19 +119,52 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
     if (m) listing.buildYear = parseYear(m[1]);
   }
 
-  // Photos — broad sweep
-  if (listing.photoUrls.length === 0) {
-    $("img").each((_, el) => {
-      const src = $(el).attr("src") || $(el).attr("data-src") || $(el).attr("data-lazy-src") || "";
-      if (src.startsWith("http") && !src.includes("logo") && !src.includes("icon") && !src.includes("avatar")) {
-        // Filter out very small images (thumbnails / tracking pixels)
-        const w = parseInt($(el).attr("width") ?? "999", 10);
-        const h = parseInt($(el).attr("height") ?? "999", 10);
-        if (w > 200 || isNaN(w)) listing.photoUrls.push(src);
-      }
-    });
-    listing.photoUrls = [...new Set(listing.photoUrls)].slice(0, 30);
-  }
+  // Photos — start with JSON-LD images, then expand the gallery by matching the
+  // hero image's directory. This captures relative / lazy-loaded gallery srcs
+  // that portals like Property Brokers keep out of JSON-LD, without pulling in
+  // logos, agent headshots, or related-listing thumbnails.
+  const photoByPath = new Map<string, string>();
+  const keyOf = (abs: string): string => {
+    try { const u = new URL(abs); return u.origin + u.pathname; } catch { return abs; }
+  };
+  const add = (abs: string) => {
+    const k = keyOf(abs);
+    // Store the clean path (no ?width/quality token) — portals like Property
+    // Brokers serve a heavily-compressed gallery variant but the bare path
+    // returns the full-resolution original, which matters for condition analysis.
+    if (!photoByPath.has(k)) photoByPath.set(k, k);
+  };
+  const resolve = (raw: string | undefined): string | null => {
+    const t = (raw || "").trim();
+    if (!t || t.startsWith("data:")) return null;
+    if (/logo|icon|avatar|sprite|placeholder/i.test(t)) return null;
+    try { const abs = new URL(t, url).href; return /^https?:/i.test(abs) ? abs : null; } catch { return null; }
+  };
+
+  // Seed with JSON-LD images (resolved + deduped)
+  for (const p of listing.photoUrls) { const a = resolve(p); if (a) add(a); }
+
+  // Directory of the hero image — used to keep the gallery sweep on-subject
+  const hero = listing.photoUrls[0] ? resolve(listing.photoUrls[0]) : null;
+  const heroDir = hero ? hero.slice(0, hero.lastIndexOf("/") + 1) : null;
+
+  $("img").each((_, el) => {
+    const w = parseInt($(el).attr("width") ?? "999", 10);
+    if (!(w > 200 || isNaN(w))) return; // skip thumbnails / tracking pixels
+    const abs = resolve(
+      $(el).attr("src") ||
+        $(el).attr("data-src") ||
+        $(el).attr("data-lazy-src") ||
+        $(el).attr("data-cascade-src") ||
+        ""
+    );
+    if (!abs) return;
+    // With a hero image, only collect gallery images that live in the same
+    // directory; otherwise fall back to the broad sweep (legacy behaviour).
+    if (heroDir) { if (abs.startsWith(heroDir)) add(abs); } else { add(abs); }
+  });
+
+  listing.photoUrls = [...photoByPath.values()].slice(0, 30);
 
   // Agent
   listing.agentName  = $("[class*='agent-name'], [class*='consultant-name'], .agent__name").first().text().trim() || null;

@@ -18,7 +18,8 @@ const ALLOWED_MEDIA: ReadonlyArray<Anthropic.Base64ImageSource["media_type"]> = 
 ];
 
 const MAX_IMAGES = 20; // keep token cost bounded; typical NZ listing has ~12-20 photos
-const MAX_BYTES = 5 * 1024 * 1024; // skip anything over 5MB (API per-image limit territory)
+const MAX_BYTES = 5 * 1024 * 1024; // skip anything over 5MB (API per-image limit)
+const MAX_TOTAL_BYTES = 18 * 1024 * 1024; // cap cumulative payload (~24MB base64) to stay under the API request limit
 
 function mediaFromContentType(ct: string | null): Anthropic.Base64ImageSource["media_type"] | null {
   const base = (ct ?? "").split(";")[0]?.trim().toLowerCase();
@@ -41,6 +42,7 @@ export async function prepareImages(
   max: number = MAX_IMAGES
 ): Promise<PreparedImage[]> {
   const out: PreparedImage[] = [];
+  let totalBytes = 0;
 
   for (let i = 0; i < urls.length && out.length < max; i++) {
     const url = urls[i];
@@ -53,6 +55,8 @@ export async function prepareImages(
 
       const buf = Buffer.from(await res.arrayBuffer());
       if (buf.length === 0 || buf.length > MAX_BYTES) continue;
+      if (totalBytes + buf.length > MAX_TOTAL_BYTES) break; // payload budget reached
+      totalBytes += buf.length;
 
       out.push({
         number: i + 1,
