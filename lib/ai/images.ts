@@ -16,7 +16,8 @@ import sharp from "sharp";
 
 export interface PreparedImage {
   number: number; // 1-based, matches original listing order
-  block: Anthropic.ImageBlockParam;
+  media: Anthropic.Base64ImageSource["media_type"];
+  buf: Buffer; // downscaled image bytes — base64-inline it, or upload once via the Files API
 }
 
 const ALLOWED_MEDIA: ReadonlyArray<Anthropic.Base64ImageSource["media_type"]> = [
@@ -96,10 +97,7 @@ export async function prepareImages(
   for (const f of fetched) {
     if (totalBytes + f.buf.length > MAX_TOTAL_BYTES) break;
     totalBytes += f.buf.length;
-    out.push({
-      number: f.number,
-      block: { type: "image", source: { type: "base64", media_type: f.media, data: f.buf.toString("base64") } },
-    });
+    out.push({ number: f.number, media: f.media, buf: f.buf });
   }
   return out;
 }

@@ -66,6 +66,42 @@ const replacementCostSchema = {
   required: ["low", "high"],
 } as const;
 
+const extraDwellingsSchema = {
+  type: "array",
+  description: "Separate sleepouts, minor dwellings, pole sheds, or standalone garages of material value.",
+  items: {
+    type: "object",
+    properties: {
+      type: { type: "string" },
+      size_estimate: { type: "string" },
+      construction: { type: "string" },
+      condition: { type: "string" },
+      score: { type: "integer", description: "1-10 condition score." },
+      replacement_cost: replacementCostSchema,
+      consent_status: { type: "string", enum: ["consented", "unconsented", "unknown"] },
+      ai_summary: { type: "string" },
+      photo_references: { type: "array", items: { type: "integer" } },
+    },
+    required: ["type", "score", "ai_summary"],
+  },
+} as const;
+
+const informationGapsSchema = {
+  type: "array",
+  description: "Material facts that could not be determined from the listing or photos.",
+  items: {
+    type: "object",
+    properties: {
+      gap_type: { type: "string", description: "e.g. 'photo', 'document', 'spec'." },
+      area: { type: "string", description: "Short label, e.g. 'West wall exterior'." },
+      description: { type: "string" },
+      in_agent_letter: { type: "boolean" },
+      in_lim_letter: { type: "boolean" },
+    },
+    required: ["area", "description"],
+  },
+} as const;
+
 export const ANALYSIS_TOOL: Anthropic.Tool = {
   name: ANALYSIS_TOOL_NAME,
   description:
@@ -121,41 +157,27 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
           required: ["id", "score", "confidence_tier", "ai_summary"],
         },
       },
-      extra_dwellings: {
-        type: "array",
-        description: "Separate sleepouts, minor dwellings, pole sheds, or standalone garages of material value.",
-        items: {
-          type: "object",
-          properties: {
-            type: { type: "string" },
-            size_estimate: { type: "string" },
-            construction: { type: "string" },
-            condition: { type: "string" },
-            score: { type: "integer", description: "1-10 condition score." },
-            replacement_cost: replacementCostSchema,
-            consent_status: { type: "string", enum: ["consented", "unconsented", "unknown"] },
-            ai_summary: { type: "string" },
-            photo_references: { type: "array", items: { type: "integer" } },
-          },
-          required: ["type", "score", "ai_summary"],
-        },
-      },
-      information_gaps: {
-        type: "array",
-        description: "Material facts that could not be determined from the listing or photos.",
-        items: {
-          type: "object",
-          properties: {
-            gap_type: { type: "string", description: "e.g. 'photo', 'document', 'spec'." },
-            area: { type: "string", description: "Short label, e.g. 'West wall exterior'." },
-            description: { type: "string" },
-            in_agent_letter: { type: "boolean" },
-            in_lim_letter: { type: "boolean" },
-          },
-          required: ["area", "description"],
-        },
-      },
+      extra_dwellings: extraDwellingsSchema,
+      information_gaps: informationGapsSchema,
     },
     required: ["sub_items"],
+  },
+};
+
+// Lightweight tool for the meta pass (one call that finds whole-property items
+// while the per-category calls handle sub-items in parallel).
+export const ANALYSIS_META_TOOL_NAME = "submit_property_meta";
+
+export const ANALYSIS_META_TOOL: Anthropic.Tool = {
+  name: ANALYSIS_META_TOOL_NAME,
+  description:
+    "Submit whole-property findings: any separate dwellings/structures, and any material information gaps.",
+  input_schema: {
+    type: "object",
+    properties: {
+      extra_dwellings: extraDwellingsSchema,
+      information_gaps: informationGapsSchema,
+    },
+    required: [],
   },
 };

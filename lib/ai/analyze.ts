@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Anthropic, { toFile } from "@anthropic-ai/sdk";
 
 import { getAnthropic, ANALYSIS_MODEL } from "./client";
 import { SYSTEM_PROMPT } from "./system-prompt";
@@ -9,9 +9,9 @@ import {
   type RawSubItem,
   type RawReplacementCost,
 } from "./tool-schema";
-import { prepareImages } from "./images";
+import { prepareImages, type PreparedImage } from "./images";
 
-import { PROPERTY_TEMPLATE, type TemplateSubItem } from "@/lib/property-tab/template";
+import { PROPERTY_TEMPLATE, type TemplateSubItem, type TemplateCategory } from "@/lib/property-tab/template";
 import { CATEGORY_POINTS, SUB_ITEM_POINTS, calculateScore, type ScoringResult } from "@/lib/property-tab/scoring";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import type {
@@ -113,15 +113,20 @@ function placeholderSubItem(tmpl: TemplateSubItem, weight: number, hadPhotos: bo
 
 function buildPropertyData(
   raw: RawAnalysis,
-  hadPhotos: boolean
+  hadPhotos: boolean,
+  categoryIds?: string[]
 ): { categories: Category[]; extraDwellings: ExtraDwelling[] } {
   const byId = new Map<string, RawSubItem>();
   for (const s of raw.sub_items ?? []) {
     if (s && typeof s.id === "string") byId.set(s.id, s);
   }
 
+  const templates = categoryIds
+    ? PROPERTY_TEMPLATE.filter((c) => categoryIds.includes(c.id))
+    : PROPERTY_TEMPLATE;
+
   const categories: Category[] = [];
-  for (const cat of PROPERTY_TEMPLATE) {
+  for (const cat of templates) {
     const allocated = CATEGORY_POINTS[cat.id] ?? 0;
     const weight = CATEGORY_TOTAL > 0 ? allocated / CATEGORY_TOTAL : 0;
     const subItems: SubItem[] = [];
@@ -169,8 +174,8 @@ function fact(label: string, value: string | number | null | undefined): string 
   return `- ${label}: ${value}`;
 }
 
-function buildUserMessage(listing: ScrapedListing, photoCount: number): string {
-  const facts = [
+function formatFacts(listing: ScrapedListing): string {
+  return [
     fact("Address", listing.address),
     fact("Suburb", listing.suburb),
     fact("Region", listing.region ?? listing.city),
@@ -185,13 +190,22 @@ function buildUserMessage(listing: ScrapedListing, photoCount: number): string {
   ]
     .filter(Boolean)
     .join("\n");
+}
 
-  const checklist = PROPERTY_TEMPLATE.map((c) => {
-    const items = c.subItems
-      .map((s) => `${s.id}${s.conditional ? " (only if present)" : ""}`)
-      .join(", ");
-    return `${c.name}: ${items}`;
-  }).join("\n");
+function buildUserMessage(listing: ScrapedListing, photoCount: number, categoryIds?: string[]): string {
+  const templates = categoryIds
+    ? PROPERTY_TEMPLATE.filter((c) => categoryIds.includes(c.id))
+    : PROPERTY_TEMPLATE;
+  const facts = formatFacts(listing);
+
+  const checklist = templates
+    .map((c) => {
+      const items = c.subItems
+        .map((s) => `${s.id}${s.conditional ? " (only if present)" : ""}`)
+        .join(", ");
+      return `${c.name}: ${items}`;
+    })
+    .join("\n");
 
   const photoLine =
     photoCount > 0
@@ -214,13 +228,27 @@ ${listing.description ? `LISTING DESCRIPTION\n${listing.description.slice(0, 200
 
 // ── main entry point ───────────────────────────────────────────────────────
 
-async function runClaude(listing: ScrapedListing, images: Awaited<ReturnType<typeof prepareImages>>): Promise<RawAnalysis> {
+function base64ImageContent(images: PreparedImage[]): Anthropic.ContentBlockParam[] {
   const content: Anthropic.ContentBlockParam[] = [];
   for (const img of images) {
     content.push({ type: "text", text: `Photo ${img.number}:` });
-    content.push(img.block);
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: img.media, data: img.buf.toString("base64") },
+    });
   }
-  content.push({ type: "text", text: buildUserMessage(listing, images.length) });
+  return content;
+}
+
+async function runClaude(
+  listing: ScrapedListing,
+  images: PreparedImage[],
+  categoryIds?: string[]
+): Promise<RawAnalysis> {
+  const content: Anthropic.ContentBlockParam[] = [
+    ...base64ImageContent(images),
+    { type: "text", text: buildUserMessage(listing, images.length, categoryIds) },
+  ];
 
   const client = getAnthropic();
   const resp = await client.messages.create({
@@ -249,10 +277,11 @@ async function runClaude(listing: ScrapedListing, images: Awaited<ReturnType<typ
 export function assembleResult(
   raw: RawAnalysis,
   listing: ScrapedListing,
-  photosAnalysed: number
+  photosAnalysed: number,
+  categoryIds?: string[]
 ): AnalysisResult {
   const region = (listing.region || listing.city || "Auckland").trim() || "Auckland";
-  const { categories, extraDwellings } = buildPropertyData(raw, photosAnalysed > 0);
+  const { categories, extraDwellings } = buildPropertyData(raw, photosAnalysed > 0, categoryIds);
   const score = calculateScore(categories, extraDwellings, listing.buildYear ?? null, region);
 
   const gaps: GapFinding[] = (raw.information_gaps ?? []).map((g) => ({
@@ -276,8 +305,143 @@ export function assembleResult(
  * Run the full photo-analysis pipeline for a scraped listing: download photos,
  * call Claude vision, then assemble + score the result.
  */
-export async function analyseProperty(listing: ScrapedListing): Promise<AnalysisResult> {
+export async function analyseProperty(
+  listing: ScrapedListing,
+  opts?: { categoryIds?: string[] }
+): Promise<AnalysisResult> {
   const images = await prepareImages(listing.photoUrls ?? []);
-  const raw = await runClaude(listing, images);
+  const raw = await runClaude(listing, images, opts?.categoryIds);
+  return assembleResult(raw, listing, images.length, opts?.categoryIds);
+}
+
+// ── Fast path: Files-API upload + parallel per-category fan-out ───────────────
+// Generating 31 detailed summaries in one serial call is ~200s. Splitting the
+// work across one call per category — all reading a shared, cached image prefix
+// uploaded once via the Files API — brings wall-clock down to roughly the
+// slowest single category (~40-60s) and is more focused per item.
+
+const FILES_BETA = "files-api-2025-04-14";
+
+interface UploadedImage {
+  number: number;
+  fileId: string;
+}
+
+async function uploadImages(client: Anthropic, images: PreparedImage[]): Promise<UploadedImage[]> {
+  return Promise.all(
+    images.map(async (img) => {
+      const ext = img.media.split("/")[1] || "jpg";
+      const uploaded = await client.beta.files.upload({
+        file: await toFile(img.buf, `photo-${img.number}.${ext}`, { type: img.media }),
+        betas: [FILES_BETA],
+      });
+      return { number: img.number, fileId: uploaded.id };
+    })
+  );
+}
+
+function fileImageContent(uploaded: UploadedImage[]): Anthropic.Beta.BetaContentBlockParam[] {
+  const content: Anthropic.Beta.BetaContentBlockParam[] = [];
+  uploaded.forEach((u, idx) => {
+    content.push({ type: "text", text: `Photo ${u.number}:` });
+    const img: Anthropic.Beta.BetaImageBlockParam = {
+      type: "image",
+      source: { type: "file", file_id: u.fileId },
+    };
+    // Cache the whole image prefix (system + images) at the last image block so
+    // the meta call warms it and the category calls read it.
+    if (idx === uploaded.length - 1) img.cache_control = { type: "ephemeral" };
+    content.push(img);
+  });
+  return content;
+}
+
+async function runFanCall(
+  client: Anthropic,
+  imageContent: Anthropic.Beta.BetaContentBlockParam[],
+  instruction: string
+): Promise<RawAnalysis> {
+  const resp = await client.beta.messages.create({
+    model: ANALYSIS_MODEL,
+    max_tokens: 8000,
+    betas: [FILES_BETA],
+    system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+    tools: [ANALYSIS_TOOL as unknown as Anthropic.Beta.BetaToolUnion],
+    tool_choice: { type: "tool", name: ANALYSIS_TOOL_NAME },
+    messages: [{ role: "user", content: [...imageContent, { type: "text", text: instruction }] }],
+  });
+  const tu = resp.content.find(
+    (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use" && b.name === ANALYSIS_TOOL_NAME
+  );
+  return tu ? (tu.input as RawAnalysis) : { sub_items: [] };
+}
+
+function categoryInstruction(listing: ScrapedListing, cat: TemplateCategory, photoCount: number): string {
+  const ids = cat.subItems.map((s) => `${s.id}${s.conditional ? " (only if present)" : ""}`).join(", ");
+  const photoLine =
+    photoCount > 0
+      ? `${photoCount} photos are attached above, numbered 1-${photoCount}. Cite photo numbers in evidence_source and photo_references.`
+      : `No photos available — assess from build era and location as Tier 3, score null where you cannot infer condition.`;
+  return `Assess ONLY the "${cat.name}" category for this New Zealand property, and call ${ANALYSIS_TOOL_NAME} with just these sub-items.
+
+PROPERTY DETAILS
+${formatFacts(listing) || "- (limited details available)"}
+
+PHOTOS
+${photoLine}
+
+SUB-ITEMS TO ASSESS (use these exact ids, and ONLY these):
+${ids}
+
+Return extra_dwellings and information_gaps as empty arrays — those are handled separately. Assess every non-conditional sub-item; include a conditional sub-item only if it is genuinely present.`;
+}
+
+function metaInstruction(listing: ScrapedListing, photoCount: number): string {
+  return `For this New Zealand property, call ${ANALYSIS_TOOL_NAME} but return sub_items as an EMPTY array. Populate ONLY:
+- extra_dwellings: any separate sleepout, minor dwelling, pole shed, or standalone garage of material value (with replacement_cost and a 1-10 condition score).
+- information_gaps: material facts that cannot be determined from the listing or photos.
+
+PROPERTY DETAILS
+${formatFacts(listing) || "- (limited details available)"}
+
+${photoCount} photos are attached above, numbered 1-${photoCount}.`;
+}
+
+/**
+ * Fast full report: upload photos once, then fan out one parallel call per
+ * category over a shared cached image prefix. ~40-60s instead of ~200s serial.
+ */
+export async function analysePropertyFast(listing: ScrapedListing): Promise<AnalysisResult> {
+  const images = await prepareImages(listing.photoUrls ?? []);
+
+  // No photos → the single serial call is already fast (everything is Tier 3).
+  if (images.length === 0) {
+    const raw = await runClaude(listing, images);
+    return assembleResult(raw, listing, 0);
+  }
+
+  const client = getAnthropic();
+
+  // 1. Upload each downscaled photo once (avoids re-uploading per fan-out call).
+  const uploaded = await uploadImages(client, images);
+  const imageContent = fileImageContent(uploaded);
+
+  // 2. Meta/prime pass — finds whole-property items and warms the image cache.
+  const meta = await runFanCall(client, imageContent, metaInstruction(listing, images.length));
+
+  // 3. Fan out one call per category, in parallel (each reads the primed cache).
+  const perCategory = await Promise.all(
+    PROPERTY_TEMPLATE.map((cat) =>
+      runFanCall(client, imageContent, categoryInstruction(listing, cat, images.length))
+        .then((r) => r.sub_items ?? [])
+        .catch(() => [] as RawSubItem[])
+    )
+  );
+
+  const raw: RawAnalysis = {
+    sub_items: perCategory.flat(),
+    extra_dwellings: meta.extra_dwellings ?? [],
+    information_gaps: meta.information_gaps ?? [],
+  };
   return assembleResult(raw, listing, images.length);
 }

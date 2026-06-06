@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { scrapeListingUrl, isSupportedUrl, type ScrapedListing } from "@/lib/scraper";
-import { analyseProperty } from "@/lib/ai/analyze";
+import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
 import { isAnalysisConfigured } from "@/lib/ai/client";
 
 export const runtime = "nodejs";
@@ -23,12 +23,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { url?: string; listing?: ScrapedListing };
+  let body: { url?: string; listing?: ScrapedListing; only?: string[] };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
+  const categoryIds = Array.isArray(body.only) && body.only.length > 0 ? body.only : undefined;
 
   try {
     let listing: ScrapedListing;
@@ -50,7 +51,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await analyseProperty(listing);
+    // Scoped runs (a few categories) use the single call; full reports use the
+    // parallel fan-out path for speed.
+    const result = categoryIds
+      ? await analyseProperty(listing, { categoryIds })
+      : await analysePropertyFast(listing);
     return NextResponse.json({ ok: true, listing, ...result });
   } catch (err) {
     console.error("[analyze]", err);
