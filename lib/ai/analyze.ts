@@ -423,11 +423,25 @@ export async function analysePropertyFast(listing: ScrapedListing): Promise<Anal
   const client = getAnthropic();
 
   // 1. Upload each downscaled photo once (avoids re-uploading per fan-out call).
-  const uploaded = await uploadImages(client, images);
+  //    If the Files API is unavailable/overloaded, fall back to the single
+  //    base64 call so a transient outage never hard-fails the report.
+  let uploaded: UploadedImage[];
+  try {
+    uploaded = await uploadImages(client, images);
+  } catch (err) {
+    console.warn("[analyze] Files API unavailable — falling back to single call:", (err as Error)?.message);
+    const raw = await runClaude(listing, images);
+    return assembleResult(raw, listing, images.length);
+  }
   const imageContent = fileImageContent(uploaded);
 
   // 2. Meta/prime pass — finds whole-property items and warms the image cache.
-  const meta = await runFanCall(client, imageContent, metaInstruction(listing, images.length));
+  let meta: RawAnalysis = { sub_items: [] };
+  try {
+    meta = await runFanCall(client, imageContent, metaInstruction(listing, images.length));
+  } catch {
+    /* non-fatal — proceed without extra dwellings / gaps */
+  }
 
   // 3. Fan out one call per category, in parallel (each reads the primed cache).
   const perCategory = await Promise.all(

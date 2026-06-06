@@ -51,15 +51,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Scoped runs (a few categories) use the single call; full reports use the
-    // parallel fan-out path for speed.
-    const result = categoryIds
-      ? await analyseProperty(listing, { categoryIds })
-      : await analysePropertyFast(listing);
+    // Default to the robust single call (no Files API, one request — best on a
+    // Tier-1 key). The parallel fan-out only helps on Tier 2+ where concurrency
+    // isn't rate-limited; enable it with ANALYZE_FANOUT=true.
+    const useFanout = process.env.ANALYZE_FANOUT === "true";
+    const result =
+      categoryIds || !useFanout
+        ? await analyseProperty(listing, { categoryIds })
+        : await analysePropertyFast(listing);
     return NextResponse.json({ ok: true, listing, ...result });
   } catch (err) {
     console.error("[analyze]", err);
     const message = err instanceof Error ? err.message : "Analysis failed.";
-    return NextResponse.json({ error: "analysis_failed", message }, { status: 500 });
+    const overloaded = /overloaded|temporarily unavailable|rate.?limit|\b429\b|\b503\b|\b529\b/i.test(message);
+    return NextResponse.json(
+      {
+        error: overloaded ? "overloaded" : "analysis_failed",
+        message: overloaded
+          ? "Claude is temporarily overloaded (or rate-limited) — wait a few seconds and try again."
+          : message,
+      },
+      { status: overloaded ? 503 : 500 }
+    );
   }
 }
