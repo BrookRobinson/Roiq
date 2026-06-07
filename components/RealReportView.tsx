@@ -17,6 +17,8 @@ import {
   projectValue, cumulativeGrowthPct, grossYieldPct, netYieldPct, estimateAnnualCosts, vacancyRisk,
 } from "@/lib/scoring/investment";
 import type { CapitalGrowth, MarketRent } from "@/lib/scoring/investment";
+import { RenoVisualiser } from "@/components/RenoVisualiser";
+import { roomTypeForCategory } from "@/lib/reno-visualiser";
 import type { ScoreResult } from "@/lib/scoring/engine";
 import type { Persona, Inspection } from "@/lib/scoring/model";
 import {
@@ -255,7 +257,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
           {tab === "overview" && <OverviewReal report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} />}
           {tab === "improvements" && <PropertyTab data={{ categories: improvementsCategories(subItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} />}
           {tab === "property" && <PropertyInspections scored={scored} subItems={subItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} />}
-          {tab === "renovations" && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} />}
+          {tab === "renovations" && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
           {tab === "financial" && <FinancialReal listing={listing} persona={persona} />}
           {tab === "healthyhomes" && <HealthyHomesReal buildYear={listing.buildYear} subItems={subItems} />}
         </div>
@@ -629,6 +631,8 @@ interface RenoLine {
   detailColor: string;
   uplift: number;
   notes?: string;
+  category?: string; // improvements category (e.g. "Bathroom", "Kitchen") — drives the visualiser
+  photoRefs?: number[]; // listing photo numbers for this item's room
 }
 
 // Unified renovation list: Improvement replacement costs + Location/Land/Legal
@@ -648,6 +652,8 @@ function buildRenoLines(subItems: SubItem[]): RenoLine[] {
         detailColor: col === "red" ? "#ff5f5f" : col === "amber" ? "#fbbf24" : "#00e676",
         uplift: rentUplift(s.id),
         notes: s.estimatedReplacementCost.notes || undefined,
+        category: ITEM_BY_ID[s.id]?.category,
+        photoRefs: s.photoReferences,
       });
     }
     if (s.remediation) {
@@ -669,11 +675,12 @@ function buildRenoLines(subItems: SubItem[]): RenoLine[] {
   return lines;
 }
 
-function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona }: {
+function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listing }: {
   renoLines: RenoLine[];
   renoToggles: Record<string, RenoToggle>;
   setRenoToggle: (key: string, patch: Partial<RenoToggle>) => void;
   persona: Persona;
+  listing: StoredReport["listing"];
 }) {
   const { withinHold, holdYears } = useHoldPeriod();
   const items = renoLines.filter((l) => withinHold(l.urgencyYears));
@@ -743,6 +750,17 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona }: {
                 )}
               </div>
             </div>
+            {roomTypeForCategory(l.category) && (
+              <RenoVisualiser
+                roomType={roomTypeForCategory(l.category)!}
+                photoUrls={listing.photoUrls}
+                photoRefs={l.photoRefs}
+                region={listing.region ?? listing.city ?? undefined}
+                buildYear={listing.buildYear}
+                currentCustomCost={custom}
+                onSelectTier={(price) => setRenoToggle(l.key, { customCost: price, included: true })}
+              />
+            )}
           </div>
         );
       })}
