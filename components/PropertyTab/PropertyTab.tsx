@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import type { PropertyTabData } from "@/lib/property-tab/types";
-import { calcOverallScore, urgencyColor, worstSubItemScore } from "@/lib/property-tab/types";
+import { worstSubItemScore } from "@/lib/property-tab/types";
 import { CategoryAccordion } from "./CategoryAccordion";
 import { ExtraDwellingCard } from "./ExtraDwellingCard";
-import { Home, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { Home, AlertTriangle, Info } from "lucide-react";
 
 interface Props {
   data: PropertyTabData;
@@ -13,7 +13,6 @@ interface Props {
 
 export function PropertyTab({ data }: Props) {
   const [openAll, setOpenAll] = useState(false);
-  const computedScore = calcOverallScore(data.categories, data.extraDwellings);
 
   // Tally issues across all categories
   const allSubItems = data.categories.flatMap((c) => c.subItems);
@@ -153,11 +152,11 @@ export function PropertyTab({ data }: Props) {
         <Info size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }} />
         <p style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
           <strong style={{ color: "var(--text-secondary)" }}>Scoring methodology:</strong>{" "}
-          Sub-item scores (1–10) are weighted by estimated replacement cost within each category.
-          Category scores are weighted by their contribution to overall property value (Exterior 35%,
-          Services 15%, Outdoor 10%, Kitchen 10%, Garage 8%, Bathrooms 8%, Bedrooms 7%, Living Areas 7%).
-          Extra dwellings add bonus points based on condition × estimated replacement value.
-          Tier 3 (unscored) items use a neutral value and are flagged for inspection.
+          This is the <strong>Improvements</strong> inspection — one of four (Improvements, Location,
+          Land, Legal) in RoiQ&apos;s 1,000-point model. Each sub-item is scored 1–10, then weighted by
+          persona-specific points that differ for Home Buyers and Investors; toggle the mode in the
+          header to re-weight the whole score. Extra dwellings add a bonus of up to 50 points.
+          Tier 3 (unscored) items are excluded from the denominator and flagged for inspection.
         </p>
       </div>
     </div>

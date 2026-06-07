@@ -8,6 +8,30 @@ export interface ReplacementCost {
   notes: string;
 }
 
+// ── v3.2 sourced-reasoning fields (Location / Land / Legal) ──────────────────
+
+export type SourceType =
+  | "photo"
+  | "council_data"
+  | "linz"
+  | "title"
+  | "lim"
+  | "gns"
+  | "market_data"
+  | "map_poi"
+  | "moe_zones"
+  | "inference";
+
+/** Present only when a specific Location/Land/Legal finding is genuinely fixable. */
+export interface Remediation {
+  description: string; // e.g. "Certificate of Acceptance for rear studio"
+  low: number;
+  mid: number;
+  high: number;
+  urgencyYears: number; // for hold-period gating
+  renovationLineItem: string; // label shown in the Renovations tab
+}
+
 export interface SubItem {
   id: string;
   name: string;
@@ -24,6 +48,13 @@ export interface SubItem {
   renovationLink: boolean;
   healthyHomesLink: boolean;
   photoReferences: number[];
+
+  // v3.2 — populated for Location/Land/Legal items (and optionally Improvements).
+  finding?: string;                    // one-line status, e.g. "Low — not in mapped flood plain"
+  source?: string;                     // specific named source, e.g. "Auckland Council flood-hazard overlay"
+  sourceType?: SourceType;
+  verifyAgainst?: string;              // e.g. "LIM", "record of title"
+  remediation?: Remediation | null;    // present only when the finding is fixable
 }
 
 export interface Category {
@@ -101,40 +132,7 @@ export function worstSubItemScore(category: Category): UrgencyScore | null {
   return Math.min(...scored.map((s) => s.score as number)) as UrgencyScore;
 }
 
-// ── Scoring engine ─────────────────────────────────────────────────────────
-
-export function calcCategoryScore(subItems: SubItem[]): number {
-  const scored = subItems.filter((s) => s.score !== null);
-  if (scored.length === 0) return 0.7; // default neutral if all T3
-  let weightedSum = 0;
-  let totalWeight = 0;
-  for (const item of scored) {
-    weightedSum += ((item.score as number) / 10) * item.replacementCostWeight;
-    totalWeight += item.replacementCostWeight;
-  }
-  return totalWeight > 0 ? weightedSum / totalWeight : 0.7;
-}
-
-export function calcOverallScore(
-  categories: Category[],
-  extraDwellings: ExtraDwelling[]
-): number {
-  let weightedSum = 0;
-  let totalWeight = 0;
-  for (const cat of categories) {
-    const catScore = calcCategoryScore(cat.subItems);
-    weightedSum += catScore * cat.weight;
-    totalWeight += cat.weight;
-  }
-  const baseScore = totalWeight > 0 ? (weightedSum / totalWeight) * 1000 : 500;
-
-  // Extra dwelling additive bonus
-  const dwellingBonus = extraDwellings.reduce((sum, d) => {
-    const conditionFactor = d.score / 10;
-    const mid = (d.estimatedReplacementCost.low + d.estimatedReplacementCost.high) / 2;
-    const valuePoints = (mid / 500_000) * 100;
-    return sum + valuePoints * conditionFactor;
-  }, 0);
-
-  return Math.min(1000, Math.round(baseScore + dwellingBonus));
-}
+// Note: the overall quality score now lives in the v3.1 engine
+// (lib/scoring/engine.ts → scoreProperty). The old fractional calcOverallScore /
+// calcCategoryScore have been removed; this file keeps only the display types
+// and urgency helpers that the Improvements UI shares.

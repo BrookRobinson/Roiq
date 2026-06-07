@@ -8,24 +8,27 @@ import {
   type RawAnalysis,
   type RawSubItem,
   type RawReplacementCost,
+  type RawRemediation,
 } from "./tool-schema";
 import { prepareImages, type PreparedImage } from "./images";
 
-import { PROPERTY_TEMPLATE, type TemplateSubItem, type TemplateCategory } from "@/lib/property-tab/template";
-import { CATEGORY_POINTS, SUB_ITEM_POINTS, calculateScore, type ScoringResult } from "@/lib/property-tab/scoring";
+import { SCORING_MODEL, type ScoringSubItem, type Inspection } from "@/lib/scoring/model";
+import { buildCatalog, INSPECTION_META, SOURCE_TAXONOMY, type CatalogInspection } from "@/lib/scoring/catalog";
+import { scoreBoth, type Assessment } from "@/lib/scoring/report";
+import { fetchMarketData, type MarketResult } from "./market";
+import type { MarketRent, CapitalGrowth } from "@/lib/scoring/investment";
+import type { PropertyContext, ScoreResult } from "@/lib/scoring/engine";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import type {
   SubItem,
-  Category,
   ExtraDwelling,
   ReplacementCost,
-  PropertyTabData,
   UrgencyScore,
   ConfidenceTier,
+  Remediation,
+  SourceType,
 } from "@/lib/property-tab/types";
 import type { ScrapedListing } from "@/lib/scraper/types";
-
-const CATEGORY_TOTAL = Object.values(CATEGORY_POINTS).reduce((a, b) => a + b, 0); // 950 by design
 
 export interface GapFinding {
   gapType: string;
@@ -36,9 +39,16 @@ export interface GapFinding {
 }
 
 export interface AnalysisResult {
-  data: PropertyTabData;
-  score: ScoringResult;
+  context: PropertyContext;
+  /** Persona-independent rich assessments, one per scored v3.1 sub-item. */
+  subItems: SubItem[];
+  extraDwellings: ExtraDwelling[];
+  /** Both personas, precomputed from the same raw assessment. */
+  scores: { buyer: ScoreResult; investor: ScoreResult };
   gaps: GapFinding[];
+  /** Web-sourced (cited) market rent + capital growth for the suburb. */
+  marketRent?: MarketRent;
+  capitalGrowth?: CapitalGrowth;
   photosAnalysed: number;
   model: string;
 }
@@ -66,13 +76,62 @@ function normPhotoRefs(refs: number[] | undefined): number[] {
   return refs.filter((n) => Number.isInteger(n) && n > 0);
 }
 
+const SOURCE_TYPES: SourceType[] = [
+  "photo", "council_data", "linz", "title", "lim", "gns", "market_data", "map_poi", "moe_zones", "inference",
+];
+
+function normSourceType(s: string | undefined): SourceType | undefined {
+  return s && (SOURCE_TYPES as string[]).includes(s) ? (s as SourceType) : undefined;
+}
+
+function normRemediation(r: RawRemediation | null | undefined): Remediation | null {
+  if (!r || !Number.isFinite(r.low) || !Number.isFinite(r.high)) return null;
+  const low = Math.max(0, Math.round(r.low));
+  const high = Math.max(low, Math.round(r.high));
+  const mid = Number.isFinite(r.mid) ? Math.min(high, Math.max(low, Math.round(r.mid))) : Math.round((low + high) / 2);
+  return {
+    description: r.description?.trim() || "Remediation",
+    low,
+    mid,
+    high,
+    urgencyYears: Number.isFinite(r.urgency_years) ? Math.max(0, Math.round(r.urgency_years)) : 3,
+    renovationLineItem: r.renovation_line_item?.trim() || r.description?.trim() || "Remediation",
+  };
+}
+
+/** Build the v3.2 sourced-reasoning fields, falling back to the source taxonomy. */
+function sourcedFields(raw: RawSubItem, item: ScoringSubItem): Partial<SubItem> {
+  const tax = SOURCE_TAXONOMY[item.id];
+  // Only L/L/L items (and any item the AI explicitly sourced) carry these.
+  if (!tax && !raw.finding && !raw.source) return {};
+  return {
+    finding: raw.finding?.trim() || undefined,
+    source: raw.source?.trim() || tax?.source,
+    sourceType: normSourceType(raw.source_type) ?? tax?.sourceType,
+    verifyAgainst: raw.verify_against?.trim() || tax?.verifyAgainst,
+    remediation: item.inspection === "improvements" ? null : normRemediation(raw.remediation),
+  };
+}
+
+function mapTitle(t: ScrapedListing["titleType"]): PropertyContext["titleType"] {
+  switch (t) {
+    case "freehold":
+    case "cross_lease":
+    case "unit_title":
+    case "leasehold":
+      return t;
+    default:
+      return "unknown"; // licence_to_occupy / unknown
+  }
+}
+
 // ── raw → SubItem ──────────────────────────────────────────────────────────
 
-function mapSubItem(raw: RawSubItem, tmpl: TemplateSubItem, weight: number): SubItem {
+function mapSubItem(raw: RawSubItem, item: ScoringSubItem): SubItem {
   const score = clampScore(raw.score);
   return {
-    id: tmpl.id,
-    name: tmpl.name,
+    id: item.id,
+    name: item.label,
     material: raw.material?.trim() || "Not specified",
     estimatedAge: raw.estimated_age?.trim() || "Unknown",
     condition: raw.condition?.trim() || "See assessment",
@@ -80,20 +139,23 @@ function mapSubItem(raw: RawSubItem, tmpl: TemplateSubItem, weight: number): Sub
     urgencyLabel: urgencyLabel(score),
     confidenceTier: clampTier(raw.confidence_tier),
     evidenceSource:
-      raw.evidence_source?.trim() || (score === null ? "Build era inference" : "Listing photos"),
+      raw.evidence_source?.trim() || (score === null ? "Build-era inference" : "Listing photos"),
     aiSummary: raw.ai_summary?.trim() || "",
-    estimatedReplacementCost: normCost(raw.replacement_cost),
-    replacementCostWeight: weight,
+    // Only cost-bearing items carry a replacement cost into the Renovations tab.
+    estimatedReplacementCost: item.costBearing ? normCost(raw.replacement_cost) : null,
+    replacementCostWeight: 0, // v3.1 engine weights by persona points, not this field
     renovationLink: Boolean(raw.renovation_link),
-    healthyHomesLink: Boolean(raw.healthy_homes_link),
+    // The model is the source of truth for Healthy-Homes relevance; the AI hint adds to it.
+    healthyHomesLink: item.affectsHealthyHomes || Boolean(raw.healthy_homes_link),
     photoReferences: normPhotoRefs(raw.photo_references),
+    ...sourcedFields(raw, item),
   };
 }
 
-function placeholderSubItem(tmpl: TemplateSubItem, weight: number, hadPhotos: boolean): SubItem {
+function placeholderSubItem(item: ScoringSubItem, hadPhotos: boolean): SubItem {
   return {
-    id: tmpl.id,
-    name: tmpl.name,
+    id: item.id,
+    name: item.label,
     material: "Not visible in photos",
     estimatedAge: "Unknown",
     condition: "Not assessed — inspection recommended",
@@ -104,50 +166,68 @@ function placeholderSubItem(tmpl: TemplateSubItem, weight: number, hadPhotos: bo
     aiSummary:
       "This item could not be assessed from the available listing information and is flagged as a Tier 3 inspection item. Confirm its condition with a registered building inspector before making an offer.",
     estimatedReplacementCost: null,
-    replacementCostWeight: weight,
+    replacementCostWeight: 0,
     renovationLink: false,
-    healthyHomesLink: false,
+    healthyHomesLink: item.affectsHealthyHomes,
     photoReferences: [],
+    ...(SOURCE_TAXONOMY[item.id]
+      ? {
+          finding: "Not yet assessed — verify",
+          source: SOURCE_TAXONOMY[item.id].source,
+          sourceType: SOURCE_TAXONOMY[item.id].sourceType,
+          verifyAgainst: SOURCE_TAXONOMY[item.id].verifyAgainst,
+          remediation: null,
+        }
+      : {}),
   };
 }
 
-function buildPropertyData(
+// ── raw → Assessment (persona-independent) ──────────────────────────────────
+
+function buildContext(raw: RawAnalysis, listing: ScrapedListing, subItems: SubItem[]): PropertyContext {
+  const rc = raw.property_context ?? {};
+  const listingTitle = mapTitle(listing.titleType);
+  const titleType =
+    rc.title_type && rc.title_type !== "unknown" ? rc.title_type : listingTitle;
+  const has = (id: string) => subItems.some((s) => s.id === id);
+
+  // Keep context consistent with which conditional items the AI actually scored,
+  // so the engine includes exactly those in the denominator.
+  return {
+    titleType,
+    hasChimney: Boolean(rc.has_chimney) || has("ext_chimney"),
+    hasSolar: Boolean(rc.has_solar) || has("ext_solar"),
+    hasRetainingWalls: Boolean(rc.has_retaining_walls) || has("out_retaining"),
+    hasPool: Boolean(rc.has_pool) || has("out_pool"),
+    hasBodyCorporate: Boolean(rc.has_body_corporate) || has("leg_bodycorp") || titleType === "unit_title",
+  };
+}
+
+function buildAssessment(
   raw: RawAnalysis,
+  listing: ScrapedListing,
   hadPhotos: boolean,
-  categoryIds?: string[]
-): { categories: Category[]; extraDwellings: ExtraDwelling[] } {
+  inspections?: Inspection[]
+): Assessment {
   const byId = new Map<string, RawSubItem>();
   for (const s of raw.sub_items ?? []) {
     if (s && typeof s.id === "string") byId.set(s.id, s);
   }
 
-  const templates = categoryIds
-    ? PROPERTY_TEMPLATE.filter((c) => categoryIds.includes(c.id))
-    : PROPERTY_TEMPLATE;
+  const items = inspections
+    ? SCORING_MODEL.filter((i) => inspections.includes(i.inspection))
+    : SCORING_MODEL;
 
-  const categories: Category[] = [];
-  for (const cat of templates) {
-    const allocated = CATEGORY_POINTS[cat.id] ?? 0;
-    const weight = CATEGORY_TOTAL > 0 ? allocated / CATEGORY_TOTAL : 0;
-    const subItems: SubItem[] = [];
-
-    for (const tmpl of cat.subItems) {
-      const subPts = SUB_ITEM_POINTS[cat.id]?.[tmpl.id] ?? 0;
-      const rcw = allocated > 0 ? subPts / allocated : 0;
-      const found = byId.get(tmpl.id);
-
-      if (found && found.present !== false) {
-        subItems.push(mapSubItem(found, tmpl, rcw));
-      } else if (!tmpl.conditional) {
-        // core item the model didn't (or couldn't) assess → Tier 3 placeholder
-        subItems.push(placeholderSubItem(tmpl, rcw, hadPhotos));
-      }
-      // conditional + absent → omit entirely
+  const subItems: SubItem[] = [];
+  for (const item of items) {
+    const found = byId.get(item.id);
+    if (found && found.present !== false) {
+      subItems.push(mapSubItem(found, item));
+    } else if (!item.conditional) {
+      // core item the model didn't (or couldn't) assess → Tier 3 placeholder
+      subItems.push(placeholderSubItem(item, hadPhotos));
     }
-
-    if (subItems.length > 0) {
-      categories.push({ id: cat.id, name: cat.name, icon: cat.icon, weight, subItems });
-    }
+    // conditional + absent → omit entirely (drops out of the denominator)
   }
 
   const extraDwellings: ExtraDwelling[] = (raw.extra_dwellings ?? []).map((d, i) => ({
@@ -164,7 +244,8 @@ function buildPropertyData(
     photoReferences: normPhotoRefs(d.photo_references),
   }));
 
-  return { categories, extraDwellings };
+  const context = buildContext(raw, listing, subItems);
+  return { subItems, extraDwellings, context };
 }
 
 // ── prompt assembly ────────────────────────────────────────────────────────
@@ -192,25 +273,37 @@ function formatFacts(listing: ScrapedListing): string {
     .join("\n");
 }
 
-function buildUserMessage(listing: ScrapedListing, photoCount: number, categoryIds?: string[]): string {
-  const templates = categoryIds
-    ? PROPERTY_TEMPLATE.filter((c) => categoryIds.includes(c.id))
-    : PROPERTY_TEMPLATE;
-  const facts = formatFacts(listing);
-
-  const checklist = templates
+function idsFor(insp: CatalogInspection): string {
+  return insp.categories
     .map((c) => {
-      const items = c.subItems
+      const items = c.items
         .map((s) => `${s.id}${s.conditional ? " (only if present)" : ""}`)
         .join(", ");
-      return `${c.name}: ${items}`;
+      return `  ${c.category}: ${items}`;
     })
     .join("\n");
+}
 
+const INSPECTION_HOWTO: Record<Inspection, string> = {
+  improvements: "assess from the photos",
+  location: "assess from the address/suburb and your NZ location knowledge (not photos)",
+  land: "assess from the region, location, and stated land facts",
+  legal: "assess from the title type, build era, and listing facts",
+};
+
+function checklistText(inspections?: Inspection[]): string {
+  return buildCatalog()
+    .filter((insp) => !inspections || inspections.includes(insp.inspection))
+    .map((insp) => `${insp.label.toUpperCase()} — ${INSPECTION_HOWTO[insp.inspection]}\n${idsFor(insp)}`)
+    .join("\n\n");
+}
+
+function buildUserMessage(listing: ScrapedListing, photoCount: number, inspections?: Inspection[]): string {
+  const facts = formatFacts(listing);
   const photoLine =
     photoCount > 0
       ? `${photoCount} listing photo(s) are attached above, numbered 1-${photoCount}. Cite photo numbers in your evidence_source and photo_references.`
-      : `No listing photos are available. Assess every item as Tier 3 from build era and location, with score = null where you cannot infer a condition.`;
+      : `No listing photos are available. Assess Improvements items as Tier 3 from build era and location (score = null where you cannot infer a condition); still score Location, Land, and Legal from the facts.`;
 
   return `Analyse this New Zealand residential property and call ${ANALYSIS_TOOL_NAME}.
 
@@ -221,9 +314,9 @@ PHOTOS
 ${photoLine}
 
 SUB-ITEMS TO ASSESS (use these exact ids)
-${checklist}
+${checklistText(inspections)}
 
-${listing.description ? `LISTING DESCRIPTION\n${listing.description.slice(0, 2000)}\n\n` : ""}Assess every non-conditional sub-item. Include a conditional sub-item only if it is genuinely present. Add any separate dwellings to extra_dwellings and any unknowns to information_gaps.`;
+${listing.description ? `LISTING DESCRIPTION\n${listing.description.slice(0, 2000)}\n\n` : ""}Assess every non-conditional sub-item across all four inspections. Include a conditional sub-item only if it is genuinely present. Return property_context, add any separate dwellings to extra_dwellings, and any unknowns to information_gaps.`;
 }
 
 // ── main entry point ───────────────────────────────────────────────────────
@@ -243,22 +336,29 @@ function base64ImageContent(images: PreparedImage[]): Anthropic.ContentBlockPara
 async function runClaude(
   listing: ScrapedListing,
   images: PreparedImage[],
-  categoryIds?: string[]
+  inspections?: Inspection[]
 ): Promise<RawAnalysis> {
   const content: Anthropic.ContentBlockParam[] = [
     ...base64ImageContent(images),
-    { type: "text", text: buildUserMessage(listing, images.length, categoryIds) },
+    { type: "text", text: buildUserMessage(listing, images.length, inspections) },
   ];
 
   const client = getAnthropic();
-  const resp = await client.messages.create({
-    model: ANALYSIS_MODEL,
-    max_tokens: 16000,
-    system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-    tools: [ANALYSIS_TOOL],
-    tool_choice: { type: "tool", name: ANALYSIS_TOOL_NAME },
-    messages: [{ role: "user", content }],
-  });
+  // Stream and assemble the final message. A full 84-item report at max_tokens
+  // 32000 can exceed the SDK's 10-minute non-streaming guard on a slow (Tier-1)
+  // key, so we must stream — `.finalMessage()` returns the assembled result.
+  const resp = await client.messages
+    .stream({
+      model: ANALYSIS_MODEL,
+      // 84 v3.1/v3.2 items with sourced reasoning each can exceed a 16k budget and
+      // truncate the tool JSON → give the single-call path generous headroom.
+      max_tokens: 32000,
+      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      tools: [ANALYSIS_TOOL],
+      tool_choice: { type: "tool", name: ANALYSIS_TOOL_NAME },
+      messages: [{ role: "user", content }],
+    })
+    .finalMessage();
 
   const toolUse = resp.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === ANALYSIS_TOOL_NAME
@@ -270,19 +370,18 @@ async function runClaude(
 }
 
 /**
- * Deterministic half of the pipeline: turn a raw Claude analysis into scored
- * PropertyTabData + gaps. Pure (no network) so it can be unit-tested without
- * spending on the API.
+ * Deterministic half of the pipeline: turn a raw Claude analysis into the
+ * persona-independent assessment + both persona scores + gaps. Pure (no
+ * network) so it can be unit-tested without spending on the API.
  */
 export function assembleResult(
   raw: RawAnalysis,
   listing: ScrapedListing,
   photosAnalysed: number,
-  categoryIds?: string[]
+  inspections?: Inspection[]
 ): AnalysisResult {
-  const region = (listing.region || listing.city || "Auckland").trim() || "Auckland";
-  const { categories, extraDwellings } = buildPropertyData(raw, photosAnalysed > 0, categoryIds);
-  const score = calculateScore(categories, extraDwellings, listing.buildYear ?? null, region);
+  const assessment = buildAssessment(raw, listing, photosAnalysed > 0, inspections);
+  const scores = scoreBoth(assessment);
 
   const gaps: GapFinding[] = (raw.information_gaps ?? []).map((g) => ({
     gapType: g.gap_type?.trim() || "info",
@@ -293,8 +392,10 @@ export function assembleResult(
   }));
 
   return {
-    data: { categories, extraDwellings, overallScore: score.totalScore },
-    score,
+    context: assessment.context,
+    subItems: assessment.subItems,
+    extraDwellings: assessment.extraDwellings,
+    scores,
     gaps,
     photosAnalysed,
     model: ANALYSIS_MODEL,
@@ -307,18 +408,25 @@ export function assembleResult(
  */
 export async function analyseProperty(
   listing: ScrapedListing,
-  opts?: { categoryIds?: string[] }
+  opts?: { inspections?: Inspection[] }
 ): Promise<AnalysisResult> {
+  // Research market rent + capital growth in parallel — non-fatal.
+  const marketP = fetchMarketData(listing).catch((e) => {
+    console.warn("[market] lookup failed:", (e as Error)?.message);
+    return {} as MarketResult;
+  });
   const images = await prepareImages(listing.photoUrls ?? []);
-  const raw = await runClaude(listing, images, opts?.categoryIds);
-  return assembleResult(raw, listing, images.length, opts?.categoryIds);
+  const raw = await runClaude(listing, images, opts?.inspections);
+  const result = assembleResult(raw, listing, images.length, opts?.inspections);
+  const market = await marketP;
+  return { ...result, marketRent: market.marketRent, capitalGrowth: market.capitalGrowth };
 }
 
-// ── Fast path: Files-API upload + parallel per-category fan-out ───────────────
-// Generating 31 detailed summaries in one serial call is ~200s. Splitting the
-// work across one call per category — all reading a shared, cached image prefix
-// uploaded once via the Files API — brings wall-clock down to roughly the
-// slowest single category (~40-60s) and is more focused per item.
+// ── Fast path: Files-API upload + parallel per-inspection fan-out ─────────────
+// Generating all 84 detailed summaries in one serial call is slow. Splitting the
+// work across one call per inspection — all reading a shared, cached image prefix
+// uploaded once via the Files API — brings wall-clock down to roughly the slowest
+// single inspection and is more focused per item.
 
 const FILES_BETA = "files-api-2025-04-14";
 
@@ -349,7 +457,7 @@ function fileImageContent(uploaded: UploadedImage[]): Anthropic.Beta.BetaContent
       source: { type: "file", file_id: u.fileId },
     };
     // Cache the whole image prefix (system + images) at the last image block so
-    // the meta call warms it and the category calls read it.
+    // the meta call warms it and the inspection calls read it.
     if (idx === uploaded.length - 1) img.cache_control = { type: "ephemeral" };
     content.push(img);
   });
@@ -376,13 +484,12 @@ async function runFanCall(
   return tu ? (tu.input as RawAnalysis) : { sub_items: [] };
 }
 
-function categoryInstruction(listing: ScrapedListing, cat: TemplateCategory, photoCount: number): string {
-  const ids = cat.subItems.map((s) => `${s.id}${s.conditional ? " (only if present)" : ""}`).join(", ");
+function inspectionInstruction(listing: ScrapedListing, insp: CatalogInspection, photoCount: number): string {
   const photoLine =
     photoCount > 0
-      ? `${photoCount} photos are attached above, numbered 1-${photoCount}. Cite photo numbers in evidence_source and photo_references.`
-      : `No photos available — assess from build era and location as Tier 3, score null where you cannot infer condition.`;
-  return `Assess ONLY the "${cat.name}" category for this New Zealand property, and call ${ANALYSIS_TOOL_NAME} with just these sub-items.
+      ? `${photoCount} photos are attached above, numbered 1-${photoCount}. Cite photo numbers in evidence_source and photo_references where relevant.`
+      : `No photos available — ${INSPECTION_HOWTO[insp.inspection]}, score null only where you genuinely cannot infer condition.`;
+  return `Assess ONLY the "${insp.label}" inspection for this New Zealand property, and call ${ANALYSIS_TOOL_NAME} with just these sub-items (${INSPECTION_HOWTO[insp.inspection]}).
 
 PROPERTY DETAILS
 ${formatFacts(listing) || "- (limited details available)"}
@@ -391,13 +498,14 @@ PHOTOS
 ${photoLine}
 
 SUB-ITEMS TO ASSESS (use these exact ids, and ONLY these):
-${ids}
+${idsFor(insp)}
 
-Return extra_dwellings and information_gaps as empty arrays — those are handled separately. Assess every non-conditional sub-item; include a conditional sub-item only if it is genuinely present.`;
+Return sub_items only; leave extra_dwellings, information_gaps, and property_context empty — those are handled separately. Assess every non-conditional sub-item; include a conditional sub-item only if it is genuinely present.`;
 }
 
 function metaInstruction(listing: ScrapedListing, photoCount: number): string {
   return `For this New Zealand property, call ${ANALYSIS_TOOL_NAME} but return sub_items as an EMPTY array. Populate ONLY:
+- property_context: title_type, has_chimney, has_solar, has_retaining_walls, has_pool, has_body_corporate (infer from photos + facts).
 - extra_dwellings: any separate sleepout, minor dwelling, pole shed, or standalone garage of material value (with replacement_cost and a 1-10 condition score).
 - information_gaps: material facts that cannot be determined from the listing or photos.
 
@@ -409,15 +517,27 @@ ${photoCount} photos are attached above, numbered 1-${photoCount}.`;
 
 /**
  * Fast full report: upload photos once, then fan out one parallel call per
- * category over a shared cached image prefix. ~40-60s instead of ~200s serial.
+ * inspection over a shared cached image prefix.
  */
 export async function analysePropertyFast(listing: ScrapedListing): Promise<AnalysisResult> {
+  // Research market rent + capital growth in parallel — non-fatal. Merged into
+  // whichever result path returns below.
+  const marketP = fetchMarketData(listing).catch((e) => {
+    console.warn("[market] lookup failed:", (e as Error)?.message);
+    return {} as MarketResult;
+  });
+  const finish = async (result: AnalysisResult): Promise<AnalysisResult> => {
+    const market = await marketP;
+    return { ...result, marketRent: market.marketRent, capitalGrowth: market.capitalGrowth };
+  };
+
   const images = await prepareImages(listing.photoUrls ?? []);
 
-  // No photos → the single serial call is already fast (everything is Tier 3).
+  // No photos → the single serial call is already fast (everything is Tier 3 /
+  // fact-based).
   if (images.length === 0) {
     const raw = await runClaude(listing, images);
-    return assembleResult(raw, listing, 0);
+    return finish(assembleResult(raw, listing, 0));
   }
 
   const client = getAnthropic();
@@ -431,31 +551,35 @@ export async function analysePropertyFast(listing: ScrapedListing): Promise<Anal
   } catch (err) {
     console.warn("[analyze] Files API unavailable — falling back to single call:", (err as Error)?.message);
     const raw = await runClaude(listing, images);
-    return assembleResult(raw, listing, images.length);
+    return finish(assembleResult(raw, listing, images.length));
   }
   const imageContent = fileImageContent(uploaded);
 
-  // 2. Meta/prime pass — finds whole-property items and warms the image cache.
+  // 2. Meta/prime pass — finds whole-property context/items and warms the cache.
   let meta: RawAnalysis = { sub_items: [] };
   try {
     meta = await runFanCall(client, imageContent, metaInstruction(listing, images.length));
   } catch {
-    /* non-fatal — proceed without extra dwellings / gaps */
+    /* non-fatal — proceed without context / extra dwellings / gaps */
   }
 
-  // 3. Fan out one call per category, in parallel (each reads the primed cache).
-  const perCategory = await Promise.all(
-    PROPERTY_TEMPLATE.map((cat) =>
-      runFanCall(client, imageContent, categoryInstruction(listing, cat, images.length))
+  // 3. Fan out one call per inspection, in parallel (each reads the primed cache).
+  const perInspection = await Promise.all(
+    buildCatalog().map((insp) =>
+      runFanCall(client, imageContent, inspectionInstruction(listing, insp, images.length))
         .then((r) => r.sub_items ?? [])
         .catch(() => [] as RawSubItem[])
     )
   );
 
   const raw: RawAnalysis = {
-    sub_items: perCategory.flat(),
+    sub_items: perInspection.flat(),
     extra_dwellings: meta.extra_dwellings ?? [],
     information_gaps: meta.information_gaps ?? [],
+    property_context: meta.property_context,
   };
-  return assembleResult(raw, listing, images.length);
+  return finish(assembleResult(raw, listing, images.length));
 }
+
+// Re-export so the catalog's inspection labels are available to callers.
+export { INSPECTION_META };

@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { ALL_SUB_ITEM_IDS } from "@/lib/property-tab/template";
+import { ALL_V31_IDS } from "@/lib/scoring/catalog";
 
 // Forced tool that constrains Claude's output to the structured shape the
 // Property tab consumes. Using tool use (rather than output_config.format) keeps
@@ -10,6 +10,15 @@ export interface RawReplacementCost {
   low: number;
   high: number;
   notes?: string;
+}
+
+export interface RawRemediation {
+  description: string;
+  low: number;
+  mid: number;
+  high: number;
+  urgency_years: number;
+  renovation_line_item: string;
 }
 
 export interface RawSubItem {
@@ -26,6 +35,12 @@ export interface RawSubItem {
   healthy_homes_link?: boolean;
   photo_references?: number[];
   replacement_cost?: RawReplacementCost | null;
+  // v3.2 — sourced reasoning for Location/Land/Legal items
+  finding?: string;
+  source?: string;
+  source_type?: string;
+  verify_against?: string;
+  remediation?: RawRemediation | null;
 }
 
 export interface RawExtraDwelling {
@@ -48,10 +63,20 @@ export interface RawInformationGap {
   in_lim_letter?: boolean;
 }
 
+export interface RawPropertyContext {
+  title_type?: "freehold" | "cross_lease" | "unit_title" | "leasehold" | "unknown";
+  has_chimney?: boolean;
+  has_solar?: boolean;
+  has_retaining_walls?: boolean;
+  has_pool?: boolean;
+  has_body_corporate?: boolean;
+}
+
 export interface RawAnalysis {
   sub_items: RawSubItem[];
   extra_dwellings?: RawExtraDwelling[];
   information_gaps?: RawInformationGap[];
+  property_context?: RawPropertyContext;
 }
 
 export const ANALYSIS_TOOL_NAME = "submit_property_analysis";
@@ -64,6 +89,21 @@ const replacementCostSchema = {
     notes: { type: "string", description: "What the cost covers and any caveats" },
   },
   required: ["low", "high"],
+} as const;
+
+const remediationSchema = {
+  type: ["object", "null"],
+  description:
+    "Include ONLY when this specific Location/Land/Legal finding is genuinely fixable (e.g. unconsented works, cross-lease defects, failing drainage/retaining). Inherent risks (flood, liquefaction, coastal, fault, school zone, title type when freehold, amenities, noise) must NOT carry a remediation.",
+  properties: {
+    description: { type: "string", description: "The remedy, e.g. 'Certificate of Acceptance for rear deck'" },
+    low: { type: "number", description: "Low estimate, NZD" },
+    mid: { type: "number", description: "Mid estimate, NZD" },
+    high: { type: "number", description: "High estimate, NZD" },
+    urgency_years: { type: "number", description: "Years until the work is needed, for hold-period gating" },
+    renovation_line_item: { type: "string", description: "Label shown in the Renovations tab" },
+  },
+  required: ["description", "low", "mid", "high"],
 } as const;
 
 const extraDwellingsSchema = {
@@ -84,6 +124,25 @@ const extraDwellingsSchema = {
     },
     required: ["type", "score", "ai_summary"],
   },
+} as const;
+
+const propertyContextSchema = {
+  type: "object",
+  description:
+    "Whole-property facts used to resolve conditional scoring items. Infer from the photos, listing facts, and description; default booleans to false and title_type to 'unknown' when genuinely undeterminable.",
+  properties: {
+    title_type: {
+      type: "string",
+      enum: ["freehold", "cross_lease", "unit_title", "leasehold", "unknown"],
+      description: "Land title type, from the listing facts if stated.",
+    },
+    has_chimney: { type: "boolean", description: "A chimney / fireplace flue is visible or stated." },
+    has_solar: { type: "boolean", description: "Solar panels are visible or stated." },
+    has_retaining_walls: { type: "boolean", description: "Retaining walls are visible or on the site plan." },
+    has_pool: { type: "boolean", description: "A pool or spa is present." },
+    has_body_corporate: { type: "boolean", description: "An active body corporate applies (unit title, or cross-lease with one)." },
+  },
+  required: [],
 } as const;
 
 const informationGapsSchema = {
@@ -118,8 +177,8 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
           properties: {
             id: {
               type: "string",
-              enum: ALL_SUB_ITEM_IDS,
-              description: "The sub-item id being assessed.",
+              enum: ALL_V31_IDS,
+              description: "The sub-item id being assessed (RoiQ v3.1 scoring model).",
             },
             present: {
               type: "boolean",
@@ -143,7 +202,8 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
             },
             ai_summary: {
               type: "string",
-              description: "Professional paragraph per the writing standard (3-10 sentences).",
+              description:
+                "Professional reasoning paragraph. For Location/Land/Legal it MUST follow: source → finding → what it means → what to verify → cost if remediable (3-6 sentences).",
             },
             renovation_link: { type: "boolean", description: "True if work is needed within a normal hold period." },
             healthy_homes_link: { type: "boolean", description: "True if relevant to a Healthy Homes standard." },
@@ -153,12 +213,31 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               description: "Photo numbers this assessment draws on.",
             },
             replacement_cost: replacementCostSchema,
+            // v3.2 — sourced reasoning (always populate for loc_*/land_*/leg_*)
+            finding: {
+              type: "string",
+              description: "One-line status, e.g. 'Low — not in mapped flood plain' or 'Freehold — no encumbrances'.",
+            },
+            source: {
+              type: "string",
+              description: "A SPECIFIC named source — never vague. E.g. 'Auckland Council flood-hazard overlay', 'Ministry of Education enrolment zones', 'record of title', 'GNS Active Faults database', or a photo number.",
+            },
+            source_type: {
+              type: "string",
+              enum: ["photo", "council_data", "linz", "title", "lim", "gns", "market_data", "map_poi", "moe_zones", "inference"],
+            },
+            verify_against: {
+              type: "string",
+              description: "The authoritative document to confirm against, e.g. 'LIM', 'record of title', 'Ministry of Education'.",
+            },
+            remediation: remediationSchema,
           },
           required: ["id", "score", "confidence_tier", "ai_summary"],
         },
       },
       extra_dwellings: extraDwellingsSchema,
       information_gaps: informationGapsSchema,
+      property_context: propertyContextSchema,
     },
     required: ["sub_items"],
   },
@@ -171,10 +250,11 @@ export const ANALYSIS_META_TOOL_NAME = "submit_property_meta";
 export const ANALYSIS_META_TOOL: Anthropic.Tool = {
   name: ANALYSIS_META_TOOL_NAME,
   description:
-    "Submit whole-property findings: any separate dwellings/structures, and any material information gaps.",
+    "Submit whole-property findings: title/feature context for conditional scoring, any separate dwellings/structures, and any material information gaps.",
   input_schema: {
     type: "object",
     properties: {
+      property_context: propertyContextSchema,
       extra_dwellings: extraDwellingsSchema,
       information_gaps: informationGapsSchema,
     },

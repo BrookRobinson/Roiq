@@ -23,7 +23,7 @@ const PIPELINE_STEPS = [
   { id: "scrape", label: "Scraping the listing", sub: "Address, price, details, photos" },
   { id: "photos", label: "Downloading & resizing photos", sub: "Preparing images for Claude" },
   { id: "vision", label: "Analysing with Claude vision", sub: "Scoring every visible element" },
-  { id: "score", label: "Calculating quality score", sub: "Cost-weighted 1,000-point rubric" },
+  { id: "score", label: "Calculating quality score", sub: "Persona-aware 1,000-point rubric" },
   { id: "report", label: "Building your report", sub: "Compiling findings and gaps" },
 ];
 
@@ -74,9 +74,13 @@ export default function NewReportPage() {
         id,
         createdAt: new Date().toISOString(),
         listing: data.listing,
-        data: data.data,
-        score: data.score,
+        context: data.context,
+        subItems: data.subItems ?? [],
+        extraDwellings: data.extraDwellings ?? [],
+        scores: data.scores,
         gaps: data.gaps ?? [],
+        marketRent: data.marketRent,
+        capitalGrowth: data.capitalGrowth,
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
       });

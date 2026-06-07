@@ -3,9 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { scrapeListingUrl, isSupportedUrl, type ScrapedListing } from "@/lib/scraper";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
 import { isAnalysisConfigured } from "@/lib/ai/client";
+import type { Inspection } from "@/lib/scoring/model";
 
 export const runtime = "nodejs";
-export const maxDuration = 120; // photo analysis can take ~30-60s
+// A full 84-item report on a Tier-1 key can take a few minutes; don't let the
+// platform cut it off (local `next dev` ignores this, but a deploy honours it).
+export const maxDuration = 300;
 
 /**
  * POST /api/analyze
@@ -23,13 +26,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { url?: string; listing?: ScrapedListing; only?: string[] };
+  let body: { url?: string; listing?: ScrapedListing; only?: Inspection[] };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
-  const categoryIds = Array.isArray(body.only) && body.only.length > 0 ? body.only : undefined;
+  // `only` scopes a run to a subset of inspections (improvements|location|land|legal).
+  const inspections = Array.isArray(body.only) && body.only.length > 0 ? body.only : undefined;
 
   try {
     let listing: ScrapedListing;
@@ -56,8 +60,8 @@ export async function POST(req: NextRequest) {
     // isn't rate-limited; enable it with ANALYZE_FANOUT=true.
     const useFanout = process.env.ANALYZE_FANOUT === "true";
     const result =
-      categoryIds || !useFanout
-        ? await analyseProperty(listing, { categoryIds })
+      inspections || !useFanout
+        ? await analyseProperty(listing, { inspections })
         : await analysePropertyFast(listing);
     return NextResponse.json({ ok: true, listing, ...result });
   } catch (err) {

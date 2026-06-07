@@ -4,7 +4,9 @@ import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import { PropertyTab } from "@/components/PropertyTab/PropertyTab";
 import { HoldPeriodProvider } from "@/lib/hold-period/context";
-import type { PropertyTabData } from "@/lib/property-tab/types";
+import { improvementsCategories } from "@/lib/scoring/report";
+import type { PropertyContext, ScoreResult } from "@/lib/scoring/engine";
+import type { SubItem, ExtraDwelling, PropertyTabData } from "@/lib/property-tab/types";
 import { Sparkles, AlertTriangle, ExternalLink, Loader2, ImageIcon } from "lucide-react";
 
 interface GapFinding {
@@ -35,8 +37,10 @@ interface ScrapedListing {
 interface AnalyzeResponse {
   ok?: boolean;
   listing?: ScrapedListing;
-  data?: PropertyTabData;
-  score?: { baseScore: number; dwellingBonus: number; totalScore: number };
+  context?: PropertyContext;
+  subItems?: SubItem[];
+  extraDwellings?: ExtraDwelling[];
+  scores?: { buyer: ScoreResult; investor: ScoreResult };
   gaps?: GapFinding[];
   photosAnalysed?: number;
   model?: string;
@@ -86,7 +90,14 @@ export default function AnalyzePage() {
   }
 
   const listing = result?.listing;
-  const score = result?.score;
+  const scores = result?.scores;
+  const tabData: PropertyTabData | null = result?.subItems
+    ? {
+        categories: improvementsCategories(result.subItems),
+        extraDwellings: result.extraDwellings ?? [],
+        overallScore: scores?.buyer.total ?? 0,
+      }
+    : null;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
@@ -164,7 +175,7 @@ export default function AnalyzePage() {
         )}
 
         {/* Result */}
-        {result?.data && listing && (
+        {tabData && listing && (
           <div className="mt-6 space-y-6">
             {/* Scrape + score header */}
             <div className="card p-5">
@@ -203,26 +214,29 @@ export default function AnalyzePage() {
                   </div>
                 </div>
 
-                {/* Score dial */}
-                <div className="text-right">
-                  <div className="text-4xl font-bold mono" style={{ color: "var(--brand)" }}>
-                    {result.data.overallScore}
-                    <span className="text-base" style={{ color: "var(--text-muted)" }}>
-                      /1000
-                    </span>
+                {/* Score dials — both personas, proving the persona-aware engine */}
+                {scores && (
+                  <div className="flex gap-5 text-right">
+                    {(["buyer", "investor"] as const).map((p) => (
+                      <div key={p}>
+                        <div className="text-3xl font-bold mono" style={{ color: "var(--brand)" }}>
+                          {scores[p].total}
+                          <span className="text-sm" style={{ color: "var(--text-muted)" }}>/1000</span>
+                        </div>
+                        <div className="text-xs mt-1 capitalize" style={{ color: "var(--text-muted)" }}>
+                          {p} · base {scores[p].base}
+                          {scores[p].dwellingBonus > 0 ? ` + ${scores[p].dwellingBonus}` : ""}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  {score && (
-                    <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                      base {score.baseScore} + dwelling bonus {score.dwellingBonus}
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </div>
 
-            {/* Real Property tab with live data */}
+            {/* Real Property tab with live data (Improvements inspection) */}
             <HoldPeriodProvider>
-              <PropertyTab data={result.data} />
+              <PropertyTab data={tabData} />
             </HoldPeriodProvider>
 
             {/* Gaps */}

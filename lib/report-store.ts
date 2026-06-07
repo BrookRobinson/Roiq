@@ -5,7 +5,10 @@
 // session. This is NOT real persistence (that needs the Supabase reports table);
 // it's enough to wire the real paste → analyse → full-report flow for now.
 
-import type { PropertyTabData } from "@/lib/property-tab/types";
+import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
+import type { PropertyContext, ScoreResult } from "@/lib/scoring/engine";
+import type { Persona } from "@/lib/scoring/model";
+import type { MarketRent, CapitalGrowth } from "@/lib/scoring/investment";
 import type { ScrapedListing } from "@/lib/scraper/types";
 
 export interface StoredGap {
@@ -16,18 +19,43 @@ export interface StoredGap {
   includedInLimLetter: boolean;
 }
 
+/** Result of Claude reading an uploaded legal document (LIM / consent / EQC / title). */
+export interface DocAnalysis {
+  itemId: string;
+  docType: string;
+  docTypeConfirmed: boolean;
+  fileName: string;
+  score: number | null; // 1–10 verified score, null if the doc was the wrong type
+  summary: string;
+  keyFindings: string[];
+  redFlags: string[];
+  analysedAt: string;
+}
+
 export interface StoredReport {
   id: string;
   createdAt: string;
   listing: ScrapedListing;
-  data: PropertyTabData;
-  score: { baseScore: number; dwellingBonus: number; totalScore: number };
+  /** Whole-property facts that resolve conditional scoring items. */
+  context: PropertyContext;
+  /** Persona-independent rich assessments (raw 1–10 scores + detail), v3.1 ids. */
+  subItems: SubItem[];
+  extraDwellings: ExtraDwelling[];
+  /** Both personas, precomputed at generation time; the toggle reads these. */
+  scores: { buyer: ScoreResult; investor: ScoreResult };
   gaps: StoredGap[];
   photosAnalysed: number;
   model: string;
+  /** Verified document analyses keyed by sub-item id (leg_lim / leg_consents / leg_eqc / leg_title). */
+  verifiedDocs?: Record<string, DocAnalysis>;
+  /** Web-sourced (or AI-estimated) market rent for the yield calc. */
+  marketRent?: MarketRent;
+  /** Suburb capital-growth signal for the predicted price + growth panel. */
+  capitalGrowth?: CapitalGrowth;
 }
 
 const key = (id: string) => `roiq:report:${id}`;
+const personaKey = (id: string) => `roiq:report:${id}:persona`;
 
 export function saveReport(report: StoredReport): void {
   try {
@@ -43,6 +71,38 @@ export function loadReport(id: string): StoredReport | null {
   try {
     const raw = sessionStorage.getItem(key(id));
     return raw ? (JSON.parse(raw) as StoredReport) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Persist verified document analyses onto a stored report (survives reload). */
+export function saveReportDocs(id: string, verifiedDocs: Record<string, DocAnalysis>): void {
+  try {
+    const raw = sessionStorage.getItem(key(id));
+    if (!raw) return; // demo reports aren't in sessionStorage — state lives in memory only
+    const report = JSON.parse(raw) as StoredReport;
+    report.verifiedDocs = verifiedDocs;
+    sessionStorage.setItem(key(id), JSON.stringify(report));
+  } catch {
+    /* non-fatal */
+  }
+}
+
+// ── Persona preference (persisted per report across sessions) ────────────────
+
+export function saveReportPersona(id: string, persona: Persona): void {
+  try {
+    localStorage.setItem(personaKey(id), persona);
+  } catch {
+    /* non-fatal */
+  }
+}
+
+export function loadReportPersona(id: string): Persona | null {
+  try {
+    const v = localStorage.getItem(personaKey(id));
+    return v === "buyer" || v === "investor" ? v : null;
   } catch {
     return null;
   }
