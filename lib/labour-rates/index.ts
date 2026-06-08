@@ -49,6 +49,42 @@ export const REGIONAL_MULTIPLIERS: Record<string, number> = {
   "Remote / Rural":            0.77,
 };
 
+// City / district → region aliases, so a listing region like "Westland",
+// "Hokitika" or "Greymouth" resolves to its labour-rate region ("West Coast").
+const REGION_ALIASES: Record<string, string> = {
+  hokitika: "West Coast", greymouth: "West Coast", westport: "West Coast", reefton: "West Coast",
+  westland: "West Coast", buller: "West Coast", grey: "West Coast", "west coast": "West Coast",
+  auckland: "Auckland", wellington: "Wellington", christchurch: "Christchurch", canterbury: "Christchurch",
+  hamilton: "Hamilton", waikato: "Waikato", tauranga: "Tauranga", "bay of plenty": "Bay of Plenty",
+  rotorua: "Bay of Plenty", dunedin: "Dunedin", otago: "Dunedin", invercargill: "Southland",
+  southland: "Southland", nelson: "Nelson / Marlborough", marlborough: "Marlborough", blenheim: "Marlborough",
+  napier: "Hawke's Bay", hastings: "Hawke's Bay", "hawke's bay": "Hawke's Bay", "new plymouth": "Taranaki",
+  taranaki: "Taranaki", whanganui: "Manawatū-Whanganui", "palmerston north": "Manawatū-Whanganui",
+  "manawatū-whanganui": "Manawatū-Whanganui", gisborne: "Gisborne", northland: "Northland",
+  whangarei: "Northland", queenstown: "Remote / Rural",
+};
+
+// National median labour multiplier (median of the regional values ≈ 0.84) —
+// used when a property's region can't be resolved, so we never silently fall
+// back to Auckland pricing for, say, a Hokitika listing.
+export const NZ_MEDIAN_REGION = "NZ median";
+const NZ_MEDIAN_MULTIPLIER = 0.84;
+
+/**
+ * Resolve a raw listing region/city/district to a canonical labour-rate region
+ * and its multiplier. Unknown → national median (NOT Auckland).
+ */
+export function resolveRegion(input?: string | null): { region: string; multiplier: number } {
+  if (input) {
+    const raw = input.trim();
+    if (REGIONAL_MULTIPLIERS[raw] != null) return { region: raw, multiplier: REGIONAL_MULTIPLIERS[raw] };
+    const key = raw.toLowerCase();
+    const mapped = REGION_ALIASES[key] ?? REGION_ALIASES[key.split(/[,\s]+/).pop() ?? ""];
+    if (mapped && REGIONAL_MULTIPLIERS[mapped] != null) return { region: mapped, multiplier: REGIONAL_MULTIPLIERS[mapped] };
+  }
+  return { region: NZ_MEDIAN_REGION, multiplier: NZ_MEDIAN_MULTIPLIER };
+}
+
 // ── Base Auckland rates (supply + labour per m² or per unit) ─────────────
 // These are Auckland rates; multiply by regional multiplier for local rate.
 export const BASE_RATES: Record<
@@ -127,7 +163,7 @@ export function calculateCost(params: {
     materialRateOverride, labourRateOverride,
   } = params;
 
-  const multiplier = REGIONAL_MULTIPLIERS[region] ?? REGIONAL_MULTIPLIERS["Auckland"];
+  const { region: canonRegion, multiplier } = resolveRegion(region);
   const base = BASE_RATES[trade];
 
   const materialRate = materialRateOverride ?? base.materialPerSqm ?? 0;
@@ -141,7 +177,7 @@ export function calculateCost(params: {
     id,
     name,
     trade,
-    region,
+    region: canonRegion,
     quantity,
     quantityUnit,
     quantityFormula,
@@ -154,7 +190,7 @@ export function calculateCost(params: {
     low:          Math.round(baseCost * 0.85),
     high:         Math.round(baseCost * 1.15),
     mostLikely:   Math.round(baseCost),
-    dataSource: `Builderscrack ${region}`,
+    dataSource: `Builderscrack ${canonRegion}`,
     jobCount: 23,
     confidence: multiplier === 1.0 ? "high" : "medium",
     lastUpdated: "June 2026",
@@ -194,14 +230,14 @@ export function claddingRepaintCost(floorSqm: number, region: string): CostItem 
 }
 
 export function windowReplacementCost(unitCount: number, region: string): CostItem {
-  const multiplier = REGIONAL_MULTIPLIERS[region] ?? 1.0;
+  const { region: canonRegion, multiplier } = resolveRegion(region);
   const unitCost   = 1_100 * multiplier; // avg $/window installed
   const baseCost   = unitCost * unitCount;
   return {
     id: "window_replacement",
     name: `Replace ${unitCount} timber window${unitCount > 1 ? "s" : ""} with aluminium DGU`,
     trade: "windows",
-    region,
+    region: canonRegion,
     quantity: unitCount,
     quantityUnit: "units",
     quantityFormula: `${unitCount} timber single-glazed unit${unitCount > 1 ? "s" : ""} × $800–$1,400 each supply + install`,

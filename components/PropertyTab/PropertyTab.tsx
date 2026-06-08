@@ -9,9 +9,11 @@ import { Home, AlertTriangle, Info } from "lucide-react";
 
 interface Props {
   data: PropertyTabData;
+  region?: string;
+  floorSqm?: number | null;
 }
 
-export function PropertyTab({ data }: Props) {
+export function PropertyTab({ data, region, floorSqm }: Props) {
   const [openAll, setOpenAll] = useState(false);
 
   // Tally issues across all categories
@@ -113,6 +115,8 @@ export function PropertyTab({ data }: Props) {
               key={category.id}
               category={category}
               defaultOpen={openAll || isUrgent || i === 0}
+              region={region}
+              floorSqm={floorSqm}
             />
           );
         })}

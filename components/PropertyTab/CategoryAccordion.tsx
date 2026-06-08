@@ -17,9 +17,11 @@ const accentColors = {
 interface Props {
   category: Category;
   defaultOpen?: boolean;
+  region?: string;
+  floorSqm?: number | null;
 }
 
-export function CategoryAccordion({ category, defaultOpen = false }: Props) {
+export function CategoryAccordion({ category, defaultOpen = false, region, floorSqm }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const worst = worstSubItemScore(category);
   const colorKey = urgencyColor(worst);
@@ -104,7 +106,7 @@ export function CategoryAccordion({ category, defaultOpen = false }: Props) {
         >
           <div className="pt-4" />
           {category.subItems.map((item) => (
-            <SubItemCard key={item.id} item={item} />
+            <SubItemCard key={item.id} item={item} region={region} floorSqm={floorSqm} />
           ))}
         </div>
       )}

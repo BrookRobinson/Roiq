@@ -17,14 +17,15 @@ import {
 import { Camera, ArrowRight, Wrench, Shield } from "lucide-react";
 
 /** Build a CostItem for this sub-item where we have the data */
-function getCostItem(item: SubItem, region = "Auckland") {
+function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
   if (!item.estimatedReplacementCost) return null;
-  // Match known sub-item IDs to specific cost calculators
-  if (item.id === "ext_roof")        return roofReplacementCost(185, region);
-  if (item.id === "ext_cladding")    return claddingRepaintCost(185, region);
+  const floor = floorSqm && floorSqm > 0 ? floorSqm : 140; // fallback when floor area isn't stated
+  // Match known sub-item IDs to specific cost calculators (region-aware labour).
+  if (item.id === "ext_roof")        return roofReplacementCost(floor, region);
+  if (item.id === "ext_cladding")    return claddingRepaintCost(floor, region);
   if (item.id === "ext_windows")     return windowReplacementCost(3, region);
   if (item.id === "kit_ceiling_ins" || item.id === "svc_insulation")
-                                     return ceilingInsulationCost(185, region);
+                                     return ceilingInsulationCost(floor, region);
   if (item.id === "out_deck")        return deckRepairCost(28, region);
   // Generic fallback — use raw replacement cost range
   return null;
@@ -37,13 +38,13 @@ const accentColors = {
   muted: "#3d7872",
 };
 
-export function SubItemCard({ item }: { item: SubItem }) {
+export function SubItemCard({ item, region, floorSqm }: { item: SubItem; region?: string; floorSqm?: number | null }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
   const urgencyYears = urgencyScoreToYears(item.score);
   const isWithinHold = withinHold(urgencyYears);
   const color = accentColors[urgencyColor(item.score)];
-  const costItem = getCostItem(item);
+  const costItem = getCostItem(item, region, floorSqm);
 
   return (
     <div
