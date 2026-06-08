@@ -19,6 +19,8 @@ import {
 import type { CapitalGrowth, MarketRent } from "@/lib/scoring/investment";
 import { RenoVisualiser } from "@/components/RenoVisualiser";
 import { roomTypeForCategory } from "@/lib/reno-visualiser";
+import { costRenoItem } from "@/lib/reno-costing/engine";
+import type { RenoCosting, CostOption } from "@/lib/reno-costing/engine";
 import type { ScoreResult } from "@/lib/scoring/engine";
 import type { Persona, Inspection } from "@/lib/scoring/model";
 import {
@@ -31,7 +33,7 @@ import {
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, Shield,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
-  TrendingUp, Zap, Percent,
+  TrendingUp, Zap, Percent, ChevronDown,
 } from "lucide-react";
 
 type Tab = "overview" | "improvements" | "property" | "renovations" | "financial" | "healthyhomes";
@@ -66,15 +68,25 @@ const fmtShort = (n: number): string => {
   return `$${Math.round(n)}`;
 };
 
-// Renovation include/exclude state: included=false → removed; customCost set → patch.
-interface RenoToggle { included: boolean; customCost: number | null }
+// Renovation selection state per line:
+//   included=false → removed from the budget
+//   choice → "patch" (cheaper temporary) or "full" (permanent); default "full"
+//   customCost → an explicit override (e.g. a chosen Visualiser tier)
+type RenoChoice = "patch" | "full";
+interface RenoToggle { included: boolean; choice: RenoChoice; customCost: number | null }
 const lineMid = (l: { low: number; high: number }) => (l.low + l.high) / 2;
-const lineCost = (l: { key: string; low: number; high: number }, t?: RenoToggle): number =>
-  t && t.customCost != null ? t.customCost : lineMid(l);
+
+// Effective cost for a line: explicit override > chosen Patch/Full > mid fallback.
+const lineCost = (l: { costing?: RenoCosting; low: number; high: number }, t?: RenoToggle): number => {
+  if (t?.customCost != null) return t.customCost;
+  const choice: RenoChoice = t?.choice ?? "full";
+  if (l.costing) return l.costing[choice].cost;
+  return lineMid(l);
+};
 
 /** Total of the toggled-on reno lines that fall within the hold period. */
 function selectedRenoCost(
-  lines: { key: string; low: number; high: number; urgencyYears: number }[],
+  lines: { key: string; costing?: RenoCosting; low: number; high: number; urgencyYears: number }[],
   toggles: Record<string, RenoToggle>,
   withinHold: (years: number) => boolean
 ): number {
@@ -136,11 +148,16 @@ export function RealReportView({ report }: { report: StoredReport }) {
   // Renovation include/exclude toggles (lifted so the header price + yield read
   // the same selection). Default: every line included at full cost.
   const [renoToggles, setRenoToggles] = useState<Record<string, RenoToggle>>({});
-  const renoLines = useMemo(() => buildRenoLines(report.subItems), [report.subItems]);
+  const renoLines = useMemo(() => buildRenoLines(report.subItems, report.listing), [report.subItems, report.listing]);
   function setRenoToggle(key: string, patch: Partial<RenoToggle>) {
     setRenoToggles((prev) => ({
       ...prev,
-      [key]: { included: prev[key]?.included ?? true, customCost: prev[key]?.customCost ?? null, ...patch },
+      [key]: {
+        included: prev[key]?.included ?? true,
+        choice: prev[key]?.choice ?? "full",
+        customCost: prev[key]?.customCost ?? null,
+        ...patch,
+      },
     }));
   }
 
@@ -633,15 +650,22 @@ interface RenoLine {
   notes?: string;
   category?: string; // improvements category (e.g. "Bathroom", "Kitchen") — drives the visualiser
   photoRefs?: number[]; // listing photo numbers for this item's room
+  costing?: RenoCosting; // Patch / Full options with material + labour workings
 }
 
 // Unified renovation list: Improvement replacement costs + Location/Land/Legal
 // remediation line items, both obeying the hold-period rule.
-function buildRenoLines(subItems: SubItem[]): RenoLine[] {
+function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"]): RenoLine[] {
   const lines: RenoLine[] = [];
+  const ctx = {
+    region: listing.region ?? listing.city ?? null,
+    floorSqm: listing.floorAreaSqm ?? null,
+    bedrooms: listing.bedrooms ?? null,
+  };
   for (const s of subItems) {
     if (isImprovement(s) && (s.renovationLink || (s.score !== null && s.score <= 6)) && s.estimatedReplacementCost) {
       const col = urgencyColor(s.score);
+      const category = ITEM_BY_ID[s.id]?.category;
       lines.push({
         key: s.id,
         name: s.name,
@@ -652,8 +676,9 @@ function buildRenoLines(subItems: SubItem[]): RenoLine[] {
         detailColor: col === "red" ? "#ff5f5f" : col === "amber" ? "#fbbf24" : "#00e676",
         uplift: rentUplift(s.id),
         notes: s.estimatedReplacementCost.notes || undefined,
-        category: ITEM_BY_ID[s.id]?.category,
+        category,
         photoRefs: s.photoReferences,
+        costing: costRenoItem({ id: s.id, name: s.name, category, ...ctx, fallback: { low: s.estimatedReplacementCost.low, high: s.estimatedReplacementCost.high } }),
       });
     }
     if (s.remediation) {
@@ -669,10 +694,93 @@ function buildRenoLines(subItems: SubItem[]): RenoLine[] {
         detailColor: "var(--brand)",
         uplift: 0,
         notes: undefined,
+        costing: costRenoItem({ id: s.id + "_rem", name: s.remediation.renovationLineItem, ...ctx, fallback: { low: s.remediation.low, high: s.remediation.high } }),
       });
     }
   }
   return lines;
+}
+
+// Material + labour breakdown for one Patch/Full option — the "show all workings" view.
+function Workings({ option, captured }: { option: CostOption; captured: string }) {
+  return (
+    <div className="mt-2 rounded-md p-2.5 space-y-1" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+      <div className="text-[11px] mono" style={{ color: "var(--text-secondary)" }}>{option.workings}</div>
+      {option.materials.length > 0 && (
+        <ul className="space-y-0.5 pt-1">
+          {option.materials.map((m, i) => (
+            <li key={i} className="text-[11px] flex items-start justify-between gap-2">
+              <a href={m.url} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1 min-w-0" style={{ color: "var(--text-secondary)" }}>
+                <span className="truncate">{m.name}</span>
+                <span className="flex-shrink-0" style={{ color: "var(--text-muted)" }}>· {m.retailer}{m.exact ? "" : " (indic.)"}</span>
+                <ExternalLink size={9} className="flex-shrink-0" />
+              </a>
+              <span className="mono whitespace-nowrap flex-shrink-0" style={{ color: "var(--text-muted)" }}>{m.qty}×{fmt(m.unitPrice)} = {fmt(m.lineCost)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="text-[11px] mono flex items-center justify-between pt-1" style={{ borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+        <span>Materials</span><span>{fmt(option.materialsCost)}</span>
+      </div>
+      <div className="text-[11px] mono flex items-center justify-between" style={{ color: "var(--text-secondary)" }}>
+        <span>Labour — {option.labourWorking}</span><span>{fmt(option.labourCost)}</span>
+      </div>
+      <div className="text-[10px] pt-1" style={{ color: "var(--text-muted)" }}>
+        Indicative retail (Mitre 10 / Bunnings / PlaceMakers), captured {captured} — tap a product to check the live price. Labour at regional rates.
+      </div>
+    </div>
+  );
+}
+
+// Patch Up vs Full Replacement chooser for a reno line (replaces the free-text field).
+function PatchFull({ line, toggle, onChoose, onClearOverride }: {
+  line: RenoLine;
+  toggle?: RenoToggle;
+  onChoose: (choice: RenoChoice) => void;
+  onClearOverride: () => void;
+}) {
+  const [showWork, setShowWork] = useState<RenoChoice | null>(null);
+  const costing = line.costing;
+  if (!costing) return <div className="text-sm mono mt-2" style={{ color: "var(--brand)" }}>{fmt(line.low)}–{fmt(line.high)}</div>;
+  const choice: RenoChoice = toggle?.choice ?? "full";
+  const custom = toggle?.customCost ?? null;
+  return (
+    <div className="mt-2.5 space-y-2">
+      {custom != null && (
+        <div className="text-[11px] flex items-center gap-2 flex-wrap rounded-md px-2 py-1" style={{ background: "rgba(0,212,200,0.08)", color: "var(--text-secondary)" }}>
+          <Sparkles size={11} style={{ color: "var(--brand)" }} /> Using a selected Visualiser tier: <span className="mono font-semibold" style={{ color: "var(--brand)" }}>{fmt(custom)}</span>
+          <button onClick={onClearOverride} className="cursor-pointer underline" style={{ color: "var(--brand)" }}>use Patch / Full instead</button>
+        </div>
+      )}
+      <div className="grid sm:grid-cols-2 gap-2">
+        {(["patch", "full"] as RenoChoice[]).map((k) => {
+          const o = costing[k];
+          const active = custom == null && choice === k;
+          return (
+            <div key={k} role="button" tabIndex={0} onClick={() => onChoose(k)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChoose(k); } }}
+              className="text-left rounded-lg p-2.5 cursor-pointer transition-colors"
+              style={{ border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "rgba(0,212,200,0.06)" : "var(--surface)" }}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{k === "patch" ? "🩹 Patch Up" : "🔨 Full Replacement"}</span>
+                <span className="text-sm font-bold mono" style={{ color: active ? "var(--brand)" : "var(--text-secondary)" }}>{fmt(o.cost)}</span>
+              </div>
+              <p className="text-[11px] mt-1" style={{ color: "var(--text-secondary)" }}>{o.description}</p>
+              <div className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>{o.durability}</div>
+              <div className="text-[11px] mono mt-1" style={{ color: "var(--text-muted)" }}>{fmt(o.materialsCost)} materials + {fmt(o.labourCost)} labour</div>
+              <button onClick={(e) => { e.stopPropagation(); setShowWork(showWork === k ? null : k); }}
+                className="mt-1 inline-flex items-center gap-1 text-[11px] cursor-pointer" style={{ color: "var(--brand)" }}>
+                <ChevronDown size={11} style={{ transform: showWork === k ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                {showWork === k ? "Hide" : "Show"} workings
+              </button>
+              {showWork === k && <Workings option={o} captured={costing.captured} />}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listing }: {
@@ -716,7 +824,6 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
       {items.map((l) => {
         const t = renoToggles[l.key];
         const included = t?.included !== false;
-        const custom = t?.customCost ?? null;
         return (
           <div key={l.key} className="card p-4" style={{ opacity: included ? 1 : 0.55, transition: "opacity 0.15s" }}>
             <div className="flex items-start gap-3">
@@ -725,28 +832,17 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{l.name}</span>
                   {l.badge && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "rgba(0,212,200,0.1)", color: "var(--brand)" }}>{l.badge} remedy</span>}
+                  {persona === "investor" && included && l.uplift > 0 && (
+                    <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "rgba(0,230,118,0.12)", color: "#00e676" }}>+${l.uplift}/wk rent</span>
+                  )}
                   {!included && <span className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>removed</span>}
                 </div>
                 <div className="text-xs mt-0.5" style={{ color: l.detailColor }}>{l.detail}</div>
                 {l.notes && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{l.notes}</p>}
                 {included && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>Patch instead of replace?</span>
-                    <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>$</span>
-                    <input type="number" value={custom ?? ""} placeholder={String(Math.round(lineMid(l)))}
-                      onChange={(e) => setRenoToggle(l.key, { customCost: e.target.value === "" ? null : Number(e.target.value) })}
-                      className="rounded px-2 py-0.5 text-xs w-24 mono" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
-                    {custom != null && <button onClick={() => setRenoToggle(l.key, { customCost: null })} className="text-xs cursor-pointer" style={{ color: "var(--brand)" }}>reset to full</button>}
-                  </div>
-                )}
-              </div>
-              <div className="text-right flex-shrink-0">
-                <div className="text-sm font-bold mono" style={{ color: included ? "var(--brand)" : "var(--text-muted)" }}>
-                  {custom != null ? fmt(custom) : `${fmt(l.low)}–${fmt(l.high)}`}
-                </div>
-                {custom != null && <div className="text-[10px] mono" style={{ color: "var(--text-muted)" }}>was {fmt(l.low)}–{fmt(l.high)}</div>}
-                {persona === "investor" && included && l.uplift > 0 && (
-                  <div className="text-xs mono mt-0.5" style={{ color: "#00e676" }}>+${l.uplift}/wk</div>
+                  <PatchFull line={l} toggle={t}
+                    onChoose={(choice) => setRenoToggle(l.key, { choice, customCost: null })}
+                    onClearOverride={() => setRenoToggle(l.key, { customCost: null })} />
                 )}
               </div>
             </div>
@@ -757,7 +853,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
                 photoRefs={l.photoRefs}
                 region={listing.region ?? listing.city ?? undefined}
                 buildYear={listing.buildYear}
-                currentCustomCost={custom}
+                currentCustomCost={t?.customCost ?? null}
                 onSelectTier={(price) => setRenoToggle(l.key, { customCost: price, included: true })}
               />
             )}
@@ -765,7 +861,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
         );
       })}
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        Toggle items off to remove them, or enter a cheaper &quot;patch&quot; cost — the budget updates live and feeds the predicted sale price and the investor yield.
+        Pick 🩹 Patch Up or 🔨 Full Replacement per item (tap Show workings for the material + labour breakdown) — the budget updates live and feeds the predicted sale price and the investor yield.
         {persona === "investor" && " Rent-uplift figures are indicative typical-market estimates."}
       </p>
     </div>

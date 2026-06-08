@@ -5,7 +5,7 @@ import { toFile } from "openai";
 import { getAnthropic, ANALYSIS_MODEL, isAnalysisConfigured } from "@/lib/ai/client";
 import { getOpenAI, IMAGE_MODEL, isImageGenConfigured } from "@/lib/ai/openai";
 import {
-  TIER_ORDER, TIER_META, TIER_SCOPE, STYLE_CUE, RENO_STYLES, DEFAULT_SQM,
+  TIER_ORDER, TIER_META, TIER_EDIT, STYLE_CUE, RENO_STYLES, DEFAULT_SQM,
   type RoomType, type RenoStyle, type RenoTier,
 } from "@/lib/reno-visualiser";
 
@@ -73,14 +73,15 @@ async function makePlan(roomType: RoomType, photoUrl?: string, photoBase64?: str
 
 // Prompt for generating from scratch (no base photo).
 function renderPrompt(room: RoomType, style: RenoStyle, tier: RenoTier, roomDescription: string): string {
-  const scope = TIER_SCOPE[room][tier].join(", ");
-  return `Photorealistic real-estate interior render of a renovated ${room} in ${style} style (${STYLE_CUE[style]}), at a ${TIER_META[tier].label} budget level. The renovation includes: ${scope}. Keep the general layout of this existing room: ${roomDescription}. Bright natural daylight, wide-angle, magazine quality. No text, no people, no watermark.`;
+  const e = TIER_EDIT[room][tier];
+  return `Photorealistic real-estate interior render of a ${room} at the ${TIER_META[tier].label} level. ${e.change} ${style} style (${STYLE_CUE[style]}). ${e.keep} Base it on this existing room: ${roomDescription}. Bright natural daylight, wide-angle, magazine quality. No text, no people, no watermark.`;
 }
 
 // Prompt for editing the buyer's actual room photo (gpt-image-1 image-to-image).
+// The change/keep split keeps Basic renders honest: only 1–2 elements move.
 function editPrompt(room: RoomType, style: RenoStyle, tier: RenoTier): string {
-  const scope = TIER_SCOPE[room][tier].join(", ");
-  return `Renovate this ${room} in ${style} style (${STYLE_CUE[style]}) at a ${TIER_META[tier].label} budget. Apply: ${scope}. Keep the room's existing layout, window and door positions, and viewpoint — change the finishes, fixtures, tiling, cabinetry, and styling only. Photorealistic, real-estate quality, bright natural daylight. No text or watermark.`;
+  const e = TIER_EDIT[room][tier];
+  return `Edit this ${room} photo at the ${TIER_META[tier].label} level. ${e.change} ${style} style (${STYLE_CUE[style]}). ${e.keep} Keep the same camera angle and perspective as the original. Photorealistic, real-estate quality, bright natural daylight. No text or watermark.`;
 }
 
 // Load the room photo as a buffer for image-to-image editing.
