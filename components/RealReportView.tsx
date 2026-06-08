@@ -19,6 +19,8 @@ import {
 import type { CapitalGrowth, MarketRent } from "@/lib/scoring/investment";
 import { costThreeTier, tierTotal, TIER_ORDER } from "@/lib/reno-costing/three-tier";
 import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
+import { RenoVisualiser } from "@/components/RenoVisualiser";
+import { visualKindFor } from "@/lib/visualiser";
 import type { ScoreResult } from "@/lib/scoring/engine";
 import type { Persona, Inspection } from "@/lib/scoring/model";
 import {
@@ -887,6 +889,17 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
                 )}
               </div>
             </div>
+            {included && l.costing && visualKindFor(l.costing.kind) && (
+              <RenoVisualiser
+                kind={visualKindFor(l.costing.kind)!}
+                photoUrls={listing.photoUrls}
+                photoRefs={l.photoRefs}
+                costing={l.costing}
+                labour={t?.labour ?? l.costing[t?.tier ?? "budget"].defaultLabour}
+                selectedTier={t?.tier ?? "budget"}
+                onSelectTier={(tier) => setRenoToggle(l.key, { tier, labour: l.costing![tier].defaultLabour, included: true })}
+              />
+            )}
           </div>
         );
       })}
