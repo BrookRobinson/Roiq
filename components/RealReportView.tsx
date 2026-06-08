@@ -17,10 +17,8 @@ import {
   projectValue, cumulativeGrowthPct, grossYieldPct, netYieldPct, estimateAnnualCosts, vacancyRisk,
 } from "@/lib/scoring/investment";
 import type { CapitalGrowth, MarketRent } from "@/lib/scoring/investment";
-import { RenoVisualiser } from "@/components/RenoVisualiser";
-import { roomTypeForCategory } from "@/lib/reno-visualiser";
-import { costRenoItem } from "@/lib/reno-costing/engine";
-import type { RenoCosting, CostOption } from "@/lib/reno-costing/engine";
+import { costThreeTier, tierTotal, TIER_ORDER } from "@/lib/reno-costing/three-tier";
+import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
 import type { ScoreResult } from "@/lib/scoring/engine";
 import type { Persona, Inspection } from "@/lib/scoring/model";
 import {
@@ -70,23 +68,23 @@ const fmtShort = (n: number): string => {
 
 // Renovation selection state per line:
 //   included=false → removed from the budget
-//   choice → "patch" (cheaper temporary) or "full" (permanent); default "full"
-//   customCost → an explicit override (e.g. a chosen Visualiser tier)
-type RenoChoice = "patch" | "full";
-interface RenoToggle { included: boolean; choice: RenoChoice; customCost: number | null }
+//   tier → "patch" | "budget" | "premium" (default "budget")
+//   labour → "diy" (materials only) | "tradie" (adds labour); default per tier
+interface RenoToggle { included: boolean; tier: Tier; labour: LabourMode }
 const lineMid = (l: { low: number; high: number }) => (l.low + l.high) / 2;
 
-// Effective cost for a line: explicit override > chosen Patch/Full > mid fallback.
-const lineCost = (l: { costing?: RenoCosting; low: number; high: number }, t?: RenoToggle): number => {
-  if (t?.customCost != null) return t.customCost;
-  const choice: RenoChoice = t?.choice ?? "full";
-  if (l.costing) return l.costing[choice].cost;
-  return lineMid(l);
+// Effective cost for a line: chosen tier total under the chosen labour mode.
+const lineCost = (l: { costing?: ThreeTierCost; low: number; high: number }, t?: RenoToggle): number => {
+  const c = l.costing;
+  if (!c) return lineMid(l);
+  const tier: Tier = t?.tier ?? "budget";
+  const labour: LabourMode = t?.labour ?? c[tier].defaultLabour;
+  return tierTotal(c[tier], labour);
 };
 
 /** Total of the toggled-on reno lines that fall within the hold period. */
 function selectedRenoCost(
-  lines: { key: string; costing?: RenoCosting; low: number; high: number; urgencyYears: number }[],
+  lines: { key: string; costing?: ThreeTierCost; low: number; high: number; urgencyYears: number }[],
   toggles: Record<string, RenoToggle>,
   withinHold: (years: number) => boolean
 ): number {
@@ -154,8 +152,8 @@ export function RealReportView({ report }: { report: StoredReport }) {
       ...prev,
       [key]: {
         included: prev[key]?.included ?? true,
-        choice: prev[key]?.choice ?? "full",
-        customCost: prev[key]?.customCost ?? null,
+        tier: prev[key]?.tier ?? "budget",
+        labour: prev[key]?.labour ?? "tradie",
         ...patch,
       },
     }));
@@ -650,7 +648,7 @@ interface RenoLine {
   notes?: string;
   category?: string; // improvements category (e.g. "Bathroom", "Kitchen") — drives the visualiser
   photoRefs?: number[]; // listing photo numbers for this item's room
-  costing?: RenoCosting; // Patch / Full options with material + labour workings
+  costing?: ThreeTierCost; // Patch Up / Replace Budget / Replace High End
 }
 
 // Unified renovation list: Improvement replacement costs + Location/Land/Legal
@@ -658,7 +656,6 @@ interface RenoLine {
 function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"]): RenoLine[] {
   const lines: RenoLine[] = [];
   const ctx = {
-    region: listing.region ?? listing.city ?? null,
     floorSqm: listing.floorAreaSqm ?? null,
     bedrooms: listing.bedrooms ?? null,
   };
@@ -678,7 +675,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"]): 
         notes: s.estimatedReplacementCost.notes || undefined,
         category,
         photoRefs: s.photoReferences,
-        costing: costRenoItem({ id: s.id, name: s.name, category, ...ctx, fallback: { low: s.estimatedReplacementCost.low, high: s.estimatedReplacementCost.high } }),
+        costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low: s.estimatedReplacementCost.low, high: s.estimatedReplacementCost.high } }),
       });
     }
     if (s.remediation) {
@@ -694,91 +691,98 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"]): 
         detailColor: "var(--brand)",
         uplift: 0,
         notes: undefined,
-        costing: costRenoItem({ id: s.id + "_rem", name: s.remediation.renovationLineItem, ...ctx, fallback: { low: s.remediation.low, high: s.remediation.high } }),
+        costing: costThreeTier({ id: s.id + "_rem", name: s.remediation.renovationLineItem, ...ctx, fallback: { low: s.remediation.low, high: s.remediation.high } }),
       });
     }
   }
   return lines;
 }
 
-// Material + labour breakdown for one Patch/Full option — the "show all workings" view.
-function Workings({ option, captured }: { option: CostOption; captured: string }) {
+// Itemised material + labour breakdown for one tier (the "See breakdown" view).
+function TierBreakdown({ tier, labour }: { tier: TierCost; labour: LabourMode }) {
+  const total = labour === "tradie" ? tier.tradieTotal : tier.diyTotal;
   return (
     <div className="mt-2 rounded-md p-2.5 space-y-1" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-      <div className="text-[11px] mono" style={{ color: "var(--text-secondary)" }}>{option.workings}</div>
-      {option.materials.length > 0 && (
-        <ul className="space-y-0.5 pt-1">
-          {option.materials.map((m, i) => (
-            <li key={i} className="text-[11px] flex items-start justify-between gap-2">
-              <a href={m.url} target="_blank" rel="noopener noreferrer" className="hover:underline inline-flex items-center gap-1 min-w-0" style={{ color: "var(--text-secondary)" }}>
-                <span className="truncate">{m.name}</span>
-                <span className="flex-shrink-0" style={{ color: "var(--text-muted)" }}>· {m.retailer}{m.exact ? "" : " (indic.)"}</span>
-                <ExternalLink size={9} className="flex-shrink-0" />
-              </a>
-              <span className="mono whitespace-nowrap flex-shrink-0" style={{ color: "var(--text-muted)" }}>{m.qty}×{fmt(m.unitPrice)} = {fmt(m.lineCost)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Materials</div>
+      <ul className="space-y-0.5">
+        {tier.materials.map((m, i) => (
+          <li key={i} className="text-[11px] flex items-start justify-between gap-2">
+            <span className="min-w-0" style={{ color: "var(--text-secondary)" }}>
+              {m.description}<span style={{ color: "var(--text-muted)" }}> · {m.source}</span>
+            </span>
+            <span className="mono whitespace-nowrap flex-shrink-0" style={{ color: "var(--text-muted)" }}>{m.qty} × {fmt(m.unitPrice)} = {fmt(m.lineCost)}</span>
+          </li>
+        ))}
+      </ul>
       <div className="text-[11px] mono flex items-center justify-between pt-1" style={{ borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-        <span>Materials</span><span>{fmt(option.materialsCost)}</span>
+        <span>Materials subtotal</span><span>{fmt(tier.materialsCost)}</span>
       </div>
-      <div className="text-[11px] mono flex items-center justify-between" style={{ color: "var(--text-secondary)" }}>
-        <span>Labour — {option.labourWorking}</span><span>{fmt(option.labourCost)}</span>
+      {labour === "tradie" && tier.labour.length > 0 && (
+        <>
+          <div className="text-[10px] uppercase tracking-wide pt-1" style={{ color: "var(--text-muted)" }}>Labour (Pay someone)</div>
+          {tier.labour.map((l, i) => (
+            <div key={i} className="text-[11px] mono flex items-center justify-between" style={{ color: "var(--text-secondary)" }}>
+              <span>{l.working}</span><span>{fmt(l.cost)}</span>
+            </div>
+          ))}
+        </>
+      )}
+      <div className="text-[12px] mono flex items-center justify-between pt-1 font-bold" style={{ borderTop: "1px solid var(--border)", color: "var(--text-primary)" }}>
+        <span>Total</span><span>{fmt(total)}</span>
       </div>
-      <div className="text-[10px] pt-1" style={{ color: "var(--text-muted)" }}>
-        Indicative retail (Mitre 10 / Bunnings / PlaceMakers), captured {captured} — tap a product to check the live price. Labour at regional rates.
-      </div>
+      {!tier.itemised && <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>Allowance estimate — no itemised parts list for this item type yet.</div>}
     </div>
   );
 }
 
-// Patch Up vs Full Replacement chooser for a reno line (replaces the free-text field).
-function PatchFull({ line, toggle, onChoose, onClearOverride }: {
+// Three-tier chooser: Patch Up / Replace Budget / Replace High End, each with a
+// DIY vs Pay-someone toggle and a collapsible itemised breakdown.
+function ThreeTier({ line, toggle, onTier, onLabour }: {
   line: RenoLine;
   toggle?: RenoToggle;
-  onChoose: (choice: RenoChoice) => void;
-  onClearOverride: () => void;
+  onTier: (tier: Tier) => void;
+  onLabour: (mode: LabourMode) => void;
 }) {
-  const [showWork, setShowWork] = useState<RenoChoice | null>(null);
-  const costing = line.costing;
-  if (!costing) return <div className="text-sm mono mt-2" style={{ color: "var(--brand)" }}>{fmt(line.low)}–{fmt(line.high)}</div>;
-  const choice: RenoChoice = toggle?.choice ?? "full";
-  const custom = toggle?.customCost ?? null;
+  const [open, setOpen] = useState<Tier | null>(null);
+  const c = line.costing;
+  if (!c) return <div className="text-sm mono mt-2" style={{ color: "var(--brand)" }}>{fmt(line.low)}–{fmt(line.high)}</div>;
+  const selTier: Tier = toggle?.tier ?? "budget";
+  const selLabour: LabourMode = toggle?.labour ?? c[selTier].defaultLabour;
   return (
-    <div className="mt-2.5 space-y-2">
-      {custom != null && (
-        <div className="text-[11px] flex items-center gap-2 flex-wrap rounded-md px-2 py-1" style={{ background: "rgba(0,212,200,0.08)", color: "var(--text-secondary)" }}>
-          <Sparkles size={11} style={{ color: "var(--brand)" }} /> Using a selected Visualiser tier: <span className="mono font-semibold" style={{ color: "var(--brand)" }}>{fmt(custom)}</span>
-          <button onClick={onClearOverride} className="cursor-pointer underline" style={{ color: "var(--brand)" }}>use Patch / Full instead</button>
-        </div>
-      )}
-      <div className="grid sm:grid-cols-2 gap-2">
-        {(["patch", "full"] as RenoChoice[]).map((k) => {
-          const o = costing[k];
-          const active = custom == null && choice === k;
-          return (
-            <div key={k} role="button" tabIndex={0} onClick={() => onChoose(k)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChoose(k); } }}
-              className="text-left rounded-lg p-2.5 cursor-pointer transition-colors"
-              style={{ border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "rgba(0,212,200,0.06)" : "var(--surface)" }}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{k === "patch" ? "🩹 Patch Up" : "🔨 Full Replacement"}</span>
-                <span className="text-sm font-bold mono" style={{ color: active ? "var(--brand)" : "var(--text-secondary)" }}>{fmt(o.cost)}</span>
-              </div>
-              <p className="text-[11px] mt-1" style={{ color: "var(--text-secondary)" }}>{o.description}</p>
-              <div className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>{o.durability}</div>
-              <div className="text-[11px] mono mt-1" style={{ color: "var(--text-muted)" }}>{fmt(o.materialsCost)} materials + {fmt(o.labourCost)} labour</div>
-              <button onClick={(e) => { e.stopPropagation(); setShowWork(showWork === k ? null : k); }}
-                className="mt-1 inline-flex items-center gap-1 text-[11px] cursor-pointer" style={{ color: "var(--brand)" }}>
-                <ChevronDown size={11} style={{ transform: showWork === k ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-                {showWork === k ? "Hide" : "Show"} workings
-              </button>
-              {showWork === k && <Workings option={o} captured={costing.captured} />}
+    <div className="mt-2.5 grid md:grid-cols-3 gap-2">
+      {TIER_ORDER.map((tk) => {
+        const t = c[tk];
+        const active = selTier === tk;
+        const labourMode: LabourMode = active ? selLabour : t.defaultLabour;
+        const total = labourMode === "tradie" ? t.tradieTotal : t.diyTotal;
+        return (
+          <div key={tk} role="button" tabIndex={0} onClick={() => onTier(tk)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTier(tk); } }}
+            className="rounded-lg p-2.5 cursor-pointer flex flex-col transition-colors"
+            style={{ border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "rgba(0,212,200,0.06)" : "var(--surface)" }}>
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{t.icon} {t.label}</span>
+              <span className="text-sm font-bold mono" style={{ color: active ? "var(--brand)" : "var(--text-secondary)" }}>{fmt(total)}</span>
             </div>
-          );
-        })}
-      </div>
+            <p className="text-[11px] mt-1 flex-1" style={{ color: "var(--text-secondary)" }}>{t.scope}</p>
+            <div className="flex items-center gap-1 mt-2">
+              {(["diy", "tradie"] as LabourMode[]).map((m) => (
+                <button key={m} onClick={(e) => { e.stopPropagation(); onTier(tk); onLabour(m); }}
+                  className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer"
+                  style={{ background: labourMode === m ? "var(--brand)" : "var(--surface-2)", color: labourMode === m ? "#04110f" : "var(--text-muted)", border: "1px solid var(--border)" }}>
+                  {m === "diy" ? "DIY" : "Pay someone"}
+                </button>
+              ))}
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); setOpen(open === tk ? null : tk); }}
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] cursor-pointer self-start" style={{ color: "var(--brand)" }}>
+              <ChevronDown size={11} style={{ transform: open === tk ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+              {open === tk ? "Hide" : "See"} breakdown
+            </button>
+            {open === tk && <TierBreakdown tier={t} labour={labourMode} />}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -795,32 +799,69 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   const deferred = renoLines.length - items.length;
   const total = selectedRenoCost(renoLines, renoToggles, withinHold);
   const isOn = (key: string) => renoToggles[key]?.included !== false;
-  const selectedCount = items.filter((l) => isOn(l.key)).length;
-  const upliftTotal = persona === "investor" ? items.filter((l) => isOn(l.key)).reduce((sum, l) => sum + l.uplift, 0) : 0;
+  const selected = items.filter((l) => isOn(l.key));
+  const upliftTotal = persona === "investor" ? selected.reduce((sum, l) => sum + l.uplift, 0) : 0;
+  const price = listing.askingPrice ?? 0;
 
   if (renoLines.length === 0) {
     return <div className="card p-6 text-sm" style={{ color: "var(--text-secondary)" }}>No renovation or remediation items flagged from the analysis — the property scored well across assessed items.</div>;
   }
 
+  const rowFor = (l: RenoLine) => {
+    const t = renoToggles[l.key];
+    const c = l.costing;
+    const tier: Tier = t?.tier ?? "budget";
+    const labour: LabourMode = t?.labour ?? (c ? c[tier].defaultLabour : "tradie");
+    return { tierLabel: c ? c[tier].label : "—", labour, cost: c ? tierTotal(c[tier], labour) : lineMid(l) };
+  };
+
   return (
     <div className="space-y-4">
-      <div className="card p-5 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Within your {holdYears}-year hold</div>
-          <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{selectedCount} of {items.length} selected</div>
-          {deferred > 0 && <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{deferred} more beyond the hold period (hidden)</div>}
-        </div>
-        {persona === "investor" && upliftTotal > 0 && (
+      {/* Renovation Budget Summary — updates live as tiers are chosen */}
+      <div className="card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Within your {holdYears}-year hold</div>
+            <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{selected.length} of {items.length} selected</div>
+            {deferred > 0 && <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{deferred} more beyond the hold period (hidden)</div>}
+          </div>
+          {persona === "investor" && upliftTotal > 0 && (
+            <div className="text-right">
+              <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Est. rent uplift</div>
+              <div className="text-2xl font-bold mono" style={{ color: "#00e676" }}>+{fmt(upliftTotal)}<span className="text-sm">/wk</span></div>
+            </div>
+          )}
           <div className="text-right">
-            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Est. rent uplift</div>
-            <div className="text-2xl font-bold mono" style={{ color: "#00e676" }}>+{fmt(upliftTotal)}<span className="text-sm">/wk</span></div>
+            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Total renovation</div>
+            <div className="text-2xl font-bold mono" style={{ color: "var(--brand)" }}>{fmt(total)}</div>
+          </div>
+        </div>
+        {selected.length > 0 && (
+          <div className="mt-3 pt-3 space-y-1" style={{ borderTop: "1px solid var(--border)" }}>
+            {selected.map((l) => {
+              const r = rowFor(l);
+              return (
+                <div key={l.key} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="truncate" style={{ color: "var(--text-secondary)" }}>{l.name}</span>
+                  <span className="flex items-center gap-2 flex-shrink-0">
+                    <span style={{ color: "var(--text-muted)" }}>{r.tierLabel}{r.labour === "diy" ? " · DIY" : ""}</span>
+                    <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(r.cost)}</span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
-        <div className="text-right">
-          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Budget — feeds yield + sale price</div>
-          <div className="text-2xl font-bold mono" style={{ color: "var(--brand)" }}>{fmt(total)}</div>
-        </div>
+        {price > 0 && (
+          <div className="mt-3 pt-3 space-y-1 text-sm" style={{ borderTop: "1px solid var(--border)" }}>
+            <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Total renovation cost</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(total)}</span></div>
+            <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Purchase price</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(price)}</span></div>
+            <div className="flex items-center justify-between font-bold"><span style={{ color: "var(--text-primary)" }}>Total investment</span><span className="mono" style={{ color: "var(--brand)" }}>{fmt(price + total)}</span></div>
+            <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>Total investment feeds the yield calc and the predicted sale price.</div>
+          </div>
+        )}
       </div>
+
       {items.map((l) => {
         const t = renoToggles[l.key];
         const included = t?.included !== false;
@@ -838,30 +879,19 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
                   {!included && <span className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>removed</span>}
                 </div>
                 <div className="text-xs mt-0.5" style={{ color: l.detailColor }}>{l.detail}</div>
-                {l.notes && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{l.notes}</p>}
+                {l.costing && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>Est. quantity: {l.costing.quantityNote || `${l.costing.quantity} ${l.costing.quantityUnit}`}</div>}
                 {included && (
-                  <PatchFull line={l} toggle={t}
-                    onChoose={(choice) => setRenoToggle(l.key, { choice, customCost: null })}
-                    onClearOverride={() => setRenoToggle(l.key, { customCost: null })} />
+                  <ThreeTier line={l} toggle={t}
+                    onTier={(tier) => setRenoToggle(l.key, { tier, labour: l.costing ? l.costing[tier].defaultLabour : "tradie" })}
+                    onLabour={(mode) => setRenoToggle(l.key, { labour: mode })} />
                 )}
               </div>
             </div>
-            {roomTypeForCategory(l.category) && (
-              <RenoVisualiser
-                roomType={roomTypeForCategory(l.category)!}
-                photoUrls={listing.photoUrls}
-                photoRefs={l.photoRefs}
-                region={listing.region ?? listing.city ?? undefined}
-                buildYear={listing.buildYear}
-                currentCustomCost={t?.customCost ?? null}
-                onSelectTier={(price) => setRenoToggle(l.key, { customCost: price, included: true })}
-              />
-            )}
           </div>
         );
       })}
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        Pick 🩹 Patch Up or 🔨 Full Replacement per item (tap Show workings for the material + labour breakdown) — the budget updates live and feeds the predicted sale price and the investor yield.
+        Choose a tier per item — 🩹 Patch Up, 🔨 Replace Budget or ✨ Replace High End — and DIY vs Pay someone. Tap See breakdown for the itemised materials (from the NZ materials database) plus labour. The total feeds the predicted sale price and investor yield.
         {persona === "investor" && " Rent-uplift figures are indicative typical-market estimates."}
       </p>
     </div>
