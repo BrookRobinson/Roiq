@@ -21,6 +21,9 @@ import { costThreeTier, tierTotal, TIER_ORDER } from "@/lib/reno-costing/three-t
 import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
 import { RenoVisualiser } from "@/components/RenoVisualiser";
 import { visualKindFor } from "@/lib/visualiser";
+import { summarise, defaultInputs, FINANCE_DEFAULTS, PURCHASE_COST_LABELS } from "@/lib/finance/calculator";
+import type { FinanceInputs, LoanType, PurchaseCostKey } from "@/lib/finance/calculator";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import type { ScoreResult } from "@/lib/scoring/engine";
 import type { Persona, Inspection } from "@/lib/scoring/model";
 import {
@@ -33,7 +36,7 @@ import {
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, Shield,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
-  TrendingUp, Zap, Percent, ChevronDown,
+  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2,
 } from "lucide-react";
 
 type Tab = "overview" | "improvements" | "property" | "renovations" | "financial" | "healthyhomes";
@@ -275,7 +278,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
           {tab === "improvements" && <PropertyTab data={{ categories: improvementsCategories(subItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} />}
           {tab === "property" && <PropertyInspections scored={scored} subItems={subItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} />}
           {tab === "renovations" && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
-          {tab === "financial" && <FinancialReal listing={listing} persona={persona} />}
+          {tab === "financial" && <FinanceTab listing={listing} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} />}
           {tab === "healthyhomes" && <HealthyHomesReal buildYear={listing.buildYear} subItems={subItems} />}
         </div>
 
@@ -912,51 +915,286 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
 }
 
 // ── Financial (basic, from real price) ───────────────────────────────────────
-function FinancialReal({ listing, persona }: { listing: StoredReport["listing"]; persona: Persona }) {
-  const price = listing.askingPrice;
-  if (!price) {
-    return <div className="card p-6 text-sm" style={{ color: "var(--text-secondary)" }}>The listing price wasn&apos;t available ({listing.priceText ?? "price by negotiation"}), so financials can&apos;t be calculated. Enter a price manually once the full calculator is wired.</div>;
-  }
-  const depositPct = persona === "investor" ? 0.35 : 0.2;
-  const deposit = price * depositPct;
-  const loan = price - deposit;
-  const r = 0.065 / 52, n = 30 * 52;
-  const weekly = (loan * r) / (1 - Math.pow(1 + r, -n));
-  const years = 10, growth = 0.05;
-  const futureValue = price * Math.pow(1 + growth, years);
-  const equity = futureValue - loan;
+// ── Finance tab field helpers ────────────────────────────────────────────────
+function FinNum({ label, value, onChange, hint, disabled }: { label: string; value: number; onChange: (n: number) => void; hint?: string; disabled?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
+      <span style={{ color: "var(--text-secondary)" }}>{label}{hint && <span className="text-[11px] ml-1" style={{ color: "var(--text-muted)" }}>· {hint}</span>}</span>
+      <span className="inline-flex items-center gap-1 flex-shrink-0">
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>$</span>
+        <input type="number" value={value} disabled={disabled} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+          className="rounded px-2 py-1 text-sm w-28 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: disabled ? 0.4 : 1 }} />
+      </span>
+    </div>
+  );
+}
+function FinRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-sm py-1" style={strong ? { fontWeight: 700 } : undefined}>
+      <span style={{ color: strong ? "var(--text-primary)" : "var(--text-secondary)" }}>{label}</span>
+      <span className="mono" style={{ color: strong ? "var(--brand)" : "var(--text-primary)" }}>{value}</span>
+    </div>
+  );
+}
+function FinSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="card p-5">
+      <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>{title}</h3>
+      {children}
+    </div>
+  );
+}
 
-  const rows = [
-    ["Purchase price", fmt(price)],
-    [`Deposit (${Math.round(depositPct * 100)}%)`, fmt(deposit)],
-    ["Loan", fmt(loan)],
-    ["Weekly mortgage (P&I, 6.5%, 30yr)", fmt(weekly) + "/wk"],
-    [`Projected value at ${years}yr (5% p.a.)`, fmt(futureValue)],
-    ["Indicative equity at hold", fmt(equity)],
-  ];
+function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles }: {
+  listing: StoredReport["listing"];
+  persona: Persona;
+  marketRent?: MarketRent;
+  capitalGrowth?: CapitalGrowth;
+  renoLines: RenoLine[];
+  renoToggles: Record<string, RenoToggle>;
+}) {
+  const { holdYears, withinHold } = useHoldPeriod();
+  const renoTotal = selectedRenoCost(renoLines, renoToggles, withinHold);
+  const price = listing.askingPrice ?? 0;
+  const floorSqm = listing.floorAreaSqm ?? 0;
+  const growthPct = capitalGrowth?.annualRatePct ?? 5;
+  const rentDefault = marketRent?.weekly ?? Math.round((price * 0.04) / 52);
+
+  const [inp, setInp] = useState<FinanceInputs>(() => defaultInputs({ persona, price, floorSqm, holdYears, renoCost: renoTotal, weeklyRent: rentDefault, growthPct }));
+  const [rateLoading, setRateLoading] = useState(false);
+  const [rateInfo, setRateInfo] = useState<{ source: string; retrievedAt: string; lender: string; options: { label: string; ratePct: number }[] } | null>(null);
+  const [rateErr, setRateErr] = useState<string | null>(null);
+
+  // Persona-driven defaults (deposit %, loan type) follow the header toggle.
+  useEffect(() => {
+    setInp((p) => ({ ...p, depositPct: persona === "investor" ? FINANCE_DEFAULTS.depositPctInvestor : FINANCE_DEFAULTS.depositPctBuyer, loanType: persona === "investor" ? "io" : "pi" }));
+  }, [persona]);
+
+  if (!price) {
+    return <div className="card p-6 text-sm" style={{ color: "var(--text-secondary)" }}>The listing price wasn&apos;t available ({listing.priceText ?? "price by negotiation"}), so the calculator can&apos;t run. Open a report with a stated price.</div>;
+  }
+
+  const inputs: FinanceInputs = { ...inp, persona, holdYears, renoCost: renoTotal };
+  const s = summarise(inputs);
+  const set = (patch: Partial<FinanceInputs>) => setInp((p) => ({ ...p, ...patch }));
+  const setCost = (k: PurchaseCostKey, v: number) => setInp((p) => ({ ...p, purchaseCosts: { ...p.purchaseCosts, [k]: v } }));
+  const toggleCost = (k: PurchaseCostKey) => setInp((p) => ({ ...p, purchaseCostsEnabled: { ...p.purchaseCostsEnabled, [k]: !p.purchaseCostsEnabled[k] } }));
+  const isInvestor = persona === "investor";
+  const cf = s.netWeeklyCashflow;
+
+  async function fetchRate() {
+    setRateLoading(true); setRateErr(null);
+    try {
+      const r = await fetch("/api/rates", { method: "POST" });
+      const d = await r.json();
+      if (d.ok && d.rates) { setRateInfo(d.rates); set({ interestRatePct: d.rates.bestRatePct }); }
+      else setRateErr(d.message ?? "Couldn't fetch a live rate.");
+    } catch { setRateErr("Network error — try again."); }
+    finally { setRateLoading(false); }
+  }
+
+  const yearsToShow = [1, 2, 5, 10, holdYears].filter((y, idx, arr) => y <= holdYears && arr.indexOf(y) === idx);
 
   return (
     <div className="space-y-4">
-      <div className="card p-5">
-        <h3 className="font-semibold mb-4 capitalize" style={{ color: "var(--text-primary)" }}>Quick numbers — {persona === "investor" ? "Investor" : "Home Buyer"}</h3>
-        <div className="divide-y" style={{ borderColor: "var(--border)" }}>
-          {rows.map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between py-2.5 text-sm">
-              <span style={{ color: "var(--text-secondary)" }}>{k}</span>
-              <span className="font-semibold mono" style={{ color: "var(--text-primary)" }}>{v}</span>
-            </div>
-          ))}
+      {/* Section 9 — THE FINAL ANSWER */}
+      <div className="card p-5" style={{ border: "1px solid var(--brand)", background: "linear-gradient(180deg, rgba(0,212,200,0.06), transparent)" }}>
+        <div className="text-[11px] uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>If you buy today and sell in {holdYears} years</div>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>You walk away with</div>
+            <div className="text-4xl font-bold mono" style={{ color: s.walkAway >= 0 ? "#00e676" : "#ff5f5f" }}>{fmt(s.walkAway)}</div>
+          </div>
+          <div className="flex gap-6">
+            <div><div className="text-xs" style={{ color: "var(--text-muted)" }}>Return on cash</div><div className="text-xl font-bold mono" style={{ color: "var(--text-primary)" }}>{s.returnOnCashPct.toFixed(1)}%</div></div>
+            <div><div className="text-xs" style={{ color: "var(--text-muted)" }}>Per year</div><div className="text-xl font-bold mono" style={{ color: "var(--text-primary)" }}>{s.annualReturnPct.toFixed(1)}%</div></div>
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-4 mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Money you put in</div>
+            <FinRow label="Deposit" value={fmt(s.deposit)} />
+            <FinRow label="Purchase costs" value={fmt(s.purchaseCostsTotal)} />
+            <FinRow label="Renovations" value={fmt(inputs.renoCost)} />
+            <FinRow label="Total cash in" value={fmt(s.totalCashIn)} strong />
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Sale in {holdYears} yrs</div>
+            <FinRow label="Projected price" value={fmt(s.projectedValue)} />
+            <FinRow label="Less remaining loan" value={"−" + fmt(s.remainingLoan)} />
+            <FinRow label="Less agent + legal" value={"−" + fmt(s.agentFees + s.saleLegal)} />
+            <FinRow label="Net sale proceeds" value={fmt(s.netSaleProceeds)} strong />
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Holding cost ({holdYears} yrs)</div>
+            <FinRow label="Mortgage + ongoing" value={fmt(s.totalOngoingOverHold)} />
+            {isInvestor && <FinRow label="Less rent received" value={"−" + fmt(s.rentalIncomeOverHold)} />}
+            <FinRow label="Net cost of ownership" value={fmt(s.netCostOfOwnership)} strong />
+          </div>
+        </div>
+        <div className="text-xs mt-4 pt-3" style={{ borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+          Put {fmt(s.totalCashIn)} in a term deposit at {inp.termDepositRatePct}% for {holdYears} years and you&apos;d have <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(s.termDepositValue)}</span>. This property returns <span className="mono" style={{ color: s.walkAway >= 0 ? "#00e676" : "#ff5f5f" }}>{fmt(s.walkAway)}</span>.
         </div>
       </div>
-      {persona === "investor" && (
-        <div className="card p-4 text-sm flex items-start gap-2" style={{ color: "var(--text-secondary)" }}>
-          <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-          Rental yield and cashflow need suburb median-rent data, which isn&apos;t wired yet — coming with the market-data integration.
+
+      {/* Section 1 — Purchase details */}
+      <FinSection title="Purchase details">
+        <FinNum label="Purchase price" value={inp.price} onChange={(v) => set({ price: v })} />
+        <FinRow label="Hold period (set by the slider above)" value={`${holdYears} years`} />
+        <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
+          <span style={{ color: "var(--text-secondary)" }}>Deposit</span>
+          <span className="inline-flex items-center gap-1">
+            <input type="number" value={Math.round(inp.depositPct * 100)} onChange={(e) => set({ depositPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) / 100 })} className="rounded px-2 py-1 text-sm w-16 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>% = {fmt(s.deposit)}</span>
+          </span>
         </div>
+        <FinRow label="Loan amount" value={fmt(s.loan)} />
+        <FinRow label="Renovations (from Renovations tab)" value={fmt(inputs.renoCost)} />
+        <FinRow label="Total money needed to buy" value={fmt(s.totalCashIn)} strong />
+      </FinSection>
+
+      {/* Section 2 — Mortgage */}
+      <FinSection title="Mortgage">
+        <div className="flex items-center justify-between gap-2 py-1.5 text-sm flex-wrap">
+          <span style={{ color: "var(--text-secondary)" }}>Interest rate</span>
+          <span className="inline-flex items-center gap-2">
+            <input type="number" step={0.01} value={inp.interestRatePct} onChange={(e) => set({ interestRatePct: Math.max(0, Number(e.target.value) || 0) })} className="rounded px-2 py-1 text-sm w-20 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>%</span>
+            <button onClick={fetchRate} disabled={rateLoading} className="text-xs inline-flex items-center gap-1 cursor-pointer" style={{ color: "var(--brand)" }}>
+              {rateLoading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} fetch today&apos;s rate
+            </button>
+          </span>
+        </div>
+        {rateInfo ? (
+          <div className="text-[11px] mb-1" style={{ color: "var(--text-muted)" }}>Live: {rateInfo.options.map((o) => `${o.label} ${o.ratePct}%`).join(" · ")} — {rateInfo.lender}. {rateInfo.source} ({rateInfo.retrievedAt}).</div>
+        ) : (
+          <div className="text-[11px] mb-1" style={{ color: "var(--text-muted)" }}>Indicative current NZ rate — tap fetch for today&apos;s live rate, or type your own.</div>
+        )}
+        {rateErr && <div className="text-[11px] mb-1" style={{ color: "#ff5f5f" }}>{rateErr}</div>}
+        <div className="flex items-center gap-2 py-1.5 text-sm">
+          <span style={{ color: "var(--text-secondary)" }}>Loan type</span>
+          <div className="flex gap-1">
+            {(["pi", "io"] as LoanType[]).map((lt) => (
+              <button key={lt} onClick={() => set({ loanType: lt })} className="text-xs px-2 py-0.5 rounded cursor-pointer" style={{ background: inp.loanType === lt ? "var(--brand)" : "var(--surface-2)", color: inp.loanType === lt ? "#04110f" : "var(--text-muted)", border: "1px solid var(--border)" }}>{lt === "pi" ? "Principal & interest" : "Interest only"}</button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
+          <span style={{ color: "var(--text-secondary)" }}>Loan term</span>
+          <span className="inline-flex items-center gap-1"><input type="number" value={inp.loanTermYears} onChange={(e) => set({ loanTermYears: Math.max(1, Math.min(30, Number(e.target.value) || 30)) })} className="rounded px-2 py-1 text-sm w-16 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>years</span></span>
+        </div>
+        <div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px solid var(--border)" }}>
+          <FinRow label="Weekly repayment" value={fmt(s.weekly) + "/wk"} />
+          <FinRow label="Monthly repayment" value={fmt(s.monthly) + "/mo"} />
+          <FinRow label="Annual repayment" value={fmt(s.annualRepay)} />
+          <FinRow label={`Total interest over ${holdYears} yrs`} value={fmt(s.totalInterest)} />
+        </div>
+        <div className="text-[11px] mono mt-2 rounded p-2" style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}>Loan {fmt(s.loan)} @ {inp.interestRatePct}% over {inp.loanTermYears}yr {inp.loanType === "io" ? "interest-only" : "P&I"} = {fmt(s.monthly)}/month</div>
+      </FinSection>
+
+      {/* Section 3 — One-off purchase costs */}
+      <FinSection title="One-off purchase costs">
+        {(["legal", "lim", "inspection", "loanFee", "valuation"] as PurchaseCostKey[]).map((k) => (
+          <div key={k} className="flex items-center justify-between gap-2 py-1.5 text-sm">
+            <label className="inline-flex items-center gap-2 cursor-pointer" style={{ color: "var(--text-secondary)" }}>
+              <input type="checkbox" checked={inp.purchaseCostsEnabled[k]} onChange={() => toggleCost(k)} className="w-3.5 h-3.5 cursor-pointer" />
+              {PURCHASE_COST_LABELS[k]}
+            </label>
+            <span className="inline-flex items-center gap-1"><span className="text-xs" style={{ color: "var(--text-muted)" }}>$</span><input type="number" value={inp.purchaseCosts[k]} disabled={!inp.purchaseCostsEnabled[k]} onChange={(e) => setCost(k, Math.max(0, Number(e.target.value) || 0))} className="rounded px-2 py-1 text-sm w-24 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: inp.purchaseCostsEnabled[k] ? 1 : 0.4 }} /></span>
+          </div>
+        ))}
+        <div className="mt-1 pt-2" style={{ borderTop: "1px solid var(--border)" }}><FinRow label="Total purchase costs" value={fmt(s.purchaseCostsTotal)} strong /></div>
+      </FinSection>
+
+      {/* Section 4 — Annual ongoing costs */}
+      <FinSection title="Annual ongoing costs">
+        <FinNum label="Council rates" value={inp.councilRates} onChange={(v) => set({ councilRates: v })} hint="regional estimate — verify" />
+        <FinNum label="Home insurance" value={inp.insurance} onChange={(v) => set({ insurance: v })} hint="rebuild-cost estimate" />
+        <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
+          <span style={{ color: "var(--text-secondary)" }}>Maintenance <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>· {Math.round(inp.maintenancePctOfPrice * 1000) / 10}% of price</span></span>
+          <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(s.maintenance)}</span>
+        </div>
+        <FinNum label="Body corporate" value={inp.bodyCorp} onChange={(v) => set({ bodyCorp: v })} hint="if applicable" />
+        <div className="mt-1 pt-2 space-y-1" style={{ borderTop: "1px solid var(--border)" }}>
+          <FinRow label="Total annual costs" value={fmt(s.annualOngoing)} strong />
+          <FinRow label="Total weekly costs" value={fmt(s.weeklyOngoing) + "/wk"} />
+        </div>
+      </FinSection>
+
+      {/* Section 5 — Investor */}
+      {isInvestor && (
+        <FinSection title="Investor — rent & cashflow">
+          <FinNum label="Weekly rent" value={inp.weeklyRent} onChange={(v) => set({ weeklyRent: v })} hint={marketRent ? marketRent.source : "estimate — verify"} />
+          <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
+            <span style={{ color: "var(--text-secondary)" }}>Vacancy allowance</span>
+            <span className="inline-flex items-center gap-1"><input type="number" value={inp.vacancyWeeks} onChange={(e) => set({ vacancyWeeks: Math.max(0, Number(e.target.value) || 0) })} className="rounded px-2 py-1 text-sm w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>wks/yr</span></span>
+          </div>
+          <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
+            <label className="inline-flex items-center gap-2 cursor-pointer" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={inp.mgmtEnabled} onChange={() => set({ mgmtEnabled: !inp.mgmtEnabled })} className="w-3.5 h-3.5 cursor-pointer" />Property management</label>
+            <span className="inline-flex items-center gap-1"><input type="number" step={0.5} value={Math.round(inp.mgmtFeePct * 1000) / 10} disabled={!inp.mgmtEnabled} onChange={(e) => set({ mgmtFeePct: Math.max(0, Number(e.target.value) || 0) / 100 })} className="rounded px-2 py-1 text-sm w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: inp.mgmtEnabled ? 1 : 0.4 }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>%</span></span>
+          </div>
+          <div className="mt-2 rounded-lg p-3" style={{ border: `1px solid ${cf >= 0 ? "#00e676" : "#ff5f5f"}`, background: cf >= 0 ? "rgba(0,230,118,0.08)" : "rgba(255,95,95,0.08)" }}>
+            <div className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Net weekly cash flow</div>
+            <div className="text-2xl font-bold mono" style={{ color: cf >= 0 ? "#00e676" : "#ff5f5f" }}>{cf >= 0 ? "+" : ""}{fmt(cf)}/wk</div>
+            <div className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>Net rent {fmt(s.netWeeklyRent)} − mortgage {fmt(s.weekly)} − ongoing {fmt(s.weeklyOngoing)} {cf >= 0 ? "= cash positive" : "= top-up required"}</div>
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+            <div><div className="text-[11px]" style={{ color: "var(--text-muted)" }}>Gross yield</div><div className="font-bold mono" style={{ color: "var(--text-primary)" }}>{s.grossYieldPct.toFixed(1)}%</div></div>
+            <div><div className="text-[11px]" style={{ color: "var(--text-muted)" }}>Net yield</div><div className="font-bold mono" style={{ color: "var(--text-primary)" }}>{s.netYieldPct.toFixed(1)}%</div></div>
+            <div><div className="text-[11px]" style={{ color: "var(--text-muted)" }}>Total investment</div><div className="font-bold mono" style={{ color: "var(--text-primary)" }}>{fmtShort(s.totalInvestment)}</div></div>
+          </div>
+        </FinSection>
       )}
-      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        Indicative only, using default assumptions ({Math.round(depositPct * 100)}% deposit, 6.5% rate, 30-year P&I, 5% growth). The full adjustable calculator with renovation integration is a later build.
-      </p>
+
+      {/* Section 6 — Capital growth projection */}
+      <FinSection title="Capital growth projection">
+        <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
+          Based on <span className="mono" style={{ color: "var(--text-primary)" }}>{inp.growthPct}%</span> average annual growth{capitalGrowth ? ` in ${listing.suburb ?? listing.region ?? "this area"}` : ""}{capitalGrowth?.source ? ` (${capitalGrowth.source})` : ""}.
+          <span className="inline-flex items-center gap-1 ml-2">override <input type="number" step={0.1} value={inp.growthPct} onChange={(e) => set({ growthPct: Number(e.target.value) || 0 })} className="rounded px-1.5 py-0.5 text-xs w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />%</span>
+        </div>
+        <div style={{ width: "100%", height: 200 }}>
+          <ResponsiveContainer>
+            <LineChart data={s.projection} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="year" tick={{ fontSize: 11, fill: "var(--text-muted)" }} />
+              <YAxis tickFormatter={(v) => fmtShort(v as number)} tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={48} />
+              <Tooltip formatter={(v) => fmt(v as number)} labelFormatter={(l) => `Year ${l}`} contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+              <Line type="monotone" dataKey="value" name="Property value" stroke="#3b82f6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="equity" name="Your equity" stroke="#00e676" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 mt-2 text-sm">
+          {yearsToShow.map((y) => { const row = s.projection[y - 1]; return row ? (
+            <div key={y} className="flex justify-between"><span style={{ color: "var(--text-muted)" }}>Year {y}</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmtShort(row.value)} · eq {fmtShort(row.equity)}</span></div>
+          ) : null; })}
+        </div>
+      </FinSection>
+
+      {/* Section 7 — Sale costs */}
+      <FinSection title="Sale costs (end of hold)">
+        <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
+          <span style={{ color: "var(--text-secondary)" }}>Agent commission</span>
+          <span className="inline-flex items-center gap-1"><input type="number" step={0.1} value={Math.round(inp.agentCommissionPct * 1000) / 10} onChange={(e) => set({ agentCommissionPct: Math.max(0, Number(e.target.value) || 0) / 100 })} className="rounded px-2 py-1 text-sm w-16 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>% = {fmt(s.agentFees)}</span></span>
+        </div>
+        <FinNum label="Legal fees at sale" value={inp.legalAtSale} onChange={(v) => set({ legalAtSale: v })} />
+        <div className="mt-1 pt-2" style={{ borderTop: "1px solid var(--border)" }}><FinRow label="Total sale costs" value={fmt(s.agentFees + s.saleLegal)} strong /></div>
+      </FinSection>
+
+      {/* Section 8 — Tax */}
+      <FinSection title="Tax (NZ)">
+        <div className="rounded-lg p-3 text-sm" style={{ background: s.brightLineApplies ? "rgba(255,95,95,0.08)" : "rgba(0,230,118,0.08)", border: `1px solid ${s.brightLineApplies ? "#ff5f5f" : "#00e676"}`, color: "var(--text-secondary)" }}>
+          {s.brightLineApplies
+            ? <>⚠️ <strong style={{ color: "#ff5f5f" }}>Bright-line test applies</strong> (holding under {FINANCE_DEFAULTS.brightLineYears} years). Any capital gain may be taxed as income. Consult your accountant.</>
+            : <>✅ <strong style={{ color: "#00e676" }}>Outside the bright-line period</strong> ({holdYears} years ≥ {FINANCE_DEFAULTS.brightLineYears}). No bright-line tax applies (consult your accountant).</>}
+        </div>
+        {isInvestor && (
+          <div className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>✅ Mortgage interest is fully deductible against rental income (from April 2024). Est. annual tax saving at {inp.taxRatePct}%: <span className="mono" style={{ color: "#00e676" }}>{fmt(s.interestDeductSaving)}</span>.</div>
+        )}
+        <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>Tax figures are estimates only — speak to a qualified NZ accountant.</div>
+      </FinSection>
+
+      <p className="text-xs" style={{ color: "var(--text-muted)" }}>Every field is editable; the walk-away figure updates live. Council rates + insurance are estimates (verify with the council and an insurer). Renovations come from your Renovations-tab selections; hold period is the slider at the top.</p>
     </div>
   );
 }
