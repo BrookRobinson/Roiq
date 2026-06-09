@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { type ScrapedListing } from "@/lib/scraper";
-import { resolveListing, ListingNotFoundError } from "@/lib/listing-resolver";
+import { resolveListing, resolveListingByAddress, ListingNotFoundError } from "@/lib/listing-resolver";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
 import { isAnalysisConfigured } from "@/lib/ai/client";
 import type { Inspection } from "@/lib/scoring/model";
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { url?: string; listing?: ScrapedListing; only?: Inspection[] };
+  let body: { url?: string; listing?: ScrapedListing; address?: string; only?: Inspection[] };
   try {
     body = await req.json();
   } catch {
@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
 
     if (body.listing) {
       listing = body.listing;
+    } else if (body.address) {
+      // Manual address fallback — find by address, else analyse on public data. Never dead-ends.
+      listing = await resolveListingByAddress(body.address);
     } else if (body.url) {
       // Direct scrape → web-search fallback (OneRoof / realestate / homes / agency).
       // Throws ListingNotFoundError if the property can't be recovered anywhere.

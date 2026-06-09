@@ -30,14 +30,18 @@ const PIPELINE_STEPS = [
 export default function NewReportPage() {
   const router = useRouter();
   const [url, setUrl] = useState("");
+  const [addressInput, setAddressInput] = useState("");
+  const [needAddress, setNeedAddress] = useState(false);
+  const [target, setTarget] = useState("");
   const [step, setStep] = useState<Step>("input");
   const [pipelineStep, setPipelineStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  async function startAnalysis() {
-    const target = url.trim();
-    if (!target) return;
+  async function runAnalysis(payload: { url?: string; address?: string }) {
+    const label = (payload.url ?? payload.address ?? "").trim();
+    if (!label) return;
     setError(null);
+    setTarget(label);
     setStep("analysing");
     setPipelineStep(0);
 
@@ -54,12 +58,18 @@ export default function NewReportPage() {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: target }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       clearInterval(timer);
 
       if (!res.ok) {
+        // URL couldn't be scraped or recovered → offer manual address entry.
+        if (res.status === 422 && data.error === "listing_not_found") {
+          setNeedAddress(true);
+          setStep("input");
+          return;
+        }
         setError(
           res.status === 503
             ? "Claude isn't configured — add a funded ANTHROPIC_API_KEY to .env.local and restart the server."
@@ -95,6 +105,9 @@ export default function NewReportPage() {
     }
   }
 
+  const startAnalysis = () => runAnalysis({ url: url.trim() });
+  const searchByAddress = () => runAnalysis({ address: addressInput.trim() });
+
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
       <Navbar user={{ email: "jane@example.com" }} plan="starter" />
@@ -114,6 +127,35 @@ export default function NewReportPage() {
             {error && (
               <div className="rounded-xl p-4 mb-4 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)", border: "1px solid rgba(255,95,95,0.2)" }}>
                 {error}
+              </div>
+            )}
+
+            {/* Manual address fallback — shown when a URL can't be scraped/recovered */}
+            {needAddress && (
+              <div className="rounded-2xl p-6 mb-4" style={{ background: "var(--surface)", border: "1px solid var(--brand)" }}>
+                <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
+                  We couldn&apos;t access this listing automatically.
+                </p>
+                <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>
+                  Enter the property address — we&apos;ll find it on OneRoof, realestate.co.nz or homes.co.nz, or analyse the public property data if it&apos;s not currently for sale.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    className="input text-base flex-1"
+                    placeholder="123 Example Street, Suburb, City"
+                    value={addressInput}
+                    onChange={(e) => setAddressInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && searchByAddress()}
+                  />
+                  <button
+                    onClick={searchByAddress}
+                    disabled={!addressInput.trim()}
+                    className="btn-primary px-5 flex-shrink-0"
+                    style={{ opacity: addressInput.trim() ? 1 : 0.5 }}
+                  >
+                    Search
+                  </button>
+                </div>
               </div>
             )}
 
@@ -199,7 +241,7 @@ export default function NewReportPage() {
         )}
 
         {(step === "scraping" || step === "analysing") && (
-          <AnalysisPipeline pipelineStep={pipelineStep} url={url} />
+          <AnalysisPipeline pipelineStep={pipelineStep} url={target || url} />
         )}
 
         {step === "done" && (

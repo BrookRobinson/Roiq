@@ -17,7 +17,9 @@ export function getAnthropic(): Anthropic {
       "ANTHROPIC_API_KEY is not set — photo analysis is unavailable. Add it to .env.local."
     );
   }
-  if (!client) client = new Anthropic();
+  // maxRetries 4 (SDK default 2): long web-search calls (listing recovery, market,
+  // rates) occasionally hit transient connection errors — extra backoff'd retries ride them out.
+  if (!client) client = new Anthropic({ maxRetries: 4 });
   return client;
 }
 
