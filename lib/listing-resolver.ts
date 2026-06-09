@@ -59,7 +59,7 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
 
   // Blocked / empty / unsupported / TradeMe → recover the property from another source.
   if (!listing || !hasRealData(listing)) {
-    const found = await searchListing(url, listing?.address ?? null);
+    const found = await searchListing({ url, address: listing?.address ?? null });
     if (found.found) {
       const merged = merge(listing ?? emptyListing(url, portal), found.fields);
       merged.scrapedOk = true;
@@ -94,7 +94,7 @@ function parseAddress(raw: string): { address: string | null; suburb: string | n
  * public property data (never throws).
  */
 export async function resolveListingByAddress(address: string): Promise<ScrapedListing> {
-  const found = await searchListing("manual address entry", address);
+  const found = await searchListing({ address });
   const base = emptyListing(address, "unknown");
 
   if (found.found) {

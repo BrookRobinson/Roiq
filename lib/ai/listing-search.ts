@@ -3,9 +3,11 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { getAnthropic, ANALYSIS_MODEL } from "./client";
 import type { ScrapedListing, PropertyType } from "@/lib/scraper/types";
 
-// Fallback listing recovery: when a portal blocks the scrape (e.g. TradeMe), find
-// the SAME property on another source (OneRoof / realestate.co.nz / homes.co.nz /
-// the listing agency) via web search, with the source cited. Never invents data.
+// Listing recovery via web search, used two ways:
+//   • a portal blocked the scrape (e.g. TradeMe) → find the SAME property elsewhere;
+//   • the user typed an address by hand → look that property up directly.
+// Either way we check OneRoof / realestate.co.nz / homes.co.nz / a Google search /
+// the listing agency, with the source cited. Never invents data.
 
 export interface ListingSearchResult {
   found: boolean;
@@ -71,15 +73,33 @@ const LISTING_TOOL: Anthropic.Tool = {
 
 const WEB_SEARCH_TOOL = { type: "web_search_20250305" as const, name: "web_search" as const, max_uses: 6 };
 
-function searchPrompt(url: string, partialAddress?: string | null): string {
+// A portal blocked the scrape → recover the SAME property from another source.
+function urlRecoveryPrompt(url: string, partialAddress?: string | null): string {
   return `A New Zealand property listing could not be scraped directly — the portal blocked it or returned no data. Find the SAME property from another source.
 
 ORIGINAL URL: ${url}
 ${partialAddress ? `KNOWN ADDRESS: ${partialAddress}` : "If you can, work out the street address from the URL slug."}
 
-Use web search to find this exact property currently for sale. Try, in order: OneRoof (oneroof.co.nz), realestate.co.nz, homes.co.nz, then the listing agency's own website (Harcourts, Ray White, Bayleys, Barfoot & Thompson, First National, Property Brokers, etc.). NZ listings are usually cross-posted, so the same property is often on several sites.
+Use web search to find this exact property currently for sale. Try, in order: OneRoof (oneroof.co.nz), realestate.co.nz, homes.co.nz, then a general web search${partialAddress ? ` for "${partialAddress} for sale NZ"` : ' for the address + "for sale NZ"'} (which picks up the listing agency's own site — Harcourts, Ray White, Bayleys, Barfoot & Thompson, First National, Property Brokers, etc.). NZ listings are usually cross-posted, so the same property is often on several sites.
 
 Then call ${TOOL_NAME} with the property's details and any photo image URLs you can see, plus which site you found it on (source_site) and the page URL (source_url). Report ONLY what the sources actually show — never invent a figure. If you genuinely cannot find the property anywhere, call ${TOOL_NAME} with found=false.`;
+}
+
+// The user typed an address by hand → look that exact property up.
+function addressLookupPrompt(address: string): string {
+  return `A New Zealand homeowner or investor wants this property analysed and has given you its address by hand:
+
+ADDRESS: ${address}
+
+Use web search to find this exact property, checking these sources in order until you have solid data:
+1. OneRoof — oneroof.co.nz
+2. realestate.co.nz
+3. homes.co.nz
+4. A general web search for "${address} for sale NZ" (picks up the listing agency's own site and any other portal)
+
+NZ properties are usually cross-posted, so the same one often appears on several sites — prefer whichever gives the most complete data (photos, price, bedrooms, bathrooms, floor area, land area, description).
+
+Then call ${TOOL_NAME} with everything the sources actually show, plus any photo image URLs, the site you found it on (source_site) and the page URL (source_url). Report ONLY what the sources show — never invent a figure. If this property is not currently listed for sale anywhere, call ${TOOL_NAME} with found=false — that's a valid outcome, the address alone is still useful.`;
 }
 
 const num = (n: unknown): number | null => (typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null);
@@ -92,13 +112,22 @@ function normType(s?: string): PropertyType {
   return types.find((x) => t.includes(x)) ?? "unknown";
 }
 
-export async function searchListing(url: string, partialAddress?: string | null): Promise<ListingSearchResult> {
+/**
+ * Find a listing via web search. Pass `{ url }` (with an optional known `address`)
+ * to recover a property whose portal blocked the scrape, or `{ address }` alone to
+ * look up a property the user typed in by hand.
+ */
+export async function searchListing(opts: { url?: string; address?: string | null }): Promise<ListingSearchResult> {
+  const prompt = opts.url
+    ? urlRecoveryPrompt(opts.url, opts.address ?? null)
+    : addressLookupPrompt((opts.address ?? "").trim());
+
   const client = getAnthropic();
   const resp = await client.messages.create({
     model: ANALYSIS_MODEL,
     max_tokens: 2500,
     tools: [WEB_SEARCH_TOOL as unknown as Anthropic.ToolUnion, LISTING_TOOL],
-    messages: [{ role: "user", content: searchPrompt(url, partialAddress) }],
+    messages: [{ role: "user", content: prompt }],
   });
 
   const tu = resp.content.find(
