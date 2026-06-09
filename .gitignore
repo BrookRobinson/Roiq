@@ -28,3 +28,6 @@ next-env.d.ts
 
 # Claude Code local tooling (preview launch config, local settings)
 .claude/
+
+# local test fixtures — bundled sample reports for /report/sample-*
+/public/sample-*.json

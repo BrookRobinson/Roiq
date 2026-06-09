@@ -18,7 +18,18 @@ export default function ReportPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setReport(loadReport(id));
+    const stored = loadReport(id);
+    if (stored) { setReport(stored); setReady(true); return; }
+    // Bundled live sample(s) served from /public so a real report (with real
+    // photos, so the visualiser renders) can be opened at a stable URL for
+    // testing/sharing — e.g. /report/sample-hokitika.
+    if (id.startsWith("sample-")) {
+      fetch(`/${id}.json`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: StoredReport | null) => { setReport(j); setReady(true); })
+        .catch(() => setReady(true));
+      return;
+    }
     setReady(true);
   }, [id]);
 
