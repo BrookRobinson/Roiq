@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { scrapeListingUrl, isSupportedUrl, type ScrapedListing } from "@/lib/scraper";
+import { type ScrapedListing } from "@/lib/scraper";
+import { resolveListing, ListingNotFoundError } from "@/lib/listing-resolver";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
 import { isAnalysisConfigured } from "@/lib/ai/client";
 import type { Inspection } from "@/lib/scoring/model";
@@ -41,13 +42,9 @@ export async function POST(req: NextRequest) {
     if (body.listing) {
       listing = body.listing;
     } else if (body.url) {
-      if (!isSupportedUrl(body.url)) {
-        return NextResponse.json(
-          { error: "unsupported_url", message: "That listing portal is not supported yet." },
-          { status: 422 }
-        );
-      }
-      listing = await scrapeListingUrl(body.url);
+      // Direct scrape → web-search fallback (OneRoof / realestate / homes / agency).
+      // Throws ListingNotFoundError if the property can't be recovered anywhere.
+      listing = await resolveListing(body.url);
     } else {
       return NextResponse.json(
         { error: "missing_input", message: "Provide either a `url` or a `listing`." },
@@ -65,6 +62,12 @@ export async function POST(req: NextRequest) {
         : await analysePropertyFast(listing);
     return NextResponse.json({ ok: true, listing, ...result });
   } catch (err) {
+    if (err instanceof ListingNotFoundError) {
+      return NextResponse.json(
+        { error: "listing_not_found", message: "We found limited data for that link. Paste a link from oneroof.co.nz or realestate.co.nz for better results." },
+        { status: 422 }
+      );
+    }
     console.error("[analyze]", err);
     const message = err instanceof Error ? err.message : "Analysis failed.";
     const overloaded = /overloaded|temporarily unavailable|rate.?limit|\b429\b|\b503\b|\b529\b/i.test(message);

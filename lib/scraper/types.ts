@@ -68,6 +68,8 @@ export interface ScrapedListing {
   scrapedAt: string;
   scrapedOk: boolean;
   errorMessage: string | null;
+  /** Set when data was recovered from a fallback source (web search), e.g. "Data sourced from OneRoof …". */
+  dataSource?: string | null;
 }
 
 export type SupportedPortal =
@@ -112,5 +114,6 @@ export function emptyListing(url: string, portal: SupportedPortal): ScrapedListi
     scrapedAt: new Date().toISOString(),
     scrapedOk: false,
     errorMessage: null,
+    dataSource: null,
   };
 }

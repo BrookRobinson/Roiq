@@ -225,6 +225,11 @@ export function RealReportView({ report }: { report: StoredReport }) {
                     <span style={{ color: "#fb923c" }}>⚠ scrape partial — leans Tier 3</span>
                   )}
                 </div>
+                {listing.dataSource && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 text-xs rounded-md px-2 py-1" style={{ background: "rgba(0,212,200,0.08)", color: "var(--brand)", border: "1px solid var(--border)" }}>
+                    <Info size={12} /> {listing.dataSource}
+                  </div>
+                )}
               </div>
 
               {/* Quality score + predicted future sale price (replaces VFM grade) */}
