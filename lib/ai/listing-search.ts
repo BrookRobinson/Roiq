@@ -47,13 +47,13 @@ const LISTING_TOOL: Anthropic.Tool = {
   input_schema: {
     type: "object",
     properties: {
-      found: { type: "boolean", description: "False if you genuinely could not find this property for sale anywhere." },
+      found: { type: "boolean", description: "True ONLY if the property is CURRENTLY for sale (a live listing). False if it is sold / off-market / you found only past or property-data records — even if you filled in physical details below." },
       address: { type: "string", description: "Full street address." },
       suburb: { type: "string" },
       city: { type: "string" },
       region: { type: "string", description: "Region, e.g. 'Canterbury', 'West Coast'." },
-      asking_price: { type: "number", description: "Asking price in NZD if a fixed/indicative figure is shown." },
-      price_text: { type: "string", description: "The price as displayed, e.g. 'Asking $309,000', 'Auction', 'By negotiation'." },
+      asking_price: { type: "number", description: "CURRENT asking price in NZD if a fixed/indicative figure is shown. NEVER a past SOLD price — leave blank for a sold/past record." },
+      price_text: { type: "string", description: "The CURRENT price as displayed, e.g. 'Asking $309,000', 'Auction', 'By negotiation'. Leave blank if the property is not currently for sale." },
       property_type: { type: "string", description: "house | townhouse | unit | apartment | section | lifestyle | rural | commercial." },
       bedrooms: { type: "number" },
       bathrooms: { type: "number" },
@@ -73,7 +73,7 @@ const LISTING_TOOL: Anthropic.Tool = {
   },
 };
 
-const WEB_SEARCH_TOOL = { type: "web_search_20250305" as const, name: "web_search" as const, max_uses: 8 };
+const WEB_SEARCH_TOOL = { type: "web_search_20250305" as const, name: "web_search" as const, max_uses: 10 };
 
 // NZ property sites, deduped to unique domains, for the address-lookup fallback.
 // A plain Google search ("<address> property for sale NZ") finds a listing on ANY
@@ -93,7 +93,7 @@ function urlRecoveryPrompt(url: string, partialAddress?: string | null): string 
 ORIGINAL URL: ${url}
 ${partialAddress ? `KNOWN ADDRESS: ${partialAddress}` : "If you can, work out the street address from the URL slug."}
 
-Use web search to find this exact property currently for sale. Try, in order: OneRoof (oneroof.co.nz), realestate.co.nz, homes.co.nz, then a general web search${partialAddress ? ` for "${partialAddress} for sale NZ"` : ' for the address + "for sale NZ"'} (which picks up the listing agency's own site — Harcourts, Ray White, Bayleys, Barfoot & Thompson, First National, Property Brokers, etc.). NZ listings are usually cross-posted, so the same property is often on several sites.
+Use web search to find this exact property currently for sale. Try, in order: OneRoof (oneroof.co.nz), realestate.co.nz, homes.co.nz, then a general web search${partialAddress ? ` for "${partialAddress} for sale NZ"` : ' for the address + "for sale NZ"'} (which picks up the listing agency's own site — Harcourts, Ray White, Bayleys, Barfoot & Thompson, First National, Property Brokers, etc.). NZ listings are usually cross-posted, so the same property is often on several sites. Prefer the CURRENT for-sale listing — never report a past SOLD price as the asking price.
 
 Then call ${TOOL_NAME} with the property's details and any photo image URLs you can see, plus which site you found it on (source_site) and the page URL (source_url). Report ONLY what the sources actually show — never invent a figure. If you genuinely cannot find the property anywhere, call ${TOOL_NAME} with found=false.`;
 }
@@ -108,21 +108,27 @@ function addressLookupPrompt(address: string): string {
 
 ADDRESS: ${address}
 
-Find this exact property with web search. Work the steps in order and STOP as soon as you have solid listing data.
+Find this exact property with web search. Work the steps in order and STOP as soon as you have a CURRENT for-sale listing.
 
 STEP 1 — Google-style search FIRST (this catches a listing on ANY site without checking each one):
   • "${address}" property for sale NZ
   • "<street number> <street name> <suburb>" real estate NZ   ← pull the number / street / suburb out of the address above
-Read the top results and extract everything from the best one. NZ listings are cross-posted, so the property is usually on a major portal or an agency's own site.
+Read the top results and open the best CURRENT listing. NZ listings are cross-posted, so the property is usually on a major portal or an agency's own site.
 
-STEP 2 — Only if Step 1 finds nothing, run targeted "site:" searches on the likely portals, e.g. "${address}" site:trademe.co.nz OR site:oneroof.co.nz OR site:realestate.co.nz.
-  Major portals & national chains: ${portals}.
-  Regional / specialist agencies (use the ones for this property's region): ${regional}.
-  Commercial / rural: ${commercial}.
+STEP 2 — If Step 1 does NOT surface a CURRENT listing (you found only sold/past records, or nothing), DO NOT give up — on NZ the live listing is often on a portal or agency site that didn't rank in the open search. Run several targeted "site:" searches for this exact address before concluding, e.g.:
+  • "${address}" site:professionals.co.nz
+  • "${address}" site:trademe.co.nz OR site:realestate.co.nz OR site:oneroof.co.nz OR site:homes.co.nz
+  • "${address}" site:harcourts.co.nz OR site:raywhite.co.nz OR site:bayleys.co.nz OR site:propertybrokers.co.nz OR site:ljhooker.co.nz
+A current listing on ANY site counts. Full list to draw from — major portals & national chains: ${portals}; regional / specialist agencies (use the ones for this property's region): ${regional}; commercial / rural: ${commercial}. Only treat the property as not currently for sale AFTER these site: searches also come up empty.
 
-EXTRACT — only what the sources actually show, never invent: asking/listing price, bedrooms, bathrooms, car parks/garages, floor area (m²), land area (m²), the full description, ALL listing photo image URLs, agent + agency, days on market, and the site (source_site) + page URL (source_url) you found it on.
+CURRENT vs SOLD — IMPORTANT: results for one address usually MIX the live for-sale listing with OLD sold records and property-data pages (e.g. "Sold", "/sold/" URLs, OneRoof / propertyvalue past-sale prices). You want the one ON THE MARKET NOW — status like "For Sale", "Asking", "Offers Over", "Deadline Sale", "Auction", "Tender", "By Negotiation", "Enquiries Over". NEVER report a past SOLD price as the asking price, and don't stop at a sold record if a current listing also exists — keep looking for the live one.
 
-If after all searches the property is NOT currently listed for sale anywhere, call ${TOOL_NAME} with found=false — that's a valid outcome; the address alone is still useful for a public-data analysis. Then call ${TOOL_NAME}.`;
+EXTRACT — only what the sources actually show, never invent: the CURRENT asking/listing price, bedrooms, bathrooms, car parks/garages, floor area (m²), land area (m²), the full description, ALL listing photo image URLs, agent + agency, days on market, and the site (source_site) + page URL (source_url).
+
+Then call ${TOOL_NAME}, setting found as follows:
+  • found=TRUE only if the property is CURRENTLY for sale — include the current price / price_text.
+  • found=FALSE if you find ONLY sold / past / property-data records (no live listing) — but STILL fill in the physical facts you learned (bedrooms, bathrooms, floor_area_sqm, land_area_sqm, build_year, property_type, description) and LEAVE asking_price / price_text blank. Those facts still help a public-data analysis.
+  • found=FALSE with no fields if you find nothing at all.`;
 }
 
 const num = (n: unknown): number | null => (typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null);
@@ -158,8 +164,10 @@ export async function searchListing(opts: { url?: string; address?: string | nul
   );
   if (!tu) return { found: false, source: null, sourceUrl: null, fields: {} };
   const d = tu.input as RawListing;
-  if (!d.found) return { found: false, source: str(d.source_site), sourceUrl: str(d.source_url), fields: {} };
 
+  // Build whatever facts the model gathered. We keep these EVEN when the property
+  // isn't currently for sale (found=false) so a past-sale / property-data record can
+  // still feed a public-data analysis instead of starving it.
   const fields: Partial<ScrapedListing> = {
     address: str(d.address),
     suburb: str(d.suburb),
@@ -180,5 +188,11 @@ export async function searchListing(opts: { url?: string; address?: string | nul
     daysOnMarket: int(d.days_on_market),
     photoUrls: Array.isArray(d.photo_urls) ? d.photo_urls.filter((u) => typeof u === "string" && /^https?:\/\//.test(u)) : [],
   };
-  return { found: true, source: str(d.source_site) ?? "web search", sourceUrl: str(d.source_url), fields };
+  const currentlyForSale = Boolean(d.found);
+  return {
+    found: currentlyForSale,
+    source: str(d.source_site) ?? (currentlyForSale ? "web search" : null),
+    sourceUrl: str(d.source_url),
+    fields,
+  };
 }

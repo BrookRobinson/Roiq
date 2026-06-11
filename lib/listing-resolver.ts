@@ -54,8 +54,12 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
   const portal = detectPortalFromUrl(url);
   let listing: ScrapedListing | null = null;
 
-  // TradeMe blocks scraping → skip straight to web-search. Other known portals: try direct first.
-  if (portal !== "trademe" && portal !== "unknown") {
+  // TradeMe actively blocks bots → skip straight to web-search. EVERYTHING else —
+  // known portals AND unknown URLs — gets a direct scrape attempt first: the generic
+  // scraper (JSON-LD + CSS/regex) handles most server-rendered NZ agency sites
+  // (e.g. professionals.co.nz), and we fall back to web-search below if it yields
+  // nothing real. Scraping the URL the user actually gave beats a flaky search.
+  if (portal !== "trademe") {
     try {
       listing = await scrapeListingUrl(url);
     } catch {
@@ -75,8 +79,10 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
     }
   }
 
-  // Nothing usable anywhere.
-  if (!listing || (!hasRealData(listing) && !listing.address)) {
+  // Nothing usable anywhere. A scrape that pulled PHOTOS is still usable — the vision
+  // analysis runs on them even when price/beds didn't parse (e.g. a HubSpot agency
+  // site), so don't discard a photo-rich result just because fields are thin.
+  if (!listing || (!hasRealData(listing) && !listing.address && listing.photoUrls.length === 0)) {
     throw new ListingNotFoundError();
   }
   return listing;
@@ -102,18 +108,40 @@ function parseAddress(raw: string): { address: string | null; suburb: string | n
 export async function resolveListingByAddress(address: string): Promise<ScrapedListing> {
   const found = await searchListing({ address });
   const base = emptyListing(address, "unknown");
+  const p = parseAddress(address);
+  const f = found.fields;
 
+  // Currently for sale → use the live listing.
   if (found.found) {
-    const merged = merge(base, found.fields);
+    const merged = merge(base, f);
     merged.address = merged.address ?? address;
     merged.scrapedOk = true;
     merged.dataSource = `Listing data sourced from ${found.source} — retrieved ${retrievedStamp()}.`;
-    if (found.fields.photoUrls && found.fields.photoUrls.length > 0) merged.photoUrls = found.fields.photoUrls;
+    if (f.photoUrls && f.photoUrls.length > 0) merged.photoUrls = f.photoUrls;
     return merged;
   }
 
-  // Nothing for sale → analyse on public property data using just the address.
-  const p = parseAddress(address);
+  // Not currently for sale, but the search surfaced property facts (a past sale or a
+  // property-data record) → analyse on those + public data. NEVER carry a past sale
+  // price through as a current asking price.
+  const hasFacts = f.bedrooms != null || f.bathrooms != null || f.floorAreaSqm != null || f.landAreaSqm != null || f.buildYear != null || !!f.description;
+  const publicDataNote = "Analysis uses public property data — council records / CV, homes.co.nz and comparable sales where available.";
+  if (hasFacts) {
+    const merged = merge(base, f);
+    merged.address = merged.address ?? address;
+    merged.suburb = merged.suburb ?? p.suburb;
+    merged.city = merged.city ?? p.city;
+    merged.region = merged.region ?? p.region;
+    merged.askingPrice = null; // a past sale price is not a current asking price
+    merged.priceText = null;
+    merged.scrapedOk = true;
+    const src = found.source ? ` Property details from ${found.source} (public / past-sale record).` : "";
+    merged.dataSource = `No active listing found for this address.${src} ${publicDataNote}`;
+    if (f.photoUrls && f.photoUrls.length > 0) merged.photoUrls = f.photoUrls;
+    return merged;
+  }
+
+  // Nothing at all → analyse on the bare address + public data.
   return {
     ...base,
     address: p.address,
@@ -121,6 +149,6 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     city: p.city,
     region: p.region,
     scrapedOk: true,
-    dataSource: "No active listing found for this address. Analysis uses public property data — council records / CV, homes.co.nz and comparable sales where available.",
+    dataSource: `No active listing found for this address. ${publicDataNote}`,
   };
 }

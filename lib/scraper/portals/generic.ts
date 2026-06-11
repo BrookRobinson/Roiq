@@ -137,7 +137,7 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   const resolve = (raw: string | undefined): string | null => {
     const t = (raw || "").trim();
     if (!t || t.startsWith("data:")) return null;
-    if (/logo|icon|avatar|sprite|placeholder/i.test(t)) return null;
+    if (/logo|icon|avatar|sprite|placeholder|loading/i.test(t)) return null;
     try { const abs = new URL(t, url).href; return /^https?:/i.test(abs) ? abs : null; } catch { return null; }
   };
 
@@ -178,7 +178,7 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
 
   // RV/CV
   const rvMatch = html.match(/(?:RV|CV|capital value)[^$\d]*\$?([0-9,]+)/i);
-  if (rvMatch) listing.rvCv = parsePrice(rvMatch[1]);
+  if (rvMatch) { const rv = parsePrice(rvMatch[1]); if (rv && rv >= 10000) listing.rvCv = rv; } // ignore junk like "CV...100"
 
   // Days on market
   const domMatch = html.match(/(\d+)\s*day[s]?\s*(?:on market|listed)/i);
