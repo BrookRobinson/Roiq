@@ -2,6 +2,7 @@ import { ScrapedListing, SupportedPortal } from "./types";
 import { isTradeMeUrl, scrapeTrademe } from "./portals/trademe";
 import { isRealestateUrl, scrapeRealestate } from "./portals/realestate";
 import { isRayWhiteUrl, scrapeRayWhite } from "./portals/raywhite";
+import { isProfessionalsUrl, scrapeProfessionals } from "./portals/professionals";
 import { detectPortal, scrapeGeneric } from "./portals/generic";
 
 export { type ScrapedListing } from "./types";
@@ -20,6 +21,8 @@ export async function scrapeListingUrl(url: string): Promise<ScrapedListing> {
       return scrapeRealestate(url);
     case "raywhite":
       return scrapeRayWhite(url);
+    case "professionals":
+      return scrapeProfessionals(url);
     default:
       return scrapeGeneric(url, portal);
   }
@@ -29,6 +32,7 @@ export function detectPortalFromUrl(url: string): SupportedPortal {
   if (isTradeMeUrl(url))    return "trademe";
   if (isRealestateUrl(url)) return "realestate";
   if (isRayWhiteUrl(url))   return "raywhite";
+  if (isProfessionalsUrl(url)) return "professionals";
   return detectPortal(url);
 }
 
@@ -48,4 +52,5 @@ export const SUPPORTED_PORTALS = [
   { id: "barfoot",        label: "Barfoot & Thompson",  pattern: "barfoot.co.nz" },
   { id: "propertybrokers",label: "Property Brokers",    pattern: "propertybrokers.co.nz" },
   { id: "oneroof",        label: "OneRoof",             pattern: "oneroof.co.nz" },
+  { id: "professionals",  label: "Professionals",       pattern: "professionals.co.nz/property-listing" },
 ] as const;

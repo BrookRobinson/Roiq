@@ -16,7 +16,7 @@ export class ListingNotFoundError extends Error {
 
 const PORTAL_LABEL: Record<string, string> = {
   trademe: "Trade Me", realestate: "realestate.co.nz", raywhite: "Ray White", harcourts: "Harcourts",
-  bayleys: "Bayleys", barfoot: "Barfoot & Thompson", propertybrokers: "Property Brokers", oneroof: "OneRoof", unknown: "original",
+  bayleys: "Bayleys", barfoot: "Barfoot & Thompson", propertybrokers: "Property Brokers", oneroof: "OneRoof", professionals: "Professionals", unknown: "original",
 };
 
 const hasRealData = (l: ScrapedListing): boolean => l.askingPrice != null || l.bedrooms != null || l.floorAreaSqm != null;

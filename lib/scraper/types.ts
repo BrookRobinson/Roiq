@@ -81,6 +81,7 @@ export type SupportedPortal =
   | "barfoot"
   | "propertybrokers"
   | "oneroof"
+  | "professionals"
   | "unknown";
 
 export function emptyListing(url: string, portal: SupportedPortal): ScrapedListing {
