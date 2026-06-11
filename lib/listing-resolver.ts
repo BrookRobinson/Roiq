@@ -41,7 +41,13 @@ function merge(base: ScrapedListing, f: Partial<ScrapedListing>): ScrapedListing
     description: f.description ?? base.description,
     agencyName: f.agencyName ?? base.agencyName,
     agentName: f.agentName ?? base.agentName,
+    daysOnMarket: f.daysOnMarket ?? base.daysOnMarket,
   };
+}
+
+// "retrieved June 2026" — so a cited source always carries when it was pulled.
+function retrievedStamp(): string {
+  return new Date().toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
 }
 
 export async function resolveListing(url: string): Promise<ScrapedListing> {
@@ -101,7 +107,7 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     const merged = merge(base, found.fields);
     merged.address = merged.address ?? address;
     merged.scrapedOk = true;
-    merged.dataSource = `Listing data found on ${found.source}.`;
+    merged.dataSource = `Listing data sourced from ${found.source} — retrieved ${retrievedStamp()}.`;
     if (found.fields.photoUrls && found.fields.photoUrls.length > 0) merged.photoUrls = found.fields.photoUrls;
     return merged;
   }
@@ -115,6 +121,6 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     city: p.city,
     region: p.region,
     scrapedOk: true,
-    dataSource: "No active listing found for this address — analysis based on public property data.",
+    dataSource: "No active listing found for this address. Analysis uses public property data — council records / CV, homes.co.nz and comparable sales where available.",
   };
 }

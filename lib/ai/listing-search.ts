@@ -34,6 +34,7 @@ interface RawListing {
   description?: string;
   agency_name?: string;
   agent_name?: string;
+  days_on_market?: number;
   photo_urls?: string[];
   source_site?: string;
   source_url?: string;
@@ -63,6 +64,7 @@ const LISTING_TOOL: Anthropic.Tool = {
       description: { type: "string", description: "A short description of the property from the listing." },
       agency_name: { type: "string", description: "Listing agency, e.g. 'First National Success'." },
       agent_name: { type: "string" },
+      days_on_market: { type: "number", description: "Days the listing has been on the market, if shown." },
       photo_urls: { type: "array", items: { type: "string" }, description: "Direct image URLs of the property photos, if visible." },
       source_site: { type: "string", description: "Which site you found it on, e.g. 'OneRoof', 'realestate.co.nz', 'homes.co.nz'." },
       source_url: { type: "string", description: "The page URL where you found it." },
@@ -71,7 +73,18 @@ const LISTING_TOOL: Anthropic.Tool = {
   },
 };
 
-const WEB_SEARCH_TOOL = { type: "web_search_20250305" as const, name: "web_search" as const, max_uses: 6 };
+const WEB_SEARCH_TOOL = { type: "web_search_20250305" as const, name: "web_search" as const, max_uses: 8 };
+
+// NZ property sites, deduped to unique domains, for the address-lookup fallback.
+// A plain Google search ("<address> property for sale NZ") finds a listing on ANY
+// of these without checking each one, so these are the model's `site:` fallbacks
+// when the open search comes up empty.
+const NZ_PROPERTY_SITES = {
+  portals: ["trademe.co.nz/property", "oneroof.co.nz", "realestate.co.nz", "homes.co.nz", "homesell.co.nz", "arizto.co.nz"],
+  chains: ["harcourts.co.nz", "raywhite.co.nz", "barfoot.co.nz", "bayleys.co.nz", "ljhooker.co.nz", "century21.co.nz", "professionals.co.nz", "firstnational.co.nz", "propertybrokers.co.nz", "tallpoppy.co.nz", "tommys.co.nz", "harveys.co.nz", "lodge.co.nz", "pggwrightson.co.nz", "raineandhorne.co.nz", "mikepero.com", "remax.co.nz", "nzsir.com", "oneagency.co.nz", "realty.co.nz", "leaders.co.nz", "settle.co.nz"],
+  regional: ["citysales.co.nz", "crockers.co.nz", "unitedrealty.co.nz", "eves.co.nz", "tremains.co.nz", "psbayofplenty.co.nz", "monarch.co.nz", "pnrealty.co.nz", "capitalrealty.co.nz", "nelsonrealty.co.nz", "whittle-knight.co.nz", "westcoastrealty.co.nz", "cowdy.co.nz", "bradleysnelling.co.nz", "dunedinrealestate.co.nz", "centralotagorealty.co.nz", "johnstonfullerton.co.nz", "southlandrealestate.co.nz", "northlandproperty.co.nz"],
+  commercialRural: ["colliers.co.nz", "jll.co.nz", "cbre.co.nz", "savills.co.nz", "knightfrank.co.nz", "ruralrealty.co.nz", "farmlands.co.nz"],
+};
 
 // A portal blocked the scrape → recover the SAME property from another source.
 function urlRecoveryPrompt(url: string, partialAddress?: string | null): string {
@@ -85,21 +98,31 @@ Use web search to find this exact property currently for sale. Try, in order: On
 Then call ${TOOL_NAME} with the property's details and any photo image URLs you can see, plus which site you found it on (source_site) and the page URL (source_url). Report ONLY what the sources actually show — never invent a figure. If you genuinely cannot find the property anywhere, call ${TOOL_NAME} with found=false.`;
 }
 
-// The user typed an address by hand → look that exact property up.
+// The user typed an address by hand → look that exact property up. Google-style
+// search first (catches any site), then targeted site: searches as a fallback.
 function addressLookupPrompt(address: string): string {
-  return `A New Zealand homeowner or investor wants this property analysed and has given you its address by hand:
+  const portals = [...NZ_PROPERTY_SITES.portals, ...NZ_PROPERTY_SITES.chains].join(", ");
+  const regional = NZ_PROPERTY_SITES.regional.join(", ");
+  const commercial = NZ_PROPERTY_SITES.commercialRural.join(", ");
+  return `A New Zealand homeowner or investor has given you this property address by hand and wants it analysed:
 
 ADDRESS: ${address}
 
-Use web search to find this exact property, checking these sources in order until you have solid data:
-1. OneRoof — oneroof.co.nz
-2. realestate.co.nz
-3. homes.co.nz
-4. A general web search for "${address} for sale NZ" (picks up the listing agency's own site and any other portal)
+Find this exact property with web search. Work the steps in order and STOP as soon as you have solid listing data.
 
-NZ properties are usually cross-posted, so the same one often appears on several sites — prefer whichever gives the most complete data (photos, price, bedrooms, bathrooms, floor area, land area, description).
+STEP 1 — Google-style search FIRST (this catches a listing on ANY site without checking each one):
+  • "${address}" property for sale NZ
+  • "<street number> <street name> <suburb>" real estate NZ   ← pull the number / street / suburb out of the address above
+Read the top results and extract everything from the best one. NZ listings are cross-posted, so the property is usually on a major portal or an agency's own site.
 
-Then call ${TOOL_NAME} with everything the sources actually show, plus any photo image URLs, the site you found it on (source_site) and the page URL (source_url). Report ONLY what the sources show — never invent a figure. If this property is not currently listed for sale anywhere, call ${TOOL_NAME} with found=false — that's a valid outcome, the address alone is still useful.`;
+STEP 2 — Only if Step 1 finds nothing, run targeted "site:" searches on the likely portals, e.g. "${address}" site:trademe.co.nz OR site:oneroof.co.nz OR site:realestate.co.nz.
+  Major portals & national chains: ${portals}.
+  Regional / specialist agencies (use the ones for this property's region): ${regional}.
+  Commercial / rural: ${commercial}.
+
+EXTRACT — only what the sources actually show, never invent: asking/listing price, bedrooms, bathrooms, car parks/garages, floor area (m²), land area (m²), the full description, ALL listing photo image URLs, agent + agency, days on market, and the site (source_site) + page URL (source_url) you found it on.
+
+If after all searches the property is NOT currently listed for sale anywhere, call ${TOOL_NAME} with found=false — that's a valid outcome; the address alone is still useful for a public-data analysis. Then call ${TOOL_NAME}.`;
 }
 
 const num = (n: unknown): number | null => (typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null);
@@ -154,6 +177,7 @@ export async function searchListing(opts: { url?: string; address?: string | nul
     description: str(d.description),
     agencyName: str(d.agency_name),
     agentName: str(d.agent_name),
+    daysOnMarket: int(d.days_on_market),
     photoUrls: Array.isArray(d.photo_urls) ? d.photo_urls.filter((u) => typeof u === "string" && /^https?:\/\//.test(u)) : [],
   };
   return { found: true, source: str(d.source_site) ?? "web search", sourceUrl: str(d.source_url), fields };
