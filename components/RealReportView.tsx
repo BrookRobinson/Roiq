@@ -15,8 +15,9 @@ import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
 import {
   projectValue, cumulativeGrowthPct, grossYieldPct, netYieldPct, estimateAnnualCosts, vacancyRisk,
+  qualityMultiplier, roiqFairValue,
 } from "@/lib/scoring/investment";
-import type { CapitalGrowth, MarketRent } from "@/lib/scoring/investment";
+import type { CapitalGrowth, MarketRent, SuburbValue } from "@/lib/scoring/investment";
 import { costThreeTier, tierTotal, TIER_ORDER, scaleTier, isScalableKind } from "@/lib/reno-costing/three-tier";
 import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
 import { RenoVisualiser } from "@/components/RenoVisualiser";
@@ -237,15 +238,10 @@ export function RealReportView({ report }: { report: StoredReport }) {
                 )}
               </div>
 
-              {/* Quality score + predicted future sale price (replaces VFM grade) */}
+              {/* Predicted future sale price. The 1,000-pt quality score is hidden —
+                  it runs in the background and powers the Value Verdict on the
+                  Financial tab. */}
               <div className="text-right flex-shrink-0">
-                <div className="text-4xl font-bold mono leading-none" style={{ color: "var(--brand)" }}>
-                  {scored.total}
-                  <span className="text-base font-normal" style={{ color: "var(--text-muted)" }}> /1,000</span>
-                </div>
-                <div className="text-[10px] mt-1" style={{ color: "var(--text-muted)" }}>
-                  quality score · base {scored.base}{scored.dwellingBonus > 0 ? ` + ${scored.dwellingBonus}` : ""}
-                </div>
                 <FutureSalePrice askingPrice={listing.askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="right" />
               </div>
             </div>
@@ -262,7 +258,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
                 ))}
               </div>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Re-weights all 1,000 points for your goal — instantly.
+                Re-weights the whole report for your goal — instantly.
               </span>
             </div>
 
@@ -288,30 +284,13 @@ export function RealReportView({ report }: { report: StoredReport }) {
           {tab === "improvements" && <PropertyTab data={{ categories: improvementsCategories(subItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} />}
           {tab === "property" && <PropertyInspections scored={scored} subItems={subItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} />}
           {tab === "renovations" && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
-          {tab === "financial" && <FinanceTab listing={listing} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} />}
+          {tab === "financial" && <FinanceTab listing={listing} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} />}
           {tab === "healthyhomes" && <HealthyHomesReal buildYear={listing.buildYear} subItems={subItems} />}
         </div>
 
         <Disclaimer url={listing.url} />
       </div>
     </HoldPeriodProvider>
-  );
-}
-
-// ── Score dial ────────────────────────────────────────────────────────────────
-function ScoreDial({ total, base }: { total: number; base: number }) {
-  const r = 46;
-  const circ = 2 * Math.PI * r;
-  const frac = Math.min(1, total / 1050);
-  const dash = circ * frac;
-  const color = base >= 800 ? "#00e676" : base >= 650 ? "#00d4c8" : base >= 450 ? "#f59e0b" : "#ef4444";
-  return (
-    <svg width="120" height="120" viewBox="0 0 120 120" className="flex-shrink-0">
-      <circle cx="60" cy="60" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="10" />
-      <circle cx="60" cy="60" r={r} fill="none" stroke={color} strokeWidth="10" strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round" transform="rotate(-90 60 60)" />
-      <text x="60" y="56" textAnchor="middle" className="mono" style={{ fontSize: 26, fontWeight: 700, fill: "var(--text-primary)" }}>{total}</text>
-      <text x="60" y="74" textAnchor="middle" style={{ fontSize: 10, fill: "var(--text-muted)" }}>/ 1,000</text>
-    </svg>
   );
 }
 
@@ -426,7 +405,7 @@ function InvestorRatingPanel({
         <div className="rounded-lg p-3 mb-4 flex items-start gap-2 text-sm" style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)" }}>
           <Zap size={15} className="mt-0.5 flex-shrink-0" style={{ color: "#fbbf24" }} />
           <span style={{ color: "var(--text-secondary)" }}>
-            <strong style={{ color: "#fbbf24" }}>High-yield property</strong> — {gross.toFixed(1)}% gross return may offset the lower condition score ({qualityBase}/1,000). Weigh cashflow against the repair list.
+            <strong style={{ color: "#fbbf24" }}>High-yield property</strong> — {gross.toFixed(1)}% gross return may offset the property&apos;s lower condition. Weigh cashflow against the repair list.
           </span>
         </div>
       )}
@@ -475,7 +454,7 @@ function InspectionBars({ scored }: { scored: ScoreResult }) {
             <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
               <div className="h-full rounded-full transition-all duration-500" style={{ width: `${v.pct}%`, background: col }} />
             </div>
-            <div className="w-20 text-right text-xs mono" style={{ color: "var(--text-secondary)" }}>{v.earned}/{v.max}</div>
+            <div className="w-12 text-right text-xs mono" style={{ color: "var(--text-secondary)" }}>{v.pct}%</div>
           </div>
         );
       })}
@@ -531,20 +510,18 @@ function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggle
 
   return (
     <div className="space-y-6">
-      {/* Score hero — dial + grade + inspection breakdown */}
+      {/* Predicted value + condition breakdown (the 1,000-pt score is hidden — see
+          the RoIQ Value Verdict on the Financial tab). */}
       <div className="grid lg:grid-cols-3 gap-4">
-        <div className="card p-5 flex items-center gap-4">
-          <ScoreDial total={scored.total} base={scored.base} />
-          <div>
-            <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Quality score</div>
-            <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-              base {scored.base}{scored.dwellingBonus > 0 ? ` + ${scored.dwellingBonus} bonus` : ""}
-            </div>
-            <FutureSalePrice askingPrice={report.listing.askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="left" />
+        <div className="card p-5 flex flex-col justify-center">
+          <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Predicted sale value</div>
+          <FutureSalePrice askingPrice={report.listing.askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="left" />
+          <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
+            See the <strong style={{ color: "var(--brand)" }}>Financial</strong> tab for the RoIQ Value Verdict — whether the asking price is fair once renovations are factored in.
           </div>
         </div>
         <div className="card p-5 lg:col-span-2">
-          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-secondary)" }}>Inspection breakdown</h3>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-secondary)" }}>Condition by inspection area</h3>
           <InspectionBars scored={scored} />
         </div>
       </div>
@@ -636,7 +613,7 @@ function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggle
       {report.extraDwellings.length > 0 && (
         <div className="card p-5">
           <h3 className="font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
-            Extra dwellings ({report.extraDwellings.length}) · +{scored.dwellingBonus} bonus pts
+            Extra dwellings ({report.extraDwellings.length})
           </h3>
           {report.extraDwellings.map((d) => (
             <p key={d.id} className="text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -979,13 +956,106 @@ function FinSection({ title, children }: { title: string; children: React.ReactN
   );
 }
 
-function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles }: {
+// ── RoIQ Value Verdict (Change 1) — the headline number, top of the Finance tab.
+// Suburb median $/m² (scraped) × condition multiplier (the hidden quality score)
+// × floor area = RoIQ fair value; compared against asking + selected renovations.
+function ValueVerdict({ asking, renoTotal, score, floorSqm, suburbValue }: {
+  asking: number; renoTotal: number; score: number; floorSqm: number; suburbValue?: SuburbValue;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (!asking || !floorSqm || !suburbValue) {
+    const why = !asking
+      ? "Add a purchase price to see the verdict."
+      : !floorSqm
+        ? "No floor area is on file for this property, so we can't estimate a per-m² value."
+        : "We couldn't fetch enough recent comparable sales for this suburb to estimate a fair value.";
+    return (
+      <div className="card p-5" style={{ border: "1px solid var(--border)" }}>
+        <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--brand)" }}>RoIQ Value Verdict</div>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{why}</p>
+      </div>
+    );
+  }
+
+  const mult = qualityMultiplier(score);
+  const fairValue = roiqFairValue(suburbValue.medianPerSqm, score, floorSqm);
+  const trueCost = asking + renoTotal;
+  const diff = fairValue - trueCost; // + = below comparable value (good), − = overpriced
+  const pctOff = fairValue > 0 ? (diff / fairValue) * 100 : 0;
+  const verdict = Math.abs(pctOff) <= 10 ? "fair" : diff < 0 ? "over" : "under";
+  const VC = verdict === "over" ? "#ff5f5f" : verdict === "under" ? "#00e676" : "#fbbf24";
+
+  return (
+    <div className="card p-5" style={{ border: `1px solid ${VC}55` }}>
+      <div className="text-[11px] uppercase tracking-widest mb-3" style={{ color: "var(--brand)" }}>RoIQ Value Verdict</div>
+
+      <div className="space-y-1.5 text-sm">
+        <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Asking price</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(asking)}</span></div>
+        <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Selected renovation costs</span><span className="mono" style={{ color: "var(--text-primary)" }}>+{fmt(renoTotal)}</span></div>
+        <div className="flex items-center justify-between font-bold pt-1.5" style={{ borderTop: "1px solid var(--border)" }}><span style={{ color: "var(--text-primary)" }}>True cost to you</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(trueCost)}</span></div>
+        <div className="flex items-center justify-between pt-2"><span style={{ color: "var(--text-secondary)" }}>RoIQ estimated renovated value</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(fairValue)}</span></div>
+      </div>
+
+      <div className="mt-4 rounded-lg p-3" style={{ background: `${VC}14`, border: `1px solid ${VC}40` }}>
+        {verdict === "over" && <div className="font-bold text-sm" style={{ color: VC }}>⚠️ OVERPRICED by ~{fmt(Math.abs(diff))}</div>}
+        {verdict === "under" && <div className="font-bold text-sm" style={{ color: VC }}>✅ UNDERVALUED by ~{fmt(diff)}</div>}
+        {verdict === "fair" && <div className="font-bold text-sm" style={{ color: VC }}>⚖️ FAIRLY PRICED — within 10% of the RoIQ estimate</div>}
+        <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+          {verdict === "over" && "This property costs more than comparable renovated homes in this suburb once renovation work is factored in."}
+          {verdict === "under" && "Strong opportunity. Even after renovation costs this property is below comparable renovated homes in this suburb."}
+          {verdict === "fair" && "The true cost is in line with comparable renovated homes in this suburb."}
+        </p>
+      </div>
+
+      <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
+        RoIQ estimates are based on recent comparable sales and property condition. Always obtain a registered valuation before purchasing.
+      </p>
+
+      <button onClick={() => setOpen(!open)} className="mt-2 inline-flex items-center gap-1 text-xs cursor-pointer" style={{ color: "var(--brand)" }}>
+        <ChevronDown size={12} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+        {open ? "Hide working" : "How we calculated this"}
+      </button>
+
+      {open && (
+        <div className="mt-2 rounded-lg p-3 text-xs space-y-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+          <div>
+            <div className="font-semibold" style={{ color: "var(--text-primary)" }}>Suburb median $/m² — {suburbValue.suburb}</div>
+            <div style={{ color: "var(--text-secondary)" }}>Based on {suburbValue.sampleSize} recent sales from {suburbValue.source}</div>
+            {suburbValue.medianSalePrice ? <div style={{ color: "var(--text-secondary)" }}>Median sale price: {fmt(suburbValue.medianSalePrice)}</div> : null}
+            {suburbValue.medianFloorArea ? <div style={{ color: "var(--text-secondary)" }}>Median floor area: {suburbValue.medianFloorArea}m²</div> : null}
+            <div className="mono" style={{ color: "var(--text-primary)" }}>Median $/m²: {fmt(suburbValue.medianPerSqm)}/m²</div>
+            <div style={{ color: "var(--text-muted)" }}>Data retrieved: {suburbValue.retrieved}</div>
+            {suburbValue.widenedNote && <div style={{ color: "#fbbf24" }}>⚠ {suburbValue.widenedNote}</div>}
+          </div>
+          <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <div className="font-semibold" style={{ color: "var(--text-primary)" }}>RoIQ estimated value</div>
+            <div className="mono" style={{ color: "var(--text-secondary)" }}>{fmt(suburbValue.medianPerSqm)}/m² × {mult.toFixed(2)}× condition × {floorSqm}m² = {fmt(fairValue)}</div>
+            <div style={{ color: "var(--text-muted)" }}>The condition multiplier reflects this property&apos;s assessed quality vs the median home in the suburb.</div>
+          </div>
+          <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <div className="font-semibold" style={{ color: "var(--text-primary)" }}>True cost to you</div>
+            <div className="mono" style={{ color: "var(--text-secondary)" }}>Asking {fmt(asking)} + renovations {fmt(renoTotal)} = {fmt(trueCost)}</div>
+          </div>
+          <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <div className="font-semibold" style={{ color: "var(--text-primary)" }}>Verdict</div>
+            <div className="mono" style={{ color: "var(--text-secondary)" }}>fair value {fmt(fairValue)} − true cost {fmt(trueCost)} = {diff >= 0 ? "+" : "−"}{fmt(Math.abs(diff))} ({pctOff >= 0 ? "+" : "−"}{Math.abs(pctOff).toFixed(0)}%)</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles, score, suburbValue }: {
   listing: StoredReport["listing"];
   persona: Persona;
   marketRent?: MarketRent;
   capitalGrowth?: CapitalGrowth;
   renoLines: RenoLine[];
   renoToggles: Record<string, RenoToggle>;
+  score: number;
+  suburbValue?: SuburbValue;
 }) {
   const { holdYears, withinHold } = useHoldPeriod();
   const renoTotal = selectedRenoCost(renoLines, renoToggles, withinHold);
@@ -1031,6 +1101,9 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 
   return (
     <div className="space-y-4">
+      {/* RoIQ Value Verdict — the most important thing a buyer needs to know. */}
+      <ValueVerdict asking={price} renoTotal={renoTotal} score={score} floorSqm={floorSqm} suburbValue={suburbValue} />
+
       {/* Section 9 — THE FINAL ANSWER */}
       <div className="card p-5" style={{ border: "1px solid var(--brand)", background: "linear-gradient(180deg, rgba(0,212,200,0.06), transparent)" }}>
         <div className="text-[11px] uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>If you buy today and sell in {holdYears} years</div>

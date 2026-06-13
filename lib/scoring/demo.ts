@@ -256,5 +256,15 @@ export function buildDemoReport(): StoredReport {
         "Within the Auckland Grammar / Epsom Girls' double-grammar zone — a durable, supply-constrained demand driver. Established Auckland City suburb with limited new-build competition, so values hold up better through cycles.",
       recentNote: "Median down ~9.4% over the last 12 months in a softer Auckland market — the projection uses the long-run trend, not the recent dip.",
     },
+    suburbValue: {
+      medianPerSqm: 9500,
+      sampleSize: 18,
+      medianSalePrice: 1750000,
+      medianFloorArea: 184,
+      propertyType: "house",
+      suburb: "Remuera, Auckland",
+      source: "oneroof.co.nz + homes.co.nz",
+      retrieved: "June 2026",
+    },
   };
 }
