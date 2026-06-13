@@ -37,14 +37,14 @@ export function HoldPeriodSlider() {
         <input
           type="range"
           min={1}
-          max={40}
+          max={15}
           value={holdYears}
           onChange={(e) => setHoldYears(Number(e.target.value))}
           className="flex-1 cursor-pointer"
           style={{ accentColor: "var(--brand)" }}
           aria-label="Hold period in years"
         />
-        <span className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>40</span>
+        <span className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>15</span>
       </div>
 
       <div className="hidden sm:flex flex-col items-end flex-shrink-0">
