@@ -17,7 +17,7 @@ import {
   projectValue, cumulativeGrowthPct, grossYieldPct, netYieldPct, estimateAnnualCosts, vacancyRisk,
 } from "@/lib/scoring/investment";
 import type { CapitalGrowth, MarketRent } from "@/lib/scoring/investment";
-import { costThreeTier, tierTotal, TIER_ORDER } from "@/lib/reno-costing/three-tier";
+import { costThreeTier, tierTotal, TIER_ORDER, scaleTier, isScalableKind } from "@/lib/reno-costing/three-tier";
 import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
 import { RenoVisualiser } from "@/components/RenoVisualiser";
 import { visualKindFor } from "@/lib/visualiser";
@@ -75,7 +75,11 @@ const fmtShort = (n: number): string => {
 //   included=false → removed from the budget
 //   tier → "patch" | "budget" | "premium" (default "budget")
 //   labour → "diy" (materials only) | "tradie" (adds labour); default per tier
-interface RenoToggle { included: boolean; tier: Tier; labour: LabourMode }
+interface RenoToggle { included: boolean; tier: Tier; labour: LabourMode; affectedPct?: number }
+
+/** Fraction (0–1) of the property this line affects — only AREA/LINEAR items scale. */
+const lineFrac = (c: ThreeTierCost | undefined, t?: RenoToggle): number =>
+  c && isScalableKind(c.kind) ? (t?.affectedPct ?? 100) / 100 : 1;
 const lineMid = (l: { low: number; high: number }) => (l.low + l.high) / 2;
 
 // Effective cost for a line: chosen tier total under the chosen labour mode.
@@ -84,7 +88,7 @@ const lineCost = (l: { costing?: ThreeTierCost; low: number; high: number }, t?:
   if (!c) return lineMid(l);
   const tier: Tier = t?.tier ?? "budget";
   const labour: LabourMode = t?.labour ?? c[tier].defaultLabour;
-  return tierTotal(c[tier], labour);
+  return tierTotal(scaleTier(c[tier], lineFrac(c, t)), labour);
 };
 
 /** Total of the toggled-on reno lines that fall within the hold period. */
@@ -159,6 +163,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
         included: prev[key]?.included ?? true,
         tier: prev[key]?.tier ?? "budget",
         labour: prev[key]?.labour ?? "tradie",
+        affectedPct: prev[key]?.affectedPct ?? 100,
         ...patch,
       },
     }));
@@ -747,52 +752,75 @@ function TierBreakdown({ tier, labour }: { tier: TierCost; labour: LabourMode })
 
 // Three-tier chooser: Patch Up / Replace Budget / Replace High End, each with a
 // DIY vs Pay-someone toggle and a collapsible itemised breakdown.
-function ThreeTier({ line, toggle, onTier, onLabour }: {
+function ThreeTier({ line, toggle, onTier, onLabour, onPct }: {
   line: RenoLine;
   toggle?: RenoToggle;
   onTier: (tier: Tier) => void;
   onLabour: (mode: LabourMode) => void;
+  onPct: (pct: number) => void;
 }) {
   const [open, setOpen] = useState<Tier | null>(null);
   const c = line.costing;
   if (!c) return <div className="text-sm mono mt-2" style={{ color: "var(--brand)" }}>{fmt(line.low)}–{fmt(line.high)}</div>;
   const selTier: Tier = toggle?.tier ?? "budget";
   const selLabour: LabourMode = toggle?.labour ?? c[selTier].defaultLabour;
+  const scalable = isScalableKind(c.kind);
+  const pct = scalable ? (toggle?.affectedPct ?? 100) : 100;
+  const frac = pct / 100;
+  const scaledQty = Math.round(c.quantity * frac * 10) / 10;
   return (
-    <div className="mt-2.5 grid md:grid-cols-3 gap-2">
-      {TIER_ORDER.map((tk) => {
-        const t = c[tk];
-        const active = selTier === tk;
-        const labourMode: LabourMode = active ? selLabour : t.defaultLabour;
-        const total = labourMode === "tradie" ? t.tradieTotal : t.diyTotal;
-        return (
-          <div key={tk} role="button" tabIndex={0} onClick={() => onTier(tk)}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTier(tk); } }}
-            className="rounded-lg p-2.5 cursor-pointer flex flex-col transition-colors"
-            style={{ border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "rgba(0,212,200,0.06)" : "var(--surface)" }}>
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{t.icon} {t.label}</span>
-              <span className="text-sm font-bold mono" style={{ color: active ? "var(--brand)" : "var(--text-secondary)" }}>{fmt(total)}</span>
-            </div>
-            <p className="text-[11px] mt-1 flex-1" style={{ color: "var(--text-secondary)" }}>{t.scope}</p>
-            <div className="flex items-center gap-1 mt-2">
-              {(["diy", "tradie"] as LabourMode[]).map((m) => (
-                <button key={m} onClick={(e) => { e.stopPropagation(); onTier(tk); onLabour(m); }}
-                  className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer"
-                  style={{ background: labourMode === m ? "var(--brand)" : "var(--surface-2)", color: labourMode === m ? "#04110f" : "var(--text-muted)", border: "1px solid var(--border)" }}>
-                  {m === "diy" ? "DIY" : "Pay someone"}
-                </button>
-              ))}
-            </div>
-            <button onClick={(e) => { e.stopPropagation(); setOpen(open === tk ? null : tk); }}
-              className="mt-1.5 inline-flex items-center gap-1 text-[11px] cursor-pointer self-start" style={{ color: "var(--brand)" }}>
-              <ChevronDown size={11} style={{ transform: open === tk ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
-              {open === tk ? "Hide" : "See"} breakdown
-            </button>
-            {open === tk && <TierBreakdown tier={t} labour={labourMode} />}
+    <div className="mt-2.5">
+      {scalable && (
+        <div className="rounded-lg px-3 py-2 mb-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>% of property affected</span>
+            <span className="text-xs font-bold mono px-1.5 py-0.5 rounded" style={{ color: "var(--brand)", background: "var(--brand-light)" }}>{pct}%</span>
           </div>
-        );
-      })}
+          <input type="range" min={10} max={100} step={5} value={pct}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => onPct(Number(e.target.value))}
+            className="w-full mt-1.5 cursor-pointer" style={{ accentColor: "var(--brand)" }}
+            aria-label={`Percentage of ${line.name} affected`} />
+          <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+            {c.quantity}{c.quantityUnit} total × {pct}% = <span className="mono" style={{ color: "var(--text-secondary)" }}>{scaledQty}{c.quantityUnit}</span> to do
+          </div>
+        </div>
+      )}
+      <div className="grid md:grid-cols-3 gap-2">
+        {TIER_ORDER.map((tk) => {
+          const t = scaleTier(c[tk], frac);
+          const active = selTier === tk;
+          const labourMode: LabourMode = active ? selLabour : t.defaultLabour;
+          const total = labourMode === "tradie" ? t.tradieTotal : t.diyTotal;
+          return (
+            <div key={tk} role="button" tabIndex={0} onClick={() => onTier(tk)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTier(tk); } }}
+              className="rounded-lg p-2.5 cursor-pointer flex flex-col transition-colors"
+              style={{ border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "rgba(0,212,200,0.06)" : "var(--surface)" }}>
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{t.icon} {t.label}</span>
+                <span className="text-sm font-bold mono" style={{ color: active ? "var(--brand)" : "var(--text-secondary)" }}>{fmt(total)}</span>
+              </div>
+              <p className="text-[11px] mt-1 flex-1" style={{ color: "var(--text-secondary)" }}>{t.scope}</p>
+              <div className="flex items-center gap-1 mt-2">
+                {(["diy", "tradie"] as LabourMode[]).map((m) => (
+                  <button key={m} onClick={(e) => { e.stopPropagation(); onTier(tk); onLabour(m); }}
+                    className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer"
+                    style={{ background: labourMode === m ? "var(--brand)" : "var(--surface-2)", color: labourMode === m ? "#04110f" : "var(--text-muted)", border: "1px solid var(--border)" }}>
+                    {m === "diy" ? "DIY" : "Pay someone"}
+                  </button>
+                ))}
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); setOpen(open === tk ? null : tk); }}
+                className="mt-1.5 inline-flex items-center gap-1 text-[11px] cursor-pointer self-start" style={{ color: "var(--brand)" }}>
+                <ChevronDown size={11} style={{ transform: open === tk ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                {open === tk ? "Hide" : "See"} breakdown
+              </button>
+              {open === tk && <TierBreakdown tier={t} labour={labourMode} />}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -822,7 +850,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
     const c = l.costing;
     const tier: Tier = t?.tier ?? "budget";
     const labour: LabourMode = t?.labour ?? (c ? c[tier].defaultLabour : "tradie");
-    return { tierLabel: c ? c[tier].label : "—", labour, cost: c ? tierTotal(c[tier], labour) : lineMid(l) };
+    return { tierLabel: c ? c[tier].label : "—", labour, cost: lineCost(l, t), pct: lineFrac(c, t) };
   };
 
   return (
@@ -854,7 +882,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
                 <div key={l.key} className="flex items-center justify-between gap-2 text-xs">
                   <span className="truncate" style={{ color: "var(--text-secondary)" }}>{l.name}</span>
                   <span className="flex items-center gap-2 flex-shrink-0">
-                    <span style={{ color: "var(--text-muted)" }}>{r.tierLabel}{r.labour === "diy" ? " · DIY" : ""}</span>
+                    <span style={{ color: "var(--text-muted)" }}>{r.tierLabel}{r.labour === "diy" ? " · DIY" : ""}{r.pct < 1 ? ` · ${Math.round(r.pct * 100)}%` : ""}</span>
                     <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(r.cost)}</span>
                   </span>
                 </div>
@@ -893,7 +921,8 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
                 {included && (
                   <ThreeTier line={l} toggle={t}
                     onTier={(tier) => setRenoToggle(l.key, { tier, labour: l.costing ? l.costing[tier].defaultLabour : "tradie" })}
-                    onLabour={(mode) => setRenoToggle(l.key, { labour: mode })} />
+                    onLabour={(mode) => setRenoToggle(l.key, { labour: mode })}
+                    onPct={(pct) => setRenoToggle(l.key, { affectedPct: pct })} />
                 )}
               </div>
             </div>

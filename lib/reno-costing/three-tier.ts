@@ -509,3 +509,41 @@ export function costThreeTier(args: {
 export function tierTotal(t: TierCost, labour: LabourMode): number {
   return labour === "tradie" ? t.tradieTotal : t.diyTotal;
 }
+
+// ── Percentage-of-property scaling (Change 3) ────────────────────────────────
+// AREA / LINEAR items get a "% of property affected" slider — do the whole roof,
+// or just 60% of it. Whole-unit items (a heat pump, a cylinder, a kitchen or
+// bathroom refit, a count of windows) are all-or-nothing and get no slider.
+const SCALABLE_KINDS: Set<RenoKind> = new Set<RenoKind>([
+  "cladding", "exterior_paint", "roof", "gutters", "soffits", "foundation",
+  "decking", "insulation", "flooring_vinyl", "flooring_carpet", "flooring_tile",
+  "driveway", "fencing",
+]);
+
+export function isScalableKind(kind: RenoKind): boolean {
+  return SCALABLE_KINDS.has(kind);
+}
+
+/**
+ * Scale every quantity, material line and labour hour of a tier by `pct` (0–1)
+ * — e.g. 0.6 = "60% of the house". pct ≥ 1 returns the tier unchanged, so the
+ * 100% default is a no-op. Line costs are re-summed so the breakdown always adds
+ * up to the displayed total.
+ */
+export function scaleTier(t: TierCost, pct: number): TierCost {
+  if (pct >= 1) return t;
+  const p = Math.max(0.05, pct);
+  const r = (n: number) => Math.round(n);
+  const materials = t.materials.map((m) => ({
+    ...m,
+    qty: Math.round(m.qty * p * 10) / 10,
+    lineCost: r(m.lineCost * p),
+  }));
+  const labour = t.labour.map((l) => {
+    const hours = Math.max(1, r(l.hours * p));
+    return { ...l, hours, cost: r(hours * l.rate), working: `${TRADE_LABEL[l.trade]} ${hours}hrs @ $${l.rate}/hr` };
+  });
+  const materialsCost = r(materials.reduce((s, m) => s + m.lineCost, 0));
+  const labourCost = r(labour.reduce((s, l) => s + l.cost, 0));
+  return { ...t, materials, materialsCost, labour, labourCost, diyTotal: materialsCost, tradieTotal: materialsCost + labourCost };
+}
