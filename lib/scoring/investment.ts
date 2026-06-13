@@ -18,6 +18,36 @@ export interface CapitalGrowth {
   recentNote?: string; // honest near-term note, e.g. "−9.4% last 12 months"
 }
 
+/** Scraped suburb median $/m² from recent comparable sales (Change 2). */
+export interface SuburbValue {
+  medianPerSqm: number; // headline figure, $/m²
+  sampleSize: number; // number of recent sales used
+  medianSalePrice?: number;
+  medianFloorArea?: number;
+  propertyType?: string; // type filtered to, e.g. "house"
+  suburb: string; // label, e.g. "Greymouth, West Coast"
+  source: string; // e.g. "oneroof.co.nz" (+ any cross-checks)
+  widenedNote?: string; // set if the search widened to a nearby town/district
+  retrieved: string; // "June 2026"
+}
+
+/**
+ * Quality → value multiplier (Change 1 Value Verdict). The hidden 1,000-pt score
+ * scales the suburb median to reflect this property's condition vs the median home.
+ */
+export function qualityMultiplier(score: number): number {
+  if (score < 200) return 0.65;
+  if (score < 400) return 0.80;
+  if (score < 600) return 0.95;
+  if (score < 800) return 1.20;
+  return 1.45;
+}
+
+/** RoIQ fair value = suburb median $/m² × quality multiplier × floor area. */
+export function roiqFairValue(medianPerSqm: number, score: number, floorAreaSqm: number): number {
+  return Math.round(medianPerSqm * qualityMultiplier(score) * floorAreaSqm);
+}
+
 /** Compound a price forward at an annual rate for N years. */
 export function projectValue(price: number, annualRatePct: number, years: number): number {
   return price * Math.pow(1 + annualRatePct / 100, years);

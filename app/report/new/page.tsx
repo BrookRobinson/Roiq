@@ -91,6 +91,7 @@ export default function NewReportPage() {
         gaps: data.gaps ?? [],
         marketRent: data.marketRent,
         capitalGrowth: data.capitalGrowth,
+        suburbValue: data.suburbValue,
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
       });

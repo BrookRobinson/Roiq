@@ -16,7 +16,8 @@ import { SCORING_MODEL, type ScoringSubItem, type Inspection } from "@/lib/scori
 import { buildCatalog, INSPECTION_META, SOURCE_TAXONOMY, type CatalogInspection } from "@/lib/scoring/catalog";
 import { scoreBoth, type Assessment } from "@/lib/scoring/report";
 import { fetchMarketData, type MarketResult } from "./market";
-import type { MarketRent, CapitalGrowth } from "@/lib/scoring/investment";
+import { fetchSuburbValue } from "./comparables";
+import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
 import type { PropertyContext, ScoreResult } from "@/lib/scoring/engine";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import type {
@@ -49,6 +50,8 @@ export interface AnalysisResult {
   /** Web-sourced (cited) market rent + capital growth for the suburb. */
   marketRent?: MarketRent;
   capitalGrowth?: CapitalGrowth;
+  /** Web-sourced (cited) suburb median $/m² from recent comparable sales. */
+  suburbValue?: SuburbValue;
   photosAnalysed: number;
   model: string;
 }
@@ -410,16 +413,21 @@ export async function analyseProperty(
   listing: ScrapedListing,
   opts?: { inspections?: Inspection[] }
 ): Promise<AnalysisResult> {
-  // Research market rent + capital growth in parallel — non-fatal.
+  // Research market rent + capital growth + suburb $/m² in parallel — non-fatal.
   const marketP = fetchMarketData(listing).catch((e) => {
     console.warn("[market] lookup failed:", (e as Error)?.message);
     return {} as MarketResult;
+  });
+  const suburbP = fetchSuburbValue(listing).catch((e) => {
+    console.warn("[suburb-value] lookup failed:", (e as Error)?.message);
+    return undefined;
   });
   const images = await prepareImages(listing.photoUrls ?? []);
   const raw = await runClaude(listing, images, opts?.inspections);
   const result = assembleResult(raw, listing, images.length, opts?.inspections);
   const market = await marketP;
-  return { ...result, marketRent: market.marketRent, capitalGrowth: market.capitalGrowth };
+  const suburbValue = await suburbP;
+  return { ...result, marketRent: market.marketRent, capitalGrowth: market.capitalGrowth, suburbValue };
 }
 
 // ── Fast path: Files-API upload + parallel per-inspection fan-out ─────────────
@@ -526,9 +534,14 @@ export async function analysePropertyFast(listing: ScrapedListing): Promise<Anal
     console.warn("[market] lookup failed:", (e as Error)?.message);
     return {} as MarketResult;
   });
+  const suburbP = fetchSuburbValue(listing).catch((e) => {
+    console.warn("[suburb-value] lookup failed:", (e as Error)?.message);
+    return undefined;
+  });
   const finish = async (result: AnalysisResult): Promise<AnalysisResult> => {
     const market = await marketP;
-    return { ...result, marketRent: market.marketRent, capitalGrowth: market.capitalGrowth };
+    const suburbValue = await suburbP;
+    return { ...result, marketRent: market.marketRent, capitalGrowth: market.capitalGrowth, suburbValue };
   };
 
   const images = await prepareImages(listing.photoUrls ?? []);
