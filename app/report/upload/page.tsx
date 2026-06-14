@@ -3,7 +3,7 @@
 import Navbar from "@/components/Navbar";
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Loader2, CheckCircle2, ImagePlus, X, AlertTriangle } from "lucide-react";
+import { ArrowRight, Loader2, CheckCircle2, ImagePlus, X, AlertTriangle, Plus } from "lucide-react";
 import { saveReport } from "@/lib/report-store";
 import { MANDATORY_CATEGORIES, OPTIONAL_CATEGORIES, type PhotoCategory } from "@/lib/photo-categories";
 
@@ -38,7 +38,7 @@ export default function UploadReportPage() {
   const [address, setAddress] = useState("");
   const [price, setPrice] = useState(""); // formatted, e.g. "310,000"
   const [scrapedPrice, setScrapedPrice] = useState<number | null>(null);
-  const [photos, setPhotos] = useState<Record<string, Shot>>({});
+  const [photos, setPhotos] = useState<Record<string, Shot[]>>({});
   const [triedSubmit, setTriedSubmit] = useState(false);
   const [step, setStep] = useState<Step>("input");
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,7 @@ export default function UploadReportPage() {
   const priceOk = priceNum > 0;
   // The web search found a listing price that differs from what the user typed.
   const priceDiffers = scrapedPrice != null && priceOk && priceNum !== scrapedPrice;
-  const missingMandatory = MANDATORY_CATEGORIES.filter((c) => !photos[c.id]);
+  const missingMandatory = MANDATORY_CATEGORIES.filter((c) => !photos[c.id]?.length);
   const mandatoryDone = missingMandatory.length === 0;
   const canSubmit = addressOk && priceOk && mandatoryDone;
 
@@ -66,16 +66,25 @@ export default function UploadReportPage() {
     setPrice(digits ? Number(digits).toLocaleString("en-US") : "");
   };
 
-  const setShot = async (catId: string, file: File | undefined) => {
-    if (!file) return;
+  // Add one or more photos to a slot (a file input can pick several at once).
+  const addShots = async (catId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
     try {
-      const dataUrl = await resizeToDataUrl(file);
-      setPhotos((p) => ({ ...p, [catId]: { dataUrl, name: file.name } }));
+      const resized = await Promise.all(
+        Array.from(files).map((f) => resizeToDataUrl(f).then((dataUrl) => ({ dataUrl, name: f.name })))
+      );
+      setPhotos((p) => ({ ...p, [catId]: [...(p[catId] ?? []), ...resized] }));
     } catch {
       setError("One of those images couldn't be read — try a JPEG or PNG.");
     }
   };
-  const removeShot = (catId: string) => setPhotos((p) => { const n = { ...p }; delete n[catId]; return n; });
+  const removeShotAt = (catId: string, index: number) =>
+    setPhotos((p) => {
+      const arr = (p[catId] ?? []).filter((_, i) => i !== index);
+      const n = { ...p };
+      if (arr.length) n[catId] = arr; else delete n[catId];
+      return n;
+    });
 
   // Kick off address-based data loading in the background (council/suburb/comparables)
   // so it's ready by the time the user finishes selecting photos.
@@ -116,7 +125,7 @@ export default function UploadReportPage() {
       const payload = {
         address: address.trim(),
         askingPrice: priceNum, // the user's price is authoritative → Finance tab + Value Verdict
-        photos: Object.entries(photos).map(([category, s]) => ({ category, dataUrl: s.dataUrl })),
+        photos: Object.entries(photos).flatMap(([category, arr]) => arr.map((s) => ({ category, dataUrl: s.dataUrl }))),
         prefetched: prefetch.current?.key === address.trim() ? prefetch.current?.data : undefined,
       };
       const res = await fetch("/api/analyze", {
@@ -227,8 +236,8 @@ export default function UploadReportPage() {
           subtitle="The report can't run without these — they drive condition scoring and renovation estimates."
           categories={MANDATORY_CATEGORIES}
           photos={photos}
-          onPick={setShot}
-          onRemove={removeShot}
+          onAdd={addShots}
+          onRemove={removeShotAt}
           danger={triedSubmit && !mandatoryDone}
         />
 
@@ -252,15 +261,15 @@ export default function UploadReportPage() {
           subtitle="The report runs without these, but every extra area makes it more accurate."
           categories={OPTIONAL_CATEGORIES}
           photos={photos}
-          onPick={setShot}
-          onRemove={removeShot}
+          onAdd={addShots}
+          onRemove={removeShotAt}
         />
 
         {/* Coverage + submit */}
         <div className="rounded-2xl p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div className="flex items-center gap-4 text-sm mb-4">
             <span style={{ color: mandatoryDone ? "var(--success)" : "var(--text-secondary)" }}>{mandatoryDone ? "✅" : "📷"} {MANDATORY_CATEGORIES.length - missingMandatory.length} of {MANDATORY_CATEGORIES.length} required areas covered</span>
-            <span style={{ color: "var(--text-muted)" }}>💡 {OPTIONAL_CATEGORIES.filter((c) => !photos[c.id]).length} optional areas not photographed</span>
+            <span style={{ color: "var(--text-muted)" }}>💡 {OPTIONAL_CATEGORIES.filter((c) => !photos[c.id]?.length).length} optional areas not photographed</span>
           </div>
           {/* Greyed until address + all required photos are in, but still clickable so
               a tap surfaces exactly what's missing (the address error / photo list). */}
@@ -278,51 +287,58 @@ export default function UploadReportPage() {
   );
 }
 
-function PhotoGroup({ title, subtitle, categories, photos, onPick, onRemove, danger }: {
+function PhotoGroup({ title, subtitle, categories, photos, onAdd, onRemove, danger }: {
   title: string; subtitle: string; categories: PhotoCategory[];
-  photos: Record<string, Shot>; onPick: (id: string, f: File | undefined) => void; onRemove: (id: string) => void; danger?: boolean;
+  photos: Record<string, Shot[]>; onAdd: (id: string, files: FileList | null) => void; onRemove: (id: string, index: number) => void; danger?: boolean;
 }) {
   return (
     <div className="rounded-2xl p-6 mb-4" style={{ background: "var(--surface)", border: `1px solid ${danger ? "rgba(255,95,95,0.3)" : "var(--border)"}` }}>
       <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{title}</h3>
       <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>{subtitle}</p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {categories.map((c) => <PhotoSlot key={c.id} cat={c} shot={photos[c.id]} onPick={onPick} onRemove={onRemove} />)}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+        {categories.map((c) => <PhotoSlot key={c.id} cat={c} shots={photos[c.id] ?? []} onAdd={onAdd} onRemove={onRemove} />)}
       </div>
     </div>
   );
 }
 
-function PhotoSlot({ cat, shot, onPick, onRemove }: {
-  cat: PhotoCategory; shot?: Shot; onPick: (id: string, f: File | undefined) => void; onRemove: (id: string) => void;
+// One slot = one room/area, holding any number of photos.
+function PhotoSlot({ cat, shots, onAdd, onRemove }: {
+  cat: PhotoCategory; shots: Shot[]; onAdd: (id: string, files: FileList | null) => void; onRemove: (id: string, index: number) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const has = shots.length > 0;
   return (
-    <div>
-      <div
-        role="button" tabIndex={0}
-        onClick={() => ref.current?.click()}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ref.current?.click(); } }}
-        className="relative rounded-xl overflow-hidden flex flex-col items-center justify-center text-center cursor-pointer"
-        style={{ aspectRatio: "4 / 3", border: `1.5px ${shot ? "solid" : "dashed"} ${shot ? "var(--brand)" : "var(--border)"}`, background: shot ? "transparent" : "var(--surface-2)" }}
-      >
-        {shot ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={shot.dataUrl} alt={cat.label} className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          <ImagePlus size={20} style={{ color: "var(--text-muted)" }} />
-        )}
-        {shot && (
-          <button onClick={(e) => { e.stopPropagation(); onRemove(cat.id); }} aria-label={`Remove ${cat.label}`}
-            className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
-            <X size={13} color="white" />
-          </button>
-        )}
-        {shot && <CheckCircle2 size={16} className="absolute bottom-1 right-1" style={{ color: "var(--brand)" }} />}
+    <div className="rounded-xl p-3" style={{ border: `1.5px solid ${has ? "var(--brand)" : "var(--border)"}`, background: "var(--surface-2)" }}>
+      <div className="flex items-center justify-between mb-2 gap-2">
+        <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+          {cat.label}{cat.mandatory && <span style={{ color: "var(--danger)" }}> *</span>}
+        </span>
+        {has && <span className="text-[11px] flex-shrink-0" style={{ color: "var(--brand)" }}>{shots.length} photo{shots.length > 1 ? "s" : ""} ✅</span>}
       </div>
-      <div className="mt-1.5 text-xs font-medium leading-tight" style={{ color: "var(--text-primary)" }}>{cat.label}</div>
-      {!shot && cat.hint && <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>{cat.hint}</div>}
-      <input ref={ref} type="file" accept="image/*" className="hidden" onChange={(e) => { onPick(cat.id, e.target.files?.[0]); e.target.value = ""; }} />
+      <div className="flex flex-wrap gap-2">
+        {shots.map((s, i) => (
+          <div key={i} className="relative rounded-md overflow-hidden flex-shrink-0" style={{ width: 60, height: 60 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={s.dataUrl} alt={`${cat.label} ${i + 1}`} className="w-full h-full object-cover" />
+            <button onClick={() => onRemove(cat.id, i)} aria-label={`Remove ${cat.label} photo ${i + 1}`}
+              className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.65)" }}>
+              <X size={10} color="white" />
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={() => ref.current?.click()}
+          className="rounded-md flex flex-col items-center justify-center flex-shrink-0 cursor-pointer"
+          style={{ width: 60, height: 60, border: "1.5px dashed var(--border)", background: "var(--surface)" }}
+          aria-label={`Add ${cat.label} photo`}
+        >
+          {has ? <Plus size={18} style={{ color: "var(--text-muted)" }} /> : <ImagePlus size={18} style={{ color: "var(--text-muted)" }} />}
+          <span className="text-[9px] mt-0.5" style={{ color: "var(--text-muted)" }}>Add</span>
+        </button>
+      </div>
+      {!has && cat.hint && <div className="text-[10px] mt-1.5" style={{ color: "var(--text-muted)" }}>{cat.hint}</div>}
+      <input ref={ref} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { onAdd(cat.id, e.target.files); e.target.value = ""; }} />
     </div>
   );
 }

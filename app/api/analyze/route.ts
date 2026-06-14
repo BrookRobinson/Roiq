@@ -89,7 +89,16 @@ export async function POST(req: NextRequest) {
         listing.priceText = `$${body.askingPrice.toLocaleString("en-NZ")}`;
         listing.priceMethod = "fixed";
       }
-      photoLabels = photos.map((p) => categoryLabel(p.category));
+      // Label every photo with its room; when a slot has several, number them
+      // ("Backyard — Photo 2 of 3") so the model analyses them all together.
+      const catTotals = photos.reduce<Record<string, number>>((m, p) => { m[p.category] = (m[p.category] ?? 0) + 1; return m; }, {});
+      const catSeen: Record<string, number> = {};
+      photoLabels = photos.map((p) => {
+        const label = categoryLabel(p.category);
+        const total = catTotals[p.category];
+        catSeen[p.category] = (catSeen[p.category] ?? 0) + 1;
+        return total > 1 ? `${label} — Photo ${catSeen[p.category]} of ${total}` : label;
+      });
     } else if (body.listing) {
       listing = body.listing;
     } else if (body.address) {
