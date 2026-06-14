@@ -1,0 +1,55 @@
+"use client";
+
+import type { UrgencyScore } from "@/lib/property-tab/types";
+
+// Condition score badge for the Improvements tab — JUST the number + colour, no
+// words (no "Fair / Average / Good", no "plan replacement within X years").
+// Bands per spec: 1–3 red, 4–6 orange, 7–10 green. The score still drives reno
+// urgency, the value verdict and the hidden quality score internally; this is
+// purely a clean read on current condition.
+
+const RED = "#ff5f5f";
+const ORANGE = "#fb923c";
+const GREEN = "#00e676";
+
+/** Hex accent for a condition score (used for the badge and the card's left border). */
+export function conditionScoreColor(score: UrgencyScore | null): string {
+  if (score === null) return "#3d7872"; // muted teal — not assessed
+  if (score >= 7) return GREEN;
+  if (score >= 4) return ORANGE;
+  return RED;
+}
+
+export function ConditionScore({ score, size = "md" }: { score: UrgencyScore | null; size?: "sm" | "md" }) {
+  const isSmall = size === "sm";
+  const pad = isSmall ? "3px 10px" : "5px 14px";
+
+  if (score === null) {
+    return (
+      <span
+        className="inline-flex items-center rounded-lg font-medium"
+        style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-muted)", padding: pad, fontSize: isSmall ? 11 : 12 }}
+      >
+        Not assessed
+      </span>
+    );
+  }
+
+  const c = conditionScoreColor(score);
+  return (
+    <span
+      className="inline-flex items-center rounded-lg font-bold tabular-nums"
+      style={{
+        background: `${c}1f`,
+        border: `1px solid ${c}55`,
+        color: c,
+        fontFamily: "Fira Code, monospace",
+        padding: pad,
+        fontSize: isSmall ? 13 : 15,
+      }}
+      aria-label={`Condition score ${score} out of 10`}
+    >
+      {score}/10
+    </span>
+  );
+}

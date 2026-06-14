@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { SubItem } from "@/lib/property-tab/types";
-import { urgencyColor, urgencyScoreToYears } from "@/lib/property-tab/types";
-import { UrgencyBadge } from "./UrgencyBadge";
+import { urgencyScoreToYears } from "@/lib/property-tab/types";
+import { ConditionScore, conditionScoreColor } from "./ConditionScore";
 import { ConfidenceTierBadge } from "./ConfidenceTierBadge";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
@@ -31,19 +31,12 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
   return null;
 }
 
-const accentColors = {
-  green: "#00e676",
-  amber: "#fbbf24",
-  red:   "#ff5f5f",
-  muted: "#3d7872",
-};
-
 export function SubItemCard({ item, region, floorSqm }: { item: SubItem; region?: string; floorSqm?: number | null }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
   const urgencyYears = urgencyScoreToYears(item.score);
   const isWithinHold = withinHold(urgencyYears);
-  const color = accentColors[urgencyColor(item.score)];
+  const color = conditionScoreColor(item.score);
   const costItem = getCostItem(item, region, floorSqm);
 
   return (
@@ -92,7 +85,6 @@ export function SubItemCard({ item, region, floorSqm }: { item: SubItem; region?
               {[
                 { label: "Material", value: item.material },
                 { label: "Age",      value: item.estimatedAge },
-                { label: "Condition",value: item.condition },
               ].map((pill) => (
                 <div
                   key={pill.label}
@@ -108,9 +100,9 @@ export function SubItemCard({ item, region, floorSqm }: { item: SubItem; region?
             </div>
           </div>
 
-          {/* Urgency badge */}
+          {/* Condition score — number + colour only (no condition/urgency text) */}
           <div className="flex-shrink-0">
-            <UrgencyBadge score={item.score} label={item.urgencyLabel} size="sm" />
+            <ConditionScore score={item.score} size="sm" />
           </div>
         </div>
 

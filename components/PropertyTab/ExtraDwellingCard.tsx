@@ -2,8 +2,7 @@
 
 import { AlertTriangle, Camera } from "lucide-react";
 import type { ExtraDwelling } from "@/lib/property-tab/types";
-import { UrgencyBadge } from "./UrgencyBadge";
-import { urgencyLabel } from "@/lib/property-tab/types";
+import { ConditionScore } from "./ConditionScore";
 
 export function ExtraDwellingCard({ dwelling }: { dwelling: ExtraDwelling }) {
   const consentColors = {
@@ -53,7 +52,7 @@ export function ExtraDwellingCard({ dwelling }: { dwelling: ExtraDwelling }) {
               ))}
             </div>
           </div>
-          <UrgencyBadge score={dwelling.score} label={urgencyLabel(dwelling.score)} size="sm" />
+          <ConditionScore score={dwelling.score} size="sm" />
         </div>
 
         {/* Value contribution */}

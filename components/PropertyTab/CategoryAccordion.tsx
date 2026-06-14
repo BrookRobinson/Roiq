@@ -3,16 +3,9 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import type { Category } from "@/lib/property-tab/types";
-import { worstSubItemScore, urgencyColor } from "@/lib/property-tab/types";
+import { worstSubItemScore } from "@/lib/property-tab/types";
 import { SubItemCard } from "./SubItemCard";
-import { UrgencyBadge } from "./UrgencyBadge";
-
-const accentColors = {
-  green: "#00e676",
-  amber: "#fbbf24",
-  red:   "#ff5f5f",
-  muted: "#3d7872",
-};
+import { ConditionScore, conditionScoreColor } from "./ConditionScore";
 
 interface Props {
   category: Category;
@@ -24,8 +17,7 @@ interface Props {
 export function CategoryAccordion({ category, defaultOpen = false, region, floorSqm }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const worst = worstSubItemScore(category);
-  const colorKey = urgencyColor(worst);
-  const accentColor = accentColors[colorKey];
+  const accentColor = conditionScoreColor(worst);
 
   const scored = category.subItems.filter((s) => s.score !== null);
   const avgScore = scored.length > 0
@@ -80,13 +72,7 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
 
         {/* Avg score pill + chevron */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          {worst !== null && (
-            <UrgencyBadge
-              score={worst}
-              label={worst <= 4 ? "Needs work" : worst <= 7 ? "Monitor" : "Good"}
-              size="sm"
-            />
-          )}
+          {worst !== null && <ConditionScore score={worst} size="sm" />}
           <ChevronRight
             size={18}
             style={{

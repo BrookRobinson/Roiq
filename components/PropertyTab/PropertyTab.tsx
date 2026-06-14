@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { PropertyTabData } from "@/lib/property-tab/types";
 import { worstSubItemScore } from "@/lib/property-tab/types";
 import { CategoryAccordion } from "./CategoryAccordion";
+import { ConditionScore } from "./ConditionScore";
 import { ExtraDwellingCard } from "./ExtraDwellingCard";
 import { Home, AlertTriangle, Info } from "lucide-react";
 
@@ -74,13 +75,13 @@ export function PropertyTab({ data, region, floorSqm }: Props) {
                     className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
                     style={{ background: s.score! <= 2 ? "#ff5f5f" : "#fb923c" }}
                   />
-                  <div>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium" style={{ color: "var(--text-primary)" }}>
                       {s.name}
                     </span>
-                    <span style={{ color: "var(--text-secondary)" }}> — {s.urgencyLabel}</span>
+                    <ConditionScore score={s.score} size="sm" />
                     {s.estimatedReplacementCost && (
-                      <span className="ml-2 text-xs mono" style={{ color: "var(--brand)" }}>
+                      <span className="text-xs mono" style={{ color: "var(--brand)" }}>
                         ${s.estimatedReplacementCost.low.toLocaleString()}–
                         ${s.estimatedReplacementCost.high.toLocaleString()}
                       </span>
