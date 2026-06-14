@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
     address?: string;
     only?: Inspection[];
     photos?: { category: string; dataUrl: string }[];
+    askingPrice?: number;
     prefetch?: boolean;
     prefetched?: { listing?: ScrapedListing; marketRent?: MarketRent; capitalGrowth?: CapitalGrowth; suburbValue?: SuburbValue } | null;
   };
@@ -81,6 +82,13 @@ export async function POST(req: NextRequest) {
       }
       const base = body.prefetched?.listing ?? (await resolveListingByAddress(body.address));
       listing = { ...base, photoUrls: photos.map((p) => p.dataUrl), scrapedOk: true };
+      // The user's entered asking price is authoritative (overrides any scraped figure)
+      // → feeds the Financial tab + Value Verdict.
+      if (typeof body.askingPrice === "number" && body.askingPrice > 0) {
+        listing.askingPrice = body.askingPrice;
+        listing.priceText = `$${body.askingPrice.toLocaleString("en-NZ")}`;
+        listing.priceMethod = "fixed";
+      }
       photoLabels = photos.map((p) => categoryLabel(p.category));
     } else if (body.listing) {
       listing = body.listing;

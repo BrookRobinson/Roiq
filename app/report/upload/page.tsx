@@ -36,24 +36,35 @@ function resizeToDataUrl(file: File, maxDim = 1400, quality = 0.8): Promise<stri
 export default function UploadReportPage() {
   const router = useRouter();
   const [address, setAddress] = useState("");
+  const [price, setPrice] = useState(""); // formatted, e.g. "310,000"
+  const [scrapedPrice, setScrapedPrice] = useState<number | null>(null);
   const [photos, setPhotos] = useState<Record<string, Shot>>({});
   const [triedSubmit, setTriedSubmit] = useState(false);
   const [step, setStep] = useState<Step>("input");
   const [error, setError] = useState<string | null>(null);
-  // Background data resolved from the address while the user picks photos (Spec 1 #4).
+  // Background data resolved from the address while the user picks photos.
   const prefetch = useRef<{ key: string; data: Record<string, unknown> | null } | null>(null);
 
   const addressOk = address.trim().length > 0;
-  const anyPhoto = Object.keys(photos).length > 0;
+  const priceNum = Number(price.replace(/[^0-9]/g, "")) || 0;
+  const priceOk = priceNum > 0;
+  // The web search found a listing price that differs from what the user typed.
+  const priceDiffers = scrapedPrice != null && priceOk && priceNum !== scrapedPrice;
   const missingMandatory = MANDATORY_CATEGORIES.filter((c) => !photos[c.id]);
   const mandatoryDone = missingMandatory.length === 0;
-  const canSubmit = addressOk && mandatoryDone;
+  const canSubmit = addressOk && priceOk && mandatoryDone;
 
-  const buttonLabel = !addressOk || !anyPhoto
-    ? "Add address and photos to continue"
+  const buttonLabel = !addressOk || !priceOk
+    ? "Add address and price to continue"
     : !mandatoryDone
       ? "Add required photos to continue"
       : "Analyse property";
+
+  // Numbers only, formatted as currency as the user types (no $ needed).
+  const onPriceChange = (v: string) => {
+    const digits = v.replace(/[^0-9]/g, "").slice(0, 9);
+    setPrice(digits ? Number(digits).toLocaleString("en-US") : "");
+  };
 
   const setShot = async (catId: string, file: File | undefined) => {
     if (!file) return;
@@ -78,7 +89,17 @@ export default function UploadReportPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address: key, prefetch: true }),
       });
-      if (res.ok && prefetch.current?.key === key) prefetch.current.data = await res.json();
+      if (res.ok && prefetch.current?.key === key) {
+        const data = await res.json();
+        prefetch.current.data = data;
+        // If the search found a listing price, remember it + auto-fill (unless the
+        // user already typed one — they can always override).
+        const sp = (data as { listing?: { askingPrice?: number } })?.listing?.askingPrice;
+        if (typeof sp === "number" && sp > 0) {
+          setScrapedPrice(sp);
+          setPrice((prev) => (prev.trim() ? prev : sp.toLocaleString("en-US")));
+        }
+      }
     } catch {
       /* non-fatal — the analyse call will fetch it if the prefetch didn't land */
     }
@@ -87,13 +108,14 @@ export default function UploadReportPage() {
   async function analyse() {
     setTriedSubmit(true);
     setError(null);
-    if (!addressOk) return; // inline address error renders below the field
+    if (!addressOk || !priceOk) return; // inline address/price errors render below
     if (!mandatoryDone) return; // missing-photos block renders below
 
     setStep("analysing");
     try {
       const payload = {
         address: address.trim(),
+        askingPrice: priceNum, // the user's price is authoritative → Finance tab + Value Verdict
         photos: Object.entries(photos).map(([category, s]) => ({ category, dataUrl: s.dataUrl })),
         prefetched: prefetch.current?.key === address.trim() ? prefetch.current?.data : undefined,
       };
@@ -159,8 +181,8 @@ export default function UploadReportPage() {
 
         {error && <div className="rounded-xl p-4 mb-4 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)", border: "1px solid rgba(255,95,95,0.2)" }}>{error}</div>}
 
-        {/* Address — MANDATORY */}
-        <div className="rounded-2xl p-6 mb-4" style={{ background: "var(--surface)", border: `1px solid ${triedSubmit && !addressOk ? "var(--danger)" : "var(--border)"}` }}>
+        {/* Address + asking price — BOTH MANDATORY */}
+        <div className="rounded-2xl p-6 mb-4" style={{ background: "var(--surface)", border: `1px solid ${triedSubmit && (!addressOk || !priceOk) ? "var(--danger)" : "var(--border)"}` }}>
           <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--text-primary)" }}>
             Property address <span style={{ color: "var(--danger)" }}>*</span>
           </label>
@@ -171,9 +193,32 @@ export default function UploadReportPage() {
             onChange={(e) => setAddress(e.target.value)}
             onBlur={startPrefetch}
           />
-          {triedSubmit && !addressOk
-            ? <p className="text-sm mt-2 flex items-start gap-1.5" style={{ color: "var(--danger)" }}><AlertTriangle size={14} className="mt-0.5 flex-shrink-0" /> Property address is required. We need this to retrieve council records, legal information, land data, suburb statistics and comparable sales.</p>
-            : <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>* Required</p>}
+          {triedSubmit && !addressOk && (
+            <p className="text-sm mt-2 flex items-start gap-1.5" style={{ color: "var(--danger)" }}><AlertTriangle size={14} className="mt-0.5 flex-shrink-0" /> Property address is required. We need this to retrieve council records, legal information, land data, suburb statistics and comparable sales.</p>
+          )}
+
+          <label className="text-sm font-semibold mb-2 mt-4 block" style={{ color: "var(--text-primary)" }}>
+            Asking price <span style={{ color: "var(--danger)" }}>*</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base" style={{ color: "var(--text-muted)" }}>$</span>
+            <input
+              className="input text-base w-full"
+              style={{ paddingLeft: 26 }}
+              inputMode="numeric"
+              placeholder="e.g. 310,000"
+              value={price}
+              onChange={(e) => onPriceChange(e.target.value)}
+            />
+          </div>
+          {triedSubmit && !priceOk && (
+            <p className="text-sm mt-2 flex items-start gap-1.5" style={{ color: "var(--danger)" }}><AlertTriangle size={14} className="mt-0.5 flex-shrink-0" /> Asking price is required — it drives the financial calculator and the value verdict.</p>
+          )}
+          {priceDiffers && (
+            <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Using your entered price of ${priceNum.toLocaleString("en-US")} — listing shows ${scrapedPrice!.toLocaleString("en-US")}</p>
+          )}
+
+          <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>* Both fields required</p>
         </div>
 
         {/* Mandatory photos */}
