@@ -9,6 +9,7 @@ import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
 import type { PropertyContext, ScoreResult } from "@/lib/scoring/engine";
 import type { Persona } from "@/lib/scoring/model";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
+import type { PhotoCoverage } from "@/lib/photo-categories";
 import type { ScrapedListing } from "@/lib/scraper/types";
 
 export interface StoredGap {
@@ -54,6 +55,8 @@ export interface StoredReport {
   capitalGrowth?: CapitalGrowth;
   /** Scraped suburb median $/m² (recent comparable sales) for the Value Verdict. */
   suburbValue?: SuburbValue;
+  /** Which photo areas were provided in a manual upload (coverage indicator). */
+  photoCoverage?: PhotoCoverage;
 }
 
 const key = (id: string) => `roiq:report:${id}`;

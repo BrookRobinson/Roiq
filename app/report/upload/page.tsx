@@ -1,0 +1,283 @@
+"use client";
+
+import Navbar from "@/components/Navbar";
+import { useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Loader2, CheckCircle2, ImagePlus, X, AlertTriangle } from "lucide-react";
+import { saveReport } from "@/lib/report-store";
+import { MANDATORY_CATEGORIES, OPTIONAL_CATEGORIES, type PhotoCategory } from "@/lib/photo-categories";
+
+type Step = "input" | "analysing" | "done";
+interface Shot { dataUrl: string; name: string }
+
+// Resize a picked photo in the browser before upload — keeps the request small
+// and fast. Anthropic downscales >1568px anyway, so quality is unaffected.
+function resizeToDataUrl(file: File, maxDim = 1400, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("Canvas unavailable"));
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read that image")); };
+    img.src = url;
+  });
+}
+
+export default function UploadReportPage() {
+  const router = useRouter();
+  const [address, setAddress] = useState("");
+  const [photos, setPhotos] = useState<Record<string, Shot>>({});
+  const [triedSubmit, setTriedSubmit] = useState(false);
+  const [step, setStep] = useState<Step>("input");
+  const [error, setError] = useState<string | null>(null);
+  // Background data resolved from the address while the user picks photos (Spec 1 #4).
+  const prefetch = useRef<{ key: string; data: Record<string, unknown> | null } | null>(null);
+
+  const addressOk = address.trim().length > 0;
+  const anyPhoto = Object.keys(photos).length > 0;
+  const missingMandatory = MANDATORY_CATEGORIES.filter((c) => !photos[c.id]);
+  const mandatoryDone = missingMandatory.length === 0;
+  const canSubmit = addressOk && mandatoryDone;
+
+  const buttonLabel = !addressOk || !anyPhoto
+    ? "Add address and photos to continue"
+    : !mandatoryDone
+      ? "Add required photos to continue"
+      : "Analyse property";
+
+  const setShot = async (catId: string, file: File | undefined) => {
+    if (!file) return;
+    try {
+      const dataUrl = await resizeToDataUrl(file);
+      setPhotos((p) => ({ ...p, [catId]: { dataUrl, name: file.name } }));
+    } catch {
+      setError("One of those images couldn't be read — try a JPEG or PNG.");
+    }
+  };
+  const removeShot = (catId: string) => setPhotos((p) => { const n = { ...p }; delete n[catId]; return n; });
+
+  // Kick off address-based data loading in the background (council/suburb/comparables)
+  // so it's ready by the time the user finishes selecting photos.
+  const startPrefetch = useCallback(async () => {
+    const key = address.trim();
+    if (!key || prefetch.current?.key === key) return;
+    prefetch.current = { key, data: null };
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: key, prefetch: true }),
+      });
+      if (res.ok && prefetch.current?.key === key) prefetch.current.data = await res.json();
+    } catch {
+      /* non-fatal — the analyse call will fetch it if the prefetch didn't land */
+    }
+  }, [address]);
+
+  async function analyse() {
+    setTriedSubmit(true);
+    setError(null);
+    if (!addressOk) return; // inline address error renders below the field
+    if (!mandatoryDone) return; // missing-photos block renders below
+
+    setStep("analysing");
+    try {
+      const payload = {
+        address: address.trim(),
+        photos: Object.entries(photos).map(([category, s]) => ({ category, dataUrl: s.dataUrl })),
+        prefetched: prefetch.current?.key === address.trim() ? prefetch.current?.data : undefined,
+      };
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(res.status === 503
+          ? "Claude isn't configured — add a funded ANTHROPIC_API_KEY to .env.local and restart the server."
+          : data.message ?? data.error ?? `Analysis failed (HTTP ${res.status}).`);
+        setStep("input");
+        return;
+      }
+      const id = crypto.randomUUID();
+      saveReport({
+        id,
+        createdAt: new Date().toISOString(),
+        listing: data.listing,
+        context: data.context,
+        subItems: data.subItems ?? [],
+        extraDwellings: data.extraDwellings ?? [],
+        scores: data.scores,
+        gaps: data.gaps ?? [],
+        marketRent: data.marketRent,
+        capitalGrowth: data.capitalGrowth,
+        suburbValue: data.suburbValue,
+        photoCoverage: data.photoCoverage,
+        photosAnalysed: data.photosAnalysed ?? 0,
+        model: data.model,
+      });
+      setStep("done");
+      router.push(`/report/${id}`);
+    } catch {
+      setError("Network error — check your connection and try again.");
+      setStep("input");
+    }
+  }
+
+  if (step === "analysing" || step === "done") {
+    return (
+      <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
+        <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+        <div className="max-w-2xl mx-auto px-4 py-20 text-center">
+          {step === "done"
+            ? <><CheckCircle2 size={56} className="mx-auto mb-4" style={{ color: "var(--success)" }} /><h2 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Report ready</h2><p className="text-sm" style={{ color: "var(--text-secondary)" }}>Redirecting…</p></>
+            : <><Loader2 size={48} className="mx-auto mb-4 animate-spin" style={{ color: "var(--brand)" }} /><h2 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Analysing your photos…</h2><p className="text-sm" style={{ color: "var(--text-secondary)" }}>Claude vision is scoring every area. This can take 1–3 minutes.</p></>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
+      <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+      <div className="max-w-3xl mx-auto px-4 py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>Upload property photos</h1>
+          <p className="text-base" style={{ color: "var(--text-secondary)" }}>For a property you can&apos;t link to — enter the address and upload photos of each area, and RoIQ runs the full analysis.</p>
+        </div>
+
+        {error && <div className="rounded-xl p-4 mb-4 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)", border: "1px solid rgba(255,95,95,0.2)" }}>{error}</div>}
+
+        {/* Address — MANDATORY */}
+        <div className="rounded-2xl p-6 mb-4" style={{ background: "var(--surface)", border: `1px solid ${triedSubmit && !addressOk ? "var(--danger)" : "var(--border)"}` }}>
+          <label className="text-sm font-semibold mb-2 block" style={{ color: "var(--text-primary)" }}>
+            Property address <span style={{ color: "var(--danger)" }}>*</span>
+          </label>
+          <input
+            className="input text-base w-full"
+            placeholder="e.g. 6 Ocean Beach Road, Bluff"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            onBlur={startPrefetch}
+          />
+          {triedSubmit && !addressOk
+            ? <p className="text-sm mt-2 flex items-start gap-1.5" style={{ color: "var(--danger)" }}><AlertTriangle size={14} className="mt-0.5 flex-shrink-0" /> Property address is required. We need this to retrieve council records, legal information, land data, suburb statistics and comparable sales.</p>
+            : <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>* Required</p>}
+        </div>
+
+        {/* Mandatory photos */}
+        <PhotoGroup
+          title="Required photos"
+          subtitle="The report can't run without these — they drive condition scoring and renovation estimates."
+          categories={MANDATORY_CATEGORIES}
+          photos={photos}
+          onPick={setShot}
+          onRemove={removeShot}
+          danger={triedSubmit && !mandatoryDone}
+        />
+
+        {/* Missing-mandatory block (Spec 2) */}
+        {triedSubmit && addressOk && !mandatoryDone && (
+          <div className="rounded-2xl p-5 mb-4" style={{ background: "rgba(255,95,95,0.06)", border: "1px solid rgba(255,95,95,0.3)" }}>
+            <div className="flex items-center gap-2 font-semibold text-sm mb-2" style={{ color: "var(--danger)" }}><AlertTriangle size={15} /> Missing required photos</div>
+            <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>RoIQ needs photos of these areas to run an accurate report:</p>
+            <div className="space-y-1">
+              {missingMandatory.map((c) => (
+                <div key={c.id} className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>📷 {c.label} — <span style={{ color: "var(--text-muted)" }}>not uploaded</span></div>
+              ))}
+            </div>
+            <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>These areas are critical for condition scoring and renovation estimates.</p>
+          </div>
+        )}
+
+        {/* Optional photos */}
+        <PhotoGroup
+          title="Optional photos"
+          subtitle="The report runs without these, but every extra area makes it more accurate."
+          categories={OPTIONAL_CATEGORIES}
+          photos={photos}
+          onPick={setShot}
+          onRemove={removeShot}
+        />
+
+        {/* Coverage + submit */}
+        <div className="rounded-2xl p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <div className="flex items-center gap-4 text-sm mb-4">
+            <span style={{ color: mandatoryDone ? "var(--success)" : "var(--text-secondary)" }}>{mandatoryDone ? "✅" : "📷"} {MANDATORY_CATEGORIES.length - missingMandatory.length} of {MANDATORY_CATEGORIES.length} required areas covered</span>
+            <span style={{ color: "var(--text-muted)" }}>💡 {OPTIONAL_CATEGORIES.filter((c) => !photos[c.id]).length} optional areas not photographed</span>
+          </div>
+          {/* Greyed until address + all required photos are in, but still clickable so
+              a tap surfaces exactly what's missing (the address error / photo list). */}
+          <button
+            onClick={analyse}
+            aria-disabled={!canSubmit}
+            className="btn-primary w-full justify-center py-3 text-base"
+            style={{ opacity: canSubmit ? 1 : 0.5 }}
+          >
+            {buttonLabel}{canSubmit && <ArrowRight size={18} />}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PhotoGroup({ title, subtitle, categories, photos, onPick, onRemove, danger }: {
+  title: string; subtitle: string; categories: PhotoCategory[];
+  photos: Record<string, Shot>; onPick: (id: string, f: File | undefined) => void; onRemove: (id: string) => void; danger?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl p-6 mb-4" style={{ background: "var(--surface)", border: `1px solid ${danger ? "rgba(255,95,95,0.3)" : "var(--border)"}` }}>
+      <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{title}</h3>
+      <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>{subtitle}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {categories.map((c) => <PhotoSlot key={c.id} cat={c} shot={photos[c.id]} onPick={onPick} onRemove={onRemove} />)}
+      </div>
+    </div>
+  );
+}
+
+function PhotoSlot({ cat, shot, onPick, onRemove }: {
+  cat: PhotoCategory; shot?: Shot; onPick: (id: string, f: File | undefined) => void; onRemove: (id: string) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div>
+      <div
+        role="button" tabIndex={0}
+        onClick={() => ref.current?.click()}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ref.current?.click(); } }}
+        className="relative rounded-xl overflow-hidden flex flex-col items-center justify-center text-center cursor-pointer"
+        style={{ aspectRatio: "4 / 3", border: `1.5px ${shot ? "solid" : "dashed"} ${shot ? "var(--brand)" : "var(--border)"}`, background: shot ? "transparent" : "var(--surface-2)" }}
+      >
+        {shot ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={shot.dataUrl} alt={cat.label} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <ImagePlus size={20} style={{ color: "var(--text-muted)" }} />
+        )}
+        {shot && (
+          <button onClick={(e) => { e.stopPropagation(); onRemove(cat.id); }} aria-label={`Remove ${cat.label}`}
+            className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
+            <X size={13} color="white" />
+          </button>
+        )}
+        {shot && <CheckCircle2 size={16} className="absolute bottom-1 right-1" style={{ color: "var(--brand)" }} />}
+      </div>
+      <div className="mt-1.5 text-xs font-medium leading-tight" style={{ color: "var(--text-primary)" }}>{cat.label}</div>
+      {!shot && cat.hint && <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>{cat.hint}</div>}
+      <input ref={ref} type="file" accept="image/*" className="hidden" onChange={(e) => { onPick(cat.id, e.target.files?.[0]); e.target.value = ""; }} />
+    </div>
+  );
+}

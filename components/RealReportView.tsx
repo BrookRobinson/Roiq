@@ -13,6 +13,7 @@ import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
+import { MANDATORY_CATEGORIES, categoryLabel } from "@/lib/photo-categories";
 import {
   projectValue, cumulativeGrowthPct, grossYieldPct, netYieldPct, estimateAnnualCosts, vacancyRisk,
   qualityMultiplier, roiqFairValue,
@@ -236,6 +237,16 @@ export function RealReportView({ report }: { report: StoredReport }) {
                     <Info size={12} /> {listing.dataSource}
                   </div>
                 )}
+                {report.photoCoverage && (
+                  <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-xs">
+                    <span style={{ color: report.photoCoverage.missingMandatory.length === 0 ? "var(--success)" : "#fb923c" }}>
+                      {report.photoCoverage.missingMandatory.length === 0 ? "✅" : "⚠"} {MANDATORY_CATEGORIES.length - report.photoCoverage.missingMandatory.length} of {MANDATORY_CATEGORIES.length} required areas covered
+                    </span>
+                    {report.photoCoverage.missingOptional.length > 0 && (
+                      <span style={{ color: "var(--text-muted)" }}>💡 {report.photoCoverage.missingOptional.length} optional areas not photographed</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Predicted future sale price. The 1,000-pt quality score is hidden —
@@ -280,6 +291,15 @@ export function RealReportView({ report }: { report: StoredReport }) {
 
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {report.photoCoverage && report.photoCoverage.missingOptional.length > 0 && (
+            <div className="card p-4 mb-6" style={{ border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.06)" }}>
+              <div className="text-sm font-semibold mb-1" style={{ color: "#fbbf24" }}>💡 Your report could be more accurate</div>
+              <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                These areas weren&apos;t photographed: {report.photoCoverage.missingOptional.map(categoryLabel).join("  ·  ")}
+              </div>
+              <a href="/report/upload" className="text-xs mt-1.5 inline-block hover:underline" style={{ color: "var(--brand)" }}>Upload additional photos →</a>
+            </div>
+          )}
           {tab === "overview" && <OverviewReal report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} />}
           {tab === "improvements" && <PropertyTab data={{ categories: improvementsCategories(subItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} />}
           {tab === "property" && <PropertyInspections scored={scored} subItems={subItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} />}

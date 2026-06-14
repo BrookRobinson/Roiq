@@ -216,8 +216,12 @@ export default function NewReportPage() {
               <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
             </div>
 
-            {/* Manual upload */}
+            {/* Manual upload — address + categorised photos, for a property you can't link to */}
             <div
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push("/report/upload")}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push("/report/upload"); } }}
               className="rounded-2xl p-6 text-center cursor-pointer transition-colors"
               style={{
                 border: "2px dashed var(--border)",
@@ -226,16 +230,17 @@ export default function NewReportPage() {
             >
               <Upload size={28} className="mx-auto mb-3" style={{ color: "var(--text-muted)" }} />
               <p className="font-medium text-sm mb-1" style={{ color: "var(--text-primary)" }}>
-                Upload listing photos
+                Upload property photos
               </p>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Use if the listing URL can&apos;t be scraped. Drag and drop or click to browse.
+                For a property you can&apos;t link to. Enter the address and upload a photo of each area — RoIQ runs the full analysis.
               </p>
               <button
                 className="btn-secondary mt-4 text-sm"
-                onClick={() => {}}
+                onClick={(e) => { e.stopPropagation(); router.push("/report/upload"); }}
               >
-                Browse files
+                Upload photos
+                <ArrowRight size={16} />
               </button>
             </div>
           </>

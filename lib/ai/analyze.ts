@@ -301,11 +301,11 @@ function checklistText(inspections?: Inspection[]): string {
     .join("\n\n");
 }
 
-function buildUserMessage(listing: ScrapedListing, photoCount: number, inspections?: Inspection[]): string {
+function buildUserMessage(listing: ScrapedListing, photoCount: number, inspections?: Inspection[], labelled?: boolean): string {
   const facts = formatFacts(listing);
   const photoLine =
     photoCount > 0
-      ? `${photoCount} listing photo(s) are attached above, numbered 1-${photoCount}. Cite photo numbers in your evidence_source and photo_references.`
+      ? `${photoCount} listing photo(s) are attached above, numbered 1-${photoCount}.${labelled ? " Each photo is labelled with the area it shows (e.g. \"Photo 3 — Roof\") — assess the matching sub-items from the labelled photo." : ""} Cite photo numbers in your evidence_source and photo_references.`
       : `No listing photos are available. Assess Improvements items as Tier 3 from build era and location (score = null where you cannot infer a condition); still score Location, Land, and Legal from the facts.`;
 
   return `Analyse this New Zealand residential property and call ${ANALYSIS_TOOL_NAME}.
@@ -324,10 +324,11 @@ ${listing.description ? `LISTING DESCRIPTION\n${listing.description.slice(0, 200
 
 // ── main entry point ───────────────────────────────────────────────────────
 
-function base64ImageContent(images: PreparedImage[]): Anthropic.ContentBlockParam[] {
+function base64ImageContent(images: PreparedImage[], labels?: string[]): Anthropic.ContentBlockParam[] {
   const content: Anthropic.ContentBlockParam[] = [];
   for (const img of images) {
-    content.push({ type: "text", text: `Photo ${img.number}:` });
+    const label = labels?.[img.number - 1]; // labels align to original 1-based order
+    content.push({ type: "text", text: `Photo ${img.number}${label ? ` — ${label}` : ""}:` });
     content.push({
       type: "image",
       source: { type: "base64", media_type: img.media, data: img.buf.toString("base64") },
@@ -339,11 +340,12 @@ function base64ImageContent(images: PreparedImage[]): Anthropic.ContentBlockPara
 async function runClaude(
   listing: ScrapedListing,
   images: PreparedImage[],
-  inspections?: Inspection[]
+  inspections?: Inspection[],
+  photoLabels?: string[]
 ): Promise<RawAnalysis> {
   const content: Anthropic.ContentBlockParam[] = [
-    ...base64ImageContent(images),
-    { type: "text", text: buildUserMessage(listing, images.length, inspections) },
+    ...base64ImageContent(images, photoLabels),
+    { type: "text", text: buildUserMessage(listing, images.length, inspections, !!photoLabels?.length) },
   ];
 
   const client = getAnthropic();
@@ -411,19 +413,31 @@ export function assembleResult(
  */
 export async function analyseProperty(
   listing: ScrapedListing,
-  opts?: { inspections?: Inspection[] }
+  opts?: {
+    inspections?: Inspection[];
+    /** Area labels aligned to listing.photoUrls order (manual upload) → into the vision prompt. */
+    photoLabels?: string[];
+    /** Suburb/market data already loaded by the upload flow's background prefetch. */
+    prefetched?: { marketRent?: MarketRent; capitalGrowth?: CapitalGrowth; suburbValue?: SuburbValue };
+  }
 ): Promise<AnalysisResult> {
-  // Research market rent + capital growth + suburb $/m² in parallel — non-fatal.
-  const marketP = fetchMarketData(listing).catch((e) => {
-    console.warn("[market] lookup failed:", (e as Error)?.message);
-    return {} as MarketResult;
-  });
-  const suburbP = fetchSuburbValue(listing).catch((e) => {
-    console.warn("[suburb-value] lookup failed:", (e as Error)?.message);
-    return undefined;
-  });
+  const pf = opts?.prefetched;
+  // Reuse prefetched suburb/market data if the upload flow already loaded it,
+  // otherwise research it in parallel (non-fatal).
+  const marketP: Promise<MarketResult> = pf
+    ? Promise.resolve({ marketRent: pf.marketRent, capitalGrowth: pf.capitalGrowth })
+    : fetchMarketData(listing).catch((e) => {
+        console.warn("[market] lookup failed:", (e as Error)?.message);
+        return {} as MarketResult;
+      });
+  const suburbP: Promise<SuburbValue | undefined> = pf
+    ? Promise.resolve(pf.suburbValue)
+    : fetchSuburbValue(listing).catch((e) => {
+        console.warn("[suburb-value] lookup failed:", (e as Error)?.message);
+        return undefined;
+      });
   const images = await prepareImages(listing.photoUrls ?? []);
-  const raw = await runClaude(listing, images, opts?.inspections);
+  const raw = await runClaude(listing, images, opts?.inspections, opts?.photoLabels);
   const result = assembleResult(raw, listing, images.length, opts?.inspections);
   const market = await marketP;
   const suburbValue = await suburbP;
