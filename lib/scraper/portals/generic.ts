@@ -44,6 +44,12 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
     listing.description = schema.description ? stripHtml(schema.description as string).slice(0, 4000) : null;
     if (schema.yearBuilt) listing.buildYear = parseYear(String(schema.yearBuilt));
 
+    // Property type from the schema @type — authoritative, and avoids matching a
+    // stray "apartment" in nav/footer text (which turned a villa into an apartment).
+    const stype = String(schema["@type"] ?? "");
+    if (/Apartment/i.test(stype)) listing.propertyType = "apartment";
+    else if (/SingleFamilyResidence|House|Residence/i.test(stype)) listing.propertyType = "house";
+
     const imgs = schema.image as string[] | string | undefined;
     if (Array.isArray(imgs)) listing.photoUrls = imgs.slice(0, 30);
     else if (typeof imgs === "string") listing.photoUrls = [imgs];
@@ -103,10 +109,20 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
     if (m) listing.carParks = parseInt(m[1], 10);
   }
 
-  // Areas
+  // Areas. Prefer the explicit JSON fields portals embed (floorAreaString":"97m²",
+  // landAreaString":"1,012m²") — the loose text scan below can otherwise grab an
+  // unrelated number near the first "floor"/"land" word in the page.
+  if (!listing.floorAreaSqm) {
+    const m = html.match(/floor\s*(?:area|size)[^0-9]{0,12}([0-9][0-9,]*)\s*m/i);
+    if (m) { const n = parseFloat(m[1].replace(/,/g, "")); if (n > 0) listing.floorAreaSqm = n; }
+  }
   if (!listing.floorAreaSqm) {
     const m = html.match(/(?:floor|internal|house)\s*(?:area)?[^0-9]*([0-9,]+)\s*m/i);
     if (m) listing.floorAreaSqm = parseArea(m[0]);
+  }
+  if (!listing.landAreaSqm) {
+    const m = html.match(/(?:land|section)\s*(?:area|size)[^0-9]{0,12}([0-9][0-9,]*)\s*m/i);
+    if (m) { const n = parseFloat(m[1].replace(/,/g, "")); if (n > 0) listing.landAreaSqm = n; }
   }
   if (!listing.landAreaSqm) {
     const m = html.match(/(?:land|section|site)\s*(?:area)?[^0-9]*([0-9,]+)\s*m/i);
@@ -184,7 +200,7 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   const domMatch = html.match(/(\d+)\s*day[s]?\s*(?:on market|listed)/i);
   if (domMatch) listing.daysOnMarket = parseInt(domMatch[1], 10);
 
-  listing.propertyType = detectPropertyType(html, listing.address);
+  if (listing.propertyType === "unknown") listing.propertyType = detectPropertyType(html, listing.address);
   listing.titleType    = detectTitleType(html);
   listing.features     = extractFeatures($);
 

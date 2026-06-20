@@ -73,18 +73,6 @@ export function InspectionCard({
     <div className="rounded-xl overflow-hidden" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderLeft: `3px solid ${isDoc && !verified ? "#fbbf24" : color}` }}>
       <button className="w-full text-left p-4 cursor-pointer" onClick={() => setOpen(!open)}>
         <div className="flex items-start gap-3">
-          {/* Score badge — or a lock for unverified document items */}
-          {isDoc && !verified ? (
-            <div className="flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center" style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)" }}>
-              <Lock size={16} style={{ color: "#fbbf24" }} />
-            </div>
-          ) : (
-            <div className="flex-shrink-0 w-11 h-11 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
-              <span className="text-sm font-bold mono leading-none" style={{ color }}>{displayScore ?? "—"}</span>
-              <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>/10</span>
-            </div>
-          )}
-
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{item.name}</span>
@@ -122,6 +110,19 @@ export function InspectionCard({
               </>
             )}
           </div>
+
+          {/* Score badge on the RIGHT (matches the Improvements tab) — or a lock for
+              unverified document items. */}
+          {isDoc && !verified ? (
+            <div className="flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center" style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)" }}>
+              <Lock size={16} style={{ color: "#fbbf24" }} />
+            </div>
+          ) : (
+            <div className="flex-shrink-0 w-11 h-11 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
+              <span className="text-sm font-bold mono leading-none" style={{ color }}>{displayScore ?? "—"}</span>
+              <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>/10</span>
+            </div>
+          )}
 
           <ChevronRight size={16} className="flex-shrink-0 mt-1" style={{ color: "var(--text-muted)", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
         </div>

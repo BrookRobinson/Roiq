@@ -262,13 +262,6 @@ export function RealReportView({ report }: { report: StoredReport }) {
                   </div>
                 )}
               </div>
-
-              {/* Predicted future sale price. The 1,000-pt quality score is hidden —
-                  it runs in the background and powers the Value Verdict on the
-                  Financial tab. */}
-              <div className="text-right flex-shrink-0">
-                <FutureSalePrice askingPrice={listing.askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="right" />
-              </div>
             </div>
 
             {/* Persona toggle */}
@@ -341,7 +334,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
   );
 }
 
-// ── Predicted future sale price (replaces VFM grade) ──────────────────────────
+// ── Predicted future sale price (used on the Overview tab's value card) ───────
 function FutureSalePrice({
   askingPrice, capitalGrowth, renoLines, renoToggles, align = "right",
 }: {

@@ -27,6 +27,9 @@ SCORING RULES
 - Only set score = null when an IMPROVEMENTS item genuinely cannot be assessed from photos AND cannot be reasonably inferred from build era. Never leave a visible structural item unscored without explanation.
 - Include a conditional sub-item (chimney, solar, retaining walls, pool, body corporate, cross-lease defects) only when it genuinely applies; otherwise omit it.
 
+USE THE LISTING DESCRIPTION AS EVIDENCE
+The listing description (in the user message) often states material facts and recent work the photos can't show — e.g. "double glazing throughout", "new roof 2021", "fully insulated, ceiling and underfloor", "two heat pumps", "DVS ventilation", "rewired / new switchboard", "300L hot water cylinder", floor area, land/section size, the era or decade built. Treat a SPECIFIC, concrete statement as STRONG evidence for the matching sub-item (ext_roof, liv_insulation, ext_windows/glazing, the relevant heating/hot-water items, etc.): score it on that basis and set confidence_tier 1-2 ("vendor-stated — verify at inspection"), NOT tier 3 "not visible". A feature the description explicitly states is NOT "not assessed". Likewise use any stated floor area, land area or build era to inform the report. Always cite the description as the source in ai_summary. Ignore vague marketing ("charming", "modern", "must be viewed") — act only on concrete claims; where the description and photos conflict, trust the photos.
+
 PROPERTY CONTEXT (required)
 Return a property_context object so the engine can resolve conditional items: title_type, has_chimney, has_solar, has_retaining_walls, has_pool, has_body_corporate. Infer each from the photos and listing; default booleans to false and title_type to "unknown" when undeterminable.
 
