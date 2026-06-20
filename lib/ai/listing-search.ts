@@ -133,7 +133,7 @@ A current listing on ANY site counts. Full list to draw from — major portals &
 
 CURRENT vs SOLD — IMPORTANT: results for one address usually MIX the live for-sale listing with OLD sold records and property-data pages (e.g. "Sold", "/sold/" URLs, OneRoof / propertyvalue past-sale prices). You want the one ON THE MARKET NOW — status like "For Sale", "Asking", "Offers Over", "Deadline Sale", "Auction", "Tender", "By Negotiation", "Enquiries Over". NEVER report a past SOLD price as the asking price, and don't stop at a sold record if a current listing also exists — keep looking for the live one.
 
-EXTRACT — only what the sources actually show, never invent: the CURRENT asking/listing price, bedrooms, bathrooms, car parks/garages, floor area (m²), land area (m²), the full description, ALL listing photo image URLs, agent + agency, days on market, and the site (source_site) + page URL (source_url).
+EXTRACT — only what the sources actually show, never invent: the CURRENT asking/listing price, bedrooms, bathrooms, car parks/garages, floor area (m²), land area (m²), the full description, ALL listing photo image URLs, agent + agency, days on market, the site (source_site) + page URL (source_url), AND **candidate_urls** = EVERY page where this property appears — the listing agency's OWN page FIRST (it usually carries the full photo gallery), then portals (oneroof / realestate / homes / propertyvalue). We FETCH those pages to pull the photos, so list as many as you find — INCLUDE them even for a sold / past listing, because the photos are still there.
 
 Then call ${TOOL_NAME}, setting found as follows:
   • found=TRUE only if the property is CURRENTLY for sale — include the current price / price_text.

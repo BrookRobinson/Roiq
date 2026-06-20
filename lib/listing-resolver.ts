@@ -21,6 +21,11 @@ const PORTAL_LABEL: Record<string, string> = {
 
 const hasRealData = (l: ScrapedListing): boolean => l.askingPrice != null || l.bedrooms != null || l.floorAreaSqm != null;
 
+// Below this many photos a listing can't support a real visual condition report
+// (a single aerial-drone shot isn't a gallery) → go looking for the full set on
+// OneRoof / the agent's own site before analysing.
+const MIN_GALLERY = 5;
+
 // Fill gaps in `base` from recovered `fields` (recovered data wins on nulls/unknowns).
 function merge(base: ScrapedListing, f: Partial<ScrapedListing>): ScrapedListing {
   return {
@@ -55,22 +60,79 @@ function hostOf(u: string): string {
   try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
 }
 
+// Portals whose CDNs serve clean, full-resolution images that are FETCHABLE
+// server-side (no hotlink/referer block). We prefer these for the actual photo
+// recovery: many agency sites (e.g. Harcourts via cloudhi.io) only expose tiny
+// thumbnails and 403/redirect a server-side fetch, so their photos look recovered
+// but won't load in the vision analysis. OneRoof carries virtually every NZ listing
+// with full-res, openly-fetchable images, so it's the most reliable photo source.
+const PREFERRED_PHOTO_HOSTS = ["oneroof.co.nz", "realestate.co.nz", "homes.co.nz"];
+const isPreferredPhotoHost = (u: string): boolean => PREFERRED_PHOTO_HOSTS.some((h) => hostOf(u).endsWith(h));
+
 /**
- * Fetch the page(s) the web search pointed us to (agency site first) and scrape the
- * photo gallery — web_search gives URLs + facts but rarely the actual image URLs.
- * Skips TradeMe (the portal that blocks bots). Returns the first page with photos.
+ * Fetch the page(s) the web search pointed us to and scrape the photo gallery —
+ * web_search gives URLs + facts but rarely the actual image URLs. We try the
+ * PREFERRED photo hosts (OneRoof / realestate / homes — clean, full-res, fetchable)
+ * first, then fall back to the rest, keeping the page with the MOST photos so a lone
+ * hero shot never wins over the full gallery. A solid gallery from a preferred host
+ * beats a larger one from an agency CDN that may only serve thumbnails or block
+ * server-side fetches. Skips TradeMe (blocks bots); caps the network fan-out.
  */
 async function recoverPhotos(candidateUrls: string[]): Promise<{ scraped: ScrapedListing; host: string } | null> {
-  for (const cu of candidateUrls) {
+  // Try clean, reliable portals before agency sites.
+  const ranked = [...candidateUrls].sort(
+    (a, b) => (isPreferredPhotoHost(a) ? 0 : 1) - (isPreferredPhotoHost(b) ? 0 : 1)
+  );
+  let best: { scraped: ScrapedListing; host: string } | null = null;          // richest by count
+  let bestPreferred: { scraped: ScrapedListing; host: string } | null = null; // richest from a clean host
+  let tried = 0;
+  for (const cu of ranked) {
     if (detectPortalFromUrl(cu) === "trademe") continue;
+    if (tried >= 5) break; // cap the number of pages we fetch
+    tried++;
     try {
       const scraped = await scrapeListingUrl(cu);
-      if (scraped.photoUrls.length > 0) return { scraped, host: hostOf(cu) };
+      const n = scraped.photoUrls.length;
+      if (n > (best?.scraped.photoUrls.length ?? 0)) best = { scraped, host: hostOf(cu) };
+      if (isPreferredPhotoHost(cu) && n > (bestPreferred?.scraped.photoUrls.length ?? 0)) {
+        bestPreferred = { scraped, host: hostOf(cu) };
+        if (n >= 8) break; // a full gallery from a clean source — as good as it gets
+      }
     } catch {
       /* unreachable / blocked → try the next candidate */
     }
   }
-  return null;
+  // Prefer a usable clean gallery over a larger but lower-quality / unfetchable one.
+  if (bestPreferred && bestPreferred.scraped.photoUrls.length >= MIN_GALLERY) return bestPreferred;
+  return best;
+}
+
+/**
+ * If `merged` has a THIN gallery (fewer than MIN_GALLERY photos), fetch the search's
+ * candidate pages (agency site first) and scrape the gallery — web_search returns
+ * page URLs + facts but rarely the actual image URLs, so this is what actually
+ * recovers the photo set. We keep `merged`'s data and only swap in the recovered
+ * photos when they're RICHER than what we already have (so a single aerial-drone
+ * hero never blocks pulling the full agency / OneRoof gallery). The scraped page
+ * also gap-fills any missing physical facts. Returns the (possibly enriched) listing
+ * and the host the photos came from.
+ */
+async function fillPhotosFromCandidates(
+  merged: ScrapedListing,
+  candidateUrls: string[]
+): Promise<{ listing: ScrapedListing; photoHost: string | null }> {
+  if (merged.photoUrls.length >= MIN_GALLERY || candidateUrls.length === 0) {
+    return { listing: merged, photoHost: null };
+  }
+  const rec = await recoverPhotos(candidateUrls);
+  if (!rec || rec.scraped.photoUrls.length <= merged.photoUrls.length) {
+    return { listing: merged, photoHost: null };
+  }
+  const filled = merge(rec.scraped, merged); // existing facts win; the page fills gaps + media
+  filled.photoUrls = rec.scraped.photoUrls;
+  filled.priceMethod = merged.priceMethod !== "unknown" ? merged.priceMethod : rec.scraped.priceMethod;
+  filled.scrapedOk = true;
+  return { listing: filled, photoHost: rec.host };
 }
 
 export async function resolveListing(url: string): Promise<ScrapedListing> {
@@ -90,36 +152,43 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
     }
   }
 
-  // Recover from another source when the scrape was blocked, thin, OR returned NO
-  // PHOTOS. web_search finds the facts + the page URLs the listing lives on (the
-  // agency's own site, portals) but rarely the actual image URLs — so we then FETCH
-  // those pages and scrape the photo gallery directly. The user should never see
-  // "no photos" while the photos exist on the agent's website.
-  if (!listing || !hasRealData(listing) || listing.photoUrls.length === 0) {
+  // Recover from another source when the scrape was blocked, thin on DATA, or returned
+  // too FEW PHOTOS (< MIN_GALLERY). web_search finds the facts + the pages the listing
+  // lives on (the agency's own site, portals) but rarely the actual image URLs — so we
+  // then FETCH those pages and scrape the photo gallery directly. The user should never
+  // see "no photos" — or a lone drone shot — while a full gallery sits on OneRoof / the
+  // agent's website.
+  const thinGallery = !!listing && hasRealData(listing) && listing.photoUrls.length < MIN_GALLERY;
+  if (!listing || !hasRealData(listing) || listing.photoUrls.length < MIN_GALLERY) {
     const found = await searchListing({ url, address: listing?.address ?? null });
     if (found.found || found.candidateUrls.length > 0 || found.fields.bedrooms != null || found.fields.floorAreaSqm != null) {
-      let merged = merge(listing ?? emptyListing(url, portal), found.fields);
-      merged.scrapedOk = true;
-      if (found.fields.photoUrls && found.fields.photoUrls.length > 0) merged.photoUrls = found.fields.photoUrls;
-
-      // Search-then-scrape: pull the photo gallery from the page(s) the search found.
-      let photoHost: string | null = null;
-      if (merged.photoUrls.length === 0) {
-        const rec = await recoverPhotos(found.candidateUrls);
-        if (rec) {
-          merged = merge(rec.scraped, merged); // web-search facts win; the page fills gaps + media
-          merged.url = url;
-          merged.portal = portal;
-          merged.photoUrls = rec.scraped.photoUrls;
-          merged.scrapedOk = true;
-          photoHost = rec.host;
+      if (thinGallery && listing) {
+        // We already have a solid listing — only the gallery is thin. Keep all the
+        // scraped data and just enrich the PHOTOS from the agency / OneRoof page.
+        const rec = await fillPhotosFromCandidates(listing, found.candidateUrls);
+        if (rec.photoHost) {
+          listing = rec.listing;
+          listing.url = url;
+          listing.portal = portal;
+          listing.dataSource = `${listing.photoUrls.length} photos sourced from ${rec.photoHost} — the original ${PORTAL_LABEL[portal] ?? "listing"} showed only a partial gallery (retrieved ${retrievedStamp()}).`;
         }
-      }
+      } else {
+        // Blocked / no usable data → recover the whole listing from the search, then
+        // scrape the gallery from the pages it found.
+        let merged = merge(listing ?? emptyListing(url, portal), found.fields);
+        merged.scrapedOk = true;
+        if (found.fields.photoUrls && found.fields.photoUrls.length > 0) merged.photoUrls = found.fields.photoUrls;
 
-      merged.dataSource = photoHost
-        ? `${merged.photoUrls.length} photos sourced from ${photoHost} — the original ${PORTAL_LABEL[portal] ?? "listing"} blocked photo access (retrieved ${retrievedStamp()}).`
-        : `Data sourced from ${found.source ?? "web search"}${portal !== "unknown" && portal !== "trademe" ? ` — the original ${PORTAL_LABEL[portal] ?? portal} listing was unavailable` : ""} (retrieved ${retrievedStamp()}).`;
-      listing = merged;
+        const rec = await fillPhotosFromCandidates(merged, found.candidateUrls);
+        merged = rec.listing;
+        merged.url = url;
+        merged.portal = portal;
+
+        merged.dataSource = rec.photoHost
+          ? `${merged.photoUrls.length} photos sourced from ${rec.photoHost} — the original ${PORTAL_LABEL[portal] ?? "listing"} blocked photo access (retrieved ${retrievedStamp()}).`
+          : `Data sourced from ${found.source ?? "web search"}${portal !== "unknown" && portal !== "trademe" ? ` — the original ${PORTAL_LABEL[portal] ?? portal} listing was unavailable` : ""} (retrieved ${retrievedStamp()}).`;
+        listing = merged;
+      }
     }
   }
 
@@ -162,34 +231,41 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     merged.scrapedOk = true;
     if (f.photoUrls && f.photoUrls.length > 0) merged.photoUrls = f.photoUrls;
     // No photo URLs from the search → scrape them from the page(s) it found.
-    let photoHost: string | null = null;
-    if (merged.photoUrls.length === 0) {
-      const rec = await recoverPhotos(found.candidateUrls);
-      if (rec) { merged = merge(rec.scraped, merged); merged.photoUrls = rec.scraped.photoUrls; photoHost = rec.host; }
-    }
-    merged.dataSource = photoHost
-      ? `Listing + ${merged.photoUrls.length} photos sourced from ${photoHost} — retrieved ${retrievedStamp()}.`
+    const rec = await fillPhotosFromCandidates(merged, found.candidateUrls);
+    merged = rec.listing;
+    merged.dataSource = rec.photoHost
+      ? `Listing + ${merged.photoUrls.length} photos sourced from ${rec.photoHost} — retrieved ${retrievedStamp()}.`
       : `Listing data sourced from ${found.source} — retrieved ${retrievedStamp()}.`;
     return merged;
   }
 
-  // Not currently for sale, but the search surfaced property facts (a past sale or a
-  // property-data record) → analyse on those + public data. NEVER carry a past sale
-  // price through as a current asking price.
+  // Not currently for sale, but the search surfaced the property (a past sale, a
+  // property-data record, or just the agency / OneRoof page) → analyse on public
+  // data, and STILL recover the photos if they're online. The user must never see
+  // "no photos" when they exist on the agent's site or OneRoof. NEVER carry a past
+  // sale price through as a current asking price.
   const hasFacts = f.bedrooms != null || f.bathrooms != null || f.floorAreaSqm != null || f.landAreaSqm != null || f.buildYear != null || !!f.description;
   const publicDataNote = "Analysis uses public property data — council records / CV, homes.co.nz and comparable sales where available.";
-  if (hasFacts) {
-    const merged = merge(base, f);
+  if (hasFacts || found.candidateUrls.length > 0) {
+    let merged = merge(base, f);
     merged.address = merged.address ?? address;
     merged.suburb = merged.suburb ?? p.suburb;
     merged.city = merged.city ?? p.city;
     merged.region = merged.region ?? p.region;
-    merged.askingPrice = null; // a past sale price is not a current asking price
-    merged.priceText = null;
     merged.scrapedOk = true;
-    const src = found.source ? ` Property details from ${found.source} (public / past-sale record).` : "";
-    merged.dataSource = `No active listing found for this address.${src} ${publicDataNote}`;
     if (f.photoUrls && f.photoUrls.length > 0) merged.photoUrls = f.photoUrls;
+    // Recover the photo gallery from the agency / portal page even though it isn't a
+    // live listing — and scraping it can also fill in missing physical facts.
+    const rec = await fillPhotosFromCandidates(merged, found.candidateUrls);
+    merged = rec.listing;
+    // A past sale / estimate price is NOT a current asking price — null it AFTER
+    // recovery (scraping the page can otherwise re-introduce a sale / estimate figure).
+    merged.askingPrice = null;
+    merged.priceText = null;
+    merged.priceMethod = "unknown";
+    const src = found.source ? ` Property details from ${found.source} (public / past-sale record).` : "";
+    const photoNote = rec.photoHost ? ` ${merged.photoUrls.length} photos sourced from ${rec.photoHost}.` : "";
+    merged.dataSource = `No active listing found for this address.${src}${photoNote} ${publicDataNote}`;
     return merged;
   }
 

@@ -135,6 +135,13 @@ export function RealReportView({ report }: { report: StoredReport }) {
         if (v && v.docTypeConfirmed && v.score != null) return { ...s, score: v.score as typeof s.score };
         if (isVerifiedDocItem(s.id)) return { ...s, score: null as typeof s.score };
         if (noPhotos && isImprovement(s)) return { ...s, score: null as typeof s.score, noPhotoNotAssessed: true };
+        // A 1-10 *condition* score must be backed by a photo of that element. When an
+        // Improvements item is Tier 3 ("not visible — inferred") the number is pure
+        // build-era guesswork (e.g. a foundation that isn't in any photo) → drop the
+        // score to "Not assessed". The AI reasoning + "Not visible — inferred" badge
+        // stay, so the inferred risk is still explained, just not scored. (Location /
+        // Land / Legal are fact-based and are meant to be inferred + scored.)
+        if (isImprovement(s) && s.confidenceTier === 3) return { ...s, score: null as typeof s.score };
         return s;
       }),
     [report.subItems, verifiedDocs, noPhotos]
