@@ -1,7 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, CheckCircle2, ImagePlus, X, AlertTriangle, Plus } from "lucide-react";
 import { saveReport } from "@/lib/report-store";
@@ -65,6 +65,16 @@ export default function UploadReportPage() {
     const digits = v.replace(/[^0-9]/g, "").slice(0, 9);
     setPrice(digits ? Number(digits).toLocaleString("en-US") : "");
   };
+
+  // Prefill address + price when arriving from the "No photos found" report banner
+  // (/report/upload?address=…&price=…).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const a = params.get("address");
+    const p = params.get("price");
+    if (a) setAddress(a);
+    if (p) { const d = p.replace(/[^0-9]/g, ""); if (d) setPrice(Number(d).toLocaleString("en-US")); }
+  }, []);
 
   // Add one or more photos to a slot (a file input can pick several at once).
   const addShots = async (catId: string, files: FileList | null) => {

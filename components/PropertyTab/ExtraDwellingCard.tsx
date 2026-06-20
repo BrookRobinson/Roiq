@@ -4,7 +4,7 @@ import { AlertTriangle, Camera } from "lucide-react";
 import type { ExtraDwelling } from "@/lib/property-tab/types";
 import { ConditionScore } from "./ConditionScore";
 
-export function ExtraDwellingCard({ dwelling }: { dwelling: ExtraDwelling }) {
+export function ExtraDwellingCard({ dwelling, noPhotos }: { dwelling: ExtraDwelling; noPhotos?: boolean }) {
   const consentColors = {
     consented:   { bg: "rgba(0,230,118,0.1)",  text: "#00e676",  label: "Consented" },
     unconsented: { bg: "rgba(255,95,95,0.1)",   text: "#ff5f5f",  label: "Unconsented — verify" },
@@ -52,7 +52,13 @@ export function ExtraDwellingCard({ dwelling }: { dwelling: ExtraDwelling }) {
               ))}
             </div>
           </div>
-          <ConditionScore score={dwelling.score} size="sm" />
+          {noPhotos ? (
+            <span className="inline-flex items-center gap-1 text-[11px] rounded-lg px-2 py-1 whitespace-nowrap flex-shrink-0" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+              <Camera size={11} /> No photos — not assessed
+            </span>
+          ) : (
+            <ConditionScore score={dwelling.score} size="sm" />
+          )}
         </div>
 
         {/* Value contribution */}
@@ -72,13 +78,19 @@ export function ExtraDwellingCard({ dwelling }: { dwelling: ExtraDwelling }) {
           <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
             {dwelling.estimatedReplacementCost.notes}
           </div>
-          <div className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
-            At condition score {dwelling.score}/10, this structure adds{" "}
-            <strong style={{ color: "var(--brand)" }}>
-              +{Math.round((mid / 500_000) * 100 * (dwelling.score / 10))} points
-            </strong>{" "}
-            to the overall property score.
-          </div>
+          {noPhotos ? (
+            <div className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+              Upload photos to assess this structure&apos;s condition.
+            </div>
+          ) : (
+            <div className="text-xs mt-2" style={{ color: "var(--text-secondary)" }}>
+              At condition score {dwelling.score}/10, this structure adds{" "}
+              <strong style={{ color: "var(--brand)" }}>
+                +{Math.round((mid / 500_000) * 100 * (dwelling.score / 10))} points
+              </strong>{" "}
+              to the overall property score.
+            </div>
+          )}
         </div>
 
         {/* AI summary */}

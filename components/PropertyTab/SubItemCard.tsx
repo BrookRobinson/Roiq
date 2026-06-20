@@ -80,47 +80,62 @@ export function SubItemCard({ item, region, floorSqm }: { item: SubItem; region?
               )}
             </div>
 
-            {/* Three inline data pills */}
-            <div className="flex flex-wrap gap-2 mb-2">
-              {[
-                { label: "Material", value: item.material },
-                { label: "Age",      value: item.estimatedAge },
-              ].map((pill) => (
-                <div
-                  key={pill.label}
-                  className="text-xs rounded-md px-2 py-1 max-w-xs"
-                  style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-                >
-                  <span style={{ color: "var(--text-muted)" }}>{pill.label}: </span>
-                  <span className="font-medium" style={{ color: "var(--text-secondary)" }}>
-                    {pill.value}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {/* Data pills — or, with no photos, the "upload to assess" prompt */}
+            {item.noPhotoNotAssessed ? (
+              <div className="mb-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+                Upload photos to get a condition score for this area.{" "}
+                <a href="/report/upload" className="inline-flex items-center gap-0.5 font-medium hover:underline" style={{ color: "var(--brand)" }}>Add photos <ArrowRight size={11} /></a>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {[
+                  { label: "Material", value: item.material },
+                  { label: "Age",      value: item.estimatedAge },
+                ].map((pill) => (
+                  <div
+                    key={pill.label}
+                    className="text-xs rounded-md px-2 py-1 max-w-xs"
+                    style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                  >
+                    <span style={{ color: "var(--text-muted)" }}>{pill.label}: </span>
+                    <span className="font-medium" style={{ color: "var(--text-secondary)" }}>
+                      {pill.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Condition score — number + colour only (no condition/urgency text) */}
+          {/* Condition score — or "No photos — not assessed" when there were none */}
           <div className="flex-shrink-0">
-            <ConditionScore score={item.score} size="sm" />
+            {item.noPhotoNotAssessed ? (
+              <span className="inline-flex items-center gap-1 text-[11px] rounded-lg px-2 py-1 whitespace-nowrap" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                <Camera size={11} /> No photos — not assessed
+              </span>
+            ) : (
+              <ConditionScore score={item.score} size="sm" />
+            )}
           </div>
         </div>
 
-        {/* Confidence + photo refs */}
-        <div className="flex items-center gap-3 flex-wrap mt-1">
-          <ConfidenceTierBadge tier={item.confidenceTier} />
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {item.evidenceSource}
-          </span>
-          {item.photoReferences.length > 0 && (
-            <div className="flex items-center gap-1">
-              <Camera size={11} style={{ color: "var(--text-muted)" }} />
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Photos: {item.photoReferences.join(", ")}
-              </span>
-            </div>
-          )}
-        </div>
+        {/* Confidence + photo refs — hidden for no-photo items (no T3 / source shown) */}
+        {!item.noPhotoNotAssessed && (
+          <div className="flex items-center gap-3 flex-wrap mt-1">
+            <ConfidenceTierBadge tier={item.confidenceTier} />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {item.evidenceSource}
+            </span>
+            {item.photoReferences.length > 0 && (
+              <div className="flex items-center gap-1">
+                <Camera size={11} style={{ color: "var(--text-muted)" }} />
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  Photos: {item.photoReferences.join(", ")}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Outside hold period label */}
         {!isWithinHold && item.score !== null && item.score <= 7 && (
@@ -132,24 +147,26 @@ export function SubItemCard({ item, region, floorSqm }: { item: SubItem; region?
           </div>
         )}
 
-        {/* Expand toggle hint */}
-        <div className="flex items-center gap-1 mt-2">
-          <span className="text-xs" style={{ color: "var(--brand)" }}>
-            {expanded ? "Hide detail" : "Read AI assessment"}
-          </span>
-          <ArrowRight
-            size={11}
-            style={{
-              color: "var(--brand)",
-              transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
-              transition: "transform 0.2s",
-            }}
-          />
-        </div>
+        {/* Expand toggle hint — no AI assessment to read for a no-photo item */}
+        {!item.noPhotoNotAssessed && (
+          <div className="flex items-center gap-1 mt-2">
+            <span className="text-xs" style={{ color: "var(--brand)" }}>
+              {expanded ? "Hide detail" : "Read AI assessment"}
+            </span>
+            <ArrowRight
+              size={11}
+              style={{
+                color: "var(--brand)",
+                transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 0.2s",
+              }}
+            />
+          </div>
+        )}
       </button>
 
       {/* Expanded detail */}
-      {expanded && (
+      {expanded && !item.noPhotoNotAssessed && (
         <div
           className="px-4 pb-4 space-y-4"
           style={{ borderTop: "1px solid var(--border)" }}

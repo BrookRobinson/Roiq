@@ -38,7 +38,7 @@ import {
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, Shield,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
-  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2,
+  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight,
 } from "lucide-react";
 
 type Tab = "overview" | "improvements" | "property" | "renovations" | "financial" | "healthyhomes";
@@ -108,6 +108,7 @@ function selectedRenoCost(
 export function RealReportView({ report }: { report: StoredReport }) {
   const [tab, setTab] = useState<Tab>("overview");
   const [persona, setPersona] = useState<Persona>("buyer");
+  const [continuedWithoutPhotos, setContinuedWithoutPhotos] = useState(false);
 
   // Default the toggle from the saved per-report choice (client-only).
   useEffect(() => {
@@ -122,15 +123,21 @@ export function RealReportView({ report }: { report: StoredReport }) {
   // Effective scores: a verified document overrides the score for its item;
   // an unverified document item (LIM/consent/EQC) is excluded from the total
   // entirely until a document is uploaded.
+  // No photos at all → we cannot visually confirm ANY Improvements condition, so
+  // we must not show a score for those items (a scraped 0-photo listing was giving
+  // "Roof 5/10" with nothing to look at). Location/Land/Legal are fact-based and
+  // keep their scores.
+  const noPhotos = report.photosAnalysed === 0;
   const effectiveSubItems = useMemo(
     () =>
       report.subItems.map((s) => {
         const v = verifiedDocs[s.id];
         if (v && v.docTypeConfirmed && v.score != null) return { ...s, score: v.score as typeof s.score };
         if (isVerifiedDocItem(s.id)) return { ...s, score: null as typeof s.score };
+        if (noPhotos && isImprovement(s)) return { ...s, score: null as typeof s.score, noPhotoNotAssessed: true };
         return s;
       }),
-    [report.subItems, verifiedDocs]
+    [report.subItems, verifiedDocs, noPhotos]
   );
 
   // THE SCORE: re-runs scoreProperty() for the chosen persona + verified docs.
@@ -291,6 +298,19 @@ export function RealReportView({ report }: { report: StoredReport }) {
 
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {noPhotos && !continuedWithoutPhotos && (
+            <div className="card p-5 mb-6" style={{ border: "1px solid var(--brand)", background: "rgba(0,212,200,0.05)" }}>
+              <div className="flex items-center gap-2 font-semibold text-base mb-1" style={{ color: "var(--text-primary)" }}>📷 No listing photos found</div>
+              <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                We couldn&apos;t retrieve photos from this listing. TradeMe and some other portals block photo access. Without photos we can&apos;t give condition scores — only build-year risk flags. To get a full RoIQ report you have two options:
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <a href={`/report/upload?address=${encodeURIComponent(listing.address ?? "")}${listing.askingPrice ? `&price=${listing.askingPrice}` : ""}`}
+                  className="btn-primary text-sm px-4 py-2">Upload photos manually <ArrowRight size={15} /></a>
+                <button onClick={() => setContinuedWithoutPhotos(true)} className="btn-secondary text-sm px-4 py-2 cursor-pointer">Continue without photos</button>
+              </div>
+            </div>
+          )}
           {report.photoCoverage && report.photoCoverage.missingOptional.length > 0 && (
             <div className="card p-4 mb-6" style={{ border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.06)" }}>
               <div className="text-sm font-semibold mb-1" style={{ color: "#fbbf24" }}>💡 Your report could be more accurate</div>
@@ -301,7 +321,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
             </div>
           )}
           {tab === "overview" && <OverviewReal report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} />}
-          {tab === "improvements" && <PropertyTab data={{ categories: improvementsCategories(subItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} />}
+          {tab === "improvements" && <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} />}
           {tab === "property" && <PropertyInspections scored={scored} subItems={subItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} />}
           {tab === "renovations" && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
           {tab === "financial" && <FinanceTab listing={listing} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} />}

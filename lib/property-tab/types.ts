@@ -49,6 +49,10 @@ export interface SubItem {
   healthyHomesLink: boolean;
   photoReferences: number[];
 
+  // Set when a visual item's score was stripped because the listing had 0 photos —
+  // the card then shows an "upload photos to assess" prompt instead of a score.
+  noPhotoNotAssessed?: boolean;
+
   // v3.2 — populated for Location/Land/Legal items (and optionally Improvements).
   finding?: string;                    // one-line status, e.g. "Low — not in mapped flood plain"
   source?: string;                     // specific named source, e.g. "Auckland Council flood-hazard overlay"
