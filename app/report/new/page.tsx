@@ -123,7 +123,24 @@ export default function NewReportPage() {
     if (isTradeMeUrl(u)) return;
     runAnalysis({ url: u });
   };
-  const searchByAddress = () => runAnalysis({ address: addressInput.trim() });
+  // The fallback box accepts EITHER a link or an address. A link (no spaces, has a
+  // domain) → scrape it directly (reliable — this is how a OneRoof/realestate link
+  // gets every photo). Anything with spaces → treat as an address and search.
+  const findByInput = () => {
+    const v = addressInput.trim();
+    if (!v) return;
+    const looksLikeUrl = /^https?:\/\//i.test(v) || (!/\s/.test(v) && /[a-z0-9.-]+\.[a-z]{2,}/i.test(v));
+    if (looksLikeUrl) {
+      const u = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+      if (isTradeMeUrl(u)) {
+        setError("That's another Trade Me link, which we can't scrape. Paste the OneRoof or realestate.co.nz link for this property, or type the address.");
+        return;
+      }
+      runAnalysis({ url: u });
+    } else {
+      runAnalysis({ address: v });
+    }
+  };
 
   // The moment a Trade Me link is in the box, surface the address prompt — Trade Me
   // blocks scraping, so we need the address to find the property on OneRoof etc.
@@ -164,20 +181,20 @@ export default function NewReportPage() {
                 </p>
                 <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>
                   {addressPromptReason === "trademe"
-                    ? "Trade Me blocks automated access, so we can't read this listing directly. Type the property's address and we'll search other sources for the details and photos — OneRoof first, then any other real estate site that has it — and show you where we found it."
-                    : "Enter the property address — we'll find it on OneRoof, realestate.co.nz or homes.co.nz, or analyse the public property data if it's not currently for sale."}
+                    ? "Trade Me blocks automated access, so we can't read this listing directly. Best option: paste the property's OneRoof or realestate.co.nz link (we'll grab every photo). Or type the address and we'll search — OneRoof first — though a common street name in a small town can be hard to find by address alone."
+                    : "Paste the property's OneRoof or realestate.co.nz link (most reliable), or type the address and we'll search OneRoof, realestate.co.nz and homes.co.nz."}
                 </p>
                 <div className="flex gap-2">
                   <input
                     className="input text-base flex-1"
-                    placeholder="7 Gilbert Road, Paroa, Greymouth"
+                    placeholder="OneRoof / realestate link — or 23 Oxford Street, Taylorville, Greymouth"
                     value={addressInput}
                     autoFocus
                     onChange={(e) => setAddressInput(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && searchByAddress()}
+                    onKeyDown={(e) => e.key === "Enter" && findByInput()}
                   />
                   <button
-                    onClick={searchByAddress}
+                    onClick={findByInput}
                     disabled={!addressInput.trim()}
                     className="btn-primary px-5 flex-shrink-0"
                     style={{ opacity: addressInput.trim() ? 1 : 0.5 }}
