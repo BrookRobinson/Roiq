@@ -120,16 +120,16 @@ ADDRESS: ${address}
 
 Find this exact property with web search. Work the steps in order and STOP as soon as you have a CURRENT for-sale listing.
 
-STEP 1 — Google-style search FIRST (this catches a listing on ANY site without checking each one):
-  • "${address}" property for sale NZ
-  • "<street number> <street name> <suburb>" real estate NZ   ← pull the number / street / suburb out of the address above
-Read the top results and open the best CURRENT listing. NZ listings are cross-posted, so the property is usually on a major portal or an agency's own site.
+STEP 1 — CHECK ONEROOF FIRST. OneRoof carries almost every NZ listing with the full photo gallery and its images are full-resolution and openly accessible, so it is the most reliable source — always check it before anything else:
+  • "${address}" site:oneroof.co.nz
+  • oneroof.co.nz "<street number> <street name>" <suburb>   ← pull the number / street / suburb out of the address above
+If OneRoof has the property, use it.
 
-STEP 2 — If Step 1 does NOT surface a CURRENT listing (you found only sold/past records, or nothing), DO NOT give up — on NZ the live listing is often on a portal or agency site that didn't rank in the open search. Run several targeted "site:" searches for this exact address before concluding, e.g.:
-  • "${address}" site:professionals.co.nz
-  • "${address}" site:trademe.co.nz OR site:realestate.co.nz OR site:oneroof.co.nz OR site:homes.co.nz
-  • "${address}" site:harcourts.co.nz OR site:raywhite.co.nz OR site:bayleys.co.nz OR site:propertybrokers.co.nz OR site:ljhooker.co.nz
-A current listing on ANY site counts. Full list to draw from — major portals & national chains: ${portals}; regional / specialist agencies (use the ones for this property's region): ${regional}; commercial / rural: ${commercial}. Only treat the property as not currently for sale AFTER these site: searches also come up empty.
+STEP 2 — Then ANY OTHER real estate site that has this address. Check the big portals, then a plain search, then the agencies — DON'T give up until all come up empty:
+  • "${address}" site:realestate.co.nz OR site:homes.co.nz OR site:propertyvalue.co.nz
+  • "${address}" property for sale NZ   (a plain search catches the listing agency's own site, Trade Me's public page, etc.)
+  • "${address}" site:harcourts.co.nz OR site:raywhite.co.nz OR site:bayleys.co.nz OR site:propertybrokers.co.nz OR site:professionals.co.nz OR site:ljhooker.co.nz
+A current listing on ANY site counts. Full list to draw from — major portals & national chains: ${portals}; regional / specialist agencies (use the ones for this property's region): ${regional}; commercial / rural: ${commercial}. Only treat the property as not currently for sale AFTER OneRoof AND these other searches all come up empty.
 
 CURRENT vs SOLD — IMPORTANT: results for one address usually MIX the live for-sale listing with OLD sold records and property-data pages (e.g. "Sold", "/sold/" URLs, OneRoof / propertyvalue past-sale prices). You want the one ON THE MARKET NOW — status like "For Sale", "Asking", "Offers Over", "Deadline Sale", "Auction", "Tender", "By Negotiation", "Enquiries Over". NEVER report a past SOLD price as the asking price, and don't stop at a sold record if a current listing also exists — keep looking for the live one.
 

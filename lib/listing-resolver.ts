@@ -26,6 +26,18 @@ const hasRealData = (l: ScrapedListing): boolean => l.askingPrice != null || l.b
 // OneRoof / the agent's own site before analysing.
 const MIN_GALLERY = 5;
 
+// Guard against garbage counts reaching the report (e.g. a 481 m² land area misread
+// as "481 bedrooms"): a residential property doesn't have >20 beds/baths/car parks.
+// Drop an out-of-range value rather than display it. Applied to every resolved
+// listing, so it catches bad data from any scraper OR the web-search recovery.
+function sanitizeCounts(l: ScrapedListing): ScrapedListing {
+  const sane = (n: number | null): number | null => (n != null && n >= 1 && n <= 20 ? n : null);
+  l.bedrooms = sane(l.bedrooms);
+  l.bathrooms = sane(l.bathrooms);
+  l.carParks = sane(l.carParks);
+  return l;
+}
+
 // Fill gaps in `base` from recovered `fields` (recovered data wins on nulls/unknowns).
 function merge(base: ScrapedListing, f: Partial<ScrapedListing>): ScrapedListing {
   return {
@@ -139,17 +151,23 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
   const portal = detectPortalFromUrl(url);
   let listing: ScrapedListing | null = null;
 
-  // TradeMe actively blocks bots → skip straight to web-search. EVERYTHING else —
-  // known portals AND unknown URLs — gets a direct scrape attempt first: the generic
-  // scraper (JSON-LD + CSS/regex) handles most server-rendered NZ agency sites
-  // (e.g. professionals.co.nz), and we fall back to web-search below if it yields
-  // nothing real. Scraping the URL the user actually gave beats a flaky search.
-  if (portal !== "trademe") {
-    try {
-      listing = await scrapeListingUrl(url);
-    } catch {
-      listing = null;
-    }
+  // Trade Me blocks automated access AND its listing URLs carry no street address, so
+  // a bare Trade Me link can't reliably identify the property — recovering from the
+  // URL alone has analysed the WRONG house (it found a different property in the same
+  // suburb). The UI intercepts Trade Me links and asks the user to confirm the address
+  // (→ resolveListingByAddress); this is the backend backstop so no caller can ever
+  // silently get the wrong property from a Trade Me URL.
+  if (portal === "trademe") throw new ListingNotFoundError();
+
+  // Every (non-Trade Me) URL — known portals AND unknown server-rendered agency
+  // sites — gets a direct scrape first: the generic scraper (JSON-LD + CSS/regex)
+  // handles most NZ agency sites (e.g. professionals.co.nz), and we fall back to
+  // web-search below if it yields nothing real. Scraping the URL the user actually
+  // gave beats a flaky search.
+  try {
+    listing = await scrapeListingUrl(url);
+  } catch {
+    listing = null;
   }
 
   // Recover from another source when the scrape was blocked, thin on DATA, or returned
@@ -186,7 +204,7 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
 
         merged.dataSource = rec.photoHost
           ? `${merged.photoUrls.length} photos sourced from ${rec.photoHost} — the original ${PORTAL_LABEL[portal] ?? "listing"} blocked photo access (retrieved ${retrievedStamp()}).`
-          : `Data sourced from ${found.source ?? "web search"}${portal !== "unknown" && portal !== "trademe" ? ` — the original ${PORTAL_LABEL[portal] ?? portal} listing was unavailable` : ""} (retrieved ${retrievedStamp()}).`;
+          : `Data sourced from ${found.source ?? "web search"}${portal !== "unknown" ? ` — the original ${PORTAL_LABEL[portal] ?? portal} listing was unavailable` : ""} (retrieved ${retrievedStamp()}).`;
         listing = merged;
       }
     }
@@ -198,7 +216,7 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
   if (!listing || (!hasRealData(listing) && !listing.address && listing.photoUrls.length === 0)) {
     throw new ListingNotFoundError();
   }
-  return listing;
+  return sanitizeCounts(listing);
 }
 
 // ── Manual address fallback ──────────────────────────────────────────────────
@@ -219,7 +237,16 @@ function parseAddress(raw: string): { address: string | null; suburb: string | n
  * public property data (never throws).
  */
 export async function resolveListingByAddress(address: string): Promise<ScrapedListing> {
-  const found = await searchListing({ address });
+  let found = await searchListing({ address });
+  // Web search is non-deterministic — a COMPLETELY empty first pass (nothing found,
+  // no candidate pages, no facts) often succeeds on a second try. Retry once before
+  // falling back to bare public data, so a property that IS cross-posted on OneRoof /
+  // realestate isn't missed just because the first search happened to give up.
+  const isEmpty = (r: typeof found): boolean =>
+    !r.found && r.candidateUrls.length === 0 && r.fields.bedrooms == null &&
+    r.fields.floorAreaSqm == null && r.fields.landAreaSqm == null && !r.fields.description &&
+    (r.fields.photoUrls?.length ?? 0) === 0;
+  if (isEmpty(found)) found = await searchListing({ address });
   const base = emptyListing(address, "unknown");
   const p = parseAddress(address);
   const f = found.fields;
@@ -236,7 +263,7 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     merged.dataSource = rec.photoHost
       ? `Listing + ${merged.photoUrls.length} photos sourced from ${rec.photoHost} — retrieved ${retrievedStamp()}.`
       : `Listing data sourced from ${found.source} — retrieved ${retrievedStamp()}.`;
-    return merged;
+    return sanitizeCounts(merged);
   }
 
   // Not currently for sale, but the search surfaced the property (a past sale, a
@@ -266,7 +293,7 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     const src = found.source ? ` Property details from ${found.source} (public / past-sale record).` : "";
     const photoNote = rec.photoHost ? ` ${merged.photoUrls.length} photos sourced from ${rec.photoHost}.` : "";
     merged.dataSource = `No active listing found for this address.${src}${photoNote} ${publicDataNote}`;
-    return merged;
+    return sanitizeCounts(merged);
   }
 
   // Nothing at all → analyse on the bare address + public data.

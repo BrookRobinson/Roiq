@@ -27,11 +27,18 @@ const PIPELINE_STEPS = [
   { id: "report", label: "Building your report", sub: "Compiling findings and gaps" },
 ];
 
+// Trade Me blocks automated access AND its listing URLs don't contain the street
+// address — so the link alone can't reliably identify the property (auto-recovery
+// risks analysing the wrong house). For Trade Me we ask the user to confirm the
+// address, then find the property on OneRoof / realestate / homes.
+const isTradeMeUrl = (u: string) => /(^|\/\/|\.)trademe\.co\.nz/i.test(u);
+
 export default function NewReportPage() {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [addressInput, setAddressInput] = useState("");
   const [needAddress, setNeedAddress] = useState(false);
+  const [addressReason, setAddressReason] = useState<"trademe" | "failed">("failed");
   const [target, setTarget] = useState("");
   const [step, setStep] = useState<Step>("input");
   const [pipelineStep, setPipelineStep] = useState(0);
@@ -66,6 +73,7 @@ export default function NewReportPage() {
       if (!res.ok) {
         // URL couldn't be scraped or recovered → offer manual address entry.
         if (res.status === 422 && data.error === "listing_not_found") {
+          setAddressReason("failed");
           setNeedAddress(true);
           setStep("input");
           return;
@@ -106,8 +114,22 @@ export default function NewReportPage() {
     }
   }
 
-  const startAnalysis = () => runAnalysis({ url: url.trim() });
+  const startAnalysis = () => {
+    const u = url.trim();
+    if (!u) return;
+    // Trade Me data can't be scraped → the address prompt is already on screen
+    // (shown automatically the moment a Trade Me link is detected). Don't hit the
+    // API with the URL; the user finds the property by address instead.
+    if (isTradeMeUrl(u)) return;
+    runAnalysis({ url: u });
+  };
   const searchByAddress = () => runAnalysis({ address: addressInput.trim() });
+
+  // The moment a Trade Me link is in the box, surface the address prompt — Trade Me
+  // blocks scraping, so we need the address to find the property on OneRoof etc.
+  const tradeMeDetected = isTradeMeUrl(url.trim());
+  const showAddressPrompt = needAddress || tradeMeDetected;
+  const addressPromptReason: "trademe" | "failed" = tradeMeDetected ? "trademe" : addressReason;
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
@@ -131,20 +153,26 @@ export default function NewReportPage() {
               </div>
             )}
 
-            {/* Manual address fallback — shown when a URL can't be scraped/recovered */}
-            {needAddress && (
+            {/* Manual address fallback — shown automatically for Trade Me links (data
+                can't be scraped) or when any other URL can't be scraped/recovered. */}
+            {showAddressPrompt && (
               <div className="rounded-2xl p-6 mb-4" style={{ background: "var(--surface)", border: "1px solid var(--brand)" }}>
                 <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
-                  We couldn&apos;t access this listing automatically.
+                  {addressPromptReason === "trademe"
+                    ? "Trade Me data can't be scraped — enter the address"
+                    : "We couldn't access this listing automatically."}
                 </p>
                 <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>
-                  Enter the property address — we&apos;ll find it on OneRoof, realestate.co.nz or homes.co.nz, or analyse the public property data if it&apos;s not currently for sale.
+                  {addressPromptReason === "trademe"
+                    ? "Trade Me blocks automated access, so we can't read this listing directly. Type the property's address and we'll search other sources for the details and photos — OneRoof first, then any other real estate site that has it — and show you where we found it."
+                    : "Enter the property address — we'll find it on OneRoof, realestate.co.nz or homes.co.nz, or analyse the public property data if it's not currently for sale."}
                 </p>
                 <div className="flex gap-2">
                   <input
                     className="input text-base flex-1"
-                    placeholder="123 Example Street, Suburb, City"
+                    placeholder="7 Gilbert Road, Paroa, Greymouth"
                     value={addressInput}
+                    autoFocus
                     onChange={(e) => setAddressInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && searchByAddress()}
                   />
@@ -154,7 +182,7 @@ export default function NewReportPage() {
                     className="btn-primary px-5 flex-shrink-0"
                     style={{ opacity: addressInput.trim() ? 1 : 0.5 }}
                   >
-                    Search
+                    Find property
                   </button>
                 </div>
               </div>

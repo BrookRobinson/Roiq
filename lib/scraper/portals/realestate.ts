@@ -86,15 +86,18 @@ export async function scrapeRealestate(url: string): Promise<ScrapedListing> {
     }
   }
 
-  // Beds / baths / cars
-  $("[class*='feature'], [class*='stat'], [data-test*='bedroom'], [data-test*='bathroom']").each(
+  // Beds / baths / cars — read the digit ADJACENT to each keyword, not parseInt of
+  // the whole element (a "feature" container can read "481 m² · 2 bed · 1 bath",
+  // where parseInt(text) = 481 and would land in bedrooms).
+  $("[class*='feature'], [class*='stat'], [data-test*='bedroom'], [data-test*='bathroom'], [data-test*='bed'], [data-test*='bath'], [data-test*='car']").each(
     (_, el) => {
       const text = $(el).text().trim().toLowerCase();
-      const num = parseInt(text, 10);
-      if (isNaN(num)) return;
-      if (text.includes("bed")) listing.bedrooms = listing.bedrooms ?? num;
-      else if (text.includes("bath")) listing.bathrooms = listing.bathrooms ?? num;
-      else if (text.includes("car") || text.includes("park")) listing.carParks = listing.carParks ?? num;
+      const bed  = text.match(/(\d+)\s*(?:bed)/);
+      const bath = text.match(/(\d+)\s*(?:bath)/);
+      const car  = text.match(/(\d+)\s*(?:car|garage|park)/);
+      if (bed)  listing.bedrooms  = listing.bedrooms  ?? parseInt(bed[1], 10);
+      if (bath) listing.bathrooms = listing.bathrooms ?? parseInt(bath[1], 10);
+      if (car)  listing.carParks  = listing.carParks  ?? parseInt(car[1], 10);
     }
   );
 
