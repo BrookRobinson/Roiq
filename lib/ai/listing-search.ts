@@ -13,6 +13,8 @@ export interface ListingSearchResult {
   found: boolean;
   source: string | null; // site the data came from, e.g. "OneRoof"
   sourceUrl: string | null;
+  /** Every page URL where the listing appears (agency site first) — scraped for photos. */
+  candidateUrls: string[];
   fields: Partial<ScrapedListing>;
 }
 
@@ -38,6 +40,7 @@ interface RawListing {
   photo_urls?: string[];
   source_site?: string;
   source_url?: string;
+  candidate_urls?: string[];
 }
 
 const TOOL_NAME = "submit_listing";
@@ -66,8 +69,9 @@ const LISTING_TOOL: Anthropic.Tool = {
       agent_name: { type: "string" },
       days_on_market: { type: "number", description: "Days the listing has been on the market, if shown." },
       photo_urls: { type: "array", items: { type: "string" }, description: "Direct image URLs of the property photos, if visible." },
-      source_site: { type: "string", description: "Which site you found it on, e.g. 'OneRoof', 'realestate.co.nz', 'homes.co.nz'." },
+      source_site: { type: "string", description: "Which site you found it on, e.g. 'OneRoof', 'realestate.co.nz', 'homes.co.nz', 'chaneys.co.nz'." },
       source_url: { type: "string", description: "The page URL where you found it." },
+      candidate_urls: { type: "array", items: { type: "string" }, description: "EVERY page URL where this listing appears — the listing agency's OWN listing page FIRST (it usually has the full photo gallery), then portals (oneroof / realestate / homes / propertyvalue). We fetch these to scrape the photos, so include as many as you find." },
     },
     required: ["found"],
   },
@@ -80,22 +84,28 @@ const WEB_SEARCH_TOOL = { type: "web_search_20250305" as const, name: "web_searc
 // of these without checking each one, so these are the model's `site:` fallbacks
 // when the open search comes up empty.
 const NZ_PROPERTY_SITES = {
-  portals: ["trademe.co.nz/property", "oneroof.co.nz", "realestate.co.nz", "homes.co.nz", "homesell.co.nz", "arizto.co.nz"],
+  portals: ["trademe.co.nz/property", "oneroof.co.nz", "realestate.co.nz", "homes.co.nz", "propertyvalue.co.nz", "homesell.co.nz", "arizto.co.nz"],
   chains: ["harcourts.co.nz", "raywhite.co.nz", "barfoot.co.nz", "bayleys.co.nz", "ljhooker.co.nz", "century21.co.nz", "professionals.co.nz", "firstnational.co.nz", "propertybrokers.co.nz", "tallpoppy.co.nz", "tommys.co.nz", "harveys.co.nz", "lodge.co.nz", "pggwrightson.co.nz", "raineandhorne.co.nz", "mikepero.com", "remax.co.nz", "nzsir.com", "oneagency.co.nz", "realty.co.nz", "leaders.co.nz", "settle.co.nz"],
-  regional: ["citysales.co.nz", "crockers.co.nz", "unitedrealty.co.nz", "eves.co.nz", "tremains.co.nz", "psbayofplenty.co.nz", "monarch.co.nz", "pnrealty.co.nz", "capitalrealty.co.nz", "nelsonrealty.co.nz", "whittle-knight.co.nz", "westcoastrealty.co.nz", "cowdy.co.nz", "bradleysnelling.co.nz", "dunedinrealestate.co.nz", "centralotagorealty.co.nz", "johnstonfullerton.co.nz", "southlandrealestate.co.nz", "northlandproperty.co.nz"],
+  regional: ["citysales.co.nz", "crockers.co.nz", "unitedrealty.co.nz", "eves.co.nz", "tremains.co.nz", "psbayofplenty.co.nz", "monarch.co.nz", "pnrealty.co.nz", "capitalrealty.co.nz", "nelsonrealty.co.nz", "chaneys.co.nz", "whittle-knight.co.nz", "westcoastrealty.co.nz", "cowdy.co.nz", "bradleysnelling.co.nz", "dunedinrealestate.co.nz", "centralotagorealty.co.nz", "johnstonfullerton.co.nz", "southlandrealestate.co.nz", "northlandproperty.co.nz"],
   commercialRural: ["colliers.co.nz", "jll.co.nz", "cbre.co.nz", "savills.co.nz", "knightfrank.co.nz", "ruralrealty.co.nz", "farmlands.co.nz"],
 };
 
-// A portal blocked the scrape → recover the SAME property from another source.
+// A portal (usually TradeMe) blocked the scrape / hid the photos → automatically
+// find the SAME property elsewhere so we can recover its PHOTOS + details. The user
+// must NEVER see "no photos" if they exist anywhere online.
 function urlRecoveryPrompt(url: string, partialAddress?: string | null): string {
-  return `A New Zealand property listing could not be scraped directly — the portal blocked it or returned no data. Find the SAME property from another source.
+  return `A New Zealand property listing could not be scraped — the portal (often TradeMe) blocked it or hid the photos. Find the SAME property on other sources so we can recover its PHOTOS and details. Be persistent: a Google search for the address almost always surfaces the listing with photos.
 
 ORIGINAL URL: ${url}
-${partialAddress ? `KNOWN ADDRESS: ${partialAddress}` : "If you can, work out the street address from the URL slug."}
+${partialAddress ? `KNOWN ADDRESS: ${partialAddress}` : "Work out the street address from the URL slug if you can."}
 
-Use web search to find this exact property currently for sale. Try, in order: OneRoof (oneroof.co.nz), realestate.co.nz, homes.co.nz, then a general web search${partialAddress ? ` for "${partialAddress} for sale NZ"` : ' for the address + "for sale NZ"'} (which picks up the listing agency's own site — Harcourts, Ray White, Bayleys, Barfoot & Thompson, First National, Property Brokers, etc.). NZ listings are usually cross-posted, so the same property is often on several sites. Prefer the CURRENT for-sale listing — never report a past SOLD price as the asking price.
+Work through these and DON'T stop until you've found the listing's photos:
+1. AGENCY — work out the listing agency/agent from the original listing or its slug (TradeMe usually shows the agent + agency even when photos are blocked). NZ agencies cross-post to their OWN website, which carries the full photo gallery — that's the best photo source.
+2. GOOGLE the address with the agency, and across portals, e.g. "${partialAddress ?? "<the address>"}" <agency-domain>   and   "${partialAddress ?? "<the address>"}" property for sale NZ — this surfaces the agency site + TradeMe + homes.co.nz + propertyvalue.co.nz + OneRoof.
+3. Check the address on: oneroof.co.nz, realestate.co.nz, homes.co.nz, propertyvalue.co.nz, and the listing agency's own website.
+NZ listings are cross-posted, so the same property is on several sites — prefer the CURRENT for-sale listing (never a past SOLD price).
 
-Then call ${TOOL_NAME} with the property's details and any photo image URLs you can see, plus which site you found it on (source_site) and the page URL (source_url). Report ONLY what the sources actually show — never invent a figure. If you genuinely cannot find the property anywhere, call ${TOOL_NAME} with found=false.`;
+Then call ${TOOL_NAME} with: the property's details, agency_name/agent_name, any photo image URLs you can see, source_site + source_url, AND **candidate_urls** = EVERY page URL where this listing appears (the agency's own listing page FIRST, then portals) so we can fetch the full photo gallery from them. Report ONLY what the sources show — never invent a figure. Only set found=false if the property genuinely is not online anywhere.`;
 }
 
 // The user typed an address by hand → look that exact property up. Google-style
@@ -162,8 +172,14 @@ export async function searchListing(opts: { url?: string; address?: string | nul
   const tu = resp.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === TOOL_NAME
   );
-  if (!tu) return { found: false, source: null, sourceUrl: null, fields: {} };
+  if (!tu) return { found: false, source: null, sourceUrl: null, candidateUrls: [], fields: {} };
   const d = tu.input as RawListing;
+
+  const candidateUrls = Array.from(new Set(
+    [d.source_url, ...(Array.isArray(d.candidate_urls) ? d.candidate_urls : [])]
+      .filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u.trim()))
+      .map((u) => u.trim())
+  ));
 
   // Build whatever facts the model gathered. We keep these EVEN when the property
   // isn't currently for sale (found=false) so a past-sale / property-data record can
@@ -193,6 +209,7 @@ export async function searchListing(opts: { url?: string; address?: string | nul
     found: currentlyForSale,
     source: str(d.source_site) ?? (currentlyForSale ? "web search" : null),
     sourceUrl: str(d.source_url),
+    candidateUrls,
     fields,
   };
 }

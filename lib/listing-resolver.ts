@@ -50,6 +50,29 @@ function retrievedStamp(): string {
   return new Date().toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
 }
 
+/** Bare hostname for a source note, e.g. "https://www.chaneys.co.nz/x" → "chaneys.co.nz". */
+function hostOf(u: string): string {
+  try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
+}
+
+/**
+ * Fetch the page(s) the web search pointed us to (agency site first) and scrape the
+ * photo gallery — web_search gives URLs + facts but rarely the actual image URLs.
+ * Skips TradeMe (the portal that blocks bots). Returns the first page with photos.
+ */
+async function recoverPhotos(candidateUrls: string[]): Promise<{ scraped: ScrapedListing; host: string } | null> {
+  for (const cu of candidateUrls) {
+    if (detectPortalFromUrl(cu) === "trademe") continue;
+    try {
+      const scraped = await scrapeListingUrl(cu);
+      if (scraped.photoUrls.length > 0) return { scraped, host: hostOf(cu) };
+    } catch {
+      /* unreachable / blocked → try the next candidate */
+    }
+  }
+  return null;
+}
+
 export async function resolveListing(url: string): Promise<ScrapedListing> {
   const portal = detectPortalFromUrl(url);
   let listing: ScrapedListing | null = null;
@@ -67,14 +90,35 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
     }
   }
 
-  // Blocked / empty / unsupported / TradeMe → recover the property from another source.
-  if (!listing || !hasRealData(listing)) {
+  // Recover from another source when the scrape was blocked, thin, OR returned NO
+  // PHOTOS. web_search finds the facts + the page URLs the listing lives on (the
+  // agency's own site, portals) but rarely the actual image URLs — so we then FETCH
+  // those pages and scrape the photo gallery directly. The user should never see
+  // "no photos" while the photos exist on the agent's website.
+  if (!listing || !hasRealData(listing) || listing.photoUrls.length === 0) {
     const found = await searchListing({ url, address: listing?.address ?? null });
-    if (found.found) {
-      const merged = merge(listing ?? emptyListing(url, portal), found.fields);
+    if (found.found || found.candidateUrls.length > 0 || found.fields.bedrooms != null || found.fields.floorAreaSqm != null) {
+      let merged = merge(listing ?? emptyListing(url, portal), found.fields);
       merged.scrapedOk = true;
-      merged.dataSource = `Data sourced from ${found.source}${portal !== "unknown" ? ` — the original ${PORTAL_LABEL[portal] ?? portal} listing was unavailable` : ""}.`;
       if (found.fields.photoUrls && found.fields.photoUrls.length > 0) merged.photoUrls = found.fields.photoUrls;
+
+      // Search-then-scrape: pull the photo gallery from the page(s) the search found.
+      let photoHost: string | null = null;
+      if (merged.photoUrls.length === 0) {
+        const rec = await recoverPhotos(found.candidateUrls);
+        if (rec) {
+          merged = merge(rec.scraped, merged); // web-search facts win; the page fills gaps + media
+          merged.url = url;
+          merged.portal = portal;
+          merged.photoUrls = rec.scraped.photoUrls;
+          merged.scrapedOk = true;
+          photoHost = rec.host;
+        }
+      }
+
+      merged.dataSource = photoHost
+        ? `${merged.photoUrls.length} photos sourced from ${photoHost} — the original ${PORTAL_LABEL[portal] ?? "listing"} blocked photo access (retrieved ${retrievedStamp()}).`
+        : `Data sourced from ${found.source ?? "web search"}${portal !== "unknown" && portal !== "trademe" ? ` — the original ${PORTAL_LABEL[portal] ?? portal} listing was unavailable` : ""} (retrieved ${retrievedStamp()}).`;
       listing = merged;
     }
   }
@@ -113,11 +157,19 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
 
   // Currently for sale → use the live listing.
   if (found.found) {
-    const merged = merge(base, f);
+    let merged = merge(base, f);
     merged.address = merged.address ?? address;
     merged.scrapedOk = true;
-    merged.dataSource = `Listing data sourced from ${found.source} — retrieved ${retrievedStamp()}.`;
     if (f.photoUrls && f.photoUrls.length > 0) merged.photoUrls = f.photoUrls;
+    // No photo URLs from the search → scrape them from the page(s) it found.
+    let photoHost: string | null = null;
+    if (merged.photoUrls.length === 0) {
+      const rec = await recoverPhotos(found.candidateUrls);
+      if (rec) { merged = merge(rec.scraped, merged); merged.photoUrls = rec.scraped.photoUrls; photoHost = rec.host; }
+    }
+    merged.dataSource = photoHost
+      ? `Listing + ${merged.photoUrls.length} photos sourced from ${photoHost} — retrieved ${retrievedStamp()}.`
+      : `Listing data sourced from ${found.source} — retrieved ${retrievedStamp()}.`;
     return merged;
   }
 
