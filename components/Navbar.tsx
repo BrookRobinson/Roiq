@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useTheme } from "@/lib/theme/context";
-import { Sun, Moon, Menu, X, BarChart3, Map, Home, User } from "lucide-react";
+import { Sun, Moon, Menu, X, BarChart3, Map, Home, User, Hammer } from "lucide-react";
 
 export default function Navbar({
   user,
@@ -27,6 +27,7 @@ export default function Navbar({
     ? [
         { href: "/dashboard",      label: "Dashboard",  icon: Home      },
         { href: "/report/new",     label: "New Report", icon: BarChart3 },
+        { href: "/marketplace",    label: "Marketplace", icon: Hammer   },
         ...(plan === "pro"
           ? [{ href: "/map",       label: "Map",        icon: Map       }]
           : [{ href: "/pricing",   label: "Upgrade",    icon: User      }]),

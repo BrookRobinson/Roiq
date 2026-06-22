@@ -1,0 +1,85 @@
+/* Renovation Marketplace — self-contained LIGHT theme (brand tokens per spec).
+   Scoped under .mp-root so it never affects RoiQ's dark app theme. Mirrors the
+   app's shape conventions (14px card radius, Space Grotesk). */
+
+.mp-root {
+  --mp-orange: #e8622a;
+  --mp-orange-hover: #cf5421;
+  --mp-orange-soft: rgba(232, 98, 42, 0.1);
+  --mp-navy: #0b2e4f;
+  --mp-bg: #f4f7fa;
+  --mp-card: #ffffff;
+  --mp-border: #e2e8f0;
+  --mp-ink: #1a2332;
+  --mp-muted: #6b7a8d;
+
+  background: var(--mp-bg);
+  color: var(--mp-ink);
+  min-height: 100vh;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+}
+.mp-root ::selection { background: var(--mp-orange); color: #fff; }
+
+/* ── layout ── */
+.mp-container { max-width: 880px; margin: 0 auto; padding: 28px 16px 72px; }
+.mp-header { position: sticky; top: 0; z-index: 20; background: rgba(244, 247, 250, 0.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--mp-border); }
+.mp-header-inner { max-width: 1100px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 16px; }
+.mp-back { display: inline-flex; align-items: center; gap: 6px; color: var(--mp-muted); font-size: 14px; text-decoration: none; margin-bottom: 16px; }
+.mp-back:hover { color: var(--mp-orange); }
+
+/* ── cards ── */
+.mp-card { background: var(--mp-card); border: 1px solid var(--mp-border); border-radius: 14px; }
+.mp-card-pad { padding: 20px; }
+.mp-card-hover { transition: border-color 0.15s, box-shadow 0.15s; }
+.mp-card-hover:hover { border-color: var(--mp-orange); box-shadow: 0 4px 20px rgba(11, 46, 79, 0.08); }
+.mp-orange-card { background: var(--mp-orange-soft); border: 1px solid rgba(232, 98, 42, 0.25); border-radius: 14px; padding: 20px; }
+
+/* ── buttons ── */
+.mp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--mp-orange); color: #fff; font-weight: 600; border: none; border-radius: 10px; padding: 12px 20px; cursor: pointer; transition: background 0.15s, opacity 0.15s; font-size: 15px; font-family: inherit; }
+.mp-btn:hover:not(:disabled) { background: var(--mp-orange-hover); }
+.mp-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.mp-btn-block { width: 100%; }
+.mp-btn-secondary { background: #fff; color: var(--mp-navy); border: 1px solid var(--mp-border); }
+.mp-btn-secondary:hover:not(:disabled) { border-color: var(--mp-navy); }
+.mp-btn-ghost { background: transparent; color: var(--mp-muted); border: none; cursor: pointer; font-family: inherit; font-size: 15px; padding: 8px 12px; }
+.mp-btn-ghost:hover { color: var(--mp-orange); }
+
+/* ── pills / chips ── */
+.mp-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--mp-border); background: #fff; color: var(--mp-ink); font-size: 14px; cursor: pointer; white-space: nowrap; transition: all 0.15s; font-family: inherit; }
+.mp-pill:hover { border-color: var(--mp-orange); }
+.mp-pill-active { background: var(--mp-navy); color: #fff; border-color: var(--mp-navy); }
+
+/* ── badges ── */
+.mp-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--mp-navy); color: #fff; }
+.mp-badge-soft { background: var(--mp-orange-soft); color: var(--mp-orange); }
+.mp-badge-urgent { background: var(--mp-orange); color: #fff; }
+.mp-badge-grey { background: #eef2f6; color: var(--mp-muted); }
+.mp-badge-amber { background: rgba(217, 119, 6, 0.12); color: #b45309; }
+.mp-badge-green { background: rgba(5, 150, 105, 0.12); color: #047857; }
+
+/* ── inputs ── */
+.mp-input, .mp-textarea { width: 100%; background: #fff; border: 1px solid var(--mp-border); border-radius: 10px; padding: 12px 14px; font-size: 15px; color: var(--mp-ink); font-family: inherit; }
+.mp-input:focus, .mp-textarea:focus { outline: none; border-color: var(--mp-orange); box-shadow: 0 0 0 3px var(--mp-orange-soft); }
+.mp-textarea { min-height: 120px; resize: vertical; }
+.mp-label { display: block; font-size: 13px; font-weight: 600; color: var(--mp-ink); margin-bottom: 6px; }
+
+/* ── text ── */
+.mp-h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; color: var(--mp-ink); margin: 0; }
+.mp-h2 { font-size: 20px; font-weight: 700; color: var(--mp-ink); margin: 0; }
+.mp-muted { color: var(--mp-muted); }
+.mp-navy { color: var(--mp-navy); }
+.mp-orange { color: var(--mp-orange); }
+.mp-link { color: var(--mp-orange); font-weight: 600; cursor: pointer; text-decoration: none; background: none; border: none; font-family: inherit; font-size: inherit; padding: 0; }
+.mp-link:hover { text-decoration: underline; }
+
+/* ── grids ── */
+.mp-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.mp-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 560px) { .mp-grid-2 { grid-template-columns: 1fr; } .mp-grid-4 { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── misc ── */
+.mp-divider { height: 1px; background: var(--mp-border); border: none; margin: 16px 0; }
+.mp-row { display: flex; align-items: center; gap: 12px; }
+.mp-progress-track { height: 6px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.mp-progress-fill { height: 6px; background: var(--mp-orange); border-radius: 999px; transition: width 0.3s; }
+.mp-avatar { width: 40px; height: 40px; border-radius: 999px; background: var(--mp-navy); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
