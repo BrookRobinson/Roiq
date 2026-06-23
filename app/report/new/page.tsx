@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Upload, Link2, Loader2, CheckCircle2 } from "lucide-react";
 import { saveReport } from "@/lib/report-store";
+import { useRequireAccount } from "@/lib/account/useRequireAccount";
 
 type Step = "input" | "scraping" | "analysing" | "done";
 
@@ -35,6 +36,7 @@ const isTradeMeUrl = (u: string) => /(^|\/\/|\.)trademe\.co\.nz/i.test(u);
 
 export default function NewReportPage() {
   const router = useRouter();
+  const acctReady = useRequireAccount("/report/new");
   const [url, setUrl] = useState("");
   const [addressInput, setAddressInput] = useState("");
   const [needAddress, setNeedAddress] = useState(false);
@@ -147,6 +149,9 @@ export default function NewReportPage() {
   const tradeMeDetected = isTradeMeUrl(url.trim());
   const showAddressPrompt = needAddress || tradeMeDetected;
   const addressPromptReason: "trademe" | "failed" = tradeMeDetected ? "trademe" : addressReason;
+
+  // Must have a (free) account to run a report.
+  if (!acctReady) return <div style={{ background: "var(--bg)", minHeight: "100vh" }} />;
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>

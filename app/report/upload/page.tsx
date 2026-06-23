@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, CheckCircle2, ImagePlus, X, AlertTriangle, Plus } from "lucide-react";
 import { saveReport } from "@/lib/report-store";
 import { MANDATORY_CATEGORIES, OPTIONAL_CATEGORIES, type PhotoCategory } from "@/lib/photo-categories";
+import { useRequireAccount } from "@/lib/account/useRequireAccount";
 
 type Step = "input" | "analysing" | "done";
 interface Shot { dataUrl: string; name: string }
@@ -35,6 +36,7 @@ function resizeToDataUrl(file: File, maxDim = 1400, quality = 0.8): Promise<stri
 
 export default function UploadReportPage() {
   const router = useRouter();
+  const acctReady = useRequireAccount("/report/upload");
   const [address, setAddress] = useState("");
   const [price, setPrice] = useState(""); // formatted, e.g. "310,000"
   const [scrapedPrice, setScrapedPrice] = useState<number | null>(null);
@@ -175,6 +177,9 @@ export default function UploadReportPage() {
       setStep("input");
     }
   }
+
+  // Must have a (free) account to run a report.
+  if (!acctReady) return <div style={{ background: "var(--bg)", minHeight: "100vh" }} />;
 
   if (step === "analysing" || step === "done") {
     return (

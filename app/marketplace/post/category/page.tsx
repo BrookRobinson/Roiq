@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { TRADE_CATEGORIES } from "@/lib/marketplace/constants";
 import { loadDraft, saveDraft } from "@/lib/marketplace/draft";
+import { useRequireAccount } from "@/lib/account/useRequireAccount";
 
 export default function CategoryPage() {
   const router = useRouter();
+  const acctReady = useRequireAccount("/marketplace/post/category");
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => { setSelected(loadDraft().category ?? null); }, []);
@@ -17,6 +19,8 @@ export default function CategoryPage() {
     saveDraft({ category: selected });
     router.push("/marketplace/post/details");
   }
+
+  if (!acctReady) return <div className="mp-container" />;
 
   return (
     <div className="mp-container">
