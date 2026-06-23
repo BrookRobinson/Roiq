@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     businessName: body.businessName,
     nzbn: body.nzbn,
     categories: body.categories,
+    region: body.region,
     businessRegUrl: body.businessRegUrl,
     qualificationUrl: body.qualificationUrl,
     tradeBodies: Array.isArray(body.tradeBodies) ? body.tradeBodies : [],

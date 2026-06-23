@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@/lib/marketplace/session";
 import {
   getJob, getUser, hasQuoted, quotesForJob, quotesWithTradesman,
-  homeownerPublic, setJobStatus,
+  homeownerPublic, setJobStatus, tradesmanDoesCategory,
 } from "@/lib/marketplace/store";
 import { categoryById, isQualified } from "@/lib/marketplace/constants";
 
@@ -17,9 +17,14 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const category = categoryById(job.category) ?? null;
   const home = getUser(job.homeownerId);
 
-  if (me.role === "HOMEOWNER" && me.id === job.homeownerId) {
+  // Homeowner: can ONLY see their own job (each homeowner has their own portal).
+  if (me.role === "HOMEOWNER") {
+    if (me.id !== job.homeownerId) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     return NextResponse.json({ role: "owner", job, category, quotes: quotesWithTradesman(job.id) });
   }
+
+  // Tradesman: can only open a job in one of their trades.
+  if (!tradesmanDoesCategory(me, job.category)) return NextResponse.json({ error: "wrong_trade" }, { status: 403 });
 
   // Tradesman view
   const quoted = hasQuoted(job.id, me.id);

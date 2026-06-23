@@ -70,6 +70,13 @@ export const ROOF_COLOURS: RoofColour[] = [
   { id: "nightsky",  name: "Night sky",    hex: "#1C2132" },
 ];
 
+// NZ regions — a tradesman picks one (their "chosen region"); every job carries one.
+export const NZ_REGIONS: string[] = [
+  "Northland", "Auckland", "Waikato", "Bay of Plenty", "Gisborne", "Hawke's Bay",
+  "Taranaki", "Manawatū-Whanganui", "Wellington", "Tasman", "Nelson", "Marlborough",
+  "West Coast", "Canterbury", "Otago", "Southland",
+];
+
 // ── Lookup helpers ─────────────────────────────────────────────────────────────
 export const categoryById = (id: string): TradeCategory | undefined => TRADE_CATEGORIES.find((c) => c.id === id);
 export const bodyById = (id: string): TradeBody | undefined => TRADE_BODIES.find((b) => b.id === id);

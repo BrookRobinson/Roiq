@@ -23,8 +23,10 @@ export interface MarketUser {
   tdVerified?: boolean;
   /** Trade-body ids the tradesman holds (drives the qualified-jobs filter). */
   tradeBodies?: string[];
-  /** Trade category ids the tradesman works in. */
+  /** Trade category ids the tradesman works in — they ONLY see jobs in these. */
   categories?: string[];
+  /** The tradesman's chosen region — they see jobs in this region. */
+  region?: string;
   // Denormalised display helpers (derived from reviews / jobs)
   avgRating?: number;
   reviewCount?: number;
@@ -40,6 +42,7 @@ export interface Job {
   description: string;
   address: string;
   suburb: string;
+  region: string; // NZ region — tradesmen see jobs in their chosen region
   photos: string[]; // file/object URLs (data: URLs in the prototype)
   status: JobStatus;
   urgent: boolean;
@@ -106,6 +109,7 @@ export interface JobListItem {
   category: string;
   title: string;
   suburb: string;
+  region: string;
   descriptionPreview: string;
   photos: string[];
   urgent: boolean;

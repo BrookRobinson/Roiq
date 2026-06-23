@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import { categoryById, ROOFING_MATERIALS, ROOF_COLOURS, type TradeCategory } from "@/lib/marketplace/constants";
+import { categoryById, ROOFING_MATERIALS, ROOF_COLOURS, NZ_REGIONS, type TradeCategory } from "@/lib/marketplace/constants";
 import { loadDraft, saveDraft } from "@/lib/marketplace/draft";
 import { RoofVisualiser } from "@/components/marketplace/RoofVisualiser";
 
@@ -15,6 +15,7 @@ export default function DetailsPage() {
   const [colour, setColour] = useState<string | undefined>(undefined);
   const [description, setDescription] = useState("");
   const [address, setAddress] = useState("");
+  const [region, setRegion] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -26,6 +27,7 @@ export default function DetailsPage() {
     setColour(d.colour);
     setDescription(d.description ?? "");
     setAddress(d.address ?? "");
+    setRegion(d.region ?? "");
     setPhotos(d.photos ?? []);
   }, [router]);
 
@@ -40,7 +42,7 @@ export default function DetailsPage() {
 
   if (!cat) return null;
   const colourObj = ROOF_COLOURS.find((c) => c.id === colour) ?? null;
-  const canContinue = description.trim().length > 0 && address.trim().length > 0;
+  const canContinue = description.trim().length > 0 && address.trim().length > 0 && region.length > 0;
 
   function cont() {
     saveDraft({
@@ -48,6 +50,7 @@ export default function DetailsPage() {
       colour: cat!.hasVisualiser ? colour : undefined,
       description,
       address,
+      region,
       photos,
     });
     router.push("/marketplace/post/review");
@@ -133,6 +136,12 @@ export default function DetailsPage() {
         <textarea className="mp-textarea" placeholder="What needs doing? Include size, materials, access, timing — anything that helps a tradesman quote accurately." value={description} onChange={(e) => setDescription(e.target.value)} />
         <label className="mp-label" style={{ marginTop: 16 }}>Property address</label>
         <input className="mp-input" placeholder="12 Example Street, Riccarton, Christchurch" value={address} onChange={(e) => setAddress(e.target.value)} />
+        <label className="mp-label" style={{ marginTop: 16 }}>Region</label>
+        <select className="mp-input" value={region} onChange={(e) => setRegion(e.target.value)}>
+          <option value="">Select a region…</option>
+          {NZ_REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
+        <p className="mp-muted" style={{ fontSize: 12, marginTop: 6 }}>Only tradesmen who work in this region will see your job.</p>
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>

@@ -7,6 +7,7 @@ export interface JobDraft {
   colour?: string; // roof colour id
   description?: string;
   address?: string;
+  region?: string; // NZ region
   photos?: string[]; // data: URLs
 }
 

@@ -36,20 +36,27 @@ function seed(): MarketDB {
   const users: MarketUser[] = [
     { id: SEED_HOMEOWNER_ID, name: "Sarah Thompson", email: "sarah.thompson@example.co.nz", phone: "021 555 0142", role: "HOMEOWNER", avgRating: 5, reviewCount: 3, jobCount: 0 },
     // The verified test tradesman (multi-trade so several categories are browsable).
-    { id: SEED_TRADESMAN_ID, name: "Mike Reardon", email: "mike@canterburyexteriors.co.nz", phone: "027 444 8810", role: "TRADESMAN", businessName: "Canterbury Roofing & Exteriors", nzbn: "9429041234567", tdVerified: true, tradeBodies: ["lbp", "master-builders", "master-painters"], categories: ["roofing", "painting", "decking", "fencing", "windows"], avgRating: 4.8, reviewCount: 24 },
+    { id: SEED_TRADESMAN_ID, name: "Mike Reardon", email: "mike@canterburyexteriors.co.nz", phone: "027 444 8810", role: "TRADESMAN", businessName: "Canterbury Roofing & Exteriors", nzbn: "9429041234567", tdVerified: true, tradeBodies: ["lbp", "master-builders", "master-painters"], categories: ["roofing", "painting", "decking", "fencing", "windows"], region: "Canterbury", avgRating: 4.8, reviewCount: 24 },
     { id: "u_t2", name: "Dave Patel",  email: "dave@gardencityplumbing.co.nz", phone: "027 222 1190", role: "TRADESMAN", businessName: "Garden City Plumbing & Gas", nzbn: "9429042222111", tdVerified: true, tradeBodies: ["pgdb"], categories: ["plumbing", "bathroom"], avgRating: 4.6, reviewCount: 17 },
     { id: "u_t3", name: "Sam Ngata",   email: "sam@selwynelectrical.co.nz",   phone: "027 333 7740", role: "TRADESMAN", businessName: "Selwyn Electrical", nzbn: "9429043333222", tdVerified: true, tradeBodies: ["ewrb"], categories: ["electrical"], avgRating: 4.9, reviewCount: 31 },
     { id: "u_t4", name: "Anna Wright", email: "anna@avonpainters.co.nz",      phone: "027 888 3320", role: "TRADESMAN", businessName: "Avon Painting Co.", nzbn: "9429044444333", tdVerified: true, tradeBodies: ["master-painters"], categories: ["painting"], avgRating: 4.7, reviewCount: 12 },
     { id: "u_t5", name: "Tom Fisher",  email: "tom@rollestonkitchens.co.nz",  phone: "027 611 2245", role: "TRADESMAN", businessName: "Rolleston Kitchens & Joinery", nzbn: "9429045555444", tdVerified: true, tradeBodies: ["lbp", "nzcb"], categories: ["kitchen"], avgRating: 4.5, reviewCount: 9 },
+    // A second homeowner in another region — their jobs never appear in Sarah's
+    // portal (homeowner isolation) and only show to tradesmen in their region.
+    { id: "u_home2", name: "James Cooper", email: "james.cooper@example.co.nz", phone: "021 555 0199", role: "HOMEOWNER", avgRating: 5, reviewCount: 1, jobCount: 0 },
   ];
 
   const jobs: Job[] = [
-    { id: "j_roof",  homeownerId: SEED_HOMEOWNER_ID, category: "roofing",    material: "colorsteel", colour: "ironsand", description: "Replace the old corrugate roof on a 1960s brick-and-tile home. Some rust around the spouting and a couple of leaks near the chimney. Single storey, ~120m² roof.", address: "12 Kotare Street",   suburb: "Riccarton",  photos: ["https://picsum.photos/seed/roiqroof/1200/800"], status: "LIVE", urgent: true,  createdAt: hoursAgo(3) },
-    { id: "j_paint", homeownerId: SEED_HOMEOWNER_ID, category: "painting",   colour: "thunder",  description: "Full exterior repaint of a weatherboard villa. Prep, undercoat and two top coats. Some weatherboard repairs needed on the south side.", address: "8 Holmwood Road",  suburb: "Merivale",   photos: [], status: "LIVE", urgent: false, createdAt: hoursAgo(20) },
-    { id: "j_kitchen", homeownerId: SEED_HOMEOWNER_ID, category: "kitchen",  description: "Full kitchen renovation — remove the old kitchen, new cabinetry, benchtop, splashback and appliance install. Approx 14m².", address: "23 Clyde Road",     suburb: "Ilam",       photos: ["https://picsum.photos/seed/roiqkitchen/1200/800"], status: "LIVE", urgent: false, createdAt: hoursAgo(28) },
-    { id: "j_bath",  homeownerId: SEED_HOMEOWNER_ID, category: "bathroom",   description: "Bathroom re-fit. Strip back to framing, re-waterproof, new tiling, vanity, toilet and a walk-in shower.", address: "5 Glandovey Road",  suburb: "Fendalton",  photos: [], status: "LIVE", urgent: false, createdAt: hoursAgo(50) },
-    { id: "j_plumb", homeownerId: SEED_HOMEOWNER_ID, category: "plumbing",   description: "Replace an old hot water cylinder with a new mains-pressure unit and fix a slow leak under the kitchen sink.", address: "41 Papanui Road",   suburb: "Papanui",    photos: [], status: "LIVE", urgent: true,  createdAt: hoursAgo(6) },
-    { id: "j_elec",  homeownerId: SEED_HOMEOWNER_ID, category: "electrical", description: "Switchboard upgrade to RCDs plus add four double sockets and recessed LED lighting through the living area.", address: "17 Wakefield Avenue", suburb: "Sumner",   photos: [], status: "LIVE", urgent: false, createdAt: hoursAgo(72) },
+    { id: "j_roof",  homeownerId: SEED_HOMEOWNER_ID, category: "roofing",    material: "colorsteel", colour: "ironsand", description: "Replace the old corrugate roof on a 1960s brick-and-tile home. Some rust around the spouting and a couple of leaks near the chimney. Single storey, ~120m² roof.", address: "12 Kotare Street",   suburb: "Riccarton",  region: "Canterbury", photos: ["https://picsum.photos/seed/roiqroof/1200/800"], status: "LIVE", urgent: true,  createdAt: hoursAgo(3) },
+    { id: "j_paint", homeownerId: SEED_HOMEOWNER_ID, category: "painting",   colour: "thunder",  description: "Full exterior repaint of a weatherboard villa. Prep, undercoat and two top coats. Some weatherboard repairs needed on the south side.", address: "8 Holmwood Road",  suburb: "Merivale",   region: "Canterbury", photos: [], status: "LIVE", urgent: false, createdAt: hoursAgo(20) },
+    { id: "j_kitchen", homeownerId: SEED_HOMEOWNER_ID, category: "kitchen",  description: "Full kitchen renovation — remove the old kitchen, new cabinetry, benchtop, splashback and appliance install. Approx 14m².", address: "23 Clyde Road",     suburb: "Ilam",       region: "Canterbury", photos: ["https://picsum.photos/seed/roiqkitchen/1200/800"], status: "LIVE", urgent: false, createdAt: hoursAgo(28) },
+    { id: "j_bath",  homeownerId: SEED_HOMEOWNER_ID, category: "bathroom",   description: "Bathroom re-fit. Strip back to framing, re-waterproof, new tiling, vanity, toilet and a walk-in shower.", address: "5 Glandovey Road",  suburb: "Fendalton",  region: "Canterbury", photos: [], status: "LIVE", urgent: false, createdAt: hoursAgo(50) },
+    { id: "j_plumb", homeownerId: SEED_HOMEOWNER_ID, category: "plumbing",   description: "Replace an old hot water cylinder with a new mains-pressure unit and fix a slow leak under the kitchen sink.", address: "41 Papanui Road",   suburb: "Papanui",    region: "Canterbury", photos: [], status: "LIVE", urgent: true,  createdAt: hoursAgo(6) },
+    { id: "j_elec",  homeownerId: SEED_HOMEOWNER_ID, category: "electrical", description: "Switchboard upgrade to RCDs plus add four double sockets and recessed LED lighting through the living area.", address: "17 Wakefield Avenue", suburb: "Sumner",   region: "Canterbury", photos: [], status: "LIVE", urgent: false, createdAt: hoursAgo(72) },
+    // Other-region jobs (from the 2nd homeowner) — a Canterbury tradesman won't see
+    // these unless they switch their chosen region.
+    { id: "j_paint_akl", homeownerId: "u_home2", category: "painting", colour: "gull", description: "Repaint the exterior of a 1990s plaster home, two storeys. Wash, prep and repaint in a modern grey.", address: "24 Jervois Road", suburb: "Ponsonby", region: "Auckland", photos: [], status: "LIVE", urgent: false, createdAt: hoursAgo(12) },
+    { id: "j_roof_wlg", homeownerId: "u_home2", category: "roofing", material: "longrun", colour: "thunder", description: "Re-roof a hillside villa — replace old long-run iron, new underlay and spouting. Tricky access.", address: "9 Karori Road", suburb: "Karori", region: "Wellington", photos: [], status: "LIVE", urgent: true, createdAt: hoursAgo(30) },
   ];
 
   const quotes: Quote[] = [
@@ -69,8 +76,9 @@ function seed(): MarketDB {
   db.quotes = quotes;
   db.reviews = reviews;
   // homeowner jobCount = number of jobs they've posted
-  const home = db.users.find((u) => u.id === SEED_HOMEOWNER_ID);
-  if (home) home.jobCount = db.jobs.filter((j) => j.homeownerId === SEED_HOMEOWNER_ID).length;
+  db.users.filter((u) => u.role === "HOMEOWNER").forEach((h) => {
+    h.jobCount = db.jobs.filter((j) => j.homeownerId === h.id).length;
+  });
   return db;
 }
 
@@ -114,15 +122,26 @@ export const quotesForJob = (jobId: string): Quote[] => db().quotes.filter((q) =
 export const hasQuoted = (jobId: string, tradesmanId: string): boolean =>
   db().quotes.some((q) => q.jobId === jobId && q.tradesmanId === tradesmanId);
 
-/** LIVE jobs the tradesman is QUALIFIED for, newest first, optionally filtered by category. */
-export function jobsForTradesman(tradesman: MarketUser, categoryFilter?: string): JobListItem[] {
+/**
+ * LIVE jobs shown to a tradesman: only in their CHOSEN REGION (opts.region, default
+ * their own) and only in THEIR TRADES (categories) — a painter sees painting jobs,
+ * not kitchens. Newest first, optionally narrowed to one category.
+ */
+export function jobsForTradesman(tradesman: MarketUser, opts: { category?: string; region?: string } = {}): JobListItem[] {
+  const region = opts.region || tradesman.region;
+  const myCats = tradesman.categories ?? [];
   return db().jobs
     .filter((j) => j.status === "LIVE")
-    .filter((j) => isQualified(j.category, tradesman.tradeBodies))
-    .filter((j) => !categoryFilter || categoryFilter === "all" || j.category === categoryFilter)
+    .filter((j) => !region || j.region === region)
+    .filter((j) => myCats.includes(j.category))
+    .filter((j) => !opts.category || opts.category === "all" || j.category === opts.category)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map((j) => toListItem(j, tradesman.id));
 }
+
+/** Whether this tradesman may see/quote a given job's category (their trade). */
+export const tradesmanDoesCategory = (tradesman: MarketUser, category: string): boolean =>
+  (tradesman.categories ?? []).includes(category);
 
 function toListItem(j: Job, viewerId: string): JobListItem {
   const desc = j.description.trim();
@@ -131,6 +150,7 @@ function toListItem(j: Job, viewerId: string): JobListItem {
     category: j.category,
     title: jobTitle(j.category, j.description),
     suburb: j.suburb,
+    region: j.region,
     descriptionPreview: desc.length > 90 ? desc.slice(0, 90).trim() + "…" : desc,
     photos: j.photos,
     urgent: j.urgent,
@@ -146,7 +166,8 @@ export interface CreateJobInput {
   colour?: string;
   description: string;
   address: string;
-  suburb: string;
+  suburb?: string;
+  region?: string;
   photos?: string[];
   urgent?: boolean;
   status?: JobStatus; // LIVE (post) or DRAFT (save as draft)
@@ -163,6 +184,7 @@ export function createJob(homeownerId: string, input: CreateJobInput): Job {
     description: input.description ?? "",
     address: input.address ?? "",
     suburb: input.suburb ?? deriveSuburb(input.address ?? ""),
+    region: input.region ?? "",
     photos: input.photos ?? [],
     status: input.status ?? "LIVE",
     urgent: !!input.urgent,
@@ -197,6 +219,8 @@ export function addQuote(jobId: string, tradesmanId: string, amountNZD: number, 
   if (hasQuoted(jobId, tradesmanId)) return { error: "already_quoted" };
   const tradesman = getUser(tradesmanId);
   if (!tradesman || tradesman.role !== "TRADESMAN" || !tradesman.tdVerified) return { error: "not_verified" };
+  // Must work in this trade AND hold the required qualifications.
+  if (!(tradesman.categories ?? []).includes(job.category)) return { error: "not_qualified" };
   if (!isQualified(job.category, tradesman.tradeBodies)) return { error: "not_qualified" };
   const quote: Quote = { id: makeId(d, "q"), jobId, tradesmanId, amountNZD: Math.round(amountNZD), message, createdAt: new Date().toISOString() };
   d.quotes.push(quote);
@@ -246,6 +270,7 @@ export interface VerifyInput {
   businessName?: string;
   nzbn?: string;
   categories?: string[];
+  region?: string;
   businessRegUrl: string;
   qualificationUrl: string;
   tradeBodies: string[];
@@ -271,6 +296,7 @@ export function submitVerification(tradesmanId: string, input: VerifyInput): Tra
     if (input.businessName) t.businessName = input.businessName;
     if (input.nzbn) t.nzbn = input.nzbn;
     if (input.categories) t.categories = input.categories;
+    if (input.region) t.region = input.region;
     t.tradeBodies = input.tradeBodies;
   }
   return v;

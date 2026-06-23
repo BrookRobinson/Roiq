@@ -65,8 +65,9 @@ export default function ReviewPage() {
         <p style={{ marginBottom: 12, lineHeight: 1.6 }}>{d.description}</p>
         <dl style={{ display: "grid", gridTemplateColumns: "120px 1fr", rowGap: 8, fontSize: 14 }}>
           <dt className="mp-muted">Address</dt><dd>{d.address || "—"}</dd>
+          <dt className="mp-muted">Region</dt><dd>{d.region || "—"}</dd>
           <dt className="mp-muted">Photos</dt><dd>{photoCount} attached</dd>
-          <dt className="mp-muted">Who sees it</dt><dd>Verified tradesmen qualified for {cat?.name}</dd>
+          <dt className="mp-muted">Who sees it</dt><dd>Verified {cat?.name} tradesmen in {d.region || "your region"}</dd>
         </dl>
       </div>
 

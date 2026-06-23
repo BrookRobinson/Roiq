@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Upload, CheckCircle2, Clock } from "lucide-react";
-import { TRADE_CATEGORIES, TRADE_BODIES } from "@/lib/marketplace/constants";
+import { TRADE_CATEGORIES, TRADE_BODIES, NZ_REGIONS } from "@/lib/marketplace/constants";
 
 export default function VerifyPage() {
   const router = useRouter();
@@ -13,6 +13,7 @@ export default function VerifyPage() {
   const [businessName, setBusinessName] = useState("");
   const [nzbn, setNzbn] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
+  const [region, setRegion] = useState("");
   const [bodies, setBodies] = useState<string[]>([]);
   const [regFile, setRegFile] = useState<string | null>(null);
   const [qualFile, setQualFile] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export default function VerifyPage() {
 
   const toggle = (arr: string[], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
-  const step1ok = businessName.trim() && nzbn.trim() && categories.length > 0;
+  const step1ok = businessName.trim() && nzbn.trim() && region && categories.length > 0;
   const step2ok = regFile && qualFile;
 
   async function submit() {
@@ -39,7 +40,7 @@ export default function VerifyPage() {
     await fetch("/api/marketplace/verify", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        businessName, nzbn, categories, tradeBodies: bodies,
+        businessName, nzbn, categories, region, tradeBodies: bodies,
         businessRegUrl: `uploaded://${regFile}`, qualificationUrl: `uploaded://${qualFile}`,
       }),
     });
@@ -79,6 +80,12 @@ export default function VerifyPage() {
 
           <label className="mp-label" style={{ marginTop: 14 }}>NZBN</label>
           <input className="mp-input" value={nzbn} onChange={(e) => setNzbn(e.target.value.replace(/[^\d]/g, ""))} placeholder="13-digit NZ Business Number" />
+
+          <label className="mp-label" style={{ marginTop: 14 }}>Region you work in</label>
+          <select className="mp-input" value={region} onChange={(e) => setRegion(e.target.value)}>
+            <option value="">Select your region…</option>
+            {NZ_REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
 
           <label className="mp-label" style={{ marginTop: 16 }}>Trades you work in</label>
           <div className="mp-grid-2">
