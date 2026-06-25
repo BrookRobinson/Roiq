@@ -8,7 +8,7 @@ import { saveAccount } from "@/lib/account/account";
 
 const PERKS = [
   "3 property reports every month",
-  "Post unlimited jobs to the Renovation Marketplace",
+  "Save and revisit every report any time",
   "No credit card required",
 ];
 
@@ -36,7 +36,7 @@ function JoinInner() {
       <div className="card" style={{ width: "100%", maxWidth: 460, padding: 28 }}>
         <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>Create your free account</h1>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          You&apos;ll need a free account to run a property report or post a job. Takes 10 seconds — no credit card.
+          You&apos;ll need a free account to run a property report. Takes 10 seconds — no credit card.
         </p>
 
         {/* free perks */}

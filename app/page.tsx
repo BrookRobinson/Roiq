@@ -154,45 +154,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Renovation Marketplace ─────────────────────────── */}
-      <section className="py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-14 items-center">
-            <div>
-              <div className="section-label" style={{ color: "#E8622A" }}>New · Renovation Marketplace</div>
-              <h2 className="text-3xl sm:text-4xl font-bold mb-4" style={{ color: "var(--text-primary)", letterSpacing: "-0.025em" }}>
-                Found the issues? Get them fixed.
-              </h2>
-              <p className="text-lg mb-8" style={{ color: "var(--text-secondary)", lineHeight: 1.75 }}>
-                Turn your RoiQ report into action. Post the work and verified New Zealand tradesmen come back with their own quotes — you compare them side by side and deal direct.
-              </p>
-              <ul className="space-y-3.5 mb-8">
-                {[
-                  "Post a job in under a minute",
-                  "Only verified, qualified tradesmen — LBP, EWRB, PGDB and more",
-                  "Compare quotes side by side — no price guesswork",
-                  "Contact details shared only when a tradesman quotes",
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-3">
-                    <CheckCircle2 size={17} className="mt-0.5 flex-shrink-0" style={{ color: "#E8622A" }} />
-                    <span style={{ color: "var(--text-secondary)" }}>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="flex gap-3 flex-wrap">
-                <Link href="/marketplace" className="inline-flex items-center gap-2 font-semibold rounded-xl px-5 py-3" style={{ background: "#E8622A", color: "#fff" }}>
-                  Explore the marketplace <ArrowRight size={16} />
-                </Link>
-                <Link href="/marketplace/post/category" className="inline-flex items-center gap-2 font-semibold rounded-xl px-5 py-3" style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                  Post a job
-                </Link>
-              </div>
-            </div>
-            <MarketplacePreview />
-          </div>
-        </div>
-      </section>
-
       {/* ── Pricing ────────────────────────────────────────── */}
       <section className="py-24" style={{ background: "var(--surface)" }} id="pricing">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -702,38 +663,6 @@ function TestimonialsGrid() {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function MarketplacePreview() {
-  const quotes = [
-    { name: "Canterbury Roofing & Exteriors", rating: "4.8", price: "$18,500" },
-    { name: "Coastline Roofing Ltd", rating: "4.6", price: "$21,200" },
-  ];
-  return (
-    <div className="card p-5" style={{ borderColor: "rgba(232,98,42,0.35)" }}>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "rgba(232,98,42,0.15)", color: "#E8622A" }}>🔨 Roofing</span>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "#E8622A", color: "#fff" }}>Urgent</span>
-        <span className="text-xs ml-auto" style={{ color: "var(--text-muted)" }}>Riccarton · 3h ago</span>
-      </div>
-      <div className="font-bold mb-1" style={{ color: "var(--text-primary)" }}>Replace old corrugate roof — 1960s brick &amp; tile</div>
-      <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>Some rust around the spouting and a couple of leaks near the chimney…</p>
-      <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)", letterSpacing: "0.05em" }}>2 QUOTES RECEIVED</div>
-      <div className="space-y-2">
-        {quotes.map((q) => (
-          <div key={q.name} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-                {q.name} <span style={{ color: "var(--green)" }}>✓</span>
-              </div>
-              <div className="text-xs" style={{ color: "var(--text-muted)" }}>★ {q.rating}</div>
-            </div>
-            <div className="font-bold mono" style={{ color: "#E8622A" }}>{q.price}</div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

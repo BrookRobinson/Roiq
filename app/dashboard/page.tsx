@@ -106,30 +106,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Renovation marketplace entry */}
-        <div
-          className="mb-8 rounded-2xl p-5"
-          style={{ background: "linear-gradient(135deg, #E8622A 0%, #cf5421 100%)", color: "#fff" }}
-        >
-          <div className="flex items-center gap-4 flex-wrap">
-            <div style={{ fontSize: 32, lineHeight: 1 }}>🔨</div>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div className="text-lg font-bold">Renovation marketplace</div>
-              <div className="text-sm" style={{ color: "rgba(255,255,255,0.92)" }}>
-                Post a renovation job and get quotes from verified NZ tradesmen — or browse work if you&apos;re a tradesman.
-              </div>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Link href="/marketplace/post/category" className="font-semibold rounded-lg px-4 py-2 text-sm" style={{ background: "#fff", color: "#cf5421" }}>
-                Post a job
-              </Link>
-              <Link href="/marketplace/listings" className="font-semibold rounded-lg px-4 py-2 text-sm" style={{ border: "1px solid rgba(255,255,255,0.65)", color: "#fff" }}>
-                Find work
-              </Link>
-            </div>
-          </div>
-        </div>
-
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
