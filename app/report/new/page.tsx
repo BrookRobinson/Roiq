@@ -90,7 +90,7 @@ export default function NewReportPage() {
       }
 
       const id = crypto.randomUUID();
-      saveReport({
+      const saved = saveReport({
         id,
         createdAt: new Date().toISOString(),
         listing: data.listing,
@@ -105,6 +105,11 @@ export default function NewReportPage() {
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
       });
+      if (!saved) {
+        setError("Your report was generated but couldn't be saved in this browser. Please try again.");
+        setStep("input");
+        return;
+      }
 
       setPipelineStep(PIPELINE_STEPS.length);
       setStep("done");

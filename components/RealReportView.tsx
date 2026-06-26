@@ -240,7 +240,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
                   {facts.map((f, i) => (<span key={i}><span className="mx-1">·</span>{f}</span>))}
                 </div>
                 <div className="flex items-center gap-3 mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                  <span className="flex items-center gap-1"><ImageIcon size={12} /> {listing.photoUrls.length} found · {photosAnalysed} analysed</span>
+                  <span className="flex items-center gap-1"><ImageIcon size={12} /> {listing.photoUrls.length > 0 ? `${listing.photoUrls.length} found · ${photosAnalysed} analysed` : `${photosAnalysed} photos analysed`}</span>
                   <span className="mono">{model}</span>
                   {(!listing.scrapedOk || photosAnalysed === 0) && (
                     <span style={{ color: "#fb923c" }}>⚠ scrape partial — leans Tier 3</span>

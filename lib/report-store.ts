@@ -62,13 +62,24 @@ export interface StoredReport {
 const key = (id: string) => `roiq:report:${id}`;
 const personaKey = (id: string) => `roiq:report:${id}:persona`;
 
-export function saveReport(report: StoredReport): void {
+export function saveReport(report: StoredReport): boolean {
   try {
-    sessionStorage.setItem(key(report.id), JSON.stringify(report));
+    // Manual-upload photos arrive as base64 `data:` URLs — storing them inflates the
+    // report past the ~5MB sessionStorage quota, so the write throws and the viewer
+    // falls back to the DEMO report. The analysis is already done (the model saw the
+    // photos server-side), so we don't need them client-side; drop only the data:
+    // URLs (scraped http URLs are small and stay, so the visualiser still works).
+    const slim: StoredReport = {
+      ...report,
+      listing: { ...report.listing, photoUrls: (report.listing.photoUrls ?? []).filter((u) => typeof u === "string" && !u.startsWith("data:")) },
+    };
+    sessionStorage.setItem(key(slim.id), JSON.stringify(slim));
     // Track the most recent id as a convenience fallback.
-    sessionStorage.setItem("roiq:report:last", report.id);
+    sessionStorage.setItem("roiq:report:last", slim.id);
+    return true;
   } catch {
-    /* storage full / unavailable — non-fatal */
+    /* storage full / unavailable */
+    return false;
   }
 }
 

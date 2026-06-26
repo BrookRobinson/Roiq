@@ -154,7 +154,7 @@ export default function UploadReportPage() {
         return;
       }
       const id = crypto.randomUUID();
-      saveReport({
+      const saved = saveReport({
         id,
         createdAt: new Date().toISOString(),
         listing: data.listing,
@@ -170,6 +170,12 @@ export default function UploadReportPage() {
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
       });
+      if (!saved) {
+        // Don't navigate to /report/[id] — with nothing stored it would show the demo.
+        setError("Your report was generated but couldn't be saved in this browser. Try again with fewer photos.");
+        setStep("input");
+        return;
+      }
       setStep("done");
       router.push(`/report/${id}`);
     } catch {
