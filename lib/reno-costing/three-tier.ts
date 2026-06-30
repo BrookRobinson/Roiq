@@ -107,7 +107,12 @@ export function kindForItem(id: string, category?: string, name?: string): RenoK
   if (/heating|heat pump/.test(hay)) return "heating";
   if (/cladding|weatherboard/.test(hay)) return "cladding";
   if (/repaint|exterior paint|\bpaint\b/.test(hay)) return "exterior_paint";
-  if (category === "Kitchen") return "kitchen";
+  if (category === "Kitchen") {
+    // The "Flooring" item is a FLOOR job, not a whole-kitchen replacement — route it
+    // to flooring before the kitchen fallback (mirrors the Bathroom branch below).
+    if (/floor/.test(hay)) return "flooring_vinyl";
+    return "kitchen";
+  }
   if (category === "Bathroom") {
     if (/floor/.test(hay)) return "flooring_tile";
     return "bathroom";
