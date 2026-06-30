@@ -27,7 +27,7 @@ const ALLOWED_MEDIA: ReadonlyArray<Anthropic.Base64ImageSource["media_type"]> = 
   "image/webp",
 ];
 
-const MAX_IMAGES = 20; // keep token cost bounded; typical NZ listing has ~12-20 photos
+const MAX_IMAGES = 30; // match the scraper's 30-photo cap so no scraped photo is wasted (catches brand badges, garages, 2nd bathrooms in richer listings); MAX_TOTAL_BYTES still bounds the actual payload
 const MAX_BYTES = 12 * 1024 * 1024; // skip absurdly large originals before downscaling
 const MAX_TOTAL_BYTES = 18 * 1024 * 1024; // safety cap on cumulative payload (post-downscale this rarely binds)
 const TARGET_MAX_DIM = 1568; // Anthropic downscales above this anyway
