@@ -6,7 +6,7 @@
 
 import * as cheerio from "cheerio";
 import { ScrapedListing, emptyListing, SupportedPortal } from "../types";
-import { scrapeFetch, extractJsonLd, stripHtml, parsePrice, parseArea, parseYear } from "../fetch";
+import { scrapeFetch, extractJsonLd, stripHtml, parsePrice, parseArea, parseQuantitativeArea, extractAreaFromJson, parseYear } from "../fetch";
 import { detectPropertyType, detectTitleType, extractFeatures } from "./shared";
 
 export function detectPortal(url: string): SupportedPortal {
@@ -58,8 +58,18 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
     if (schema.numberOfRooms)         listing.bedrooms  = Number(schema.numberOfRooms) || null;
     if (schema.numberOfBathroomsTotal) listing.bathrooms = Number(schema.numberOfBathroomsTotal) || null;
 
+    // floorSize.value is often a bare numeric STRING ("330", unitCode "MTK") — the
+    // suffix-requiring parseArea drops those, so use the quantitative-aware parser.
     const fs = schema.floorSize as Record<string, unknown> | undefined;
-    if (fs) listing.floorAreaSqm = typeof fs.value === "number" ? fs.value : parseArea(String(fs.value ?? ""));
+    if (fs) listing.floorAreaSqm = parseQuantitativeArea(fs.value, fs.unitCode as string | undefined);
+
+    // Land/lot size, when the schema carries it (key varies by portal).
+    const ls = (schema.lotSize ?? schema.landSize) as Record<string, unknown> | string | number | undefined;
+    if (ls != null) {
+      listing.landAreaSqm = typeof ls === "object"
+        ? parseQuantitativeArea((ls as Record<string, unknown>).value, (ls as Record<string, unknown>).unitCode as string | undefined)
+        : parseQuantitativeArea(ls);
+    }
   }
 
   // ── Headline selectors (common patterns across NZ portals) ─────────────
@@ -112,6 +122,16 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   // Areas. Prefer the explicit JSON fields portals embed (floorAreaString":"97m²",
   // landAreaString":"1,012m²") — the loose text scan below can otherwise grab an
   // unrelated number near the first "floor"/"land" word in the page.
+  if (!listing.floorAreaSqm) {
+    listing.floorAreaSqm = extractAreaFromJson(html, [
+      "floorArea", "floorAreaString", "floorAreaSqm", "floor_area_sqm", "floor_area", "floorSize", "buildingArea", "internalArea",
+    ]);
+  }
+  if (!listing.landAreaSqm) {
+    listing.landAreaSqm = extractAreaFromJson(html, [
+      "landArea", "landAreaString", "landAreaSqm", "land_area_sqm", "land_area", "lotSize", "siteArea", "sectionSize",
+    ]);
+  }
   if (!listing.floorAreaSqm) {
     const m = html.match(/floor\s*(?:area|size)[^0-9]{0,12}([0-9][0-9,]*)\s*m/i);
     if (m) { const n = parseFloat(m[1].replace(/,/g, "")); if (n > 0) listing.floorAreaSqm = n; }

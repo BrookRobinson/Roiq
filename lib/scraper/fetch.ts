@@ -113,6 +113,61 @@ export function parseArea(text: string): number | null {
   return isNaN(n) ? null : n;
 }
 
+function isHectareUnit(unitCode?: string | null, text?: string): boolean {
+  // UN/CEFACT: HAR = hectare, MTK = square metre. Also accept a "ha" suffix in text.
+  if (/^(HAR|HA)$/i.test((unitCode ?? "").trim())) return true;
+  return !!text && /\bha\b|hectares?/i.test(text);
+}
+
+/**
+ * Parses an area that may arrive as a number (330), a bare numeric string ("330"),
+ * a suffixed string ("330 m²", "1,132m²", "0.12 ha"), or a schema.org
+ * QuantitativeValue's value. Returns square metres, or null.
+ *
+ * The plain `parseArea` above REQUIRES a m²/sqm suffix, so it silently drops the
+ * bare numeric strings portals embed in JSON-LD (e.g. floorSize.value = "330",
+ * unitCode "MTK") — this is the area-aware version used for those fields.
+ */
+export function parseQuantitativeArea(value: unknown, unitCode?: string | null): number | null {
+  if (value == null) return null;
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value <= 0) return null;
+    return isHectareUnit(unitCode) ? Math.round(value * 10_000) : value;
+  }
+
+  const text = String(value).trim();
+  if (!text) return null;
+
+  const m = text.match(/([0-9][0-9,]*(?:\.[0-9]+)?)/);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(/,/g, ""));
+  if (isNaN(n) || n <= 0) return null;
+
+  return isHectareUnit(unitCode, text) ? Math.round(n * 10_000) : n;
+}
+
+/**
+ * Pulls an area out of an embedded JSON blob by trying a list of likely keys, e.g.
+ * "floorArea":330, "floorAreaString":"330m²", "land_area_sqm":612, "lotSize":"1,012 m²".
+ * Many portals ship the figures in a Next.js/__INITIAL_STATE__ payload rather than
+ * as readable text, so a label-then-number regex over the rendered HTML misses them.
+ */
+export function extractAreaFromJson(html: string, keys: string[]): number | null {
+  for (const key of keys) {
+    const re = new RegExp(
+      `"${key}"\\s*:\\s*"?([0-9][0-9,]*(?:\\.[0-9]+)?\\s*(?:m²|sqm|m2|ha|hectares?)?)"?`,
+      "i"
+    );
+    const match = html.match(re);
+    if (match) {
+      const v = parseQuantitativeArea(match[1]);
+      if (v) return v;
+    }
+  }
+  return null;
+}
+
 /**
  * Parses a year string into a number, returning null if out of realistic range.
  */

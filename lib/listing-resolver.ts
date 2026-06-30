@@ -6,6 +6,7 @@
 import { scrapeListingUrl, detectPortalFromUrl, type ScrapedListing } from "@/lib/scraper";
 import { emptyListing } from "@/lib/scraper/types";
 import { searchListing } from "@/lib/ai/listing-search";
+import { lookupPropertyAreas } from "@/lib/ai/property-areas";
 
 export class ListingNotFoundError extends Error {
   constructor() {
@@ -60,6 +61,27 @@ function merge(base: ScrapedListing, f: Partial<ScrapedListing>): ScrapedListing
     agentName: f.agentName ?? base.agentName,
     daysOnMarket: f.daysOnMarket ?? base.daysOnMarket,
   };
+}
+
+/**
+ * Floor area powers the RoIQ Value Verdict (suburb median $/m² × condition × FLOOR
+ * AREA) and land area shows on the report; portals routinely render these two figures
+ * client-side or omit them, so even a complete scrape can lack them. When EITHER is
+ * missing, fill it from council / RV records by address — only the absent field, and
+ * only when we have an address to look up. Scraped values always win; the lookup runs
+ * once and never overwrites data we already have.
+ */
+async function ensureAreas(listing: ScrapedListing): Promise<ScrapedListing> {
+  if (listing.floorAreaSqm != null && listing.landAreaSqm != null) return listing;
+  const query = [listing.address, listing.suburb, listing.city].filter(Boolean).join(", ").trim();
+  if (!query) return listing;
+
+  const areas = await lookupPropertyAreas(query).catch(() => null);
+  if (!areas) return listing;
+
+  if (listing.floorAreaSqm == null && areas.floorAreaSqm != null) listing.floorAreaSqm = areas.floorAreaSqm;
+  if (listing.landAreaSqm == null && areas.landAreaSqm != null) listing.landAreaSqm = areas.landAreaSqm;
+  return listing;
 }
 
 // "retrieved June 2026" — so a cited source always carries when it was pulled.
@@ -216,6 +238,9 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
   if (!listing || (!hasRealData(listing) && !listing.address && listing.photoUrls.length === 0)) {
     throw new ListingNotFoundError();
   }
+  // Guarantee the floor + land area (records lookup by address) — even on an
+  // otherwise-complete scrape, since the Value Verdict needs the floor area.
+  listing = await ensureAreas(listing);
   return sanitizeCounts(listing);
 }
 
@@ -263,6 +288,7 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     merged.dataSource = rec.photoHost
       ? `Listing + ${merged.photoUrls.length} photos sourced from ${rec.photoHost} — retrieved ${retrievedStamp()}.`
       : `Listing data sourced from ${found.source} — retrieved ${retrievedStamp()}.`;
+    merged = await ensureAreas(merged);
     return sanitizeCounts(merged);
   }
 
@@ -293,6 +319,7 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     const src = found.source ? ` Property details from ${found.source} (public / past-sale record).` : "";
     const photoNote = rec.photoHost ? ` ${merged.photoUrls.length} photos sourced from ${rec.photoHost}.` : "";
     merged.dataSource = `No active listing found for this address.${src}${photoNote} ${publicDataNote}`;
+    merged = await ensureAreas(merged);
     return sanitizeCounts(merged);
   }
 

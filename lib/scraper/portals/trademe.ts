@@ -12,6 +12,7 @@ import {
   stripHtml,
   parsePrice,
   parseArea,
+  parseQuantitativeArea,
   parseYear,
 } from "../fetch";
 
@@ -62,7 +63,9 @@ export async function scrapeTrademe(url: string): Promise<ScrapedListing> {
 
     if (sf.floorSize) {
       const fs = sf.floorSize as Record<string, unknown>;
-      listing.floorAreaSqm = typeof fs.value === "number" ? fs.value : parseArea(String(fs.value ?? ""));
+      // value is often a bare numeric string ("330") — parseArea needs a m² suffix
+      // and would drop it, so use the quantitative-aware parser.
+      listing.floorAreaSqm = parseQuantitativeArea(fs.value, fs.unitCode as string | undefined);
     }
 
     if (sf.numberOfRooms) listing.bedrooms = Number(sf.numberOfRooms) || null;
