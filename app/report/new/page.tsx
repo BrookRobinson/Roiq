@@ -1,8 +1,8 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Upload, Link2, Loader2, CheckCircle2 } from "lucide-react";
 import { saveReport } from "@/lib/report-store";
 import { useRequireAccount } from "@/lib/account/useRequireAccount";
@@ -34,10 +34,16 @@ const PIPELINE_STEPS = [
 // address, then find the property on OneRoof / realestate / homes.
 const isTradeMeUrl = (u: string) => /(^|\/\/|\.)trademe\.co\.nz/i.test(u);
 
-export default function NewReportPage() {
+function NewReportInner() {
   const router = useRouter();
-  const acctReady = useRequireAccount("/report/new");
-  const [url, setUrl] = useState("");
+  const searchParams = useSearchParams();
+  // Deep-link support: /report/new?url=<listing> pre-fills the box so a shared
+  // link lands ready to analyse. The query is preserved through the account gate
+  // so first-time visitors return here (with the URL intact) after signing up.
+  const prefillUrl = searchParams.get("url")?.trim() || "";
+  const nextPath = prefillUrl ? `/report/new?url=${encodeURIComponent(prefillUrl)}` : "/report/new";
+  const acctReady = useRequireAccount(nextPath);
+  const [url, setUrl] = useState(prefillUrl);
   const [addressInput, setAddressInput] = useState("");
   const [needAddress, setNeedAddress] = useState(false);
   const [addressReason, setAddressReason] = useState<"trademe" | "failed">("failed");
@@ -319,6 +325,14 @@ export default function NewReportPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function NewReportPage() {
+  return (
+    <Suspense fallback={<div style={{ background: "var(--bg)", minHeight: "100vh" }} />}>
+      <NewReportInner />
+    </Suspense>
   );
 }
 
