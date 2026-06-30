@@ -308,7 +308,10 @@ function buildUserMessage(listing: ScrapedListing, photoCount: number, inspectio
       ? `${photoCount} listing photo(s) are attached above, numbered 1-${photoCount}.${labelled ? " Each photo is labelled with the area it shows (e.g. \"Photo 3 — Roof\") — assess the matching sub-items from the labelled photo." : ""} Cite photo numbers in your evidence_source and photo_references.`
       : `No listing photos are available. Assess Improvements items as Tier 3 from build era and location (score = null where you cannot infer a condition); still score Location, Land, and Legal from the facts.`;
 
+  const today = new Date().toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric" });
   return `Analyse this New Zealand residential property and call ${ANALYSIS_TOOL_NAME}.
+
+TODAY'S DATE: ${today}. Base any growth/demand/market reasoning on the MOST RECENT data available as of today — prefer the latest REINZ/QV release and the last-12-month trend. Treat a census or market report more than ~18 months old as historical context, not the current market, and say so when you cite it.
 
 PROPERTY DETAILS
 ${facts || "- (limited details available from the listing)"}

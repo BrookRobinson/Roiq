@@ -48,6 +48,8 @@ function marketPrompt(listing: ScrapedListing): string {
 
 PROPERTY: ${beds}${type} in ${loc}${listing.address ? ` (${listing.address})` : ""}.
 
+It is currently ${new Date().getFullYear()} — use the MOST RECENT data available. Prefer the latest release and the last-12-month trend; if the freshest figure you can find is more than ~18 months old, note its date in the source rather than presenting it as current.
+
 Use web search to find:
 1. MARKET RENT — the current median WEEKLY rent for a ${beds}${type} in ${loc}. Prefer Tenancy Services market rent (tenancy.govt.nz), myRent, or current rental listings for the suburb.
 2. CAPITAL GROWTH — the suburb (or wider region) long-run annual growth %, and the recent 12-month trend. Prefer QV House Price Index, OneRoof suburb profiles, REINZ, or Opes Partners.
