@@ -31,7 +31,7 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
   return null;
 }
 
-export function SubItemCard({ item, region, floorSqm }: { item: SubItem; region?: string; floorSqm?: number | null }) {
+export function SubItemCard({ item, region, floorSqm, showCost = false }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
   const urgencyYears = urgencyScoreToYears(item.score);
@@ -187,8 +187,8 @@ export function SubItemCard({ item, region, floorSqm }: { item: SubItem; region?
             </p>
           </div>
 
-          {/* Replacement cost — use CostWorkings if we have a full calculator, otherwise simple display */}
-          {item.estimatedReplacementCost && (
+          {/* Replacement cost — kept on the Renovation tab only (showCost gates it). */}
+          {showCost && item.estimatedReplacementCost && (
             costItem ? (
               <CostWorkings item={costItem} withinHoldPeriod={isWithinHold} />
             ) : (

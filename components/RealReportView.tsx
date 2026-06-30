@@ -610,11 +610,7 @@ function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggle
                   <span className="font-medium" style={{ color: "var(--text-primary)" }}>{s.name}</span>
                   <span style={{ color: "var(--text-secondary)" }}> — {s.urgencyLabel}</span>
                 </div>
-                {s.estimatedReplacementCost && (
-                  <span className="text-xs mono flex-shrink-0" style={{ color: "var(--brand)" }}>
-                    {fmt(s.estimatedReplacementCost.low)}–{fmt(s.estimatedReplacementCost.high)}
-                  </span>
-                )}
+                {/* Cost figures live on the Renovation tab only. */}
               </div>
             ))}
           </div>
