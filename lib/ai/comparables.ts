@@ -41,46 +41,74 @@ const SUBURB_TOOL: Anthropic.Tool = {
 
 const WEB_SEARCH_TOOL = { type: "web_search_20250305" as const, name: "web_search" as const, max_uses: 6 };
 
-function suburbPrompt(listing: ScrapedListing): string {
-  const loc = [listing.suburb, listing.region ?? listing.city].filter(Boolean).join(", ") || listing.address || "the property's suburb";
+function suburbPrompt(listing: ScrapedListing, widen: boolean): string {
+  const suburb = listing.suburb || null;
+  const district = listing.city || null;                    // e.g. "Whanganui"
+  const region = listing.region ?? listing.city ?? null;    // e.g. "Manawatū-Whanganui"
+  const loc = [suburb, region].filter(Boolean).join(", ") || listing.address || "the property's suburb";
   const type = listing.propertyType !== "unknown" ? listing.propertyType : "house";
-  return `Work out the median sale price per square metre for recently SOLD properties in this New Zealand suburb, to value a comparable property.
 
-SUBURB: ${loc}
-PROPERTY TYPE: ${type} (filter the comparable sales to this type — house / apartment / townhouse — as closely as you can).
+  const widenLine = widen
+    ? `\nA previous attempt found too little suburb-level data. START WIDE this time — work at the ${district ?? "district"} / ${region ?? "region"} level from the outset and compute the figure from there. found=false is NOT acceptable unless the entire district has no published sales, which is essentially never true for an inhabited NZ area.`
+    : "";
 
-Method:
-1. On oneroof.co.nz, find the last 15–20 RECENT SALES in this suburb for this property type (oneroof.co.nz/property/<region>/<suburb> sold listings).
-2. For each sale, divide the sale price by the floor area (m²) to get $/m².
-3. Take the MEDIAN of those $/m² figures — that is the suburb median $/m².
-4. Cross-check the figure against homes.co.nz suburb data and QV / CoreLogic suburb reports if available.
-5. If there are FEWER THAN 5 recent sales in this exact suburb, widen to the nearest town or district and say so in widened_note.
+  return `Work out the median sale price per square metre (NZD/m²) for recently SOLD ${type}s in this New Zealand area, to value a comparable property.
 
-Then call ${TOOL_NAME} with the median $/m², how many sales it's based on (sample_size), the median sale price and median floor area, and the source. Report ONLY what the data actually shows — never invent figures. If you genuinely cannot find enough sales, call ${TOOL_NAME} with found=false.`;
+AREA: ${loc}${district && district !== suburb ? `  (district: ${district})` : ""}
+PROPERTY TYPE: ${type}
+
+Use whichever method below gets a reliable figure fastest — you do NOT need all of them:
+  A. PUBLISHED SUBURB STAT (easiest) — homes.co.nz, oneroof.co.nz and QV publish a suburb "median sale price" and "median floor area", and sometimes a $/m² figure directly. If $/m² is published, use it; otherwise divide the published median sale price by the published median floor area.
+  B. RECENT SALES — find ~15 recent ${type} sales in the area (oneroof.co.nz sold listings), divide each sale price by its floor area, and take the MEDIAN of those $/m².
+  C. CROSS-CHECK across at least two of homes.co.nz / oneroof.co.nz / QV where you can.
+
+If this exact suburb has FEWER THAN 5 recent sales, WIDEN to the wider ${district ?? "district"} (then the ${region ?? "region"}) and set widened_note to say so.${widenLine}
+
+Then call ${TOOL_NAME} with the median $/m², the sample_size, the median sale price and median floor area, and the source. Report ONLY figures the data shows — never invent. Use found=false ONLY if even the wider district has no published sales data at all.`;
 }
 
+// Plausible band for NZ residential $/m² — guards against a stray figure (a total
+// sale price, a per-acre number, an OCR'd typo) producing an absurd Value Verdict.
+const MIN_PER_SQM = 300;
+const MAX_PER_SQM = 40_000;
+
 export async function fetchSuburbValue(listing: ScrapedListing): Promise<SuburbValue | undefined> {
-  const client = getAnthropic();
-  const resp = await client.messages.create({
-    model: ANALYSIS_MODEL,
-    max_tokens: 2000,
-    tools: [WEB_SEARCH_TOOL as unknown as Anthropic.ToolUnion, SUBURB_TOOL],
-    messages: [{ role: "user", content: suburbPrompt(listing) }],
-  });
+  // Web search is non-deterministic and thin-data suburbs routinely fail the first
+  // pass, so the verdict would silently never render. Retry once, escalating to a
+  // wider (district / region) search, before giving up.
+  return (await attemptSuburbValue(listing, false)) ?? (await attemptSuburbValue(listing, true));
+}
+
+async function attemptSuburbValue(listing: ScrapedListing, widen: boolean): Promise<SuburbValue | undefined> {
+  let resp;
+  try {
+    const client = getAnthropic();
+    resp = await client.messages.create({
+      model: ANALYSIS_MODEL,
+      max_tokens: 2000,
+      tools: [WEB_SEARCH_TOOL as unknown as Anthropic.ToolUnion, SUBURB_TOOL],
+      messages: [{ role: "user", content: suburbPrompt(listing, widen) }],
+    });
+  } catch {
+    return undefined; // let the caller fall through to the retry / graceful default
+  }
 
   const tu = resp.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === TOOL_NAME
   );
   if (!tu) return undefined;
   const d = tu.input as RawSuburbValue;
-  if (!d.found || !Number.isFinite(d.median_per_sqm) || (d.median_per_sqm as number) <= 0) return undefined;
+  const perSqm = d.median_per_sqm;
+  if (!d.found || typeof perSqm !== "number" || !Number.isFinite(perSqm) || perSqm < MIN_PER_SQM || perSqm > MAX_PER_SQM) {
+    return undefined;
+  }
 
   const num = (n: unknown): number | undefined => (typeof n === "number" && Number.isFinite(n) && n > 0 ? Math.round(n) : undefined);
   const retrieved = new Date().toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
   const suburb = [listing.suburb, listing.region ?? listing.city].filter(Boolean).join(", ") || listing.address || "this suburb";
 
   return {
-    medianPerSqm: Math.round(d.median_per_sqm as number),
+    medianPerSqm: Math.round(perSqm),
     sampleSize: num(d.sample_size) ?? 0,
     medianSalePrice: num(d.median_sale_price),
     medianFloorArea: num(d.median_floor_area),
