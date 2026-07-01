@@ -79,3 +79,15 @@ export function editPromptFor(kind: VisualKind, tier: Tier): string {
 export function renderPromptFor(kind: VisualKind, tier: Tier): string {
   return `Photorealistic real-estate photo of a New Zealand house ${AREA_LABEL[kind]} showing ${TIER_LOOK[kind][tier]}. Bright natural daylight, wide angle, magazine quality. No text, no people, no watermark.`;
 }
+
+// ── Interactive material studio (pick a material + colour, then Preview) ──────
+
+/** Edit the buyer's photo, swapping ONLY the chosen surface to the picked material + colour. */
+export function materialEditPrompt(surfaceLabel: string, materialRender: string, colourRender: string): string {
+  return `Edit this photo of a New Zealand home interior/exterior. Replace ONLY the ${surfaceLabel} with ${colourRender} ${materialRender}. Keep the EXACT same camera angle, room layout, furniture, walls, windows, joinery, fixtures and lighting — change nothing except the ${surfaceLabel}. Photorealistic, real-estate quality, bright natural daylight, accurate perspective and scale. No text, no people, no watermark.`;
+}
+
+/** Generate from scratch when there's no usable photo. */
+export function materialRenderPrompt(surfaceLabel: string, materialRender: string, colourRender: string): string {
+  return `Photorealistic real-estate photo of a New Zealand room showing a ${surfaceLabel} finished in ${colourRender} ${materialRender}, tastefully furnished, bright natural daylight, wide angle, magazine quality. No text, no people, no watermark.`;
+}

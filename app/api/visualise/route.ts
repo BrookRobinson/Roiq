@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { toFile } from "openai";
 
 import { getOpenAI, IMAGE_MODEL, isImageGenConfigured } from "@/lib/ai/openai";
-import { VISUAL_KINDS, VISUAL_TIERS, editPromptFor, renderPromptFor, type VisualKind } from "@/lib/visualiser";
+import { VISUAL_KINDS, VISUAL_TIERS, editPromptFor, renderPromptFor, materialEditPrompt, materialRenderPrompt, type VisualKind } from "@/lib/visualiser";
+import { materialsFor, SURFACE_LABEL, type Surface } from "@/lib/materials-catalogue";
 import type { Tier } from "@/lib/reno-costing/three-tier";
 
 export const runtime = "nodejs";
@@ -34,11 +35,41 @@ async function loadImageBuffer(photoUrl?: string, photoBase64?: string): Promise
  * Replace High End). With a photo it edits it (img2img); otherwise generates.
  */
 export async function POST(req: NextRequest) {
-  let body: { kind?: VisualKind; photoUrl?: string; photoBase64?: string };
+  let body: { kind?: VisualKind; photoUrl?: string; photoBase64?: string; surface?: Surface; materialId?: string; colourId?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  // ── Material studio: single render of one picked material + colour on a surface ──
+  if (body.surface && body.materialId) {
+    const mat = materialsFor(body.surface).find((m) => m.id === body.materialId);
+    const col = mat?.colours.find((c) => c.id === body.colourId) ?? mat?.colours[0];
+    if (!mat || !col) {
+      return NextResponse.json({ error: "unknown_material" }, { status: 400 });
+    }
+    if (!isImageGenConfigured()) {
+      return NextResponse.json({ ok: true, imageUrl: null, imageGenAvailable: false, usedPhoto: false });
+    }
+    const openai = getOpenAI();
+    const base = await loadImageBuffer(body.photoUrl, body.photoBase64);
+    const surfaceLabel = SURFACE_LABEL[body.surface];
+    try {
+      let b64: string | null | undefined;
+      if (base) {
+        const ext = base.type.split("/")[1] || "png";
+        const file = await toFile(base.buf, `area.${ext}`, { type: base.type });
+        const r = await openai.images.edit({ model: IMAGE_MODEL, image: file, prompt: materialEditPrompt(surfaceLabel, mat.render, col.render), size: "1024x1024" });
+        b64 = r.data?.[0]?.b64_json;
+      } else {
+        const r = await openai.images.generate({ model: IMAGE_MODEL, prompt: materialRenderPrompt(surfaceLabel, mat.render, col.render), size: "1024x1024" });
+        b64 = r.data?.[0]?.b64_json;
+      }
+      return NextResponse.json({ ok: true, imageUrl: b64 ? `data:image/png;base64,${b64}` : null, imageGenAvailable: true, usedPhoto: Boolean(base), model: IMAGE_MODEL });
+    } catch (e) {
+      return NextResponse.json({ ok: true, imageUrl: null, imageGenAvailable: true, usedPhoto: Boolean(base), imageError: (e as Error)?.message });
+    }
   }
 
   const kind: VisualKind = body.kind && VISUAL_KINDS.includes(body.kind) ? body.kind : "cladding";
