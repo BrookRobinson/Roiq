@@ -13,7 +13,6 @@ const PORTALS = [
   "propertybrokers.co.nz",
   "realestate.co.nz",
   "oneroof.co.nz",
-  "trademe.co.nz/property",
   "harcourts.net/nz",
   "bayleys.co.nz",
   "barfoot.co.nz",
@@ -192,18 +191,18 @@ function NewReportInner() {
               <div className="rounded-2xl p-6 mb-4" style={{ background: "var(--surface)", border: "1px solid var(--brand)" }}>
                 <p className="text-sm font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
                   {addressPromptReason === "trademe"
-                    ? "Trade Me data can't be scraped — enter the address"
+                    ? "Trade Me can't be read — paste a OneRoof or realestate.co.nz link"
                     : "We couldn't access this listing automatically."}
                 </p>
                 <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>
                   {addressPromptReason === "trademe"
-                    ? "Trade Me blocks automated access, so we can't read this listing directly. Best option: paste the property's OneRoof or realestate.co.nz link (we'll grab every photo). Or type the address and we'll search — OneRoof first — though a common street name in a small town can be hard to find by address alone."
+                    ? "Trade Me blocks automated access, so we can't pull this listing's photos or details. Please find this exact property on OneRoof or realestate.co.nz and copy/paste that listing's URL into the box below — we'll grab every photo and the full details."
                     : "Paste the property's OneRoof or realestate.co.nz link (most reliable), or type the address and we'll search OneRoof, realestate.co.nz and homes.co.nz."}
                 </p>
                 <div className="flex gap-2">
                   <input
                     className="input text-base flex-1"
-                    placeholder="OneRoof / realestate link — or 23 Oxford Street, Taylorville, Greymouth"
+                    placeholder={addressPromptReason === "trademe" ? "Paste the OneRoof or realestate.co.nz listing URL" : "OneRoof / realestate link — or the street address"}
                     value={addressInput}
                     autoFocus
                     onChange={(e) => setAddressInput(e.target.value)}
@@ -232,7 +231,7 @@ function NewReportInner() {
               </label>
               <input
                 className="input text-base mb-4"
-                placeholder="https://www.trademe.co.nz/property/residential/sale/…"
+                placeholder="Paste a OneRoof, realestate.co.nz or agency listing URL"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && startAnalysis()}

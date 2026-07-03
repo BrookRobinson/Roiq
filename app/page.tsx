@@ -237,7 +237,7 @@ function UrlHeroInput() {
         <input
           className="flex-1 bg-transparent outline-none text-base px-3"
           style={{ color: "var(--text-primary)", fontFamily: "inherit" }}
-          placeholder="Paste a Trade Me, realestate.co.nz or Ray White URL…"
+          placeholder="Paste a OneRoof, realestate.co.nz or Ray White URL…"
           readOnly
           onClick={() => (window.location.href = "/report/new")}
         />
