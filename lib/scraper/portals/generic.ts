@@ -5,7 +5,7 @@
  */
 
 import * as cheerio from "cheerio";
-import { ScrapedListing, emptyListing, SupportedPortal } from "../types";
+import { ScrapedListing, emptyListing, SupportedPortal, PriceMethod } from "../types";
 import { scrapeFetch, extractJsonLd, stripHtml, parsePrice, parseArea, parseQuantitativeArea, extractAreaFromJson, parseYear } from "../fetch";
 import { detectPropertyType, detectTitleType, extractFeatures } from "./shared";
 
@@ -90,7 +90,8 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   ];
   // Prefer a keyword-anchored asking price ("Enquiries Over $395,000") over a stray
   // price element or the first $ figure — agency sites often show an unrelated number
-  // (a CV, a finance widget) that the loose scans would grab first (seen: $495k vs $395k).
+  // (a CV, a finance widget, a weekly-rent estimate) that the loose scans would grab first
+  // (seen: $495k vs $395k; and a stray "$1,460/wk" read as the asking price).
   let priceText = askingPriceText(html);
   if (!priceText) {
     for (const sel of priceSelectors) {
@@ -98,18 +99,34 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
       if (t) { priceText = t; break; }
     }
   }
+  // A "By Negotiation" / POA listing carries no number — detect the phrasing so it's
+  // labelled correctly instead of falling through and grabbing an unrelated $ figure.
+  if (!priceText || !/\$\s?[0-9]/.test(priceText)) {
+    const neg = negotiationPriceText(html);
+    if (neg) priceText = neg;
+  }
   if (!priceText) priceText = extractPriceFromText(html);
 
   if (priceText) {
-    listing.priceText = priceText;
     const lower = priceText.toLowerCase();
-    listing.priceMethod = lower.includes("auction")   ? "auction"
+    const method: PriceMethod = lower.includes("auction") ? "auction"
       : lower.includes("deadline")                    ? "deadline"
       : lower.includes("tender")                      ? "tender"
       : lower.includes("enquir") || lower.includes("oeo") || lower.includes("offers over") ? "enquiries_over"
-      : lower.includes("by negotiation")              ? "price_by_negotiation"
+      : /negotiation|\bpoa\b|price on application/.test(lower) ? "price_by_negotiation"
       : "fixed";
-    listing.askingPrice = parsePrice(priceText);
+    const parsed = parsePrice(priceText);
+    // Guard against a stray sub-$40k figure (weekly rent, rates, finance widget, chattels)
+    // being read as the asking price — no NZ residential dwelling sells below this.
+    if (parsed !== null && parsed < MIN_ASKING_PRICE) {
+      listing.priceText = method === "price_by_negotiation" ? priceText : null;
+      listing.priceMethod = method === "price_by_negotiation" ? method : "unknown";
+      listing.askingPrice = null;
+    } else {
+      listing.priceText = priceText;
+      listing.priceMethod = method;
+      listing.askingPrice = parsed;
+    }
   }
 
   // Beds / baths from text
@@ -235,9 +252,29 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   return listing;
 }
 
+// NZ residential sale-price floor. Below this a "$" figure on a listing page is rent,
+// rates, a fee, or a chattels/renovation number — never the asking price.
+const MIN_ASKING_PRICE = 40000;
+
+// Detect a no-number price method ("By Negotiation", "Price on Application") so those
+// listings are labelled correctly instead of falling through to a stray $ figure.
+function negotiationPriceText(html: string): string {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+  if (/price\s*by\s*negotiation|by\s*negotiation/i.test(text)) return "By Negotiation";
+  if (/price\s*on\s*application|\bPOA\b/i.test(text)) return "Price by Negotiation";
+  return "";
+}
+
 function extractPriceFromText(html: string): string {
-  const m = html.match(/\$\s?[0-9,]{4,}/);
-  return m ? m[0] : "";
+  // First $ figure that is plausibly a sale price — skip weekly rents / rates / fees
+  // that would otherwise be grabbed as the asking price.
+  const re = /\$\s?[0-9][0-9,]{3,}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const n = parsePrice(m[0]);
+    if (n !== null && n >= MIN_ASKING_PRICE) return m[0].trim();
+  }
+  return "";
 }
 
 // A NZ street address ("13 Main Road", "23a Oxford Street, Taylorville") — used so a
