@@ -137,3 +137,15 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   { id: "leg_lim", label: "LIM red flags", inspection: "legal", category: "Title & compliance", buyerPoints: 2, investorPoints: 4, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "leg_encumbrances", label: "Encumbrances / caveats", inspection: "legal", category: "Title & compliance", buyerPoints: 2, investorPoints: 3, conditional: false, costBearing: false, affectsHealthyHomes: false },
 ];
+
+/** Location/Land items that describe the TOWN, not this specific address — shown in the
+ * City/Town tab and EXCLUDED from the 1000-point score (they're the same for any address
+ * in the town). Everything else (site-specific Location/Land + all Legal) scores in the
+ * Address tab. */
+export const TOWN_CONTEXT_IDS = new Set<string>([
+  "loc_schools", "loc_growth", "loc_amenities", "loc_employment", "loc_transport", "loc_safety", "loc_future",
+  "land_flood", "land_liquefaction", "land_coastal", "land_fault", "land_soil", "land_wind",
+]);
+
+/** True when a sub-item is town-wide context (shown in City/Town, not scored). */
+export const isTownContext = (id: string): boolean => TOWN_CONTEXT_IDS.has(id);

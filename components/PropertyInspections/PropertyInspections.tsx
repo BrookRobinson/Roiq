@@ -6,11 +6,14 @@ import type { DocAnalysis } from "@/lib/report-store";
 import type { ScoreResult } from "@/lib/scoring/engine";
 import type { Inspection } from "@/lib/scoring/model";
 import { INSPECTION_META, ITEM_BY_ID } from "@/lib/scoring/catalog";
+import { isTownContext } from "@/lib/scoring/model";
 import { InspectionCard } from "./InspectionCard";
 import { ChevronRight, Info } from "lucide-react";
 
-// The Property tab covers the three non-building inspections, in this order.
-const SECTIONS: Inspection[] = ["location", "land", "legal"];
+// The Address tab covers all three non-building inspections; the City/Town tab covers
+// only the town-wide Location + Land context (Legal is always address-specific).
+const ADDRESS_SECTIONS: Inspection[] = ["location", "land", "legal"];
+const TOWN_SECTIONS: Inspection[] = ["location", "land"];
 
 const barColor = (pct: number) => (pct >= 80 ? "#00e676" : pct >= 55 ? "#fbbf24" : "#ff5f5f");
 
@@ -20,19 +23,24 @@ export function PropertyInspections({
   onSeeRenovations,
   verifiedDocs,
   onVerified,
+  mode = "address",
 }: {
   scored: ScoreResult;
   subItems: SubItem[];
   onSeeRenovations: () => void;
   verifiedDocs?: Record<string, DocAnalysis>;
   onVerified?: (itemId: string, doc: DocAnalysis) => void;
+  mode?: "address" | "town";
 }) {
+  const town = mode === "town";
+  const SECTIONS = town ? TOWN_SECTIONS : ADDRESS_SECTIONS;
   const byInspection: Record<string, SubItem[]> = {};
   for (const s of subItems) {
     const insp = ITEM_BY_ID[s.id]?.inspection;
-    if (insp === "location" || insp === "land" || insp === "legal") {
-      (byInspection[insp] ??= []).push(s);
-    }
+    if (insp !== "location" && insp !== "land" && insp !== "legal") continue;
+    // City/Town shows the town-wide items; Address shows everything else.
+    if (isTownContext(s.id) !== town) continue;
+    (byInspection[insp] ??= []).push(s);
   }
   // Worst-first within each section (nulls last).
   for (const k of Object.keys(byInspection)) {
@@ -43,8 +51,9 @@ export function PropertyInspections({
     <div className="space-y-3">
       <div className="card p-4 text-sm flex items-start gap-2" style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
         <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
-        Location, Land, and Legal — each item carries a 1–10 score, a named source, a confidence tier, and written reasoning.
-        Items are ordered worst-first so risks surface at the top. Remediable findings link to the Renovations tab.
+        {town
+          ? "Town-wide context — schools, amenities, transport, employment, growth and natural hazards. These describe the town, so they're the same for any address here and are NOT counted in this property's score."
+          : "Location, Land and Legal factors specific to THIS address — each carries a 1–10 score, a named source, a confidence tier, and reasoning. Ordered worst-first; remediable findings link to the Renovations tab."}
       </div>
 
       {SECTIONS.map((insp, i) => {
@@ -60,6 +69,7 @@ export function PropertyInspections({
             earned={v.earned}
             max={v.max}
             pct={v.pct}
+            showScore={!town}
             defaultOpen={defaultOpen}
             onSeeRenovations={onSeeRenovations}
             verifiedDocs={verifiedDocs}
@@ -77,6 +87,7 @@ function Section({
   earned,
   max,
   pct,
+  showScore,
   defaultOpen,
   onSeeRenovations,
   verifiedDocs,
@@ -87,6 +98,7 @@ function Section({
   earned: number;
   max: number;
   pct: number;
+  showScore: boolean;
   defaultOpen: boolean;
   onSeeRenovations: () => void;
   verifiedDocs?: Record<string, DocAnalysis>;
@@ -94,7 +106,7 @@ function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const meta = INSPECTION_META[inspection];
-  const col = barColor(pct);
+  const col = showScore ? barColor(pct) : "var(--text-muted)";
   const issues = items.filter((s) => s.score !== null && s.score <= 4).length;
 
   return (
@@ -109,13 +121,17 @@ function Section({
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>{meta.blurb}</span>
           </div>
         </div>
-        {/* Section score bar */}
-        <div className="hidden sm:flex items-center gap-2 flex-shrink-0 w-48">
-          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
-            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: col }} />
+        {/* Section score bar — hidden for City/Town (context only, not scored) */}
+        {showScore ? (
+          <div className="hidden sm:flex items-center gap-2 flex-shrink-0 w-48">
+            <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--surface-2)" }}>
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: col }} />
+            </div>
+            <span className="text-xs mono w-16 text-right" style={{ color: "var(--text-secondary)" }}>{earned}/{max}</span>
           </div>
-          <span className="text-xs mono w-16 text-right" style={{ color: "var(--text-secondary)" }}>{earned}/{max}</span>
-        </div>
+        ) : (
+          <span className="hidden sm:inline text-[11px] flex-shrink-0" style={{ color: "var(--text-muted)" }}>not scored</span>
+        )}
         <ChevronRight size={18} className="flex-shrink-0" style={{ color: "var(--text-muted)", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
       </button>
 

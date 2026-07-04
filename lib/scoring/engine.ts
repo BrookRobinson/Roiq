@@ -2,7 +2,7 @@
 // RoiQ SCORING ENGINE (v3.1)
 // ============================================================
 
-import { SCORING_MODEL, type ScoringSubItem, type Persona, type Inspection } from "./model";
+import { SCORING_MODEL, isTownContext, type ScoringSubItem, type Persona, type Inspection } from "./model";
 
 export interface PropertyContext {
   titleType: "freehold" | "cross_lease" | "unit_title" | "leasehold" | "unknown";
@@ -85,6 +85,7 @@ export function scoreProperty(
   const byCategory: Record<string, InspectionScore> = {};
 
   for (const item of SCORING_MODEL) {
+    if (isTownContext(item.id)) continue; // town-wide context — shown in City/Town tab, not scored
     const applicable = resolveApplicable(item, ctx);
     if (!applicable) continue; // conditional item not present → drop from denominator
 

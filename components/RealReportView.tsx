@@ -38,17 +38,18 @@ import {
   isVerifiedDocItem,
 } from "@/lib/scoring/catalog";
 import {
-  Home, Building2, Wrench, Calculator, ClipboardList, Shield,
+  Home, Building2, Wrench, Calculator, ClipboardList, Shield, MapPin,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
   TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight,
 } from "lucide-react";
 
-type Tab = "overview" | "improvements" | "property" | "renovations" | "financial" | "healthyhomes";
+type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "healthyhomes";
 
 const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?: boolean }[] = [
   { id: "overview", label: "Overview", icon: Home },
   { id: "improvements", label: "Improvements", icon: Building2 },
-  { id: "property", label: "Property", icon: ClipboardList },
+  { id: "address", label: "Address", icon: ClipboardList },
+  { id: "citytown", label: "City/Town", icon: MapPin },
   { id: "renovations", label: "Renovations", icon: Wrench },
   { id: "financial", label: "Financial", icon: Calculator },
   { id: "healthyhomes", label: "Healthy Homes", icon: Shield, investorOnly: true },
@@ -324,7 +325,8 @@ export function RealReportView({ report }: { report: StoredReport }) {
           )}
           {tab === "overview" && <OverviewReal report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} />}
           {tab === "improvements" && <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} />}
-          {tab === "property" && <PropertyInspections scored={scored} subItems={subItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} />}
+          {tab === "address" && <PropertyInspections mode="address" scored={scored} subItems={subItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} />}
+          {tab === "citytown" && <PropertyInspections mode="town" scored={scored} subItems={subItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} />}
           {tab === "renovations" && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
           {tab === "financial" && <FinanceTab listing={listing} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} />}
           {tab === "healthyhomes" && <HealthyHomesReal buildYear={listing.buildYear} subItems={subItems} />}
@@ -633,7 +635,8 @@ function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggle
                     {INSPECTION_META[inspOf(s.id)!].label}
                   </span>
                   <span className="font-medium" style={{ color: "var(--text-primary)" }}>{s.name}</span>
-                  <span style={{ color: "var(--text-secondary)" }}>· {s.urgencyLabel}</span>
+                  {/* Location/Land/Legal risks aren't "replaced" on a timeline — show the quality word only. */}
+                  <span style={{ color: "var(--text-secondary)" }}>· {s.urgencyLabel.replace(/\s*[—–-]\s*replace within[^.]*/i, "").trim()}</span>
                 </div>
                 {s.aiSummary && <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{s.aiSummary}</p>}
               </div>
