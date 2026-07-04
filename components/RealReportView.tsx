@@ -21,9 +21,7 @@ import {
 import type { CapitalGrowth, MarketRent, SuburbValue } from "@/lib/scoring/investment";
 import { costThreeTier, tierTotal, TIER_ORDER, scaleTier, isScalableKind } from "@/lib/reno-costing/three-tier";
 import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
-import { RenoVisualiser } from "@/components/RenoVisualiser";
 import { MaterialStudio } from "@/components/MaterialStudio";
-import { visualKindFor } from "@/lib/visualiser";
 import { surfaceForKind, materialsFor } from "@/lib/materials-catalogue";
 import { summarise, defaultInputs, FINANCE_DEFAULTS, PURCHASE_COST_LABELS } from "@/lib/finance/calculator";
 import type { FinanceInputs, LoanType, PurchaseCostKey } from "@/lib/finance/calculator";
@@ -946,17 +944,6 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
                 )}
               </div>
             </div>
-            {included && l.costing && visualKindFor(l.costing.kind) && (
-              <RenoVisualiser
-                kind={visualKindFor(l.costing.kind)!}
-                photoUrls={listing.photoUrls}
-                photoRefs={l.photoRefs}
-                costing={l.costing}
-                labour={t?.labour ?? l.costing[t?.tier ?? "budget"].defaultLabour}
-                selectedTier={t?.tier ?? "budget"}
-                onSelectTier={(tier) => setRenoToggle(l.key, { tier, labour: l.costing![tier].defaultLabour, included: true })}
-              />
-            )}
             {included && l.costing && surfaceForKind(l.costing.kind) && materialsFor(surfaceForKind(l.costing.kind)!).length > 0 && (
               <MaterialStudio
                 surface={surfaceForKind(l.costing.kind)!}
