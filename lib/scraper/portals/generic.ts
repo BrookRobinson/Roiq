@@ -37,7 +37,10 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
 
   if (schema) {
     const addr = schema.address as Record<string, string> | undefined;
-    listing.address     = (schema.name as string) || addr?.streetAddress || null;
+    // Prefer the real street address. Agency sites put a MARKETING TITLE in schema.name
+    // ("Central Fox Glacier Living") — never use that as the address (it breaks the
+    // address-specific location scoring). schema.name is only a last resort below.
+    listing.address     = addr?.streetAddress || null;
     listing.suburb      = addr?.addressLocality || null;
     listing.city        = addr?.addressRegion || null;
     listing.region      = addr?.addressRegion || null;
@@ -74,10 +77,10 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
 
   // ── Headline selectors (common patterns across NZ portals) ─────────────
   if (!listing.address) {
-    listing.address =
-      $("h1.property-address, h1.listing-address, h1[class*='address'], [class*='property-title'] h1").text().trim() ||
-      $("h1").first().text().trim() ||
-      null;
+    const addrEl = $("h1.property-address, h1.listing-address, h1[class*='address'], [class*='property-title'] h1").text().trim();
+    // Only accept an h1 that LOOKS like a street address; a marketing headline
+    // ("Central Fox Glacier Living") is not an address — pull one from the page text.
+    listing.address = addrEl || streetAddressFrom($("h1").first().text()) || streetAddressFrom(stripHtml(html)) || null;
   }
 
   // Price — try many class patterns used across portals
@@ -85,12 +88,16 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
     "[class*='price--main']", "[class*='price-display']", "[class*='listing-price']",
     "[data-testid*='price']", "[class*='asking-price']", ".price", ".listing__price",
   ];
-  let priceText = "";
-  for (const sel of priceSelectors) {
-    const t = $(sel).first().text().trim();
-    if (t) { priceText = t; break; }
+  // Prefer a keyword-anchored asking price ("Enquiries Over $395,000") over a stray
+  // price element or the first $ figure — agency sites often show an unrelated number
+  // (a CV, a finance widget) that the loose scans would grab first (seen: $495k vs $395k).
+  let priceText = askingPriceText(html);
+  if (!priceText) {
+    for (const sel of priceSelectors) {
+      const t = $(sel).first().text().trim();
+      if (t) { priceText = t; break; }
+    }
   }
-
   if (!priceText) priceText = extractPriceFromText(html);
 
   if (priceText) {
@@ -231,4 +238,24 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
 function extractPriceFromText(html: string): string {
   const m = html.match(/\$\s?[0-9,]{4,}/);
   return m ? m[0] : "";
+}
+
+// A NZ street address ("13 Main Road", "23a Oxford Street, Taylorville") — used so a
+// marketing headline is never mistaken for the property address.
+const STREET_RE = /\b\d+[a-zA-Z]?\s+(?:[A-Z][a-zA-Z'-]+\s+){1,3}(?:Road|Rd|Street|St|Avenue|Ave|Drive|Dr|Lane|Ln|Place|Pl|Terrace|Tce|Way|Crescent|Cres|Close|Court|Ct|Highway|Hwy|Grove|Parade|Quay|Esplanade|Track|Rise|Heights|Bay)\b(?:,\s*[A-Z][a-zA-Z'-]+(?:\s[A-Z][a-zA-Z'-]+)?)?/;
+function streetAddressFrom(text: string): string | null {
+  const m = (text || "").replace(/\s+/g, " ").match(STREET_RE);
+  return m ? m[0].trim().replace(/[,\s]+$/, "") : null;
+}
+
+// The CURRENT asking price, anchored to a price-method keyword ("Enquiries Over
+// $395,000", "Offers Over $X", "Asking $X", "By Negotiation $X"). Returning the whole
+// phrase lets the caller detect the price method AND parse the figure — and it avoids
+// grabbing an unrelated $ number (a CV, rates, a finance widget) elsewhere on the page.
+function askingPriceText(html: string): string {
+  const text = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+  const m = text.match(
+    /(?:enquiries?\s*over|offers?\s*over|oeo|beo|buyer\s*enquiry|asking(?:\s*price)?|deadline\s*sale|price\s*by\s*negotiation|by\s*negotiation|tender|auction)[^$\d]{0,18}\$?\s*[0-9][0-9,]{3,}/i
+  );
+  return m ? m[0].replace(/\s+/g, " ").trim() : "";
 }
