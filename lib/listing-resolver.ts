@@ -71,16 +71,42 @@ function merge(base: ScrapedListing, f: Partial<ScrapedListing>): ScrapedListing
  * only when we have an address to look up. Scraped values always win; the lookup runs
  * once and never overwrites data we already have.
  */
-async function ensureAreas(listing: ScrapedListing): Promise<ScrapedListing> {
-  if (listing.floorAreaSqm != null && listing.landAreaSqm != null) return listing;
+async function ensureAreas(listing: ScrapedListing, opts: { recoverPrice?: boolean } = {}): Promise<ScrapedListing> {
+  // Backfills floor + land area (the Value Verdict needs the floor area) and — when asked —
+  // the asking price, for scrapes that couldn't get one at all (e.g. OneRoof, whose subject
+  // price is client-rendered and absent from the server HTML). A null priceText means "no
+  // price found"; a real "By Negotiation" is left alone. recoverPrice is false on the
+  // known-not-for-sale path, where a current asking price must never be introduced.
+  const recoverPrice = opts.recoverPrice !== false;
+  const needAreas = listing.floorAreaSqm == null || listing.landAreaSqm == null;
+  const needPrice = recoverPrice && listing.askingPrice == null && listing.priceText == null;
+  if (!needAreas && !needPrice) return listing;
   const query = [listing.address, listing.suburb, listing.city].filter(Boolean).join(", ").trim();
   if (!query) return listing;
 
-  const areas = await lookupPropertyAreas(query).catch(() => null);
-  if (!areas) return listing;
+  const facts = await lookupPropertyAreas(query).catch(() => null);
+  if (!facts) return listing;
 
-  if (listing.floorAreaSqm == null && areas.floorAreaSqm != null) listing.floorAreaSqm = areas.floorAreaSqm;
-  if (listing.landAreaSqm == null && areas.landAreaSqm != null) listing.landAreaSqm = areas.landAreaSqm;
+  if (listing.floorAreaSqm == null && facts.floorAreaSqm != null) listing.floorAreaSqm = facts.floorAreaSqm;
+  if (listing.landAreaSqm == null && facts.landAreaSqm != null) listing.landAreaSqm = facts.landAreaSqm;
+  if (needPrice && (facts.askingPrice != null || facts.priceText != null)) {
+    const t = (facts.priceText ?? "").toLowerCase();
+    listing.askingPrice = facts.askingPrice;
+    listing.priceText = facts.priceText;
+    listing.priceMethod =
+        /auction/.test(t)                    ? "auction"
+      : /deadline/.test(t)                   ? "deadline"
+      : /tender/.test(t)                     ? "tender"
+      : /enquir|offers over|oeo/.test(t)     ? "enquiries_over"
+      : /negotiation|\bpoa\b/.test(t)        ? "price_by_negotiation"
+      : facts.askingPrice != null            ? "fixed"
+      : "unknown";
+    if (facts.source) {
+      listing.dataSource = listing.dataSource
+        ? `${listing.dataSource} Asking price via ${facts.source}.`
+        : `Asking price via ${facts.source}.`;
+    }
+  }
   return listing;
 }
 
@@ -319,7 +345,8 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     const src = found.source ? ` Property details from ${found.source} (public / past-sale record).` : "";
     const photoNote = rec.photoHost ? ` ${merged.photoUrls.length} photos sourced from ${rec.photoHost}.` : "";
     merged.dataSource = `No active listing found for this address.${src}${photoNote} ${publicDataNote}`;
-    merged = await ensureAreas(merged);
+    // Not for sale → recover areas only; never introduce a current asking price.
+    merged = await ensureAreas(merged, { recoverPrice: false });
     return sanitizeCounts(merged);
   }
 

@@ -92,8 +92,15 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   // price element or the first $ figure — agency sites often show an unrelated number
   // (a CV, a finance widget, a weekly-rent estimate) that the loose scans would grab first
   // (seen: $495k vs $395k; and a stray "$1,460/wk" read as the asking price).
-  let priceText = askingPriceText(html);
-  if (!priceText) {
+  //
+  // OneRoof is the exception: its pages embed 45+ nearby/related-listing prices and load
+  // the SUBJECT listing's own price CLIENT-SIDE (it is absent from the server HTML), so
+  // ANY price scanned here is a neighbouring property's (seen: a $2.099m listing scraped
+  // as $380k). Skip the price scan entirely for OneRoof — the resolver backfills the real
+  // asking price by address (ensureAreas → lookupPropertyAreas web search).
+  const scanPrice = portal !== "oneroof";
+  let priceText = scanPrice ? askingPriceText(html) : "";
+  if (scanPrice && !priceText) {
     for (const sel of priceSelectors) {
       const t = $(sel).first().text().trim();
       if (t) { priceText = t; break; }
@@ -101,11 +108,11 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   }
   // A "By Negotiation" / POA listing carries no number — detect the phrasing so it's
   // labelled correctly instead of falling through and grabbing an unrelated $ figure.
-  if (!priceText || !/\$\s?[0-9]/.test(priceText)) {
+  if (scanPrice && (!priceText || !/\$\s?[0-9]/.test(priceText))) {
     const neg = negotiationPriceText(html);
     if (neg) priceText = neg;
   }
-  if (!priceText) priceText = extractPriceFromText(html);
+  if (scanPrice && !priceText) priceText = extractPriceFromText(html);
 
   if (priceText) {
     const lower = priceText.toLowerCase();
