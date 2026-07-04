@@ -126,6 +126,17 @@ export function InspectionCard({
 
           <ChevronRight size={16} className="flex-shrink-0 mt-1" style={{ color: "var(--text-muted)", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
         </div>
+
+        {/* Expand hint — makes the click-for-reasoning affordance obvious (mirrors the
+            Improvements tab's "Read AI assessment" cue). */}
+        {!isDoc && item.aiSummary && (
+          <div className="flex items-center gap-1 mt-2">
+            <span className="text-xs font-medium" style={{ color: "var(--brand)" }}>
+              {open ? "Hide reasoning" : "Read reasoning"}
+            </span>
+            <ArrowRight size={11} style={{ color: "var(--brand)", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+          </div>
+        )}
       </button>
 
       {open && (
