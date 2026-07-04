@@ -58,6 +58,28 @@ Flooring (kit_flooring, bath_flooring, liv_flooring, bed_flooring): Coved resili
 Driveway & paving: Distinguish exposed-aggregate concrete (a stippled surface of concrete with exposed stone chips — i.e. "concrete and stones"), plain smooth concrete, chipseal, and loose gravel. Name the actual surface you see; do not default to "plain concrete".
 Wet-area sealant (bath_shower, bath_waterproof): if the silicone/sealant at the shower tray-to-wall or glass-to-tray junction looks stained, blackened, mouldy, cracked or lifting in a photo, flag it — it must be cut out and re-sealed by a tradesperson (a low-cost job). Note it, score the item down accordingly, and set renovation_link = true so a re-seal appears in the renovation tab.
 
+NZ MATERIAL DISAMBIGUATION (commonly confused — get these right):
+- Monolithic plaster (EIFS): a seamless textured plaster wall that sounds HOLLOW (plaster over polystyrene), usually rounded corners and minimal/no eaves, 1994–2005 — the classic leaky-building cladding; identify and flag it. Solid plaster/stucco over brick/block/lath sounds SOLID and is not the same risk.
+- Brick: a single skin with weep holes at the base and a hollow cavity behind is brick VENEER over a timber frame (non-structural), not solid masonry.
+- Sheet cladding: grooved plywood (Shadowclad) shows timber grain; grooved fibre-cement (Axon/Stria) is grainless and dead-flat; flush-jointed fibre-cement sheet looks monolithic but is sheet, not plaster.
+- Roof: corrugated long-run steel (rounded) vs trapezoidal/tray (angular ribs) vs stone-chip pressed-metal tiles (gritty, look like tiles but are light metal — old Decramastic is bitumen-based and near end-of-life) vs concrete/clay tiles.
+- Hot water: a header tank in the roof space = a LOW-PRESSURE system (weaker flow, upgrade candidate); a lagged cylinder with no roof tank is mains-pressure.
+- A drained cavity (vermin/vent strip at the base of the cladding, cladding standing proud of the frame) is a POSITIVE weathertightness signal; direct-fixed cladding with no cavity is a risk.
+- Particleboard flooring swells permanently once wet — flag blown/swollen edges, especially near wet areas.
+
+HAZARD & ERA FLAGS (raise in ai_summary / information_gaps whenever the indicators are present — material to safety and value; never assert something is safe):
+- ASBESTOS: assume any PRE-2000 fibre-cement (flat or corrugated 'Super Six' roofing, soffits, baseboards, wet-area linings), textured/'popcorn' ceilings, and old vinyl/lino + its black bitumen adhesive MAY contain asbestos — flag for testing, advise do-not-disturb.
+- WEATHERTIGHTNESS / LEAKY BUILDING (leg_weathertight): flag HIGH risk when several co-occur — monolithic plaster cladding, no/minimal eaves, parapets, internal/box gutters, recessed windows without head flashings, enclosed decks/balconies over living space, 1994–2005 build. Missing head flashings and deck-over-room membranes are prime leak points.
+- UNTREATED FRAMING 1998–2004: kiln-dried untreated pine framing of this era decays with any water ingress — with monolithic cladding, elevate the weathertightness concern.
+- SEISMIC: unreinforced masonry (pre-1976 solid brick/block, and especially masonry chimneys with no reinforcing) is a key earthquake hazard — call out masonry chimneys specifically.
+- PLUMBING: grey/black Dux Qest polybutylene pipe (1978–1996) has a known failure history (flag for replacement); pre-1970 galvanised steel pipe furs up internally (low flow).
+- ELECTRICAL: ceramic rewireable fuseboards and old rubber/cloth (VIR) wiring (pre-1960) are fire/upgrade flags; no RCD safety switches is a safety flag; recessed halogen downlights need insulation clearance.
+- LEAD PAINT: thick, cracking/alligatoring paint on pre-1980 timber is likely lead-based — a hazard when disturbed.
+- INSULATION: foil underfloor insulation (retrofit banned 2016, electrocution risk) — flag if seen.
+- OTHER: bathroom extract fans venting into the roof space (not outside) cause ceiling mould; unflued portable gas heaters add indoor moisture; a gully trap at/below paving level is a backflow/flood risk; some aluminium composite panel (ACM) cores are combustible (flag on multi-unit); older non-compliant wood burners may be unusable in air-quality zones (e.g. Canterbury, Nelson).
+
+VALUE SIGNALS (note as positives where seen): cedar / schist / clay-tile / slate, thermally-broken or uPVC joinery, double glazing, ducted heat pump, underfloor heating, HRV/ERV balanced ventilation, solar PV + battery, EV charger, engineered-stone benchtops, native timber floors, and drained-cavity construction.
+
 EXTRA DWELLINGS
 If a separate sleepout, minor dwelling, pole shed, or standalone garage of material value is visible, add it to extra_dwellings: estimate replacement cost, score condition 1-10, note consent status as "unknown" unless evidence shows otherwise. These add a bonus to the score and are not part of the base.
 
