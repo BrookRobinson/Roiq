@@ -220,6 +220,7 @@ const RECIPES: Partial<Record<RenoKind, Recipe>> = {
       { db: "Roofing underlay", qty: (c) => Math.ceil(c.area / 30) },
       { db: "Roof fixings", qty: (c) => Math.ceil(c.area / 30) },
       { db: "Ridge capping", qty: (c) => round(Math.sqrt(c.area) * 1.2) },
+      { db: "Roof scaffolding & edge protection", qty: a }, // working-at-height access
     ],
     labour: [{ trade: "roofer", hours: (c) => round(c.area * 0.4) }],
     patchInline: [],

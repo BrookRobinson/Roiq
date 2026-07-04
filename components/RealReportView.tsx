@@ -708,7 +708,9 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"]): 
         costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low: s.estimatedReplacementCost.low, high: s.estimatedReplacementCost.high } }),
       });
     }
-    if (s.remediation) {
+    // Legal / due-diligence remedies (e.g. a LIM report, title checks) are not
+    // renovations — keep them out of the reno tab's Patch/Replace cost tiers.
+    if (s.remediation && ITEM_BY_ID[s.id]?.inspection !== "legal") {
       const insp = ITEM_BY_ID[s.id]?.inspection;
       lines.push({
         key: s.id + "_rem",

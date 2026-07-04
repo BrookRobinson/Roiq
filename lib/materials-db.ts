@@ -183,6 +183,10 @@ export const MATERIALS_DB: MaterialItem[] = [
     budget:{ description:"Roofing screws 12g 65mm 500pk", price:38, unit:"per 500pk", source:"Mitre 10", notes:"Standard self-drilling screws." },
     premium:{ description:"Class 4 stainless roofing screws 500pk", price:75, unit:"per 500pk", source:"Mitre 10", notes:"Marine grade. No rust streaks. Mandatory within 500m coast." }},
 
+  { cat:"Roofing", name:"Roof scaffolding & edge protection",
+    budget:{ description:"Edge protection / light scaffold hire, single-storey re-roof", price:32, unit:"per m² roof", source:"Market rate", notes:"Working-at-height edge protection is required for a re-roof. Single-storey." },
+    premium:{ description:"Full perimeter scaffold hire, two-storey / complex roof", price:55, unit:"per m² roof", source:"Market rate", notes:"Full scaffold for two-storey, steep or complex roofs." }},
+
   { cat:"Roofing", name:"Barge flashing",
     budget:{ description:"Standard barge flashing 2.4m length", price:28, unit:"per 2.4m", source:"Mitre 10", notes:"Pressed steel. Colour-matched." },
     premium:{ description:"Custom folded barge flashing per lm installed", price:45, unit:"per lm installed", source:"Market rate", notes:"Site-folded to exact profile. Waterproof result." }},
