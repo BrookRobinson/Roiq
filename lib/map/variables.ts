@@ -13,6 +13,7 @@ const KEY = "roiq:map:vars";
 // Smart defaults (spec). Deposit is a placeholder ~20% of a typical NZ listing;
 // TODO: estimate from the average asking price of the loaded listings.
 export const DEFAULT_VARIABLES: UserVariables = {
+  budget: 2_000_000, // max purchase price — properties above this are hidden on the map
   depositAmount: 200_000,
   interestRatePct: DEFAULT_INTEREST_RATE,
   loanTermYears: 30,
@@ -65,6 +66,7 @@ export function hasVariables(): boolean {
 // Kept as plain objects so this module stays client-safe (no supabase import).
 
 export interface MapUserColumns {
+  map_budget: number | null;
   map_deposit_amount: number | null;
   map_interest_rate: number | null;
   map_loan_term_years: number | null;
@@ -84,6 +86,7 @@ export interface MapUserColumns {
 
 export function variablesToColumns(v: UserVariables): MapUserColumns {
   return {
+    map_budget: v.budget,
     map_deposit_amount: v.depositAmount,
     map_interest_rate: v.interestRatePct,
     map_loan_term_years: v.loanTermYears,
@@ -108,6 +111,7 @@ export function variablesFromColumns(row: Partial<MapUserColumns> | null | undef
   const d = DEFAULT_VARIABLES;
   const n = (val: number | null | undefined, fb: number) => (val == null ? fb : val);
   return {
+    budget: n(row.map_budget, d.budget),
     depositAmount: n(row.map_deposit_amount, d.depositAmount),
     interestRatePct: n(row.map_interest_rate, d.interestRatePct),
     loanTermYears: n(row.map_loan_term_years, d.loanTermYears),

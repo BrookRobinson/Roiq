@@ -28,6 +28,7 @@ export interface Database {
           dark_mode: boolean;
           alert_preferences: Json | null;
           // ── Property Map — saved personal variables (added) ──
+          map_budget: number | null;
           map_deposit_amount: number | null;
           map_interest_rate: number | null;
           map_loan_term_years: number | null;
@@ -56,6 +57,7 @@ export interface Database {
           preferred_currency?: string;
           dark_mode?: boolean;
           alert_preferences?: Json | null;
+          map_budget?: number | null;
           map_deposit_amount?: number | null;
           map_interest_rate?: number | null;
           map_loan_term_years?: number | null;

@@ -60,6 +60,7 @@ export function VariablesScreen({
 
         <div className="space-y-4 mt-6">
           <Section icon={Wallet} title="Purchase">
+            <Money label="Budget" hint="max price" value={v.budget} onChange={(n) => set("budget", n)} />
             <Money label="Deposit amount" value={v.depositAmount} onChange={(n) => set("depositAmount", n)} />
             <Pct label="Interest rate" value={v.interestRatePct} onChange={(n) => set("interestRatePct", n)} />
             <Slider label="Loan term" unit="yrs" value={v.loanTermYears} onChange={(n) => set("loanTermYears", n)} />

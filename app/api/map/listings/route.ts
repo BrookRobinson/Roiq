@@ -15,7 +15,9 @@ export async function GET(req: NextRequest) {
   const mode: MapMode = url.searchParams.get("mode") === "investor" ? "investor" : "homebuyer";
   const bbox = parseBBox(url.searchParams.get("bounds"));
   const vars = await resolveVariables(req);
-  const listings = await getActiveListings(bbox);
+  const all = await getActiveListings(bbox);
+  // Budget filter — hide anything above the user's max purchase price.
+  const listings = vars.budget > 0 ? all.filter((l) => l.askingPrice <= vars.budget) : all;
 
   const points = listings.map((l) => {
     const c = computeListing(l, vars, mode);

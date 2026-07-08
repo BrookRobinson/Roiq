@@ -47,6 +47,7 @@ export interface MapListing {
  */
 export interface UserVariables {
   // Purchase
+  budget: number;             // NZD — max purchase price; listings above this are hidden
   depositAmount: number;      // NZD
   interestRatePct: number;    // e.g. 6.5
   loanTermYears: number;      // 1–30

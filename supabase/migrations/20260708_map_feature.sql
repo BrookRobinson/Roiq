@@ -33,6 +33,7 @@ create index if not exists map_listings_active_bbox_idx
 
 -- ── users: saved Property Map personal variables ────────────────────────────
 alter table public.users
+  add column if not exists map_budget                 integer,
   add column if not exists map_deposit_amount        integer,
   add column if not exists map_interest_rate         double precision,
   add column if not exists map_loan_term_years       integer,
