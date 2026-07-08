@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/map/score-run", "schedule": "0 2 * * *" }
+  ]
+}
