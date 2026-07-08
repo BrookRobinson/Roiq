@@ -74,6 +74,11 @@ export function PropertyMap({
       attributionControl: false,
     });
     mapRef.current = map;
+
+    // Keep the canvas matched to its (flex / dynamically-loaded) container.
+    const ro = new ResizeObserver(() => map.resize());
+    ro.observe(containerRef.current);
+
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
 
     map.on("load", () => {
@@ -153,12 +158,14 @@ export function PropertyMap({
         map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
       }
 
+      map.resize();
       loadedRef.current = true;
       refresh();
       map.on("moveend", refresh);
     });
 
     return () => {
+      ro.disconnect();
       map.remove();
       mapRef.current = null;
       loadedRef.current = false;
