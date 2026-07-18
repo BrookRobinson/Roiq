@@ -102,6 +102,7 @@ function NewReportInner() {
         context: data.context,
         subItems: data.subItems ?? [],
         extraDwellings: data.extraDwellings ?? [],
+        penalties: data.penalties ?? [],
         scores: data.scores,
         gaps: data.gaps ?? [],
         marketRent: data.marketRent,

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { SubItem } from "@/lib/property-tab/types";
+import type { SubItem, SpecTier } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
-import { ConditionScore, conditionScoreColor } from "./ConditionScore";
+import { conditionScoreColor } from "./ConditionScore";
 import { ConfidenceTierBadge } from "./ConfidenceTierBadge";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
@@ -15,6 +15,30 @@ import {
   deckRepairCost,
 } from "@/lib/labour-rates";
 import { Camera, ArrowRight, Wrench, Shield } from "lucide-react";
+
+/** Spec / finish badge — how UPDATED the materials look (separate from the condition score). */
+const SPEC_META: Record<SpecTier, { label: string; color: string; bg: string; border: string }> = {
+  original: { label: "Original", color: "var(--text-muted)", bg: "var(--surface)", border: "var(--border)" },
+  dated: { label: "Dated", color: "var(--text-muted)", bg: "var(--surface)", border: "var(--border)" },
+  modern: { label: "Modern", color: "var(--brand)", bg: "rgba(0,212,200,0.1)", border: "rgba(0,212,200,0.2)" },
+  luxury: { label: "Luxury", color: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.2)" },
+};
+
+/** A small labelled stat bubble — a header word (e.g. "Condition" / "Item") over a value. */
+function StatBubble({ label, value, color, bg, border, title }: {
+  label: string; value: string; color: string; bg: string; border: string; title?: string;
+}) {
+  return (
+    <div
+      title={title}
+      className="inline-flex flex-col items-center rounded-lg"
+      style={{ background: bg, border: `1px solid ${border}`, padding: "2px 10px", minWidth: 70 }}
+    >
+      <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>{label}</span>
+      <span className="font-bold tabular-nums" style={{ color, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{value}</span>
+    </div>
+  );
+}
 
 /** Build a CostItem for this sub-item where we have the data */
 function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
@@ -107,14 +131,33 @@ export function SubItemCard({ item, region, floorSqm, showCost = false }: { item
             )}
           </div>
 
-          {/* Condition score — or "No photos — not assessed" when there were none */}
-          <div className="flex-shrink-0">
+          {/* Condition score + spec badge — or "No photos — not assessed" when there were none */}
+          <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
             {item.noPhotoNotAssessed ? (
               <span className="inline-flex items-center gap-1 text-[11px] rounded-lg px-2 py-1 whitespace-nowrap" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
                 <Camera size={11} /> No photos — not assessed
               </span>
             ) : (
-              <ConditionScore score={item.score} size="sm" />
+              <>
+                <StatBubble
+                  label="Condition"
+                  value={item.score !== null ? `${item.score}/10` : "N/A"}
+                  color={conditionScoreColor(item.score)}
+                  bg={`${conditionScoreColor(item.score)}1f`}
+                  border={`${conditionScoreColor(item.score)}55`}
+                  title="Condition — how worn or new the item is (1–10). Not about how modern it looks."
+                />
+                {item.specTier && (
+                  <StatBubble
+                    label="Item"
+                    value={SPEC_META[item.specTier].label}
+                    color={SPEC_META[item.specTier].color}
+                    bg={SPEC_META[item.specTier].bg}
+                    border={SPEC_META[item.specTier].border}
+                    title="Item — how updated the materials / finish look (separate from condition)."
+                  />
+                )}
+              </>
             )}
           </div>
         </div>

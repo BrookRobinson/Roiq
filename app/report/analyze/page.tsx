@@ -225,7 +225,8 @@ export default function AnalyzePage() {
                         </div>
                         <div className="text-xs mt-1 capitalize" style={{ color: "var(--text-muted)" }}>
                           {p} · base {scores[p].base}
-                          {scores[p].dwellingBonus > 0 ? ` + ${scores[p].dwellingBonus}` : ""}
+                          {scores[p].penaltyTotal > 0 ? ` − ${scores[p].penaltyTotal}` : ""}
+                          {scores[p].bonusTotal > 0 ? ` + ${scores[p].bonusTotal}` : ""}
                         </div>
                       </div>
                     ))}

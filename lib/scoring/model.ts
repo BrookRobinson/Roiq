@@ -1,10 +1,17 @@
 // ============================================================
-// RoiQ SCORING MODEL — single source of truth (v3.1)
-// Both buyerPoints and investorPoints columns sum to 1,000.
+// RoiQ SCORING MODEL — single source of truth (v4)
 //
-// Four inspections: Improvements, Location, Land, Legal.
-// There is NO Services category. Hot water is scored under Bathroom.
-// Replaces the earlier cost-weighted 8-category model in lib/property-tab/scoring.ts.
+// The Condition & Quality Score measures the property itself, not lifestyle
+// desirability. Three arms:
+//   • BASE (0–1000)      — Improvements + Land + Legal, normalised.
+//   • PENALTIES (−, cap 150) — objective location negatives (highway, flight
+//                          path…), address-specific. See LOCATION_PENALTIES.
+//   • BONUSES (+, cap 60)    — on-site value-adds (extra dwelling, pool).
+//
+// Location items stay in the model so the AI still assesses them, but they are
+// FACTS ONLY (isFactsOnly) — shown to the buyer, never scored. The old Land
+// hazards (flood, liquefaction, coastal, soil, fault, wind) are erased: too
+// hard to judge reliably from a listing.
 // ============================================================
 
 export type Persona = "buyer" | "investor";
@@ -25,7 +32,7 @@ export interface ScoringSubItem {
 
 export const SCORING_MODEL: ScoringSubItem[] = [
   // ========================================================
-  // INSPECTION 1 — IMPROVEMENTS  (Buyer 500 / Investor 470)
+  // INSPECTION 1 — IMPROVEMENTS  (Buyer 506 / Investor 475)
   // ========================================================
   // --- Exterior (Buyer 230 / Investor 225) ---
   { id: "ext_foundation", label: "Foundation", inspection: "improvements", category: "Exterior", buyerPoints: 55, investorPoints: 52, conditional: false, costBearing: true, affectsHealthyHomes: false },
@@ -58,8 +65,9 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   { id: "bath_ventilation", label: "Ventilation / extraction", inspection: "improvements", category: "Bathroom", buyerPoints: 5, investorPoints: 8, conditional: false, costBearing: true, affectsHealthyHomes: true },
   { id: "bath_flooring", label: "Flooring", inspection: "improvements", category: "Bathroom", buyerPoints: 3, investorPoints: 3, conditional: false, costBearing: true, affectsHealthyHomes: false },
 
-  // --- Living areas (Buyer 55 / Investor 58) ---
+  // --- Living areas (Buyer 61 / Investor 63) ---
   { id: "liv_heating", label: "Heating (primary source)", inspection: "improvements", category: "Living areas", buyerPoints: 15, investorPoints: 20, conditional: false, costBearing: true, affectsHealthyHomes: true },
+  { id: "liv_fixtures", label: "Lighting & electrical fixtures (fittings, switches, downlights)", inspection: "improvements", category: "Living areas", buyerPoints: 6, investorPoints: 5, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "liv_size", label: "Size & flow", inspection: "improvements", category: "Living areas", buyerPoints: 13, investorPoints: 9, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "liv_insulation", label: "Insulation (visible / inferred)", inspection: "improvements", category: "Living areas", buyerPoints: 10, investorPoints: 15, conditional: false, costBearing: true, affectsHealthyHomes: true },
   { id: "liv_light", label: "Natural light & aspect", inspection: "improvements", category: "Living areas", buyerPoints: 7, investorPoints: 5, conditional: false, costBearing: false, affectsHealthyHomes: false },
@@ -90,37 +98,27 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   { id: "out_pool", label: "Pool / spa", inspection: "improvements", category: "Outdoor & grounds", buyerPoints: 1, investorPoints: 1, conditional: true, appliesWhen: "Property has a pool or spa", costBearing: true, affectsHealthyHomes: false },
 
   // ========================================================
-  // INSPECTION 2 — LOCATION  (Buyer 220 / Investor 240)
+  // INSPECTION 2 — LOCATION — facts only, never scored (v4).
+  // Trimmed to the 4 signals worth keeping; the messy subjective rest were removed.
+  // These are surfaced on OTHER tabs, not their own: sun → Improvements (it's the
+  // house), noise + views → Land, growth → Financial. No standalone Location tab.
   // ========================================================
-  { id: "loc_schools", label: "School zones & quality", inspection: "location", category: "Demand & lifestyle", buyerPoints: 45, investorPoints: 28, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "loc_growth", label: "Suburb growth trend & demand", inspection: "location", category: "Demand & lifestyle", buyerPoints: 30, investorPoints: 42, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "loc_sun", label: "Sun / aspect (orientation)", inspection: "location", category: "Demand & lifestyle", buyerPoints: 25, investorPoints: 10, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "loc_amenities", label: "Proximity to amenities (shops, supermarket, cafés)", inspection: "location", category: "Demand & lifestyle", buyerPoints: 22, investorPoints: 22, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "loc_street", label: "Street quality & neighbouring properties", inspection: "location", category: "Demand & lifestyle", buyerPoints: 20, investorPoints: 16, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "loc_employment", label: "Distance to employment / CBD", inspection: "location", category: "Demand & lifestyle", buyerPoints: 12, investorPoints: 28, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "loc_transport", label: "Public transport access", inspection: "location", category: "Demand & lifestyle", buyerPoints: 11, investorPoints: 24, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "loc_walkability", label: "Walkability", inspection: "location", category: "Demand & lifestyle", buyerPoints: 15, investorPoints: 18, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "loc_parks", label: "Proximity to parks & recreation", inspection: "location", category: "Demand & lifestyle", buyerPoints: 13, investorPoints: 10, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "loc_views", label: "Views & outlook", inspection: "location", category: "Demand & lifestyle", buyerPoints: 11, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "loc_noise", label: "Noise sources (motorway, rail, flight path, industry)", inspection: "location", category: "Demand & lifestyle", buyerPoints: 8, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "loc_safety", label: "Crime / safety profile", inspection: "location", category: "Demand & lifestyle", buyerPoints: 5, investorPoints: 14, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "loc_future", label: "Future development / zoning changes nearby", inspection: "location", category: "Demand & lifestyle", buyerPoints: 3, investorPoints: 12, conditional: false, costBearing: false, affectsHealthyHomes: false },
 
   // ========================================================
-  // INSPECTION 3 — LAND  (Buyer 170 / Investor 160)
+  // INSPECTION 3 — LAND  (Buyer 62 / Investor 60) — hazards erased (v4)
+  // Removed: flood, liquefaction, coastal, soil, fault, wind — too hard to
+  // judge reliably from a listing. Only site-specific, judgeable items remain.
   // ========================================================
-  { id: "land_flood", label: "Flood risk", inspection: "land", category: "Hazard & site", buyerPoints: 30, investorPoints: 30, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_liquefaction", label: "Liquefaction risk (TC zoning)", inspection: "land", category: "Hazard & site", buyerPoints: 26, investorPoints: 24, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_coastal", label: "Coastal hazard / erosion risk", inspection: "land", category: "Hazard & site", buyerPoints: 22, investorPoints: 20, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_size", label: "Section size", inspection: "land", category: "Hazard & site", buyerPoints: 18, investorPoints: 14, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_topography", label: "Topography / contour (flat vs steep)", inspection: "land", category: "Hazard & site", buyerPoints: 14, investorPoints: 9, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_soil", label: "Soil & ground stability", inspection: "land", category: "Hazard & site", buyerPoints: 13, investorPoints: 12, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_fault", label: "Fault line proximity", inspection: "land", category: "Hazard & site", buyerPoints: 11, investorPoints: 10, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_aspect", label: "Aspect of land (north-facing slope etc.)", inspection: "land", category: "Hazard & site", buyerPoints: 10, investorPoints: 7, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_shape", label: "Shape & usability", inspection: "land", category: "Hazard & site", buyerPoints: 9, investorPoints: 6, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_subdivision", label: "Subdivision / development potential", inspection: "land", category: "Hazard & site", buyerPoints: 3, investorPoints: 14, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_frontage", label: "Frontage & access (ROW vs road frontage)", inspection: "land", category: "Hazard & site", buyerPoints: 5, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_wind", label: "Wind / elements exposure", inspection: "land", category: "Hazard & site", buyerPoints: 6, investorPoints: 4, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_trees", label: "Established / protected trees & vegetation", inspection: "land", category: "Hazard & site", buyerPoints: 3, investorPoints: 2, conditional: false, costBearing: false, affectsHealthyHomes: false },
 
   // ========================================================
@@ -138,14 +136,34 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   { id: "leg_encumbrances", label: "Encumbrances / caveats", inspection: "legal", category: "Title & compliance", buyerPoints: 2, investorPoints: 3, conditional: false, costBearing: false, affectsHealthyHomes: false },
 ];
 
-/** Location/Land items that describe the TOWN, not this specific address — shown in the
- * City/Town tab and EXCLUDED from the 1000-point score (they're the same for any address
- * in the town). Everything else (site-specific Location/Land + all Legal) scores in the
- * Address tab. */
-export const TOWN_CONTEXT_IDS = new Set<string>([
-  "loc_schools", "loc_growth", "loc_amenities", "loc_employment", "loc_transport", "loc_safety", "loc_future",
-  "land_flood", "land_liquefaction", "land_coastal", "land_fault", "land_soil", "land_wind",
-]);
+const ITEM_INSPECTION: Record<string, Inspection> = Object.fromEntries(
+  SCORING_MODEL.map((i) => [i.id, i.inspection])
+);
 
-/** True when a sub-item is town-wide context (shown in City/Town, not scored). */
-export const isTownContext = (id: string): boolean => TOWN_CONTEXT_IDS.has(id);
+/** Location items are FACTS ONLY (v4) — assessed and shown to the buyer, but never
+ * scored, because location desirability is subjective. Everything else (Improvements,
+ * the trimmed Land items, and all Legal) scores toward the base. Pool is excluded from
+ * the base too — it feeds the on-site value-add bonus instead. */
+export const isFactsOnly = (id: string): boolean => ITEM_INSPECTION[id] === "location";
+
+// ── Location penalties (v4) — objective negatives that hurt resale for almost
+//    everyone. Subtract only, address-specific, scaled by severity (0–10), capped.
+export interface LocationPenalty {
+  id: string;
+  label: string;
+  maxDeduction: number; // full deduction at severity 10
+  appliesWhen: string;
+}
+
+export const LOCATION_PENALTIES: LocationPenalty[] = [
+  { id: "pen_highway", label: "Busy road / highway frontage", maxDeduction: 60, appliesWhen: "On or directly facing a busy road / motorway; scales down with distance" },
+  { id: "pen_flightpath", label: "Under / near flight path", maxDeduction: 45, appliesWhen: "Within an airport noise contour / under a flight path" },
+  { id: "pen_rail", label: "Rail line adjacent", maxDeduction: 38, appliesWhen: "Adjacent or very close to an active rail line" },
+  { id: "pen_industrial", label: "Industrial / heavy-commercial neighbour", maxDeduction: 38, appliesWhen: "Directly neighbouring industrial or heavy-commercial land" },
+  { id: "pen_pylons", label: "High-voltage lines / pylons overhead", maxDeduction: 30, appliesWhen: "High-voltage transmission lines / pylons over or beside the site" },
+  { id: "pen_nosun", label: "No sun / permanently shaded site", maxDeduction: 23, appliesWhen: "South-facing / shaded site with poor sun, especially in winter" },
+];
+
+export const PENALTY_CAP = 150; // max total location deduction
+export const BONUS_CAP = 60; // max total on-site value-add bonus
+export const POOL_BONUS_MAX = 12; // pool / spa bonus at perfect condition

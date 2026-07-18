@@ -3,7 +3,7 @@
 // genuinely recomputing — not a hardcoded number.
 
 import type { StoredReport } from "@/lib/report-store";
-import type { SubItem, ExtraDwelling, UrgencyScore, Remediation } from "@/lib/property-tab/types";
+import type { SubItem, ExtraDwelling, UrgencyScore, Remediation, SpecTier } from "@/lib/property-tab/types";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import { emptyListing } from "@/lib/scraper/types";
 import { SCORING_MODEL } from "./model";
@@ -22,7 +22,7 @@ const SCORES: Record<string, number> = {
   // Bathroom
   bath_shower: 6, bath_waterproof: 5, bath_hotwater: 6, bath_vanity: 6, bath_toilet: 7, bath_ventilation: 4, bath_flooring: 6,
   // Living
-  liv_heating: 8, liv_size: 8, liv_insulation: 3, liv_light: 9, liv_flooring: 7, liv_ceiling: 7,
+  liv_heating: 8, liv_size: 8, liv_insulation: 3, liv_light: 9, liv_flooring: 7, liv_ceiling: 7, liv_fixtures: 6,
   // Bedrooms
   bed_size: 7, bed_heating: 5, bed_storage: 7, bed_windows: 8, bed_flooring: 7, bed_ceiling: 7,
   // Garage
@@ -32,12 +32,21 @@ const SCORES: Record<string, number> = {
   // Location
   loc_schools: 9, loc_growth: 8, loc_sun: 9, loc_amenities: 8, loc_street: 8, loc_employment: 7,
   loc_transport: 6, loc_walkability: 7, loc_parks: 8, loc_views: 7, loc_noise: 8, loc_safety: 8, loc_future: 7,
-  // Land
-  land_flood: 9, land_liquefaction: 9, land_coastal: 10, land_size: 7, land_topography: 6, land_soil: 8,
-  land_fault: 9, land_aspect: 8, land_shape: 7, land_subdivision: 5, land_frontage: 8, land_wind: 8, land_trees: 7,
+  // Land (v4 — flood, liquefaction, coastal, soil, fault, wind erased)
+  land_size: 7, land_topography: 6, land_aspect: 8, land_shape: 7, land_subdivision: 5, land_frontage: 8, land_trees: 7,
   // Legal (unconsented rear studio flagged — drives the remediation example)
   leg_title: 10, leg_weathertight: 8, leg_unconsented: 4, leg_consents: 7, leg_eqc: 9,
   leg_easements: 7, leg_lim: 7, leg_encumbrances: 9,
+};
+
+// Spec/quality tier of the materials (Improvements) — the value axis separate from
+// condition. Renovated kitchen + engineered-timber floors are premium; the original
+// tiled bathroom is standard; everything unlisted defaults to standard.
+const SPEC: Record<string, SpecTier> = {
+  kit_cabinetry: "modern", kit_appliances: "modern", kit_benchtop: "modern", kit_splashback: "modern",
+  liv_flooring: "modern",
+  bath_shower: "dated", bath_vanity: "dated", bath_flooring: "dated",
+  liv_fixtures: "dated", // original-ish light fittings & switches
 };
 
 // One-line findings for Location/Land/Legal cards.
@@ -47,9 +56,6 @@ const FINDINGS: Record<string, string> = {
   loc_sun: "Excellent — north-facing living, all-day sun",
   loc_amenities: "Good — Remuera shops & supermarket within ~1km",
   loc_transport: "Moderate — bus routes nearby, no rapid transit",
-  land_flood: "Low — not in a mapped flood plain",
-  land_liquefaction: "Low — Auckland volcanic basalt substrate",
-  land_coastal: "Not applicable — ~4km inland",
   land_topography: "Moderate — gentle cross-slope to the rear",
   land_subdivision: "Limited — single-house zone, 612m²",
   leg_title: "Freehold — no encumbrances",
@@ -89,8 +95,6 @@ const SUMMARIES: Record<string, string> = {
     "Within the Auckland Grammar and Epsom Girls' Grammar double-grammar zones — among the most sought-after school zones in the country, a strong and durable demand driver for owner-occupiers.",
   loc_sun:
     "North-facing living areas (Photos 2 and 3) and a clear northern aspect give excellent all-day sun — a premium feature for Remuera buyers.",
-  land_liquefaction:
-    "Remuera sits on Auckland volcanic basalt with low liquefaction susceptibility per Auckland Council geotechnical mapping. Low risk; confirm on the LIM.",
   leg_title:
     "Freehold title — the simplest and most marketable tenure, no body corporate or cross-lease complications. Confirm via the LINZ record of title.",
   leg_weathertight:
@@ -141,6 +145,7 @@ function buildSubItems(): SubItem[] {
       aiSummary: reasoning,
       estimatedReplacementCost: cost,
       replacementCostWeight: 0,
+      specTier: isImprovement ? (SPEC[item.id] ?? "dated") : undefined,
       renovationLink: Boolean(cost),
       healthyHomesLink: item.affectsHealthyHomes,
       photoReferences: item.id === "loc_sun" ? [2, 3] : item.id === "leg_unconsented" ? [12] : [],
@@ -179,6 +184,7 @@ function buildDemoAssessment(): Assessment {
   return {
     subItems,
     extraDwellings: EXTRA_DWELLINGS,
+    penalties: [],
     context: {
       titleType: "freehold",
       hasChimney: true,
@@ -225,6 +231,7 @@ export function buildDemoReport(): StoredReport {
     context: assessment.context,
     subItems: assessment.subItems,
     extraDwellings: assessment.extraDwellings,
+    penalties: assessment.penalties,
     scores,
     gaps: [
       {

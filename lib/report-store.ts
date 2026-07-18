@@ -6,7 +6,7 @@
 // it's enough to wire the real paste → analyse → full-report flow for now.
 
 import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
-import type { PropertyContext, ScoreResult } from "@/lib/scoring/engine";
+import type { PropertyContext, ScoreResult, PenaltyInput } from "@/lib/scoring/engine";
 import type { Persona } from "@/lib/scoring/model";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
 import type { PhotoCoverage } from "@/lib/photo-categories";
@@ -42,6 +42,8 @@ export interface StoredReport {
   /** Persona-independent rich assessments (raw 1–10 scores + detail), v3.1 ids. */
   subItems: SubItem[];
   extraDwellings: ExtraDwelling[];
+  /** Objective location negatives (persona-independent); re-applied on the toggle. */
+  penalties?: PenaltyInput[];
   /** Both personas, precomputed at generation time; the toggle reads these. */
   scores: { buyer: ScoreResult; investor: ScoreResult };
   gaps: StoredGap[];

@@ -1,8 +1,21 @@
 // ============================================================
-// RoiQ SCORING ENGINE (v3.1)
+// RoiQ SCORING ENGINE (v4)
+// Condition & Quality Score = BASE (0–1000, the property itself)
+//                             − location penalties (capped)
+//                             + on-site value-add bonuses (capped)
 // ============================================================
 
-import { SCORING_MODEL, isTownContext, type ScoringSubItem, type Persona, type Inspection } from "./model";
+import {
+  SCORING_MODEL,
+  isFactsOnly,
+  LOCATION_PENALTIES,
+  PENALTY_CAP,
+  BONUS_CAP,
+  POOL_BONUS_MAX,
+  type ScoringSubItem,
+  type Persona,
+  type Inspection,
+} from "./model";
 
 export interface PropertyContext {
   titleType: "freehold" | "cross_lease" | "unit_title" | "leasehold" | "unknown";
@@ -25,16 +38,34 @@ export interface ExtraDwelling {
   replacementCostMid: number; // NZD midpoint estimate
 }
 
+/** One objective location negative, as detected for THIS address. severity 0–10. */
+export interface PenaltyInput {
+  id: string; // matches a LOCATION_PENALTIES id
+  severity: number; // 0 = not present, 10 = full severity
+  note?: string; // human-readable reason (e.g. "within airport noise contour ~1.2km")
+}
+
 export interface InspectionScore {
   earned: number;
   max: number;
   pct: number;
 }
 
+/** An itemised adjustment to the base. points < 0 for a penalty, > 0 for a bonus. */
+export interface ScoreAdjustment {
+  id: string;
+  label: string;
+  points: number;
+  note?: string;
+}
+
 export interface ScoreResult {
-  total: number; // 0–1050
-  base: number; // 0–1000 (normalised)
-  dwellingBonus: number; // 0–50
+  total: number; // 0–1060 (base − penalties + bonuses, floored at 0)
+  base: number; // 0–1000 (normalised property quality)
+  penalties: ScoreAdjustment[]; // itemised, points negative
+  penaltyTotal: number; // capped total deducted (positive number)
+  bonuses: ScoreAdjustment[]; // itemised, points positive
+  bonusTotal: number; // capped total added
   byInspection: Record<Inspection, InspectionScore>;
   byCategory: Record<string, InspectionScore>;
 }
@@ -65,12 +96,15 @@ export function getMaxPoints(item: ScoringSubItem, persona: Persona): number {
   return persona === "investor" ? item.investorPoints : item.buyerPoints;
 }
 
+const clamp10 = (n: number): number => Math.max(0, Math.min(10, n));
+
 // 3 — Main scoring function. Re-run whenever the persona toggle changes.
 export function scoreProperty(
   results: SubItemResult[],
   persona: Persona,
   ctx: PropertyContext,
-  extraDwellings: ExtraDwelling[] = []
+  extraDwellings: ExtraDwelling[] = [],
+  penalties: PenaltyInput[] = []
 ): ScoreResult {
   const resultMap = new Map(results.map((r) => [r.id, r]));
   let totalEarned = 0;
@@ -85,7 +119,8 @@ export function scoreProperty(
   const byCategory: Record<string, InspectionScore> = {};
 
   for (const item of SCORING_MODEL) {
-    if (isTownContext(item.id)) continue; // town-wide context — shown in City/Town tab, not scored
+    if (isFactsOnly(item.id)) continue; // location — shown as facts, not scored
+    if (item.id === "out_pool") continue; // pool feeds the bonus, not the base
     const applicable = resolveApplicable(item, ctx);
     if (!applicable) continue; // conditional item not present → drop from denominator
 
@@ -123,19 +158,54 @@ export function scoreProperty(
     v.earned = Math.round(v.earned);
   });
 
-  // Extra dwellings — additive bonus, capped at 50
-  const dwellingBonus = Math.min(
-    50,
-    Math.round(
-      extraDwellings.reduce((sum, d) => {
-        const conditionFactor = d.conditionScore / 10; // 0–1
-        const valuePoints = d.replacementCostMid / 10000; // $10k = 1 pt at perfect condition
-        return sum + valuePoints * conditionFactor;
-      }, 0)
-    )
+  // Location penalties — subtract only, scaled by severity, capped
+  const penMap = new Map(penalties.map((p) => [p.id, p]));
+  const penaltyList: ScoreAdjustment[] = [];
+  for (const p of LOCATION_PENALTIES) {
+    const inp = penMap.get(p.id);
+    const sev = clamp10(inp?.severity ?? 0);
+    if (sev <= 0) continue;
+    const pts = Math.round((sev / 10) * p.maxDeduction);
+    if (pts <= 0) continue;
+    penaltyList.push({ id: p.id, label: p.label, points: -pts, note: inp?.note });
+  }
+  const rawPenalty = penaltyList.reduce((s, a) => s - a.points, 0); // points are negative
+  const penaltyTotal = Math.min(PENALTY_CAP, rawPenalty);
+
+  // On-site value-adds — add only, scaled by condition, capped
+  const bonusList: ScoreAdjustment[] = [];
+  const dwellingPts = Math.round(
+    extraDwellings.reduce((sum, d) => {
+      const conditionFactor = clamp10(d.conditionScore) / 10; // 0–1
+      const valuePoints = d.replacementCostMid / 10000; // $10k = 1 pt at perfect condition
+      return sum + valuePoints * conditionFactor;
+    }, 0)
   );
+  if (dwellingPts > 0) {
+    bonusList.push({
+      id: "bonus_dwelling",
+      label: extraDwellings.length > 1 ? "Extra dwellings" : "Extra dwelling",
+      points: dwellingPts,
+    });
+  }
+  if (ctx.hasPool) {
+    const poolScore = clamp10(resultMap.get("out_pool")?.score ?? 5);
+    const poolPts = Math.round((poolScore / 10) * POOL_BONUS_MAX);
+    if (poolPts > 0) bonusList.push({ id: "bonus_pool", label: "Swimming pool / spa", points: poolPts });
+  }
+  const rawBonus = bonusList.reduce((s, a) => s + a.points, 0);
+  const bonusTotal = Math.min(BONUS_CAP, rawBonus);
 
-  const total = Math.min(1050, base + dwellingBonus);
+  const total = Math.max(0, base - penaltyTotal + bonusTotal);
 
-  return { total, base, dwellingBonus, byInspection, byCategory };
+  return {
+    total,
+    base,
+    penalties: penaltyList,
+    penaltyTotal,
+    bonuses: bonusList,
+    bonusTotal,
+    byInspection,
+    byCategory,
+  };
 }

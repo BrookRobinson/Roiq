@@ -2,6 +2,11 @@ export type ConfidenceTier = 1 | 2 | 3;
 
 export type UrgencyScore = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
+/** Quality / spec tier of an improvement's materials & finish — a value axis SEPARATE
+ * from condition. A tiled bathroom and a vinyl one can both score 10/10 for condition
+ * but sit at very different spec tiers, and are worth very different amounts. (v4 valuation) */
+export type SpecTier = "original" | "dated" | "modern" | "luxury";
+
 export interface ReplacementCost {
   low: number;
   high: number;
@@ -45,6 +50,7 @@ export interface SubItem {
   aiSummary: string;
   estimatedReplacementCost: ReplacementCost | null;
   replacementCostWeight: number;       // 0–1, fraction of category score
+  specTier?: SpecTier;                 // quality/spec of the materials (Improvements) — drives building value
   renovationLink: boolean;
   healthyHomesLink: boolean;
   photoReferences: number[];

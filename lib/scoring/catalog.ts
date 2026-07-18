@@ -171,19 +171,13 @@ export const SOURCE_TAXONOMY: Record<string, SourceRef> = {
   loc_noise: { source: "Proximity to motorway/rail/airport/industry on map", sourceType: "map_poi" },
   loc_safety: { source: "Area-level safety data for the suburb", sourceType: "market_data" },
   loc_future: { source: "Council district plan / zoning layer", sourceType: "council_data", verifyAgainst: "council district plan" },
-  // Land
-  land_flood: { source: "Regional council flood-hazard overlay (flood plain + overland flow paths)", sourceType: "council_data", verifyAgainst: "LIM" },
-  land_liquefaction: { source: "Regional geotechnical / Technical Category mapping", sourceType: "council_data", verifyAgainst: "LIM" },
-  land_coastal: { source: "Regional council coastal-hazard overlay", sourceType: "council_data", verifyAgainst: "LIM" },
+  // Land (v4 — flood, liquefaction, coastal, soil, fault, wind erased)
   land_size: { source: "Record of title / LINZ", sourceType: "linz" },
   land_topography: { source: "Photos + topographic contours (LINZ)", sourceType: "linz" },
-  land_soil: { source: "Regional geotechnical mapping", sourceType: "council_data", verifyAgainst: "LIM" },
-  land_fault: { source: "GNS Science Active Faults database", sourceType: "gns" },
   land_aspect: { source: "Section orientation on the map", sourceType: "map_poi" },
   land_shape: { source: "Title diagram / aerial imagery", sourceType: "linz" },
   land_subdivision: { source: "Zoning + lot size + district-plan minimum-lot rules", sourceType: "council_data", verifyAgainst: "council district plan" },
   land_frontage: { source: "Record of title / listing", sourceType: "title" },
-  land_wind: { source: "Topography + coastal proximity + regional climate", sourceType: "inference" },
   land_trees: { source: "Photos + council protected/notable-tree register", sourceType: "council_data" },
   // Legal
   leg_title: { source: "Record of title / listing", sourceType: "title", verifyAgainst: "record of title" },

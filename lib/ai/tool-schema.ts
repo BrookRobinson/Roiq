@@ -1,5 +1,8 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { ALL_V31_IDS } from "@/lib/scoring/catalog";
+import { LOCATION_PENALTIES } from "@/lib/scoring/model";
+
+const LOCATION_PENALTY_IDS = LOCATION_PENALTIES.map((p) => p.id);
 
 // Forced tool that constrains Claude's output to the structured shape the
 // Property tab consumes. Using tool use (rather than output_config.format) keeps
@@ -29,6 +32,7 @@ export interface RawSubItem {
   condition?: string;
   score: number | null;
   confidence_tier: number;
+  spec_tier?: string;
   evidence_source?: string;
   ai_summary: string;
   renovation_link?: boolean;
@@ -72,11 +76,19 @@ export interface RawPropertyContext {
   has_body_corporate?: boolean;
 }
 
+// v4 — objective location negatives detected for THIS address. Subtract only.
+export interface RawLocationPenalty {
+  id: string;
+  severity: number; // 0–10
+  note?: string;
+}
+
 export interface RawAnalysis {
   sub_items: RawSubItem[];
   extra_dwellings?: RawExtraDwelling[];
   information_gaps?: RawInformationGap[];
   property_context?: RawPropertyContext;
+  location_penalties?: RawLocationPenalty[];
 }
 
 export const ANALYSIS_TOOL_NAME = "submit_property_analysis";
@@ -145,6 +157,33 @@ const propertyContextSchema = {
   required: [],
 } as const;
 
+const locationPenaltiesSchema = {
+  type: "array",
+  description:
+    "Objective location NEGATIVES that hurt resale for almost everyone, detected for THIS specific address. Location has NO positive score — only these penalties. Include a penalty ONLY if it genuinely applies; omit the rest. Scale severity by proximity.",
+  items: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        enum: LOCATION_PENALTY_IDS,
+        description: "Which objective negative applies.",
+      },
+      severity: {
+        type: "integer",
+        description:
+          "0–10. 10 = worst case (directly on/under it), scaling down with distance. E.g. house fronting a motorway = 9–10; one street back = 4–5; 300m+ away = 0 (omit it).",
+      },
+      note: {
+        type: "string",
+        description:
+          "Short reason with distance/evidence, e.g. 'fronts SH1 ~20m', 'within airport 55dB noise contour', 'south-facing gully, poor winter sun'.",
+      },
+    },
+    required: ["id", "severity"],
+  },
+} as const;
+
 const informationGapsSchema = {
   type: "array",
   description: "Material facts that could not be determined from the listing or photos.",
@@ -196,6 +235,12 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               enum: [1, 2, 3],
               description: "1 confirmed from photo · 2 probable · 3 not visible / inferred.",
             },
+            spec_tier: {
+              type: "string",
+              enum: ["original", "dated", "modern", "luxury"],
+              description:
+                "IMPROVEMENTS only — how UPDATED the materials/finish look (separate from condition). Judge only what a photo can reasonably show — don't guess an exact price. original = as-built / never updated (e.g. an untouched 1970s kitchen); dated = updated once but now old-fashioned; modern = updated / contemporary look (tiling, stone or stone-look, good flooring, integrated appliances); luxury = clearly high-end (natural stone, designer/architectural, imported fittings). A tiled bathroom and a vinyl one can both be 10/10 condition but sit at different tiers. If you can't tell, infer from the build era — unrenovated older = original/dated, clearly updated = modern.",
+            },
             evidence_source: {
               type: "string",
               description: "e.g. 'Photos 3, 7, 9' or 'Build era inference'.",
@@ -238,6 +283,7 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
       extra_dwellings: extraDwellingsSchema,
       information_gaps: informationGapsSchema,
       property_context: propertyContextSchema,
+      location_penalties: locationPenaltiesSchema,
     },
     required: ["sub_items"],
   },
@@ -257,6 +303,7 @@ export const ANALYSIS_META_TOOL: Anthropic.Tool = {
       property_context: propertyContextSchema,
       extra_dwellings: extraDwellingsSchema,
       information_gaps: informationGapsSchema,
+      location_penalties: locationPenaltiesSchema,
     },
     required: [],
   },

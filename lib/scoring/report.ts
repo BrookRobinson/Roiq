@@ -11,6 +11,7 @@ import {
   type ScoreResult,
   type SubItemResult,
   type ExtraDwelling as EngineExtraDwelling,
+  type PenaltyInput,
 } from "./engine";
 import type { Persona } from "./model";
 import { buildCatalog } from "./catalog";
@@ -18,9 +19,10 @@ import type { SubItem, ExtraDwelling, Category } from "@/lib/property-tab/types"
 
 /** Persona-independent assessment that fully determines both persona scores. */
 export interface Assessment {
-  subItems: SubItem[]; // rich AI assessments keyed by v3.1 sub-item id
+  subItems: SubItem[]; // rich AI assessments keyed by v4 sub-item id
   extraDwellings: ExtraDwelling[];
   context: PropertyContext;
+  penalties?: PenaltyInput[]; // objective location negatives (persona-independent)
 }
 
 /** Raw 1–10 scores the engine consumes (persona-independent). */
@@ -43,7 +45,8 @@ export function scoreFor(assessment: Assessment, persona: Persona): ScoreResult 
     toResults(assessment.subItems),
     persona,
     assessment.context,
-    toEngineDwellings(assessment.extraDwellings)
+    toEngineDwellings(assessment.extraDwellings),
+    assessment.penalties ?? []
   );
 }
 

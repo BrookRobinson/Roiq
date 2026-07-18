@@ -6,14 +6,14 @@ import type { DocAnalysis } from "@/lib/report-store";
 import type { ScoreResult } from "@/lib/scoring/engine";
 import type { Inspection } from "@/lib/scoring/model";
 import { INSPECTION_META, ITEM_BY_ID } from "@/lib/scoring/catalog";
-import { isTownContext } from "@/lib/scoring/model";
+import { isFactsOnly } from "@/lib/scoring/model";
 import { InspectionCard } from "./InspectionCard";
 import { ChevronRight, Info } from "lucide-react";
 
-// The Address tab covers all three non-building inspections; the City/Town tab covers
-// only the town-wide Location + Land context (Legal is always address-specific).
-const ADDRESS_SECTIONS: Inspection[] = ["location", "land", "legal"];
-const TOWN_SECTIONS: Inspection[] = ["location", "land"];
+// v4: the Address tab scores Land + Legal; the Location tab shows location as
+// un-scored facts (location desirability is subjective, so it never scores).
+const ADDRESS_SECTIONS: Inspection[] = ["land", "legal"];
+const TOWN_SECTIONS: Inspection[] = ["location"];
 
 const barColor = (pct: number) => (pct >= 80 ? "#00e676" : pct >= 55 ? "#fbbf24" : "#ff5f5f");
 
@@ -38,8 +38,8 @@ export function PropertyInspections({
   for (const s of subItems) {
     const insp = ITEM_BY_ID[s.id]?.inspection;
     if (insp !== "location" && insp !== "land" && insp !== "legal") continue;
-    // City/Town shows the town-wide items; Address shows everything else.
-    if (isTownContext(s.id) !== town) continue;
+    // Location tab shows the facts-only location items; Address tab shows the scored rest.
+    if (isFactsOnly(s.id) !== town) continue;
     (byInspection[insp] ??= []).push(s);
   }
   // Worst-first within each section (nulls last).
@@ -52,8 +52,8 @@ export function PropertyInspections({
       <div className="card p-4 text-sm flex items-start gap-2" style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
         <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
         {town
-          ? "Town-wide context — schools, amenities, transport, employment, growth and natural hazards. These describe the town, so they're the same for any address here and are NOT counted in this property's score."
-          : "Location, Land and Legal factors specific to THIS address — each carries a 1–10 score, a named source, a confidence tier, and reasoning. Ordered worst-first; remediable findings link to the Renovations tab."}
+          ? "Location facts — schools, transport, amenities, sun, views and outlook. Shown so you can weigh them yourself; location is subjective, so it is NOT counted in the score. Objective location negatives (highway, flight path…) are handled as penalties on the Overview."
+          : "Land and Legal factors specific to THIS address — each carries a 1–10 score, a named source, a confidence tier, and reasoning. Ordered worst-first; remediable findings link to the Renovations tab."}
       </div>
 
       {SECTIONS.map((insp, i) => {
