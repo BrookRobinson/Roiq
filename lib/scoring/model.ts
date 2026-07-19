@@ -56,6 +56,18 @@ export function tierBandFraction(tier: SpecTier, condition: number): number {
   return lo + (hi - lo) * ((c - 1) / 9);
 }
 
+/** An item is "non-existing" (absent) rather than merely worn when it sits at the
+ * very bottom of the deteriorated band — condition ≤1. */
+export function isNonExisting(tier: SpecTier | undefined, score: number | null): boolean {
+  return tier === "deteriorated" && (score ?? 5) <= 1;
+}
+
+/** Display label for a scored item's tier/status: "Non-existing" when the item
+ * isn't there, otherwise the tier short label (Deteriorated / Dated / Modern / Luxury). */
+export function specStatusLabel(tier: SpecTier, score: number | null): string {
+  return isNonExisting(tier, score) ? "Non-existing" : SPEC_TIER_SHORT[tier];
+}
+
 /** Improvements items that are NOT material fit-outs, so they carry no spec tier —
  * they're scored by condition/quality × points (like Land & Legal), and shown as a
  * plain points badge with no tier bubble. Sun & aspect is orientation, not a finish. */

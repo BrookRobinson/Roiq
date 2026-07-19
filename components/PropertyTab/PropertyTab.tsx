@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { PropertyTabData } from "@/lib/property-tab/types";
+import type { PropertyTabData, RenoControls } from "@/lib/property-tab/types";
 import type { Persona } from "@/lib/scoring/model";
-import type { ItemValue } from "@/lib/scoring/improvement-values";
 import { worstSubItemScore } from "@/lib/property-tab/types";
 import { CategoryAccordion } from "./CategoryAccordion";
 import { ConditionScore } from "./ConditionScore";
@@ -18,10 +17,11 @@ interface Props {
   noPhotos?: boolean;
   buildYear?: number | null;
   persona?: Persona;
-  itemValues?: Map<string, ItemValue>;
+  renoControls?: RenoControls;
+  onOpenRenovations?: () => void;
 }
 
-export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", itemValues }: Props) {
+export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations }: Props) {
   const [openAll, setOpenAll] = useState(false);
 
   // Tally issues across all categories
@@ -156,7 +156,8 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
               region={region}
               floorSqm={floorSqm}
               persona={persona}
-              itemValues={itemValues}
+              renoControls={renoControls}
+              onOpenRenovations={onOpenRenovations}
             />
           );
         })}

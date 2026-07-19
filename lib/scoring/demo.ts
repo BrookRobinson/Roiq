@@ -20,7 +20,7 @@ const SCORES: Record<string, number> = {
   // Kitchen (recently renovated)
   kit_cabinetry: 8, kit_appliances: 8, kit_benchtop: 9, kit_flooring: 7, kit_layout: 8, kit_sink: 8, kit_splashback: 8,
   // Bathroom
-  bath_shower: 6, bath_waterproof: 5, bath_hotwater: 6, bath_vanity: 6, bath_toilet: 7, bath_ventilation: 4, bath_flooring: 6,
+  bath_shower: 6, bath_waterproof: 5, bath_hotwater: 6, bath_vanity: 6, bath_toilet: 7, bath_ventilation: 1, bath_flooring: 6,
   // Living
   liv_heating: 8, liv_size: 8, liv_insulation: 3, liv_light: 9, liv_flooring: 7, liv_ceiling: 7, liv_fixtures: 6,
   // Bedrooms
@@ -47,6 +47,8 @@ const SPEC: Record<string, SpecTier> = {
   liv_flooring: "modern",
   bath_shower: "dated", bath_vanity: "dated", bath_flooring: "dated",
   liv_fixtures: "dated", // original-ish light fittings & switches
+  liv_insulation: "deteriorated", // minimal 1970s insulation — effectively end of life
+  bath_ventilation: "deteriorated", // no ducted extractor fans fitted
 };
 
 // One-line findings for Location/Land/Legal cards.

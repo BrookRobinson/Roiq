@@ -8,7 +8,7 @@ import { SubItemCard, pointsColor } from "./SubItemCard";
 import { ConditionScore, conditionScoreColor } from "./ConditionScore";
 import { improvementItemPoints } from "@/lib/scoring/engine";
 import type { Persona } from "@/lib/scoring/model";
-import type { ItemValue } from "@/lib/scoring/improvement-values";
+import type { RenoControls } from "@/lib/property-tab/types";
 
 interface Props {
   category: Category;
@@ -16,10 +16,11 @@ interface Props {
   region?: string;
   floorSqm?: number | null;
   persona?: Persona;
-  itemValues?: Map<string, ItemValue>;
+  renoControls?: RenoControls;
+  onOpenRenovations?: () => void;
 }
 
-export function CategoryAccordion({ category, defaultOpen = false, region, floorSqm, persona = "buyer", itemValues }: Props) {
+export function CategoryAccordion({ category, defaultOpen = false, region, floorSqm, persona = "buyer", renoControls, onOpenRenovations }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const worst = worstSubItemScore(category);
   const accentColor = conditionScoreColor(worst);
@@ -123,7 +124,7 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
         >
           <div className="pt-4" />
           {category.subItems.map((item) => (
-            <SubItemCard key={item.id} item={item} region={region} floorSqm={floorSqm} persona={persona} itemValue={itemValues?.get(item.id)} />
+            <SubItemCard key={item.id} item={item} region={region} floorSqm={floorSqm} persona={persona} renoControls={renoControls} onOpenRenovations={onOpenRenovations} />
           ))}
         </div>
       )}

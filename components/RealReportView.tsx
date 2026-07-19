@@ -7,13 +7,14 @@ import { HoldPeriodProvider, useHoldPeriod, urgencyScoreToYears } from "@/lib/ho
 import { HoldPeriodSlider } from "@/components/HoldPeriodSlider";
 import { ReportGapBanner } from "@/components/ReportGapBanner";
 import type { ReportGap } from "@/lib/property-tab/gaps";
-import { urgencyColor } from "@/lib/property-tab/types";
+import { urgencyColor, type RenoControls } from "@/lib/property-tab/types";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
-import { valueImprovementItems, type ImprovementValueResult, type ItemValue } from "@/lib/scoring/improvement-values";
+import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
+import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
 import { MANDATORY_CATEGORIES, categoryLabel } from "@/lib/photo-categories";
 import {
@@ -29,7 +30,7 @@ import { summarise, defaultInputs, FINANCE_DEFAULTS, PURCHASE_COST_LABELS } from
 import type { FinanceInputs, LoanType, PurchaseCostKey } from "@/lib/finance/calculator";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import type { ScoreResult } from "@/lib/scoring/engine";
-import type { Persona, Inspection } from "@/lib/scoring/model";
+import { tierBandFraction, SPEC_TIER_SHORT, type Persona, type Inspection } from "@/lib/scoring/model";
 import {
   INSPECTION_ORDER,
   INSPECTION_META,
@@ -43,7 +44,7 @@ import {
   TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight,
 } from "lucide-react";
 
-type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "healthyhomes" | "methodology";
+type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "methodology";
 
 const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?: boolean }[] = [
   { id: "overview", label: "Overview", icon: Home },
@@ -51,7 +52,6 @@ const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?
   { id: "address", label: "Land", icon: ClipboardList },
   { id: "renovations", label: "Renovations", icon: Wrench },
   { id: "financial", label: "Financial", icon: Calculator },
-  { id: "healthyhomes", label: "Healthy Homes", icon: Shield, investorOnly: true },
   { id: "methodology", label: "How we score", icon: Info },
 ];
 
@@ -96,15 +96,21 @@ const lineCost = (l: { costing?: ThreeTierCost; low: number; high: number }, t?:
   return tierTotal(scaleTier(c[tier], lineFrac(c, t)), labour);
 };
 
-/** Total of the toggled-on reno lines that fall within the hold period. */
+/** Is a reno line in the plan? Explicit toggle wins; otherwise its auto default. */
+const renoIncluded = (
+  l: { key: string; autoInclude: boolean },
+  toggles: Record<string, RenoToggle>
+): boolean => toggles[l.key]?.included ?? l.autoInclude;
+
+/** Total of the in-plan reno lines that fall within the hold period. */
 function selectedRenoCost(
-  lines: { key: string; costing?: ThreeTierCost; low: number; high: number; urgencyYears: number }[],
+  lines: { key: string; costing?: ThreeTierCost; low: number; high: number; urgencyYears: number; autoInclude: boolean }[],
   toggles: Record<string, RenoToggle>,
   withinHold: (years: number) => boolean
 ): number {
   return lines
     .filter((l) => withinHold(l.urgencyYears))
-    .filter((l) => toggles[l.key]?.included !== false)
+    .filter((l) => renoIncluded(l, toggles))
     .reduce((sum, l) => sum + lineCost(l, toggles[l.key]), 0);
 }
 
@@ -225,11 +231,6 @@ export function RealReportView({ report }: { report: StoredReport }) {
       }),
     [effectiveSubItems, report.listing.floorAreaSqm, report.listing.bathrooms]
   );
-  // Per-item value lookup for the Improvements cards.
-  const itemValues = useMemo(
-    () => new Map(improvementValuation.items.map((i) => [i.id, i])),
-    [improvementValuation]
-  );
 
   function onPersonaToggle(next: Persona) {
     setPersona(next);
@@ -247,7 +248,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
   // Renovation include/exclude toggles (lifted so the header price + yield read
   // the same selection). Default: every line included at full cost.
   const [renoToggles, setRenoToggles] = useState<Record<string, RenoToggle>>({});
-  const renoLines = useMemo(() => buildRenoLines(report.subItems, report.listing), [report.subItems, report.listing]);
+  const renoLines = useMemo(() => buildRenoLines(report.subItems, report.listing, persona), [report.subItems, report.listing, persona]);
   function setRenoToggle(key: string, patch: Partial<RenoToggle>) {
     setRenoToggles((prev) => ({
       ...prev,
@@ -261,11 +262,20 @@ export function RealReportView({ report }: { report: StoredReport }) {
     }));
   }
 
-  // Healthy Homes is investor-only; bounce off it if the persona flips to buyer.
+  // Bridge for the Improvements cards to add/remove themselves from the reno plan.
+  const renoControls: RenoControls = useMemo(() => {
+    const byId = new Map(renoLines.filter((l) => !l.key.endsWith("_rem")).map((l) => [l.key, l]));
+    return {
+      has: (id) => byId.has(id),
+      included: (id) => {
+        const l = byId.get(id);
+        return l ? renoIncluded(l, renoToggles) : false;
+      },
+      toggle: (id, on) => setRenoToggle(id, { included: on }),
+    };
+  }, [renoLines, renoToggles]);
+
   const tabs = TAB_DEFS.filter((t) => !t.investorOnly || persona === "investor");
-  useEffect(() => {
-    if (persona === "buyer" && tab === "healthyhomes") setTab("overview");
-  }, [persona, tab]);
 
   const { listing, subItems, gaps, photosAnalysed, model } = report;
 
@@ -399,7 +409,8 @@ export function RealReportView({ report }: { report: StoredReport }) {
           {tab === "overview" && <OverviewReal report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} />}
           {tab === "improvements" && (
             <div className="space-y-4">
-              <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} itemValues={itemValues} />
+              <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} />
+              {persona === "investor" && <HealthyHomesSection subItems={effectiveSubItems} buildYear={listing.buildYear} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} />}
             </div>
           )}
           {tab === "address" && (
@@ -416,7 +427,6 @@ export function RealReportView({ report }: { report: StoredReport }) {
               <div className="mt-4"><LocationFactCard subItems={effectiveSubItems} ids={["loc_growth"]} title="Suburb growth & demand" /></div>
             </>
           )}
-          {tab === "healthyhomes" && <HealthyHomesReal buildYear={listing.buildYear} subItems={subItems} />}
           {tab === "methodology" && <MethodologyTab />}
         </div>
 
@@ -782,7 +792,7 @@ function MethodologyTab() {
           Land value + Improvement value = RoiQ value → vs asking → over / under
         </div>
         <p className="text-xs mt-3" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          Improvement value = finish tier × condition × floor area. Land value comes from comparable sales. Every estimate carries a confidence range.
+          Improvement value is built up <strong style={bold}>item by item</strong>: each component&apos;s replacement cost × its spec tier × its condition, plus a base structure &amp; services allowance for what can&apos;t be seen (framing, wiring, plumbing). Land value comes from comparable sales. Every estimate carries a confidence range.
         </p>
       </div>
 
@@ -985,33 +995,53 @@ interface RenoLine {
   category?: string; // improvements category (e.g. "Bathroom", "Kitchen") — drives the visualiser
   photoRefs?: number[]; // listing photo numbers for this item's room
   costing?: ThreeTierCost; // Patch Up / Replace Budget / Replace High End
+  autoInclude: boolean; // pre-ticked into the plan (score ≤30% / flagged remedy)
+  valueGap?: number; // renovation upside — value reclaimed if brought to modern & as-new
+  legal?: boolean; // carries a Healthy Homes legal obligation (investor)
+  nonExisting?: boolean; // the feature is deteriorated / effectively absent
 }
 
 // Unified renovation list: Improvement replacement costs + Location/Land/Legal
 // remediation line items, both obeying the hold-period rule.
-function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"]): RenoLine[] {
+function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], persona: Persona): RenoLine[] {
   const lines: RenoLine[] = [];
   const ctx = {
     floorSqm: listing.floorAreaSqm ?? null,
     bedrooms: listing.bedrooms ?? null,
   };
+  // Per-item building values → replacement-cost fallback + renovation upside (value gap).
+  const valuation = valueImprovementItems({ subItems, floorAreaSqm: listing.floorAreaSqm, bathrooms: listing.bathrooms });
+  const valueById = new Map(valuation.items.map((v) => [v.id, v]));
+
   for (const s of subItems) {
-    if (isImprovement(s) && (s.renovationLink || (s.score !== null && s.score <= 6)) && s.estimatedReplacementCost) {
+    // Every assessed, cost-bearing improvement item is a renovation candidate — the
+    // buyer can tick it to replace it. Auto-ticked into the plan when it scores ≤30%.
+    const v = valueById.get(s.id);
+    if (isImprovement(s) && (s.estimatedReplacementCost || v)) {
       const col = urgencyColor(s.score);
       const category = ITEM_BY_ID[s.id]?.category;
+      // Replacement cost: AI estimate if given, else derive a band from the value RCN.
+      const low = s.estimatedReplacementCost?.low ?? Math.round((v?.rcnNew ?? 0) * 0.8);
+      const high = s.estimatedReplacementCost?.high ?? Math.round((v?.rcnNew ?? 0) * 1.25);
+      // Score fraction (persona-independent): tier band position, or raw condition.
+      const frac = s.specTier ? tierBandFraction(s.specTier, s.score ?? 1) : (s.score ?? 6) / 10;
       lines.push({
         key: s.id,
         name: s.name,
         detail: s.urgencyLabel,
-        low: s.estimatedReplacementCost.low,
-        high: s.estimatedReplacementCost.high,
+        low,
+        high,
         urgencyYears: urgencyScoreToYears(s.score),
         detailColor: col === "red" ? "#ff5f5f" : col === "amber" ? "#fbbf24" : "#00e676",
         uplift: rentUplift(s.id),
-        notes: s.estimatedReplacementCost.notes || undefined,
+        notes: s.estimatedReplacementCost?.notes || undefined,
         category,
         photoRefs: s.photoReferences,
-        costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low: s.estimatedReplacementCost.low, high: s.estimatedReplacementCost.high } }),
+        costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low, high } }),
+        autoInclude: s.score !== null && frac <= 0.30,
+        valueGap: v?.valueGap,
+        legal: HH_RENO_KEYS.has(s.id),
+        nonExisting: s.specTier === "deteriorated",
       });
     }
     // Legal / due-diligence remedies (e.g. a LIM report, title checks) are not
@@ -1030,6 +1060,29 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"]): 
         uplift: 0,
         notes: undefined,
         costing: costThreeTier({ id: s.id + "_rem", name: s.remediation.renovationLineItem, ...ctx, fallback: { low: s.remediation.low, high: s.remediation.high } }),
+        autoInclude: true, // a specifically flagged remedy — pre-ticked
+      });
+    }
+  }
+
+  // Healthy Homes draught-stopping — investor only, no equivalent quality item.
+  if (persona === "investor") {
+    const draught = assessHealthyHomes(subItems, listing.buildYear).find((h) => h.key === "hh_draught");
+    if (draught) {
+      lines.push({
+        key: "hh_draught",
+        name: "Draught stopping (Healthy Homes)",
+        detail: draught.compliant ? "Meets the draught-stopping standard" : "Below the draught-stopping standard — gaps/holes to seal",
+        low: draught.remediation.low,
+        high: draught.remediation.high,
+        urgencyYears: 0,
+        detailColor: draught.compliant ? "#00e676" : "#ff5f5f",
+        uplift: 0,
+        notes: undefined,
+        costing: costThreeTier({ id: "hh_draught", name: "Draught stopping", ...ctx, fallback: { low: draught.remediation.low, high: draught.remediation.high } }),
+        autoInclude: !draught.compliant,
+        legal: true,
+        nonExisting: draught.tier === "deteriorated",
       });
     }
   }
@@ -1159,8 +1212,8 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   const items = renoLines.filter((l) => withinHold(l.urgencyYears));
   const deferred = renoLines.length - items.length;
   const total = selectedRenoCost(renoLines, renoToggles, withinHold);
-  const isOn = (key: string) => renoToggles[key]?.included !== false;
-  const selected = items.filter((l) => isOn(l.key));
+  // The plan = items ticked on the Improvements tab (auto-ticked when they score ≤30%).
+  const selected = items.filter((l) => renoIncluded(l, renoToggles));
   const upliftTotal = persona === "investor" ? selected.reduce((sum, l) => sum + l.uplift, 0) : 0;
   const price = listing.askingPrice ?? 0;
 
@@ -1223,9 +1276,14 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
         )}
       </div>
 
-      {items.map((l) => {
+      {selected.length === 0 && (
+        <div className="card p-6 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Nothing in your renovation plan yet. On the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab, tick <em>&ldquo;Add to renovation plan&rdquo;</em> on any item you plan to replace — items scoring 30% or less are ticked automatically.
+        </div>
+      )}
+      {selected.map((l) => {
         const t = renoToggles[l.key];
-        const included = t?.included !== false;
+        const included = renoIncluded(l, renoToggles);
         return (
           <div key={l.key} className="card p-4" style={{ opacity: included ? 1 : 0.55, transition: "opacity 0.15s" }}>
             <div className="flex items-start gap-3">
@@ -1234,6 +1292,12 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{l.name}</span>
                   {l.badge && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "rgba(0,212,200,0.1)", color: "var(--brand)" }}>{l.badge} remedy</span>}
+                  {persona === "investor" && l.legal && l.nonExisting && (
+                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold" style={{ background: "rgba(255,95,95,0.14)", color: "#ff5f5f", border: "1px solid rgba(255,95,95,0.3)" }}>⚖️ Must do, by law</span>
+                  )}
+                  {l.valueGap != null && l.valueGap > 0 && (
+                    <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "rgba(0,230,118,0.12)", color: "#00b894" }} title="Value reclaimed if this item is brought to modern &amp; as-new">+{fmt(l.valueGap)} value</span>
+                  )}
                   {persona === "investor" && included && l.uplift > 0 && (
                     <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "rgba(0,230,118,0.12)", color: "#00e676" }}>+${l.uplift}/wk rent</span>
                   )}
@@ -1647,65 +1711,81 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 // (The old Hazard tab is retired — Land/Legal now live in the Property tab,
 //  rendered with full depth by components/PropertyInspections.)
 
-// ── Healthy Homes (investor only — build-era + flagged items) ────────────────
-function HealthyHomesReal({ buildYear, subItems }: { buildYear: number | null; subItems: SubItem[] }) {
-  const hhFlagged = subItems.filter((s) => ITEM_BY_ID[s.id]?.affectsHealthyHomes);
-  const era = !buildYear
-    ? { v: "Unknown", d: "Build year unconfirmed — a certified Healthy Homes assessment is recommended before tenanting." }
-    : buildYear >= 2019 ? { v: "Likely compliant", d: "Built to modern code — confirm heating capacity and R-values." }
-    : buildYear >= 2008 ? { v: "Probably compliant", d: "Confirm insulation R-values and extractor ducting." }
-    : buildYear >= 2000 ? { v: "Risk — verify", d: "May be below current standard; assessment recommended." }
-    : buildYear >= 1978 ? { v: "Risk — verify", d: "Likely below current insulation/heating standard." }
-    : { v: "Likely non-compliant", d: "Pre-1978 — budget for insulation, fixed heating, ventilation, and draught-stopping remediation." };
+// ── Healthy Homes (investor only) — the 5 legal standards, scored + reno-tickable
+const HH_TIER_COLOR: Record<string, string> = { deteriorated: "#ff5f5f", dated: "var(--text-muted)", modern: "var(--brand)", luxury: "#fbbf24" };
+const hhPointsColor = (f: number): string => (f >= 0.7 ? "#00e676" : f >= 0.4 ? "#fb923c" : "#ff5f5f");
 
-  const standards = ["Heating (fixed, ≥1.5kW, main living room)", "Insulation (ceiling + underfloor)", "Ventilation (extractors ducted outside)", "Moisture & drainage (gutters, ground barrier)", "Draught stopping"];
+function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovations }: {
+  subItems: SubItem[]; buildYear: number | null; renoControls: RenoControls; onOpenRenovations: () => void;
+}) {
+  const results = assessHealthyHomes(subItems, buildYear);
+  const toFix = results.filter((r) => !r.compliant).length;
 
   return (
-    <div className="space-y-4">
-      <div className="card p-5">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>Build-era indication</h3>
-          <span className="text-sm font-bold px-3 py-1 rounded-full" style={{ background: "var(--brand-light)", color: "var(--brand)" }}>{era.v}</span>
+    <div className="rounded-2xl p-5" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Shield size={16} style={{ color: "var(--brand)" }} />
+          <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Healthy Homes — rental compliance</h3>
         </div>
-        <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>{era.d}</p>
+        <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: toFix ? "rgba(255,95,95,0.12)" : "rgba(0,230,118,0.12)", color: toFix ? "#ff5f5f" : "#00e676" }}>
+          {toFix ? `${toFix} of 5 to remediate` : "All 5 standards met"}
+        </span>
       </div>
+      <p className="text-xs mt-1 mb-4" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>
+        The 5 legal standards for renting a property, scored the same way as the rest of the improvements. Anything non-existing is a <strong style={{ color: "var(--text-secondary)" }}>must-do by law</strong> before you can tenant — tick it to add it to your renovation plan.
+      </p>
 
-      {hhFlagged.length > 0 && (
-        <div className="card p-5">
-          <h3 className="font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Items relevant to the standards</h3>
-          <div className="space-y-3">
-            {hhFlagged.map((s) => {
-              const col = urgencyColor(s.score);
-              const colHex = col === "red" ? "#ff5f5f" : col === "amber" ? "#fbbf24" : col === "green" ? "#00e676" : "var(--text-muted)";
-              return (
-                <div key={s.id} className="flex items-start gap-3">
-                  <div className="w-12 flex-shrink-0 text-center">
-                    <span className="text-sm font-bold mono" style={{ color: colHex }}>{s.score ?? "—"}</span>
-                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>/10</span>
+      <div className="space-y-3">
+        {results.map((r) => {
+          const canReno = renoControls.has(r.renoKey);
+          const inPlan = canReno && renoControls.included(r.renoKey);
+          const c = hhPointsColor(r.fraction);
+          return (
+            <div key={r.key} className="rounded-xl overflow-hidden" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderLeft: `3px solid ${c}` }}>
+              <div className="p-4 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{r.label}</span>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: r.compliant ? "rgba(0,230,118,0.12)" : "rgba(255,95,95,0.12)", color: r.compliant ? "#00e676" : "#ff5f5f" }}>
+                      {r.compliant ? "Compliant" : "⚖️ Must do, by law"}
+                    </span>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{s.name}</div>
-                    {s.aiSummary && <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>{s.aiSummary}</p>}
-                  </div>
+                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>{r.requirement}</p>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="card p-5">
-        <h3 className="font-semibold mb-3" style={{ color: "var(--text-primary)" }}>The 5 standards</h3>
-        <ul className="space-y-2">
-          {standards.map((s) => (
-            <li key={s} className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-              <Shield size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />{s}
-            </li>
-          ))}
-        </ul>
+                <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+                  <span className="inline-flex flex-col items-center rounded-lg" style={{ background: `${c}1f`, border: `1px solid ${c}55`, padding: "2px 10px", minWidth: 64 }}>
+                    <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>Points</span>
+                    <span className="font-bold tabular-nums" style={{ color: c, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{r.earned}/{r.maxPoints}</span>
+                  </span>
+                  <span className="inline-flex flex-col items-center rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "2px 10px", minWidth: 84 }}>
+                    <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>Status</span>
+                    <span className="font-bold whitespace-nowrap" style={{ color: HH_TIER_COLOR[r.tier], fontFamily: "Fira Code, monospace", fontSize: 11, lineHeight: 1.3 }}>{hhStatusLabel(r)}</span>
+                  </span>
+                </div>
+              </div>
+              {canReno && (
+                <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "rgba(0,212,200,0.06)" : "transparent" }}>
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={inPlan} onChange={(e) => renoControls.toggle(r.renoKey, e.target.checked)} className="w-4 h-4 cursor-pointer flex-shrink-0" aria-label={`Add ${r.label} to the renovation plan`} />
+                    <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: inPlan ? "var(--brand)" : "var(--text-secondary)" }}>
+                      <Wrench size={11} />
+                      {inPlan ? "In your renovation plan" : "Add to renovation plan"}
+                    </span>
+                  </label>
+                  {inPlan && (
+                    <button onClick={onOpenRenovations} className="inline-flex items-center gap-0.5 text-xs font-medium cursor-pointer hover:underline" style={{ color: "var(--brand)" }}>
+                      View <ArrowRight size={11} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        Indicative only — a full per-standard assessment with remediation costs is a later build. Engage a certified assessor before renting.
+      <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
+        Indicative from the listing + build era{buildYear ? ` (c.${buildYear})` : ""}. Engage a certified Healthy Homes assessor before tenanting.
       </p>
     </div>
   );

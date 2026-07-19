@@ -97,6 +97,14 @@ export interface PropertyTabData {
   overallScore: number;
 }
 
+/** Bridge that lets an Improvements item card add/remove itself from the
+ * renovation plan (state lives in the report view, shared with the Reno tab). */
+export interface RenoControls {
+  has: (id: string) => boolean; // true when this item can be renovated (has a reno line)
+  included: (id: string) => boolean; // is it currently in the plan
+  toggle: (id: string, on: boolean) => void;
+}
+
 // ── Urgency helpers ────────────────────────────────────────────────────────
 
 export function urgencyLabel(score: UrgencyScore | null): string {

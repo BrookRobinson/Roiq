@@ -1,18 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { SubItem, SpecTier } from "@/lib/property-tab/types";
+import type { SubItem, SpecTier, RenoControls } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import { improvementItemPoints } from "@/lib/scoring/engine";
-import { SPEC_TIER_SHORT, type Persona } from "@/lib/scoring/model";
-import type { ItemValue } from "@/lib/scoring/improvement-values";
-
-/** Compact NZD, e.g. $26.3k / $900. */
-function fmtMoney(n: number): string {
-  if (n >= 1000) return `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
-  return `$${Math.round(n).toLocaleString("en-NZ")}`;
-}
+import { SPEC_TIER_SHORT, specStatusLabel, type Persona } from "@/lib/scoring/model";
 import { ConfidenceTierBadge } from "./ConfidenceTierBadge";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
@@ -73,7 +66,7 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
   return null;
 }
 
-export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", itemValue }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; itemValue?: ItemValue }) {
+export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
   const urgencyYears = urgencyScoreToYears(item.score);
@@ -83,6 +76,9 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
   const pts = improvementItemPoints(item.id, item.specTier, item.score, persona);
   const color = pts ? pointsColor(pts.earned / pts.max) : conditionScoreColor(item.score);
   const costItem = getCostItem(item, region, floorSqm);
+  // Renovation plan: this item can be added if it has a costed reno line.
+  const canReno = renoControls?.has(item.id) ?? false;
+  const inPlan = canReno && (renoControls?.included(item.id) ?? false);
 
   return (
     <div
@@ -182,21 +178,11 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                 {item.specTier && (
                   <StatBubble
                     label="Tier"
-                    value={SPEC_META[item.specTier].label}
+                    value={specStatusLabel(item.specTier, item.score)}
                     color={SPEC_META[item.specTier].color}
                     bg={SPEC_META[item.specTier].bg}
                     border={SPEC_META[item.specTier].border}
-                    title="Spec tier — the quality/era of the materials. It sets how many points this item can earn."
-                  />
-                )}
-                {itemValue && itemValue.valueNow > 0 && (
-                  <StatBubble
-                    label="Value"
-                    value={fmtMoney(itemValue.valueNow)}
-                    color="var(--text-primary)"
-                    bg="var(--surface)"
-                    border="var(--border)"
-                    title={`Depreciated replacement value this item adds to the building (spec × condition). Replacement cost new: ${fmtMoney(itemValue.rcnNew)}.`}
+                    title="Spec tier — the quality/era of the materials (or 'Non-existing' when the item isn't there). It sets how many points this item can earn."
                   />
                 )}
               </>
@@ -250,6 +236,30 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
         )}
       </button>
 
+      {/* Add-to-renovation-plan control — only for items we can cost (renovate) */}
+      {canReno && (
+        <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "rgba(0,212,200,0.06)" : "transparent" }}>
+          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={inPlan}
+              onChange={(e) => renoControls?.toggle(item.id, e.target.checked)}
+              className="w-4 h-4 cursor-pointer flex-shrink-0"
+              aria-label={`Add ${item.name} to the renovation plan`}
+            />
+            <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: inPlan ? "var(--brand)" : "var(--text-secondary)" }}>
+              <Wrench size={11} />
+              {inPlan ? "In your renovation plan" : "Add to renovation plan"}
+            </span>
+          </label>
+          {inPlan && onOpenRenovations && (
+            <button onClick={onOpenRenovations} className="inline-flex items-center gap-0.5 text-xs font-medium cursor-pointer hover:underline" style={{ color: "var(--brand)" }}>
+              View <ArrowRight size={11} />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Expanded detail */}
       {expanded && !item.noPhotoNotAssessed && (
         <div
@@ -272,26 +282,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
             </p>
           </div>
 
-          {/* Value contribution — depreciated replacement cost + renovation upside */}
-          {itemValue && itemValue.valueNow > 0 && (
-            <div className="rounded-lg p-3" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-              <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Value it adds</div>
-              <div className="flex items-baseline justify-between text-sm">
-                <span style={{ color: "var(--text-secondary)" }}>Contributes to building value</span>
-                <span className="font-bold mono" style={{ color: "var(--text-primary)" }}>${itemValue.valueNow.toLocaleString("en-NZ")}</span>
-              </div>
-              <div className="flex items-baseline justify-between text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                <span>Replacement cost new ({SPEC_META[item.specTier ?? "dated"].label} spec)</span>
-                <span className="mono">${itemValue.rcnNew.toLocaleString("en-NZ")}</span>
-              </div>
-              {itemValue.valueGap > 0 && (
-                <div className="flex items-baseline justify-between text-xs mt-1" style={{ color: "#00b894" }}>
-                  <span>Renovation upside (to modern &amp; as-new)</span>
-                  <span className="mono font-semibold">+${itemValue.valueGap.toLocaleString("en-NZ")}</span>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Replacement cost — kept on the Renovation tab only (showCost gates it). */}
           {showCost && item.estimatedReplacementCost && (
