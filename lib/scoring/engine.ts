@@ -8,6 +8,7 @@
 import {
   SCORING_MODEL,
   isFactsOnly,
+  tierBandFraction,
   LOCATION_PENALTIES,
   PENALTY_CAP,
   BONUS_CAP,
@@ -16,6 +17,7 @@ import {
   type Persona,
   type Inspection,
 } from "./model";
+import type { SpecTier } from "@/lib/property-tab/types";
 
 export interface PropertyContext {
   titleType: "freehold" | "cross_lease" | "unit_title" | "leasehold" | "unknown";
@@ -30,6 +32,7 @@ export interface SubItemResult {
   id: string;
   score: number; // 1–10 from the AI (0 or null = not scored / not applicable)
   applicable: boolean; // resolved at runtime from PropertyContext
+  specTier?: SpecTier; // Improvements (v5) — the tier sets the points band; condition positions within it
 }
 
 export interface ExtraDwelling {
@@ -96,6 +99,27 @@ export function getMaxPoints(item: ScoringSubItem, persona: Persona): number {
   return persona === "investor" ? item.investorPoints : item.buyerPoints;
 }
 
+const ITEM_BY_ID = new Map(SCORING_MODEL.map((i) => [i.id, i]));
+
+/**
+ * Points an Improvements item earns for the active persona — for the per-card
+ * "Dated · 4/13" display. Mirrors the engine: tiered → band positioned by
+ * condition; untiered-but-scored → condition × max; otherwise not applicable.
+ */
+export function improvementItemPoints(
+  id: string,
+  tier: SpecTier | undefined,
+  condition: number | null,
+  persona: Persona
+): { earned: number; max: number } | null {
+  const item = ITEM_BY_ID.get(id);
+  if (!item || item.inspection !== "improvements") return null;
+  const max = getMaxPoints(item, persona);
+  if (tier) return { earned: Math.round(max * tierBandFraction(tier, condition ?? 1)), max };
+  if (condition != null && condition > 0) return { earned: Math.round((condition / 10) * max), max };
+  return null;
+}
+
 const clamp10 = (n: number): number => Math.max(0, Math.min(10, n));
 
 // 3 — Main scoring function. Re-run whenever the persona toggle changes.
@@ -127,10 +151,21 @@ export function scoreProperty(
     const max = getMaxPoints(item, persona);
     const r = resultMap.get(item.id);
 
-    // If the AI could not score it at all, treat as not contributing to either side.
-    if (!r || r.score == null || r.score <= 0) continue;
-
-    const earned = (r.score / 10) * max;
+    // Earned points:
+    //  • Improvements (v5) — the spec TIER sets a capped band, condition positions
+    //    within it. A tiered item counts even at low condition, so a "deteriorated"
+    //    item genuinely drags the score down (band floor, not dropped).
+    //  • Everything else — the 1–10 condition scaled across the item's max points.
+    //  • Genuinely un-assessed (no tier, no score) → drop from both numerator and
+    //    denominator so a missing photo doesn't punish the property.
+    let earned: number;
+    if (item.inspection === "improvements" && r?.specTier) {
+      earned = max * tierBandFraction(r.specTier, r.score ?? 1);
+    } else if (r && r.score != null && r.score > 0) {
+      earned = (r.score / 10) * max;
+    } else {
+      continue;
+    }
     totalEarned += earned;
     totalMax += max;
 

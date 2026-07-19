@@ -4,6 +4,15 @@ import { useState } from "react";
 import type { SubItem, SpecTier } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
+import { improvementItemPoints } from "@/lib/scoring/engine";
+import { SPEC_TIER_SHORT, type Persona } from "@/lib/scoring/model";
+import type { ItemValue } from "@/lib/scoring/improvement-values";
+
+/** Compact NZD, e.g. $26.3k / $900. */
+function fmtMoney(n: number): string {
+  if (n >= 1000) return `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+  return `$${Math.round(n).toLocaleString("en-NZ")}`;
+}
 import { ConfidenceTierBadge } from "./ConfidenceTierBadge";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
@@ -16,13 +25,22 @@ import {
 } from "@/lib/labour-rates";
 import { Camera, ArrowRight, Wrench, Shield } from "lucide-react";
 
-/** Spec / finish badge — how UPDATED the materials look (separate from the condition score). */
+/** Spec / finish tier badge — the quality/era of the materials, which sets the points band. */
 const SPEC_META: Record<SpecTier, { label: string; color: string; bg: string; border: string }> = {
-  original: { label: "Original", color: "var(--text-muted)", bg: "var(--surface)", border: "var(--border)" },
-  dated: { label: "Dated", color: "var(--text-muted)", bg: "var(--surface)", border: "var(--border)" },
-  modern: { label: "Modern", color: "var(--brand)", bg: "rgba(0,212,200,0.1)", border: "rgba(0,212,200,0.2)" },
-  luxury: { label: "Luxury", color: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.2)" },
+  deteriorated: { label: SPEC_TIER_SHORT.deteriorated, color: "#ff5f5f", bg: "rgba(255,95,95,0.1)", border: "rgba(255,95,95,0.25)" },
+  dated: { label: SPEC_TIER_SHORT.dated, color: "var(--text-muted)", bg: "var(--surface)", border: "var(--border)" },
+  modern: { label: SPEC_TIER_SHORT.modern, color: "var(--brand)", bg: "rgba(0,212,200,0.1)", border: "rgba(0,212,200,0.2)" },
+  luxury: { label: SPEC_TIER_SHORT.luxury, color: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.2)" },
 };
+
+const PTS_RED = "#ff5f5f", PTS_ORANGE = "#fb923c", PTS_GREEN = "#00e676";
+/** Colour for a points read, banded by fraction of the max. Shared with the
+ * category accordion so per-item and category summaries read the same way. */
+export function pointsColor(frac: number): string {
+  if (frac >= 0.7) return PTS_GREEN;
+  if (frac >= 0.4) return PTS_ORANGE;
+  return PTS_RED;
+}
 
 /** A small labelled stat bubble — a header word (e.g. "Condition" / "Item") over a value. */
 function StatBubble({ label, value, color, bg, border, title }: {
@@ -55,12 +73,15 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
   return null;
 }
 
-export function SubItemCard({ item, region, floorSqm, showCost = false }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean }) {
+export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", itemValue }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; itemValue?: ItemValue }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
   const urgencyYears = urgencyScoreToYears(item.score);
   const isWithinHold = withinHold(urgencyYears);
-  const color = conditionScoreColor(item.score);
+  // v5 — Improvements are scored as tier-band points; colour + border follow the
+  // points read (falls back to raw condition for any legacy untiered item).
+  const pts = improvementItemPoints(item.id, item.specTier, item.score, persona);
+  const color = pts ? pointsColor(pts.earned / pts.max) : conditionScoreColor(item.score);
   const costItem = getCostItem(item, region, floorSqm);
 
   return (
@@ -139,22 +160,43 @@ export function SubItemCard({ item, region, floorSqm, showCost = false }: { item
               </span>
             ) : (
               <>
-                <StatBubble
-                  label="Condition"
-                  value={item.score !== null ? `${item.score}/10` : "N/A"}
-                  color={conditionScoreColor(item.score)}
-                  bg={`${conditionScoreColor(item.score)}1f`}
-                  border={`${conditionScoreColor(item.score)}55`}
-                  title="Condition — how worn or new the item is (1–10). Not about how modern it looks."
-                />
+                {pts ? (
+                  <StatBubble
+                    label="Points"
+                    value={`${pts.earned}/${pts.max}`}
+                    color={color}
+                    bg={`${color}1f`}
+                    border={`${color}55`}
+                    title="Points earned toward the score — the spec tier sets the band (its max), and condition positions the item within it."
+                  />
+                ) : (
+                  <StatBubble
+                    label="Condition"
+                    value={item.score !== null ? `${item.score}/10` : "N/A"}
+                    color={conditionScoreColor(item.score)}
+                    bg={`${conditionScoreColor(item.score)}1f`}
+                    border={`${conditionScoreColor(item.score)}55`}
+                    title="Condition — how worn or new the item is (1–10)."
+                  />
+                )}
                 {item.specTier && (
                   <StatBubble
-                    label="Item"
+                    label="Tier"
                     value={SPEC_META[item.specTier].label}
                     color={SPEC_META[item.specTier].color}
                     bg={SPEC_META[item.specTier].bg}
                     border={SPEC_META[item.specTier].border}
-                    title="Item — how updated the materials / finish look (separate from condition)."
+                    title="Spec tier — the quality/era of the materials. It sets how many points this item can earn."
+                  />
+                )}
+                {itemValue && itemValue.valueNow > 0 && (
+                  <StatBubble
+                    label="Value"
+                    value={fmtMoney(itemValue.valueNow)}
+                    color="var(--text-primary)"
+                    bg="var(--surface)"
+                    border="var(--border)"
+                    title={`Depreciated replacement value this item adds to the building (spec × condition). Replacement cost new: ${fmtMoney(itemValue.rcnNew)}.`}
                   />
                 )}
               </>
@@ -229,6 +271,27 @@ export function SubItemCard({ item, region, floorSqm, showCost = false }: { item
               {item.aiSummary}
             </p>
           </div>
+
+          {/* Value contribution — depreciated replacement cost + renovation upside */}
+          {itemValue && itemValue.valueNow > 0 && (
+            <div className="rounded-lg p-3" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+              <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>Value it adds</div>
+              <div className="flex items-baseline justify-between text-sm">
+                <span style={{ color: "var(--text-secondary)" }}>Contributes to building value</span>
+                <span className="font-bold mono" style={{ color: "var(--text-primary)" }}>${itemValue.valueNow.toLocaleString("en-NZ")}</span>
+              </div>
+              <div className="flex items-baseline justify-between text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                <span>Replacement cost new ({SPEC_META[item.specTier ?? "dated"].label} spec)</span>
+                <span className="mono">${itemValue.rcnNew.toLocaleString("en-NZ")}</span>
+              </div>
+              {itemValue.valueGap > 0 && (
+                <div className="flex items-baseline justify-between text-xs mt-1" style={{ color: "#00b894" }}>
+                  <span>Renovation upside (to modern &amp; as-new)</span>
+                  <span className="mono font-semibold">+${itemValue.valueGap.toLocaleString("en-NZ")}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Replacement cost — kept on the Renovation tab only (showCost gates it). */}
           {showCost && item.estimatedReplacementCost && (

@@ -4,25 +4,38 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import type { Category } from "@/lib/property-tab/types";
 import { worstSubItemScore } from "@/lib/property-tab/types";
-import { SubItemCard } from "./SubItemCard";
+import { SubItemCard, pointsColor } from "./SubItemCard";
 import { ConditionScore, conditionScoreColor } from "./ConditionScore";
+import { improvementItemPoints } from "@/lib/scoring/engine";
+import type { Persona } from "@/lib/scoring/model";
+import type { ItemValue } from "@/lib/scoring/improvement-values";
 
 interface Props {
   category: Category;
   defaultOpen?: boolean;
   region?: string;
   floorSqm?: number | null;
+  persona?: Persona;
+  itemValues?: Map<string, ItemValue>;
 }
 
-export function CategoryAccordion({ category, defaultOpen = false, region, floorSqm }: Props) {
+export function CategoryAccordion({ category, defaultOpen = false, region, floorSqm, persona = "buyer", itemValues }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const worst = worstSubItemScore(category);
   const accentColor = conditionScoreColor(worst);
 
-  const scored = category.subItems.filter((s) => s.score !== null);
-  const avgScore = scored.length > 0
-    ? Math.round(scored.reduce((sum, s) => sum + (s.score as number), 0) / scored.length)
-    : null;
+  // Category points roll-up — sum the assessed sub-items' earned/max points (v5).
+  // Matches the per-item "X/max" badges so the numbers add up on screen; the max
+  // is the category's total weight for the active persona (e.g. Kitchen 70 buyer).
+  const catPts = category.subItems.reduce(
+    (acc, s) => {
+      const p = improvementItemPoints(s.id, s.specTier, s.score, persona);
+      if (p) { acc.earned += p.earned; acc.max += p.max; acc.any = true; }
+      return acc;
+    },
+    { earned: 0, max: 0, any: false }
+  );
+  const catColor = catPts.any ? pointsColor(catPts.earned / catPts.max) : accentColor;
 
   const issues = category.subItems.filter((s) => s.score !== null && s.score <= 4).length;
   const warnings = category.subItems.filter((s) => s.score !== null && s.score >= 5 && s.score <= 7).length;
@@ -70,9 +83,27 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
           </div>
         </div>
 
-        {/* Avg score pill + chevron */}
+        {/* Category points roll-up pill + chevron */}
         <div className="flex items-center gap-3 flex-shrink-0">
-          {worst !== null && <ConditionScore score={worst} size="sm" />}
+          {catPts.any ? (
+            <span
+              className="inline-flex items-baseline gap-1 rounded-lg font-bold tabular-nums"
+              style={{
+                background: `${catColor}1f`,
+                border: `1px solid ${catColor}55`,
+                color: catColor,
+                fontFamily: "Fira Code, monospace",
+                padding: "3px 10px",
+                fontSize: 13,
+              }}
+              title="Category points — the sub-items' earned points added up, out of this category's total for your selected mode."
+            >
+              {catPts.earned}/{catPts.max}
+              <span className="font-medium" style={{ fontSize: 10, opacity: 0.8 }}>pts</span>
+            </span>
+          ) : (
+            worst !== null && <ConditionScore score={worst} size="sm" />
+          )}
           <ChevronRight
             size={18}
             style={{
@@ -92,7 +123,7 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
         >
           <div className="pt-4" />
           {category.subItems.map((item) => (
-            <SubItemCard key={item.id} item={item} region={region} floorSqm={floorSqm} />
+            <SubItemCard key={item.id} item={item} region={region} floorSqm={floorSqm} persona={persona} itemValue={itemValues?.get(item.id)} />
           ))}
         </div>
       )}

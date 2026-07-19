@@ -6,7 +6,7 @@ import type { StoredReport } from "@/lib/report-store";
 import type { SubItem, ExtraDwelling, UrgencyScore, Remediation, SpecTier } from "@/lib/property-tab/types";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import { emptyListing } from "@/lib/scraper/types";
-import { SCORING_MODEL } from "./model";
+import { SCORING_MODEL, usesSpecTier } from "./model";
 import { SOURCE_TAXONOMY } from "./catalog";
 import { scoreBoth, type Assessment } from "./report";
 
@@ -145,7 +145,7 @@ function buildSubItems(): SubItem[] {
       aiSummary: reasoning,
       estimatedReplacementCost: cost,
       replacementCostWeight: 0,
-      specTier: isImprovement ? (SPEC[item.id] ?? "dated") : undefined,
+      specTier: usesSpecTier(item) ? (SPEC[item.id] ?? "dated") : undefined,
       renovationLink: Boolean(cost),
       healthyHomesLink: item.affectsHealthyHomes,
       photoReferences: item.id === "loc_sun" ? [2, 3] : item.id === "leg_unconsented" ? [12] : [],

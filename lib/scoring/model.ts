@@ -14,8 +14,57 @@
 // hard to judge reliably from a listing.
 // ============================================================
 
+import type { SpecTier } from "@/lib/property-tab/types";
+
 export type Persona = "buyer" | "investor";
 export type Inspection = "improvements" | "location" | "land" | "legal";
+
+// ── v5 — Improvements are scored by spec TIER, not raw condition ─────────────
+// The AI classifies each Improvements item into one of four tiers. Each tier is
+// a capped band of the item's max points; the 1–10 condition score then
+// positions the item WITHIN that band (worst condition → band floor, best →
+// band cap). So a "Dated" 10-pt benchtop earns 3–6 pts depending on condition,
+// and can never earn a "Modern" or "Luxury" score no matter how well kept.
+// Bands are contiguous fractions of the item max: 0–30 / 30–60 / 60–80 / 80–100.
+export const SPEC_TIER_BANDS: Record<SpecTier, [number, number]> = {
+  deteriorated: [0.0, 0.3],
+  dated: [0.3, 0.6],
+  modern: [0.6, 0.8],
+  luxury: [0.8, 1.0],
+};
+
+export const SPEC_TIER_LABEL: Record<SpecTier, string> = {
+  deteriorated: "Non-existing / Deteriorated",
+  dated: "Dated",
+  modern: "Modern",
+  luxury: "Luxury",
+};
+
+/** Short label for the Improvements card badge. */
+export const SPEC_TIER_SHORT: Record<SpecTier, string> = {
+  deteriorated: "Deteriorated",
+  dated: "Dated",
+  modern: "Modern",
+  luxury: "Luxury",
+};
+
+/** Fraction (0–1) of an item's max points earned. The tier sets the band, the
+ * 1–10 condition positions within it: condition 1 → band floor, 10 → band cap. */
+export function tierBandFraction(tier: SpecTier, condition: number): number {
+  const [lo, hi] = SPEC_TIER_BANDS[tier];
+  const c = Math.max(1, Math.min(10, condition));
+  return lo + (hi - lo) * ((c - 1) / 9);
+}
+
+/** Improvements items that are NOT material fit-outs, so they carry no spec tier —
+ * they're scored by condition/quality × points (like Land & Legal), and shown as a
+ * plain points badge with no tier bubble. Sun & aspect is orientation, not a finish. */
+export const NON_TIERED_IMPROVEMENT_IDS = new Set<string>(["loc_sun"]);
+
+/** True when an item is scored via the spec-tier band (a material Improvements item). */
+export function usesSpecTier(item: { inspection: Inspection; id: string }): boolean {
+  return item.inspection === "improvements" && !NON_TIERED_IMPROVEMENT_IDS.has(item.id);
+}
 
 export interface ScoringSubItem {
   id: string;
@@ -32,7 +81,7 @@ export interface ScoringSubItem {
 
 export const SCORING_MODEL: ScoringSubItem[] = [
   // ========================================================
-  // INSPECTION 1 — IMPROVEMENTS  (Buyer 506 / Investor 475)
+  // INSPECTION 1 — IMPROVEMENTS  (Buyer 531 / Investor 485, incl. Sun & aspect)
   // ========================================================
   // --- Exterior (Buyer 230 / Investor 225) ---
   { id: "ext_foundation", label: "Foundation", inspection: "improvements", category: "Exterior", buyerPoints: 55, investorPoints: 52, conditional: false, costBearing: true, affectsHealthyHomes: false },
@@ -74,6 +123,11 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   { id: "liv_flooring", label: "Flooring", inspection: "improvements", category: "Living areas", buyerPoints: 6, investorPoints: 6, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "liv_ceiling", label: "Ceiling condition & height", inspection: "improvements", category: "Living areas", buyerPoints: 4, investorPoints: 3, conditional: false, costBearing: true, affectsHealthyHomes: false },
 
+  // --- Sun & aspect (Buyer 25 / Investor 10) — site orientation & all-day sun.
+  //     Objective enough to score (unlike subjective location desirability), so it
+  //     lives in Improvements. No material spec tier — scored by quality × points. ---
+  { id: "loc_sun", label: "Sun & aspect (site orientation)", inspection: "improvements", category: "Sun & aspect", buyerPoints: 25, investorPoints: 10, conditional: false, costBearing: false, affectsHealthyHomes: false },
+
   // --- Bedrooms (Buyer 40 / Investor 35) — scored across all ---
   { id: "bed_size", label: "Size", inspection: "improvements", category: "Bedrooms", buyerPoints: 13, investorPoints: 12, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "bed_heating", label: "Heating source", inspection: "improvements", category: "Bedrooms", buyerPoints: 8, investorPoints: 6, conditional: false, costBearing: true, affectsHealthyHomes: false },
@@ -99,12 +153,12 @@ export const SCORING_MODEL: ScoringSubItem[] = [
 
   // ========================================================
   // INSPECTION 2 — LOCATION — facts only, never scored (v4).
-  // Trimmed to the 4 signals worth keeping; the messy subjective rest were removed.
-  // These are surfaced on OTHER tabs, not their own: sun → Improvements (it's the
-  // house), noise + views → Land, growth → Financial. No standalone Location tab.
+  // Trimmed to the signals worth keeping; the messy subjective rest were removed.
+  // These are surfaced on OTHER tabs, not their own: noise + views → Land,
+  // growth → Financial. (Sun & aspect graduated to a SCORED Improvements item —
+  // it's objective and about the house.) No standalone Location tab.
   // ========================================================
   { id: "loc_growth", label: "Suburb growth trend & demand", inspection: "location", category: "Demand & lifestyle", buyerPoints: 30, investorPoints: 42, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "loc_sun", label: "Sun / aspect (orientation)", inspection: "location", category: "Demand & lifestyle", buyerPoints: 25, investorPoints: 10, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "loc_views", label: "Views & outlook", inspection: "location", category: "Demand & lifestyle", buyerPoints: 11, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "loc_noise", label: "Noise sources (motorway, rail, flight path, industry)", inspection: "location", category: "Demand & lifestyle", buyerPoints: 8, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
 
@@ -161,7 +215,8 @@ export const LOCATION_PENALTIES: LocationPenalty[] = [
   { id: "pen_rail", label: "Rail line adjacent", maxDeduction: 38, appliesWhen: "Adjacent or very close to an active rail line" },
   { id: "pen_industrial", label: "Industrial / heavy-commercial neighbour", maxDeduction: 38, appliesWhen: "Directly neighbouring industrial or heavy-commercial land" },
   { id: "pen_pylons", label: "High-voltage lines / pylons overhead", maxDeduction: 30, appliesWhen: "High-voltage transmission lines / pylons over or beside the site" },
-  { id: "pen_nosun", label: "No sun / permanently shaded site", maxDeduction: 23, appliesWhen: "South-facing / shaded site with poor sun, especially in winter" },
+  // (pen_nosun removed — sun quality is now scored directly as the Sun & aspect
+  //  Improvements item, so a penalty here would double-count the same negative.)
 ];
 
 export const PENALTY_CAP = 150; // max total location deduction

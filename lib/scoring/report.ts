@@ -25,9 +25,9 @@ export interface Assessment {
   penalties?: PenaltyInput[]; // objective location negatives (persona-independent)
 }
 
-/** Raw 1–10 scores the engine consumes (persona-independent). */
+/** Raw 1–10 scores + spec tiers the engine consumes (persona-independent). */
 export function toResults(subItems: SubItem[]): SubItemResult[] {
-  return subItems.map((s) => ({ id: s.id, score: s.score ?? 0, applicable: true }));
+  return subItems.map((s) => ({ id: s.id, score: s.score ?? 0, specTier: s.specTier, applicable: true }));
 }
 
 /** Rich extra dwellings → the engine's minimal {conditionScore, replacementCostMid}. */

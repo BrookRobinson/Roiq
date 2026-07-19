@@ -12,7 +12,8 @@ import type { SubItem } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
-import { valueImprovements, valueLand, roiqValuation, type ImprovementValuation } from "@/lib/scoring/valuation";
+import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
+import { valueImprovementItems, type ImprovementValueResult, type ItemValue } from "@/lib/scoring/improvement-values";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
 import { MANDATORY_CATEGORIES, categoryLabel } from "@/lib/photo-categories";
 import {
@@ -212,11 +213,22 @@ export function RealReportView({ report }: { report: StoredReport }) {
     [persona, effectiveSubItems, report.extraDwellings, report.context, report.penalties]
   );
 
-  // Improvement (building) value — spec × condition. Shared by the Overview card
-  // and the Value Verdict so it's computed once.
+  // Itemised improvement (building) value — depreciated replacement cost per
+  // component + a base structure/services shell (v5.1). Persona-neutral, computed
+  // once; shared by the Overview card, the per-item cards and the Value Verdict.
   const improvementValuation = useMemo(
-    () => valueImprovements({ subItems: effectiveSubItems, floorAreaSqm: report.listing.floorAreaSqm }),
-    [effectiveSubItems, report.listing.floorAreaSqm]
+    () =>
+      valueImprovementItems({
+        subItems: effectiveSubItems,
+        floorAreaSqm: report.listing.floorAreaSqm,
+        bathrooms: report.listing.bathrooms,
+      }),
+    [effectiveSubItems, report.listing.floorAreaSqm, report.listing.bathrooms]
+  );
+  // Per-item value lookup for the Improvements cards.
+  const itemValues = useMemo(
+    () => new Map(improvementValuation.items.map((i) => [i.id, i])),
+    [improvementValuation]
   );
 
   function onPersonaToggle(next: Persona) {
@@ -387,8 +399,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
           {tab === "overview" && <OverviewReal report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} />}
           {tab === "improvements" && (
             <div className="space-y-4">
-              <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} />
-              <LocationFactCard subItems={effectiveSubItems} ids={["loc_sun"]} title="Sun & aspect (site orientation)" />
+              <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} itemValues={itemValues} />
             </div>
           )}
           {tab === "address" && (
@@ -674,8 +685,8 @@ function ScoreBreakdown({ scored }: { scored: ScoreResult }) {
   );
 }
 
-// ── Improvement (building) value — spec × condition (valuation slice 1) ───────
-function ImprovementValueCard({ iv }: { iv: ImprovementValuation }) {
+// ── Improvement (building) value — itemised depreciated replacement cost (v5.1) ─
+function ImprovementValueCard({ iv }: { iv: ImprovementValueResult }) {
   const chip = { fontFamily: "var(--font-mono, ui-monospace)", fontSize: "11px", color: "var(--text-secondary)", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "7px", padding: "4px 9px" } as React.CSSProperties;
   return (
     <div className="card p-5">
@@ -683,18 +694,18 @@ function ImprovementValueCard({ iv }: { iv: ImprovementValuation }) {
         <div>
           <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Improvement (building) value</div>
           <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-            Valued on two axes — <strong style={{ color: "var(--text-secondary)" }}>material spec × condition</strong>. Land value comes next; together they’ll give the RoiQ valuation.
+            Built up <strong style={{ color: "var(--text-secondary)" }}>item by item</strong> — each component&apos;s replacement cost, adjusted for its spec &amp; condition, plus the base structure &amp; services.
           </div>
         </div>
         <div className="text-right flex-shrink-0">
           <div className="text-2xl font-bold mono" style={{ color: "var(--text-primary)" }}>{fmt(iv.buildingValue)}</div>
-          <div className="text-[11px] mono" style={{ color: "var(--text-muted)" }}>{fmt(iv.ratePerSqm)}/m² × {iv.floorAreaSqm}m²</div>
+          {iv.ratePerSqm && <div className="text-[11px] mono" style={{ color: "var(--text-muted)" }}>{fmt(iv.ratePerSqm)}/m² × {iv.floorAreaSqm}m²</div>}
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <span style={chip}>Spec: {iv.overallSpec} · {iv.specMultiplier}×</span>
-        <span style={chip}>Condition: {iv.conditionFactor}×</span>
-        {iv.cappedBySuburb && <span style={{ ...chip, color: "#fbbf24", borderColor: "rgba(251,191,36,0.4)" }}>Capped at suburb ceiling</span>}
+        <span style={chip}>Structure &amp; services: {fmt(iv.shellValue)}</span>
+        <span style={chip}>Scored components: {fmt(iv.componentsValue)}</span>
+        {iv.totalValueGap > 0 && <span style={{ ...chip, color: "#00e676", borderColor: "rgba(0,230,118,0.35)" }}>Renovation upside: +{fmt(iv.totalValueGap)}</span>}
       </div>
     </div>
   );
@@ -740,7 +751,7 @@ function MethodologyTab() {
         <h3 className="text-base font-semibold" style={bold}>What the 1–10 means (it&apos;s not all &ldquo;condition&rdquo;)</h3>
         <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>The same scale means different things depending on what&apos;s assessed:</p>
         {rows([
-          ["Improvements (the building)", "Condition · 10 = new, 1 = critical"],
+          ["Improvements (the building)", "Spec tier sets a points band · condition positions within it"],
           ["Land & Legal", "Quality / risk · 10 = excellent, 1 = severe"],
         ])}
         <div className="mt-3 rounded-lg p-3 text-xs" style={{ ...box, color: "var(--text-secondary)", lineHeight: 1.65 }}>
@@ -749,17 +760,17 @@ function MethodologyTab() {
       </div>
 
       <div className="card p-5">
-        <h3 className="text-base font-semibold" style={bold}>The building has two axes — condition AND finish</h3>
+        <h3 className="text-base font-semibold" style={bold}>How building items are scored — spec tier first</h3>
         <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          A tiled bathroom and a vinyl one can both be 10/10 <strong style={bold}>condition</strong> but are worth very different amounts. So every building item also carries a <strong style={bold}>finish tier</strong> — how updated the materials look — which drives the improvement value:
+          Every building item is first classified into a <strong style={bold}>spec tier</strong> — the quality and era of the materials, read from the finish and any brand names. The tier sets a <strong style={bold}>capped points band</strong> (a floor and a ceiling); the item&apos;s <strong style={bold}>condition</strong> then decides where in that band it lands. A &ldquo;Dated&rdquo; item can never earn a &ldquo;Modern&rdquo; score no matter how well kept.
         </p>
         {rows([
-          ["Original", "pre-2000 / never renovated · ~26+ yrs"],
-          ["Dated", "~2000–2013 · ~13–26 yrs"],
-          ["Modern", "2014 onward · 0–12 yrs"],
-          ["Luxury", "high-end materials · any age"],
+          ["Deteriorated", "absent / broken / end-of-life · 0–30% of points"],
+          ["Dated", "old-fashioned, pre-2014 spec · 30–60%"],
+          ["Modern", "contemporary, 2014 onward · 60–80%"],
+          ["Luxury", "high-end materials · any age · 80–100%"],
         ])}
-        <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>Judged from what the photo shows; when unclear we infer from the build era. Condition (worn/new) and finish (updated/dated) are scored separately.</p>
+        <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>Example: a benchtop worth 13 points, classed &ldquo;Dated&rdquo;, earns 4–8 points — condition sets where in that band. The tier also drives the improvement value.</p>
       </div>
 
       <div className="card p-5">
@@ -821,7 +832,7 @@ function LocationFactCard({ subItems, ids, title }: { subItems: SubItem[]; ids: 
 function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation }: {
   report: StoredReport; subItems: SubItem[]; scored: ScoreResult; persona: Persona;
   renoLines: RenoLine[]; renoToggles: Record<string, RenoToggle>; askingPrice: number | null;
-  improvementValuation: ImprovementValuation | null;
+  improvementValuation: ImprovementValueResult;
 }) {
   const subs = subItems;
   const growthScore = subs.find((s) => s.id === "loc_growth")?.score ?? null;
@@ -1292,15 +1303,15 @@ function FinSection({ title, children }: { title: string; children: React.ReactN
 // Suburb median $/m² (scraped) × condition multiplier (the hidden quality score)
 // × floor area = RoIQ fair value; compared against asking + selected renovations.
 function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue }: {
-  asking: number; improvementValuation: ImprovementValuation | null; landAreaSqm: number | null; suburbValue?: SuburbValue;
+  asking: number; improvementValuation: ImprovementValueResult; landAreaSqm: number | null; suburbValue?: SuburbValue;
 }) {
   const [open, setOpen] = useState(false);
   const land = valueLand({ landAreaSqm, suburbValue });
 
-  if (!asking || !improvementValuation || !land || !suburbValue) {
+  if (!asking || improvementValuation.buildingValue <= 0 || !land || !suburbValue) {
     const why = !asking
       ? "Add a purchase price to see the verdict."
-      : !improvementValuation
+      : improvementValuation.buildingValue <= 0
         ? "No floor area is on file, so we can't value the improvements."
         : !land
           ? "No land area or comparable-sales data, so we can't value the land yet."
@@ -1313,7 +1324,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue }
     );
   }
 
-  const rv = roiqValuation(improvementValuation, land);
+  const rv = roiqValuation(improvementValuation.buildingValue, land);
   const verdict = asking > rv.high ? "over" : asking < rv.low ? "under" : "fair";
   const diff = rv.total - asking; // + = under (good), − = over
   const VC = verdict === "over" ? "#ff5f5f" : verdict === "under" ? "#00e676" : "#fbbf24";
@@ -1324,7 +1335,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue }
 
       <div className="space-y-1.5 text-sm">
         <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Land value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· est.</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(land.landValue)}</span></div>
-        <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Improvement value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· spec × condition</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>+{fmt(rv.buildingValue)}</span></div>
+        <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Improvement value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· itemised</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>+{fmt(rv.buildingValue)}</span></div>
         <div className="flex items-center justify-between font-bold pt-1.5" style={{ borderTop: "1px solid var(--border)" }}><span style={{ color: "var(--text-primary)" }}>RoiQ value</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(rv.total)}</span></div>
         <div className="flex items-center justify-between"><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Likely range</span><span className="mono text-[11px]" style={{ color: "var(--text-muted)" }}>{fmt(rv.low)} – {fmt(rv.high)}</span></div>
         <div className="flex items-center justify-between pt-2"><span style={{ color: "var(--text-secondary)" }}>Asking price</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(asking)}</span></div>
@@ -1358,8 +1369,9 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue }
             <div style={{ color: "var(--text-muted)" }}>Extracted from {suburbValue.sampleSize} recent sales ({suburbValue.source}) — the typical sale price minus a typical building, over a standard section. Estimate until a live sold-sales feed lands.</div>
           </div>
           <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-            <div className="font-semibold" style={{ color: "var(--text-primary)" }}>Improvement value — spec × condition</div>
-            <div className="mono" style={{ color: "var(--text-secondary)" }}>{fmt(improvementValuation.ratePerSqm)}/m² ({improvementValuation.overallSpec} spec {improvementValuation.specMultiplier}× · condition {improvementValuation.conditionFactor}×) × {improvementValuation.floorAreaSqm}m² = {fmt(improvementValuation.buildingValue)}</div>
+            <div className="font-semibold" style={{ color: "var(--text-primary)" }}>Improvement value — itemised (depreciated replacement cost)</div>
+            <div className="mono" style={{ color: "var(--text-secondary)" }}>structure &amp; services {fmt(improvementValuation.shellValue)} + {improvementValuation.items.length} scored components {fmt(improvementValuation.componentsValue)} = {fmt(improvementValuation.buildingValue)}</div>
+            {improvementValuation.totalValueGap > 0 && <div className="mono" style={{ color: "var(--text-muted)" }}>renovation upside if modernised: +{fmt(improvementValuation.totalValueGap)}</div>}
           </div>
           <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="font-semibold" style={{ color: "var(--text-primary)" }}>RoiQ value &amp; verdict</div>
@@ -1381,7 +1393,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   renoToggles: Record<string, RenoToggle>;
   score: number;
   suburbValue?: SuburbValue;
-  improvementValuation: ImprovementValuation | null;
+  improvementValuation: ImprovementValueResult;
 }) {
   const { holdYears, withinHold } = useHoldPeriod();
   const renoTotal = selectedRenoCost(renoLines, renoToggles, withinHold);

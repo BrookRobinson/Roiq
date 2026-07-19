@@ -12,7 +12,7 @@ import {
 } from "./tool-schema";
 import { prepareImages, type PreparedImage } from "./images";
 
-import { SCORING_MODEL, LOCATION_PENALTIES, type ScoringSubItem, type Inspection } from "@/lib/scoring/model";
+import { SCORING_MODEL, LOCATION_PENALTIES, usesSpecTier, type ScoringSubItem, type Inspection } from "@/lib/scoring/model";
 import { buildCatalog, INSPECTION_META, SOURCE_TAXONOMY, type CatalogInspection } from "@/lib/scoring/catalog";
 import { scoreBoth, type Assessment } from "@/lib/scoring/report";
 import { fetchMarketData, type MarketResult } from "./market";
@@ -133,9 +133,11 @@ function mapTitle(t: ScrapedListing["titleType"]): PropertyContext["titleType"] 
 
 // ── raw → SubItem ──────────────────────────────────────────────────────────
 
-const SPEC_TIERS = ["original", "dated", "modern", "luxury"] as const;
+const SPEC_TIERS = ["deteriorated", "dated", "modern", "luxury"] as const;
 function normSpecTier(v: string | undefined): SpecTier | undefined {
-  return v && (SPEC_TIERS as readonly string[]).includes(v) ? (v as SpecTier) : undefined;
+  if (!v) return undefined;
+  if (v === "original") return "dated"; // legacy v4 tier → closest v5 tier (functional but old)
+  return (SPEC_TIERS as readonly string[]).includes(v) ? (v as SpecTier) : undefined;
 }
 
 function mapSubItem(raw: RawSubItem, item: ScoringSubItem): SubItem {
@@ -155,7 +157,7 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem): SubItem {
     // Only cost-bearing items carry a replacement cost into the Renovations tab.
     estimatedReplacementCost: item.costBearing ? normCost(raw.replacement_cost) : null,
     replacementCostWeight: 0, // v3.1 engine weights by persona points, not this field
-    specTier: item.inspection === "improvements" ? normSpecTier(raw.spec_tier) : undefined,
+    specTier: usesSpecTier(item) ? normSpecTier(raw.spec_tier) : undefined,
     renovationLink: Boolean(raw.renovation_link),
     // The model is the source of truth for Healthy-Homes relevance; the AI hint adds to it.
     healthyHomesLink: item.affectsHealthyHomes || Boolean(raw.healthy_homes_link),

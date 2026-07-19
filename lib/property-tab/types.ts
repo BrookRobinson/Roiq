@@ -2,10 +2,13 @@ export type ConfidenceTier = 1 | 2 | 3;
 
 export type UrgencyScore = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
-/** Quality / spec tier of an improvement's materials & finish — a value axis SEPARATE
- * from condition. A tiled bathroom and a vinyl one can both score 10/10 for condition
- * but sit at very different spec tiers, and are worth very different amounts. (v4 valuation) */
-export type SpecTier = "original" | "dated" | "modern" | "luxury";
+/** Quality / spec tier of an improvement's materials & finish. In v5 this is the
+ * PRIMARY driver of an Improvements item's score: the tier sets a capped points
+ * band and condition positions the item inside it (a tiled bathroom and a vinyl
+ * one can both be 10/10 condition but sit at very different tiers). It also drives
+ * the improvement value. `deteriorated` = the item is absent, broken, or so worn
+ * it needs full replacement, regardless of its original spec. */
+export type SpecTier = "deteriorated" | "dated" | "modern" | "luxury";
 
 export interface ReplacementCost {
   low: number;

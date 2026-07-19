@@ -22,7 +22,7 @@ export const BASE_BUILD_RATE = 2600;
 
 /** How much each spec tier moves the as-new rate. Tunable (calibrate vs sales in Phase 2). */
 export const SPEC_MULTIPLIER: Record<SpecTier, number> = {
-  original: 0.75, // as-built / never updated — vinyl, laminate, MDF, basic fittings
+  deteriorated: 0.55, // absent / broken / needs full replacement — adds little building value
   dated: 0.9, // updated once, now old-fashioned
   modern: 1.2, // updated / contemporary — tiling, stone-look, good flooring, modern fittings
   luxury: 1.6, // clearly high-end — natural stone, designer/architectural
@@ -31,7 +31,7 @@ export const SPEC_MULTIPLIER: Record<SpecTier, number> = {
 /** Neutral fallback when the AI didn't return a spec tier (don't reward or penalise). */
 const DEFAULT_SPEC_MULT = 1.0;
 
-const SPEC_ORDER: SpecTier[] = ["original", "dated", "modern", "luxury"];
+const SPEC_ORDER: SpecTier[] = ["deteriorated", "dated", "modern", "luxury"];
 
 /** Building elements the AI assesses that carry material spec (the value-bearing ones). */
 const improvementWeight = new Map(
@@ -167,19 +167,20 @@ export interface RoiqValuation {
   isEstimate: boolean;
 }
 
-/** Land + improvements = RoiQ value, with a confidence band. */
+/** Land + improvements = RoiQ value, with a confidence band. Takes the building
+ * value as a plain number so it works with the itemised valuation (v5.1). */
 export function roiqValuation(
-  building: ImprovementValuation,
+  buildingValue: number,
   land: LandValuation,
   band = 0.12
 ): RoiqValuation {
-  const total = building.buildingValue + land.landValue;
+  const total = buildingValue + land.landValue;
   return {
     landValue: land.landValue,
-    buildingValue: building.buildingValue,
+    buildingValue,
     total,
     low: Math.round(total * (1 - band)),
     high: Math.round(total * (1 + band)),
-    isEstimate: building.cappedBySuburb || land.isEstimate,
+    isEstimate: land.isEstimate,
   };
 }

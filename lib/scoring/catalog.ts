@@ -30,6 +30,7 @@ export const CATEGORY_ICON: Record<string, string> = {
   Bedrooms: "🛏️",
   Garage: "🚗",
   "Outdoor & grounds": "🌿",
+  "Sun & aspect": "☀️",
   "Demand & lifestyle": "📈",
   "Hazard & site": "⛰️",
   "Title & compliance": "📜",

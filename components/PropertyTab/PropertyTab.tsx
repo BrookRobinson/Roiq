@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { PropertyTabData } from "@/lib/property-tab/types";
+import type { Persona } from "@/lib/scoring/model";
+import type { ItemValue } from "@/lib/scoring/improvement-values";
 import { worstSubItemScore } from "@/lib/property-tab/types";
 import { CategoryAccordion } from "./CategoryAccordion";
 import { ConditionScore } from "./ConditionScore";
@@ -15,9 +17,11 @@ interface Props {
   floorSqm?: number | null;
   noPhotos?: boolean;
   buildYear?: number | null;
+  persona?: Persona;
+  itemValues?: Map<string, ItemValue>;
 }
 
-export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear }: Props) {
+export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", itemValues }: Props) {
   const [openAll, setOpenAll] = useState(false);
 
   // Tally issues across all categories
@@ -151,6 +155,8 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear }: Pro
               defaultOpen={openAll || isUrgent || i === 0}
               region={region}
               floorSqm={floorSqm}
+              persona={persona}
+              itemValues={itemValues}
             />
           );
         })}

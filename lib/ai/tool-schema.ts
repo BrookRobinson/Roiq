@@ -237,9 +237,9 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
             },
             spec_tier: {
               type: "string",
-              enum: ["original", "dated", "modern", "luxury"],
+              enum: ["deteriorated", "dated", "modern", "luxury"],
               description:
-                "IMPROVEMENTS only — how UPDATED the materials/finish look (separate from condition). Judge only what a photo can reasonably show — don't guess an exact price. original = as-built / never updated (e.g. an untouched 1970s kitchen); dated = updated once but now old-fashioned; modern = updated / contemporary look (tiling, stone or stone-look, good flooring, integrated appliances); luxury = clearly high-end (natural stone, designer/architectural, imported fittings). A tiled bathroom and a vinyl one can both be 10/10 condition but sit at different tiers. If you can't tell, infer from the build era — unrenovated older = original/dated, clearly updated = modern.",
+                "IMPROVEMENTS only — REQUIRED for every improvements item. This is the PRIMARY score driver: the tier sets a capped points band and the condition score then positions the item within it. deteriorated = the item is absent, broken, or so worn it needs full replacement regardless of its original spec (band 0–30% of the item's points); dated = present and functional but old-fashioned / an older spec (30–60%); modern = updated / contemporary look — tiling, stone or stone-look benchtops, good flooring, integrated appliances, modern fittings (60–80%); luxury = clearly high-end — natural stone, designer/architectural, imported fittings (80–100%). Judge the SPEC/era of the materials from the brand, materials and style visible in the photo (and listing description), NOT how new it looks — a tiled bathroom and a vinyl one can both be 10/10 condition but sit at different tiers. If you can't tell from the photo, infer from the build era. Rough era guide (assume it is 2026): dated = fitted pre-2014 or never renovated; modern = fitted 2014 onward; luxury = high-end materials at any age; deteriorated = broken/absent/end-of-life.",
             },
             evidence_source: {
               type: "string",
