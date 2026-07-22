@@ -34,6 +34,7 @@ export function InspectionCard({
   item,
   inspectionLabel,
   bandLabel,
+  statOverride,
   onSeeRenovations,
   verifiedDoc,
   onVerified,
@@ -41,6 +42,8 @@ export function InspectionCard({
   item: SubItem;
   inspectionLabel: string;
   bandLabel?: string;
+  /** Show a real-world measurement in the badge instead of a 1–10 score (e.g. section size in m²). */
+  statOverride?: { value: string; unit: string; note?: string };
   onSeeRenovations: () => void;
   verifiedDoc?: DocAnalysis;
   onVerified?: (doc: DocAnalysis) => void;
@@ -122,6 +125,13 @@ export function InspectionCard({
             <div className="flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center" style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)" }}>
               <Lock size={16} style={{ color: "#fbbf24" }} />
             </div>
+          ) : statOverride ? (
+            // A measurement beats a 1–10 here: "612m²" is the fact the buyer wants,
+            // where "7/10 section size" means nothing on its own.
+            <div className="flex-shrink-0 min-w-[2.75rem] h-11 px-1.5 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
+              <span className={`${statOverride.value.length > 4 ? "text-xs" : "text-sm"} font-bold mono leading-none`} style={{ color }}>{statOverride.value}</span>
+              <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>{statOverride.unit}</span>
+            </div>
           ) : (
             <div className="flex-shrink-0 w-11 h-11 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
               <span className="text-sm font-bold mono leading-none" style={{ color }}>{displayScore ?? "—"}</span>
@@ -152,6 +162,12 @@ export function InspectionCard({
             <VerifiedView doc={verified} itemId={item.id} onVerified={onVerified} />
           ) : (
             <>
+              {statOverride?.note && (
+                <div className="pt-3">
+                  <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>How it rates</div>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.75 }}>{statOverride.note}</p>
+                </div>
+              )}
               {item.aiSummary && (
                 <div className="pt-3">
                   <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Reasoning</div>

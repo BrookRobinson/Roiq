@@ -33,6 +33,17 @@ export interface RawSubItem {
   score: number | null;
   confidence_tier: number;
   spec_tier?: string;
+  slope_band?: string;
+  usable_land_pct?: number;
+  shape_type?: string;
+  workable_land_pct?: number;
+  tree_maturity?: string;
+  tree_upkeep?: string;
+  trees_protected?: boolean;
+  aspect_direction?: string;
+  sun_obstruction?: string;
+  access_type?: string;
+  homes_on_access?: number;
   evidence_source?: string;
   ai_summary: string;
   renovation_link?: boolean;
@@ -297,6 +308,68 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               enum: ["deteriorated", "dated", "modern", "luxury"],
               description:
                 "IMPROVEMENTS only — REQUIRED for every improvements item. This is the PRIMARY score driver: the tier sets a capped points band and the condition score then positions the item within it. deteriorated = the item is absent, broken, or so worn it needs full replacement regardless of its original spec (band 0–30% of the item's points); dated = present and functional but old-fashioned / an older spec (30–60%); modern = updated / contemporary look — tiling, stone or stone-look benchtops, good flooring, integrated appliances, modern fittings (60–80%); luxury = clearly high-end — natural stone, designer/architectural, imported fittings (80–100%). Judge the SPEC/era of the materials from the brand, materials and style visible in the photo (and listing description), NOT how new it looks — a tiled bathroom and a vinyl one can both be 10/10 condition but sit at different tiers. If you can't tell from the photo, infer from the build era. Rough era guide (assume it is 2026): dated = fitted pre-2014 or never renovated; modern = fitted 2014 onward; luxury = high-end materials at any age; deteriorated = broken/absent/end-of-life.",
+            },
+            slope_band: {
+              type: "string",
+              enum: ["flat", "gentle", "moderate", "steep"],
+              description:
+                "land_topography ONLY — REQUIRED for it. The site's slope, using the standard NZ gradient bands: flat = flatter than 1:20 (under 3°); gentle = about 1:20 to 1:10 (3–6°); moderate = about 1:10 to 1:5 (6–11°); steep = steeper than 1:5 (over 11°). Judge it from the photos and any aerial/streetscape view — look at retaining walls, steps up or down to the entry, split levels, subfloor height at the low side, driveway rise, and whether lawn areas read as terraced. Pick the band that describes MOST of the section. Do not score the contour yourself — the band and the usable share below determine the score.",
+            },
+            usable_land_pct: {
+              type: "integer",
+              description:
+                "land_topography ONLY — REQUIRED for it. Roughly what percentage (0-100) of the SECTION is flat enough to actually use: lawn, outdoor living, parking, garden, or room for another building. Exclude banks, steep faces and unusable drop-offs; the house footprint itself still counts as usable ground. Estimate honestly from the photos — a whole number is fine, and it is better to give an approximate figure than to omit it.",
+            },
+            shape_type: {
+              type: "string",
+              enum: ["rectangular", "square", "wide_frontage", "long_narrow", "l_shaped", "wedge", "rear_lot", "irregular"],
+              description:
+                "land_shape ONLY — REQUIRED for it. The section's OUTLINE, read off the title diagram, site plan or an aerial view: rectangular = regular, longer than it is wide; square; wide_frontage = regular and wider than it is deep; long_narrow = regular but tight across the width; l_shaped = has a return leg; wedge = triangular / tapering to one end; rear_lot = battle-axe, sitting behind another property with a driveway leg to the road; irregular = several odd angles, no clean block. Pick the outline that best describes the title boundary. Do NOT judge access quality here (that is scored separately under land_frontage) — for a rear lot, judge only the area the driveway leg costs.",
+            },
+            workable_land_pct: {
+              type: "integer",
+              description:
+                "land_shape ONLY — REQUIRED for it. Roughly what percentage (0-100) of the section sits in a REGULAR BLOCK you could actually build on or lay out, once you discount narrow ends, odd corners, return legs and a rear lot's driveway strip. This is about the OUTLINE only — ignore slope entirely, that is handled by land_topography. A clean rectangle is 95-100. An approximate whole number is much better than omitting it.",
+            },
+            tree_maturity: {
+              type: "string",
+              enum: ["bare", "young", "established", "mature"],
+              description:
+                "land_trees ONLY — REQUIRED for it. How far along the planting is: bare = little or no established planting, mostly lawn or new ground; young = planted but still filling out, thin trunks, no real canopy yet; established = settled planting that already gives shade, screening or privacy; mature = large, fully grown specimen trees with a substantial canopy. Judge from the photos — canopy size relative to the house, trunk thickness, and how much of the boundary is screened.",
+            },
+            tree_upkeep: {
+              type: "string",
+              enum: ["well_maintained", "tidy", "overgrown", "neglected"],
+              description:
+                "land_trees ONLY — REQUIRED for it. What STATE the planting and grounds have been kept in, which is separate from how mature they are: well_maintained = clearly pruned, shaped and cared for, edges and beds in order; tidy = ordinary, reasonably kept grounds; overgrown = growth has got away — shaggy hedges, branches into gutters, fences or a neighbour's airspace, beds swallowed; neglected = long unmaintained, dead or dying limbs, self-sown scrub, obvious arborist work needed. A mature tree that has been left alone is overgrown or neglected, NOT mature-and-fine — the two facts are independent.",
+            },
+            trees_protected: {
+              type: "boolean",
+              description:
+                "land_trees ONLY. True only if there is real evidence of a protected or notable tree (listing text, a council notable-tree register reference, or an obviously significant specimen). Protected trees can't be heavily pruned or removed without council consent. Default false if there is no evidence — do not guess.",
+            },
+            aspect_direction: {
+              type: "string",
+              enum: ["north", "north_east", "north_west", "east", "west", "south_east", "south_west", "south"],
+              description:
+                "land_aspect ONLY — REQUIRED for it. Which way the SECTION faces — the direction its main outdoor living / rear yard looks toward. Work it out from the street layout, the map orientation, and where shadows fall in the photos. In New Zealand north is the sun side. This is about the LAND; how well the house itself is oriented to use that sun is scored separately as loc_sun.",
+            },
+            sun_obstruction: {
+              type: "string",
+              enum: ["open", "partly_shaded", "heavily_shaded"],
+              description:
+                "land_aspect ONLY — REQUIRED for it. What actually BLOCKS the sun the aspect promises: open = nothing significant in the way; partly_shaded = some shading from neighbouring buildings, trees or rising land; heavily_shaded = a hill, a tall neighbour or heavy canopy takes most of the sun. A north-facing section under a hill is north + heavily_shaded, NOT a sunny section.",
+            },
+            access_type: {
+              type: "string",
+              enum: ["prime_frontage", "corner_site", "road_frontage", "shared_driveway", "right_of_way", "rear_lot"],
+              description:
+                "land_frontage ONLY — REQUIRED for it. How you physically reach the property: prime_frontage = wide direct street frontage; corner_site = frontage to two streets; road_frontage = ordinary direct access off the road; shared_driveway = a driveway shared with neighbours; right_of_way = access over another title under a registered easement; rear_lot = battle-axe sitting behind another property down a long leg. Read it from the title diagram, the listing text ('ROW', 'shared drive', 'rear section') and aerial imagery.",
+            },
+            homes_on_access: {
+              type: "integer",
+              description:
+                "land_frontage ONLY — REQUIRED for it. How many dwellings use that driveway or access INCLUDING this one. Use 1 for a property with its own direct street frontage. For a shared drive or right of way, count the households sharing it (a ROW serving three rear units plus this one is 4). This is the figure that drives the score, since shared upkeep, dispute risk and traffic all scale with it.",
             },
             evidence_source: {
               type: "string",

@@ -30,6 +30,13 @@ import type {
   Remediation,
   SourceType,
   SpecTier,
+  SlopeBand,
+  ShapeType,
+  TreeMaturity,
+  TreeUpkeep,
+  AspectDirection,
+  SunObstruction,
+  AccessType,
   DwellingHealthyHomes,
   DwellingHHStandard,
   DwellingHHStatus,
@@ -169,6 +176,75 @@ function normSpecTier(v: string | undefined): SpecTier | undefined {
   return (SPEC_TIERS as readonly string[]).includes(v) ? (v as SpecTier) : undefined;
 }
 
+const SLOPE_BANDS_IN = ["flat", "gentle", "moderate", "steep"] as const;
+function normSlopeBand(v: string | undefined): SlopeBand | undefined {
+  if (!v) return undefined;
+  const s = v.trim().toLowerCase();
+  return (SLOPE_BANDS_IN as readonly string[]).includes(s) ? (s as SlopeBand) : undefined;
+}
+
+/** 0–100 usable share; anything outside that is a model slip, so drop it. */
+function normUsablePct(v: number | undefined): number | undefined {
+  if (v == null || !Number.isFinite(v)) return undefined;
+  const n = Math.round(v);
+  return n >= 0 && n <= 100 ? n : undefined;
+}
+
+const SHAPE_TYPES_IN = [
+  "rectangular", "square", "wide_frontage", "long_narrow", "l_shaped", "wedge", "rear_lot", "irregular",
+] as const;
+function normShapeType(v: string | undefined): ShapeType | undefined {
+  if (!v) return undefined;
+  const s = v.trim().toLowerCase();
+  return (SHAPE_TYPES_IN as readonly string[]).includes(s) ? (s as ShapeType) : undefined;
+}
+
+const TREE_MATURITY_IN = ["bare", "young", "established", "mature"] as const;
+function normTreeMaturity(v: string | undefined): TreeMaturity | undefined {
+  if (!v) return undefined;
+  const s = v.trim().toLowerCase();
+  return (TREE_MATURITY_IN as readonly string[]).includes(s) ? (s as TreeMaturity) : undefined;
+}
+
+const TREE_UPKEEP_IN = ["well_maintained", "tidy", "overgrown", "neglected"] as const;
+function normTreeUpkeep(v: string | undefined): TreeUpkeep | undefined {
+  if (!v) return undefined;
+  const s = v.trim().toLowerCase();
+  return (TREE_UPKEEP_IN as readonly string[]).includes(s) ? (s as TreeUpkeep) : undefined;
+}
+
+const ASPECT_DIRS_IN = [
+  "north", "north_east", "north_west", "east", "west", "south_east", "south_west", "south",
+] as const;
+function normAspectDirection(v: string | undefined): AspectDirection | undefined {
+  if (!v) return undefined;
+  const s = v.trim().toLowerCase();
+  return (ASPECT_DIRS_IN as readonly string[]).includes(s) ? (s as AspectDirection) : undefined;
+}
+
+const SUN_OBSTRUCTION_IN = ["open", "partly_shaded", "heavily_shaded"] as const;
+function normSunObstruction(v: string | undefined): SunObstruction | undefined {
+  if (!v) return undefined;
+  const s = v.trim().toLowerCase();
+  return (SUN_OBSTRUCTION_IN as readonly string[]).includes(s) ? (s as SunObstruction) : undefined;
+}
+
+const ACCESS_TYPES_IN = [
+  "prime_frontage", "corner_site", "road_frontage", "shared_driveway", "right_of_way", "rear_lot",
+] as const;
+function normAccessType(v: string | undefined): AccessType | undefined {
+  if (!v) return undefined;
+  const s = v.trim().toLowerCase();
+  return (ACCESS_TYPES_IN as readonly string[]).includes(s) ? (s as AccessType) : undefined;
+}
+
+/** Households on the access; 1 = sole. Anything outside 1–20 is a model slip. */
+function normHomesOnAccess(v: number | undefined): number | undefined {
+  if (v == null || !Number.isFinite(v)) return undefined;
+  const n = Math.round(v);
+  return n >= 1 && n <= 20 ? n : undefined;
+}
+
 function mapSubItem(raw: RawSubItem, item: ScoringSubItem): SubItem {
   const score = clampScore(raw.score);
   return {
@@ -187,6 +263,18 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem): SubItem {
     estimatedReplacementCost: item.costBearing ? normCost(raw.replacement_cost) : null,
     replacementCostWeight: 0, // v3.1 engine weights by persona points, not this field
     specTier: usesSpecTier(item) ? normSpecTier(raw.spec_tier) : undefined,
+    // Topography carries the facts its score is derived from (see land-quality.ts).
+    slopeBand: item.id === "land_topography" ? normSlopeBand(raw.slope_band) : undefined,
+    usableLandPct: item.id === "land_topography" ? normUsablePct(raw.usable_land_pct) : undefined,
+    shapeType: item.id === "land_shape" ? normShapeType(raw.shape_type) : undefined,
+    workableLandPct: item.id === "land_shape" ? normUsablePct(raw.workable_land_pct) : undefined,
+    treeMaturity: item.id === "land_trees" ? normTreeMaturity(raw.tree_maturity) : undefined,
+    treeUpkeep: item.id === "land_trees" ? normTreeUpkeep(raw.tree_upkeep) : undefined,
+    treesProtected: item.id === "land_trees" ? Boolean(raw.trees_protected) : undefined,
+    aspectDirection: item.id === "land_aspect" ? normAspectDirection(raw.aspect_direction) : undefined,
+    sunObstruction: item.id === "land_aspect" ? normSunObstruction(raw.sun_obstruction) : undefined,
+    accessType: item.id === "land_frontage" ? normAccessType(raw.access_type) : undefined,
+    homesOnAccess: item.id === "land_frontage" ? normHomesOnAccess(raw.homes_on_access) : undefined,
     renovationLink: Boolean(raw.renovation_link),
     // The model is the source of truth for Healthy-Homes relevance; the AI hint adds to it.
     healthyHomesLink: item.affectsHealthyHomes || Boolean(raw.healthy_homes_link),

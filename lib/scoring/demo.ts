@@ -33,7 +33,7 @@ const SCORES: Record<string, number> = {
   loc_schools: 9, loc_growth: 8, loc_sun: 9, loc_amenities: 8, loc_street: 8, loc_employment: 7,
   loc_transport: 6, loc_walkability: 7, loc_parks: 8, loc_views: 7, loc_noise: 8, loc_safety: 8, loc_future: 7,
   // Land (v4 — flood, liquefaction, coastal, soil, fault, wind erased)
-  land_size: 7, land_topography: 6, land_aspect: 8, land_shape: 7, land_frontage: 8, land_trees: 7,
+  land_size: 7, land_topography: 8, land_aspect: 9, land_shape: 9, land_frontage: 9, land_trees: 8,
   // Legal (unconsented rear studio flagged — drives the remediation example)
   leg_title: 10, leg_weathertight: 8, leg_unconsented: 4, leg_consents: 7, leg_eqc: 9,
   leg_easements: 7, leg_lim: 7, leg_encumbrances: 9,
@@ -58,7 +58,12 @@ const FINDINGS: Record<string, string> = {
   loc_sun: "Excellent — north-facing living, all-day sun",
   loc_amenities: "Good — Remuera shops & supermarket within ~1km",
   loc_transport: "Moderate — bus routes nearby, no rapid transit",
-  land_topography: "Moderate — gentle cross-slope to the rear",
+  land_size: "612m² — a typical Auckland residential section",
+  land_shape: "Rectangular title — a regular block with almost nothing wasted",
+  land_trees: "Established planting, kept tidy — no protected trees flagged",
+  land_aspect: "North-facing section, lightly shaded by the established trees",
+  land_frontage: "Own road frontage — nothing shared, no right of way",
+  land_topography: "Gentle cross-slope to the rear — most of the section is usable",
   leg_title: "Freehold — no encumbrances",
   leg_weathertight: "Low risk — 1975 weatherboard, pre-leaky era",
   leg_unconsented: "Flagged — rear studio may be unconsented",
@@ -147,6 +152,16 @@ function buildSubItems(): SubItem[] {
       estimatedReplacementCost: cost,
       replacementCostWeight: 0,
       specTier: usesSpecTier(item) ? (SPEC[item.id] ?? "dated") : undefined,
+      // Demo contour: a gentle cross-slope with most of the section still usable.
+      ...(item.id === "land_topography" ? { slopeBand: "gentle" as const, usableLandPct: 82 } : {}),
+      // Demo outline: a clean rectangle — regular, almost nothing wasted.
+      ...(item.id === "land_shape" ? { shapeType: "rectangular" as const, workableLandPct: 94 } : {}),
+      // Demo planting: settled trees, ordinary upkeep — an amenity, not a project.
+      ...(item.id === "land_trees" ? { treeMaturity: "established" as const, treeUpkeep: "tidy" as const, treesProtected: false } : {}),
+      // Demo orientation: north-facing, with the established trees taking a little off it.
+      ...(item.id === "land_aspect" ? { aspectDirection: "north" as const, sunObstruction: "partly_shaded" as const } : {}),
+      // Demo access: its own street frontage, nothing shared.
+      ...(item.id === "land_frontage" ? { accessType: "road_frontage" as const, homesOnAccess: 1 } : {}),
       renovationLink: Boolean(cost),
       healthyHomesLink: item.affectsHealthyHomes,
       photoReferences: item.id === "loc_sun" ? [2, 3] : item.id === "leg_unconsented" ? [12] : [],

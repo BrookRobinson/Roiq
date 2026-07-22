@@ -10,6 +10,54 @@ export type UrgencyScore = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
  * it needs full replacement, regardless of its original spec. */
 export type SpecTier = "deteriorated" | "dated" | "modern" | "luxury";
 
+/** Site slope, banded to the standard NZ gradient ranges. Asked of the AI directly
+ * (it IS readable from photos + aerials) instead of an unverifiable 1–10, so the
+ * topography score becomes a derivation rather than an opinion. */
+export type SlopeBand = "flat" | "gentle" | "moderate" | "steep";
+
+/** Section outline, read off the title diagram or an aerial. Shape is a CATEGORY,
+ * not a quantity — so we name it honestly and derive the score from the name plus
+ * how much of the section the shape leaves in a workable block. */
+/** Which way the SECTION faces. This is the site fact; how well the HOUSE captures
+ * that sun is scored separately under Improvements (loc_sun) — a north section can
+ * still carry a badly-oriented house. */
+export type AspectDirection =
+  | "north"
+  | "north_east"
+  | "north_west"
+  | "east"
+  | "west"
+  | "south_east"
+  | "south_west"
+  | "south";
+
+/** What actually blocks the sun the aspect promises — hill, neighbour, canopy. */
+export type SunObstruction = "open" | "partly_shaded" | "heavily_shaded";
+
+/** How you physically get to the property, off the title / aerial. */
+export type AccessType =
+  | "prime_frontage"
+  | "corner_site"
+  | "road_frontage"
+  | "shared_driveway"
+  | "right_of_way"
+  | "rear_lot";
+
+/** How far along the planting is — the asset side of trees & vegetation. */
+export type TreeMaturity = "bare" | "young" | "established" | "mature";
+/** What state it has been kept in — the liability side. Together these set the score. */
+export type TreeUpkeep = "well_maintained" | "tidy" | "overgrown" | "neglected";
+
+export type ShapeType =
+  | "rectangular"
+  | "square"
+  | "wide_frontage"
+  | "long_narrow"
+  | "l_shaped"
+  | "wedge"
+  | "rear_lot"
+  | "irregular";
+
 export interface ReplacementCost {
   low: number;
   high: number;
@@ -54,6 +102,17 @@ export interface SubItem {
   estimatedReplacementCost: ReplacementCost | null;
   replacementCostWeight: number;       // 0–1, fraction of category score
   specTier?: SpecTier;                 // quality/spec of the materials (Improvements) — drives building value
+  slopeBand?: SlopeBand;               // land_topography only — the measured-ish fact behind its score
+  usableLandPct?: number;              // land_topography only — 0–100, share of the section flat enough to use
+  shapeType?: ShapeType;               // land_shape only — the named outline its score derives from
+  workableLandPct?: number;            // land_shape only — 0–100, share left in a regular, workable block
+  treeMaturity?: TreeMaturity;         // land_trees only — how established the planting is
+  treeUpkeep?: TreeUpkeep;             // land_trees only — what state it has been kept in
+  treesProtected?: boolean;            // land_trees only — a protected/notable tree constrains removal
+  aspectDirection?: AspectDirection;   // land_aspect only — which way the section faces
+  sunObstruction?: SunObstruction;     // land_aspect only — what blocks the sun that aspect promises
+  accessType?: AccessType;             // land_frontage only — how you get to the property
+  homesOnAccess?: number;              // land_frontage only — dwellings using the driveway, incl. this one
   renovationLink: boolean;
   healthyHomesLink: boolean;
   photoReferences: number[];

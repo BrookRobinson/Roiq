@@ -180,12 +180,12 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   // ========================================================
   { id: "land_size", label: "Section size", inspection: "land", category: "Hazard & site", buyerPoints: 18, investorPoints: 14, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_topography", label: "Topography / contour (flat vs steep)", inspection: "land", category: "Hazard & site", buyerPoints: 14, investorPoints: 9, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_aspect", label: "Aspect of land (north-facing slope etc.)", inspection: "land", category: "Hazard & site", buyerPoints: 10, investorPoints: 7, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_shape", label: "Shape & usability", inspection: "land", category: "Hazard & site", buyerPoints: 9, investorPoints: 6, conditional: false, costBearing: false, affectsHealthyHomes: false },
+  { id: "land_aspect", label: "Section orientation", inspection: "land", category: "Hazard & site", buyerPoints: 10, investorPoints: 7, conditional: false, costBearing: false, affectsHealthyHomes: false },
+  { id: "land_shape", label: "Section shape", inspection: "land", category: "Hazard & site", buyerPoints: 9, investorPoints: 6, conditional: false, costBearing: false, affectsHealthyHomes: false },
   // (land_subdivision removed — development potential is now a headline OPPORTUNITY
   //  scored as a persona-weighted bonus + value uplift, see lib/scoring/development.ts)
-  { id: "land_frontage", label: "Frontage & access (ROW vs road frontage)", inspection: "land", category: "Hazard & site", buyerPoints: 5, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_trees", label: "Established / protected trees & vegetation", inspection: "land", category: "Hazard & site", buyerPoints: 3, investorPoints: 2, conditional: false, costBearing: false, affectsHealthyHomes: false },
+  { id: "land_frontage", label: "Frontage & access", inspection: "land", category: "Hazard & site", buyerPoints: 5, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
+  { id: "land_trees", label: "Trees & planting", inspection: "land", category: "Hazard & site", buyerPoints: 3, investorPoints: 2, conditional: false, costBearing: false, affectsHealthyHomes: false },
 
   // ========================================================
   // INSPECTION 4 — LEGAL  (Buyer 110 / Investor 130)

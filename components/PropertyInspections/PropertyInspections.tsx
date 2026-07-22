@@ -8,7 +8,9 @@ import type { Inspection, Persona } from "@/lib/scoring/model";
 import { INSPECTION_META, ITEM_BY_ID } from "@/lib/scoring/catalog";
 import { isFactsOnly } from "@/lib/scoring/model";
 import { DEV_TIERS, developmentBonus, type DevelopmentPotential } from "@/lib/scoring/development";
-import { landBandLabel } from "@/lib/scoring/land-quality";
+import {
+  landBandLabel, sectionSizeStat, topographyStat, shapeStat, treesStat, aspectStat, frontageStat,
+} from "@/lib/scoring/land-quality";
 import { InspectionCard } from "./InspectionCard";
 import { ChevronRight, Info, Home, Check, AlertTriangle } from "lucide-react";
 
@@ -113,7 +115,7 @@ export function PropertyInspections({
         <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
         {town
           ? "Location facts — schools, transport, amenities, sun, views and outlook. Shown so you can weigh them yourself; location is subjective, so it is NOT counted in the score. Objective location negatives (highway, flight path…) are handled as penalties on the Overview."
-          : "Land and Legal factors specific to THIS address — each carries a 1–10 score, a named source, a confidence tier, and reasoning. Ordered worst-first; remediable findings link to the Renovations tab."}
+          : "Land and Legal factors specific to THIS address — each carries a rating (section size shows its actual area), a named source, a confidence tier, and reasoning. Ordered worst-first; remediable findings link to the Renovations tab."}
       </div>
 
       {SECTIONS.map((insp, i) => {
@@ -209,7 +211,26 @@ function Section({
                 key={item.id}
                 item={item}
                 inspectionLabel={meta.label}
-                bandLabel={inspection === "land" ? landBandLabel(item.id, item.score, landAreaSqm) : undefined}
+                bandLabel={
+                  inspection === "land"
+                    ? landBandLabel(item.id, item.score, landAreaSqm, item.slopeBand, item.shapeType, item.treeMaturity, item.aspectDirection, item.accessType)
+                    : undefined
+                }
+                statOverride={
+                  item.id === "land_size"
+                    ? sectionSizeStat(landAreaSqm) ?? undefined
+                    : item.id === "land_topography"
+                    ? topographyStat(item.slopeBand, item.usableLandPct, landAreaSqm) ?? undefined
+                    : item.id === "land_shape"
+                    ? shapeStat(item.shapeType, item.workableLandPct, landAreaSqm) ?? undefined
+                    : item.id === "land_trees"
+                    ? treesStat(item.treeMaturity, item.treeUpkeep, item.treesProtected) ?? undefined
+                    : item.id === "land_aspect"
+                    ? aspectStat(item.aspectDirection, item.sunObstruction) ?? undefined
+                    : item.id === "land_frontage"
+                    ? frontageStat(item.accessType, item.homesOnAccess) ?? undefined
+                    : undefined
+                }
                 onSeeRenovations={onSeeRenovations}
                 verifiedDoc={verifiedDocs?.[item.id]}
                 onVerified={onVerified ? (doc) => onVerified(item.id, doc) : undefined}

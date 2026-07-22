@@ -16,7 +16,7 @@ import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
-import { assessSectionSize } from "@/lib/scoring/land-quality";
+import { assessSectionSize, assessTopography, assessShape, assessTrees, assessAspect, assessFrontage } from "@/lib/scoring/land-quality";
 import { valueExtraDwellings, dwellingComplianceWork, type ExtraDwellingValueResult, type DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
 import { MANDATORY_CATEGORIES, categoryLabel } from "@/lib/photo-categories";
@@ -207,9 +207,35 @@ export function RealReportView({ report }: { report: StoredReport }) {
         if (isImprovement(s) && s.confidenceTier === 3) return { ...s, score: null as typeof s.score };
         // Section size is scored objectively vs a typical lot, not the AI's guess.
         if (s.id === "land_size") return { ...s, score: assessSectionSize(report.listing.landAreaSqm).score as typeof s.score };
+        // Topography is derived from the gradient band + usable share, for the same
+        // reason: "6/10 contour" is an opinion, a slope band and a usable area aren't.
+        if (s.id === "land_topography") {
+          const t = assessTopography(s.slopeBand, s.usableLandPct, report.listing.landAreaSqm);
+          if (t) return { ...s, score: t.score as typeof s.score };
+        }
+        // Shape likewise — derived from the named outline, not a vague "usability" read.
+        if (s.id === "land_shape") {
+          const sh = assessShape(s.shapeType, s.workableLandPct);
+          if (sh) return { ...s, score: sh.score as typeof s.score };
+        }
+        // Trees: maturity (what you inherit) × upkeep (what it will ask of you).
+        if (s.id === "land_trees") {
+          const tr = assessTrees(s.treeMaturity, s.treeUpkeep);
+          if (tr) return { ...s, score: tr.score as typeof s.score };
+        }
+        // Aspect: compass direction × what blocks the sun it promises.
+        if (s.id === "land_aspect") {
+          const a = assessAspect(s.aspectDirection, s.sunObstruction);
+          if (a) return { ...s, score: a.score as typeof s.score };
+        }
+        // Frontage: how you get there × how many households share the access.
+        if (s.id === "land_frontage") {
+          const f = assessFrontage(s.accessType, s.homesOnAccess);
+          if (f) return { ...s, score: f.score as typeof s.score };
+        }
         return s;
       }),
-    [report.subItems, verifiedDocs, noPhotos]
+    [report.subItems, verifiedDocs, noPhotos, report.listing.landAreaSqm]
   );
 
   // THE SCORE: re-runs scoreProperty() for the chosen persona + verified docs.
@@ -785,10 +811,11 @@ function MethodologyTab() {
         <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>The same scale means different things depending on what&apos;s assessed:</p>
         {rows([
           ["Improvements (the building)", "Spec tier sets a points band · condition positions within it"],
-          ["Land & Legal", "Quality / risk · 10 = excellent, 1 = severe"],
+          ["Land (the section)", "Two checkable facts · the score is derived from them"],
+          ["Legal (title & compliance)", "Quality / risk · 10 = excellent, 1 = severe"],
         ])}
         <div className="mt-3 rounded-lg p-3 text-xs" style={{ ...box, color: "var(--text-secondary)", lineHeight: 1.65 }}>
-          Example: <strong style={bold}>&ldquo;Established trees 7/10&rdquo;</strong> means good, established planting with no major issues — <em>not</em> &ldquo;70% worn out&rdquo;. A low score there would flag hazardous or development-blocking vegetation. Land &amp; Legal read as quality and risk, not wear.
+          Example: on the Land tab you see <strong style={bold}>612m²</strong> and <strong style={bold}>&ldquo;Typical&rdquo;</strong> rather than a bare number, because the fact is what you actually need — the score is worked out <em>from</em> it. On Legal, a low score means a title or compliance <em>risk</em>, not something worn out.
         </div>
       </div>
 
@@ -804,6 +831,37 @@ function MethodologyTab() {
           ["Luxury", "high-end materials · any age · 80–100%"],
         ])}
         <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>Example: a benchtop worth 13 points, classed &ldquo;Dated&rdquo;, earns 4–8 points — condition sets where in that band. The tier also drives the improvement value.</p>
+      </div>
+
+      <div className="card p-5">
+        <h3 className="text-base font-semibold" style={bold}>How land items are scored — from facts, not opinions</h3>
+        <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
+          We don&apos;t hand your land a mark out of ten and ask you to trust it. &ldquo;7/10 section size&rdquo; tells you nothing — <strong style={bold}>612m²</strong> does. So for each part of the section we read <strong style={bold}>two plain facts</strong>, things you can check yourself on the title diagram, an aerial view or the photos, and the score follows from them.
+        </p>
+        <div className="mt-3 rounded-lg p-3 text-sm mono" style={{ ...box, color: "var(--text-secondary)" }}>
+          fact 1 sets the range → fact 2 decides where in it you land
+        </div>
+        <p className="text-xs mt-3 mb-1" style={{ color: "var(--text-muted)" }}>The two facts we read for each item:</p>
+        {rows([
+          ["Section size", "Its area, against a typical 550m² NZ section"],
+          ["Topography", "Slope band + how much is flat enough to use"],
+          ["Section orientation", "Which way it faces + what blocks the sun"],
+          ["Section shape", "The outline + how much is a workable block"],
+          ["Frontage & access", "How you reach it + how many share that access"],
+          ["Trees & planting", "How established it is + how it's been kept"],
+        ])}
+        <p className="text-xs mt-4 mb-1" style={{ color: "var(--text-muted)" }}>What full marks takes:</p>
+        {rows([
+          ["Section size", "1,375m²+ (2.5× a typical lot)"],
+          ["Topography", "Flat, and fully usable"],
+          ["Section orientation", "North-facing, nothing shading it"],
+          ["Section shape", "Rectangular, no wasted corners"],
+          ["Frontage & access", "Wide street frontage, shared with no one"],
+          ["Trees & planting", "Mature, and well maintained"],
+        ])}
+        <div className="mt-3 rounded-lg p-3 text-xs" style={{ ...box, color: "var(--text-secondary)", lineHeight: 1.65 }}>
+          The first fact <strong style={bold}>caps</strong> what an item can ever earn, because some things about land simply can&apos;t be changed. A gentle slope tops out at 9/10 however usable it is; a south-facing section at 5/10; a wedge-shaped one at 6/10. Open any Land card and <strong style={bold}>&ldquo;How it rates&rdquo;</strong> shows you the full working behind its score.
+        </div>
       </div>
 
       <div className="card p-5">
