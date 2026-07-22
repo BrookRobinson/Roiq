@@ -4,11 +4,64 @@ import { useState } from "react";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { DocAnalysis } from "@/lib/report-store";
 import type { ScoreResult } from "@/lib/scoring/engine";
-import type { Inspection } from "@/lib/scoring/model";
+import type { Inspection, Persona } from "@/lib/scoring/model";
 import { INSPECTION_META, ITEM_BY_ID } from "@/lib/scoring/catalog";
 import { isFactsOnly } from "@/lib/scoring/model";
+import { DEV_TIERS, developmentBonus, type DevelopmentPotential } from "@/lib/scoring/development";
+import { landBandLabel } from "@/lib/scoring/land-quality";
 import { InspectionCard } from "./InspectionCard";
-import { ChevronRight, Info } from "lucide-react";
+import { ChevronRight, Info, Home, Check, AlertTriangle } from "lucide-react";
+
+const fmtNZD = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
+
+const DEV_TIER_COLOR: Record<string, string> = { none: "var(--text-muted)", minor_dwelling: "var(--brand)", second_dwelling: "#00e676", subdivision: "#fbbf24" };
+
+// Headline "can you add a dwelling?" card — a positive opportunity on the Land tab.
+function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential; persona: Persona }) {
+  const meta = DEV_TIERS[dev.tier];
+  const c = DEV_TIER_COLOR[dev.tier];
+  const bonus = developmentBonus(dev.tier, persona);
+  const has = dev.tier !== "none";
+  return (
+    <div className="rounded-2xl p-5" style={{ border: `1px solid ${has ? c + "55" : "var(--border)"}`, background: "var(--surface)" }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Home size={16} style={{ color: "var(--brand)" }} />
+          <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Add a dwelling? — development potential</h3>
+        </div>
+        <span className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: `${c}1f`, color: c, border: `1px solid ${c}55` }}>{meta.short}</span>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{meta.label}{has ? ` · ${dev.confidence}` : ""}</span>
+        {has && dev.valueUpliftHigh > 0 && (
+          <span className="text-sm mono" style={{ color: "#00b894" }}>+{fmtNZD(dev.valueUpliftLow)}–{fmtNZD(dev.valueUpliftHigh)} potential value</span>
+        )}
+        {bonus > 0 && <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>+{bonus} to your {persona === "investor" ? "investor" : "buyer"} score</span>}
+      </div>
+
+      <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>{dev.summary}</p>
+
+      {(dev.enablers.length > 0 || dev.blockers.length > 0) && (
+        <div className="mt-3 space-y-1.5">
+          {dev.enablers.map((e, i) => (
+            <div key={`e${i}`} className="flex items-start gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+              <Check size={13} className="mt-0.5 flex-shrink-0" style={{ color: "#00e676" }} />{e}
+            </div>
+          ))}
+          {dev.blockers.map((b, i) => (
+            <div key={`b${i}`} className="flex items-start gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+              <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" style={{ color: "#fbbf24" }} />{b}
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
+        Indicative — estimated from the section size vs the house footprint. Zoning, coverage and access must be confirmed with the council / LIM. (Live council geodata is a later build.)
+      </p>
+    </div>
+  );
+}
 
 // v4: the Address tab scores Land + Legal; the Location tab shows location as
 // un-scored facts (location desirability is subjective, so it never scores).
@@ -24,6 +77,9 @@ export function PropertyInspections({
   verifiedDocs,
   onVerified,
   mode = "address",
+  development,
+  persona = "buyer",
+  landAreaSqm,
 }: {
   scored: ScoreResult;
   subItems: SubItem[];
@@ -31,6 +87,9 @@ export function PropertyInspections({
   verifiedDocs?: Record<string, DocAnalysis>;
   onVerified?: (itemId: string, doc: DocAnalysis) => void;
   mode?: "address" | "town";
+  development?: DevelopmentPotential;
+  persona?: Persona;
+  landAreaSqm?: number | null;
 }) {
   const town = mode === "town";
   const SECTIONS = town ? TOWN_SECTIONS : ADDRESS_SECTIONS;
@@ -49,6 +108,7 @@ export function PropertyInspections({
 
   return (
     <div className="space-y-3">
+      {!town && development && <DevelopmentPotentialCard dev={development} persona={persona} />}
       <div className="card p-4 text-sm flex items-start gap-2" style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
         <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
         {town
@@ -74,6 +134,7 @@ export function PropertyInspections({
             onSeeRenovations={onSeeRenovations}
             verifiedDocs={verifiedDocs}
             onVerified={onVerified}
+            landAreaSqm={landAreaSqm}
           />
         );
       })}
@@ -92,6 +153,7 @@ function Section({
   onSeeRenovations,
   verifiedDocs,
   onVerified,
+  landAreaSqm,
 }: {
   inspection: Inspection;
   items: SubItem[];
@@ -103,6 +165,7 @@ function Section({
   onSeeRenovations: () => void;
   verifiedDocs?: Record<string, DocAnalysis>;
   onVerified?: (itemId: string, doc: DocAnalysis) => void;
+  landAreaSqm?: number | null;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const meta = INSPECTION_META[inspection];
@@ -146,6 +209,7 @@ function Section({
                 key={item.id}
                 item={item}
                 inspectionLabel={meta.label}
+                bandLabel={inspection === "land" ? landBandLabel(item.id, item.score, landAreaSqm) : undefined}
                 onSeeRenovations={onSeeRenovations}
                 verifiedDoc={verifiedDocs?.[item.id]}
                 onVerified={onVerified ? (doc) => onVerified(item.id, doc) : undefined}

@@ -12,12 +12,12 @@ import {
   LOCATION_PENALTIES,
   PENALTY_CAP,
   BONUS_CAP,
-  POOL_BONUS_MAX,
   type ScoringSubItem,
   type Persona,
   type Inspection,
 } from "./model";
 import type { SpecTier } from "@/lib/property-tab/types";
+import { DEV_TIERS, developmentBonus, type DevTier } from "./development";
 
 export interface PropertyContext {
   titleType: "freehold" | "cross_lease" | "unit_title" | "leasehold" | "unknown";
@@ -83,8 +83,6 @@ export function resolveApplicable(item: ScoringSubItem, ctx: PropertyContext): b
       return ctx.hasSolar;
     case "out_retaining":
       return ctx.hasRetainingWalls;
-    case "out_pool":
-      return ctx.hasPool;
     case "leg_bodycorp":
       return ctx.hasBodyCorporate || ctx.titleType === "unit_title";
     case "leg_crosslease":
@@ -128,7 +126,8 @@ export function scoreProperty(
   persona: Persona,
   ctx: PropertyContext,
   extraDwellings: ExtraDwelling[] = [],
-  penalties: PenaltyInput[] = []
+  penalties: PenaltyInput[] = [],
+  developmentTier: DevTier = "none"
 ): ScoreResult {
   const resultMap = new Map(results.map((r) => [r.id, r]));
   let totalEarned = 0;
@@ -144,7 +143,6 @@ export function scoreProperty(
 
   for (const item of SCORING_MODEL) {
     if (isFactsOnly(item.id)) continue; // location — shown as facts, not scored
-    if (item.id === "out_pool") continue; // pool feeds the bonus, not the base
     const applicable = resolveApplicable(item, ctx);
     if (!applicable) continue; // conditional item not present → drop from denominator
 
@@ -207,26 +205,15 @@ export function scoreProperty(
   const rawPenalty = penaltyList.reduce((s, a) => s - a.points, 0); // points are negative
   const penaltyTotal = Math.min(PENALTY_CAP, rawPenalty);
 
-  // On-site value-adds — add only, scaled by condition, capped
+  // On-site value-adds — add only, scaled by condition, capped.
+  // NOTE: extra dwellings are NOT a bonus here — they carry their own capped
+  // VALUE only (lib/scoring/extra-dwelling-value.ts) — never points, so the score
+  // stays a clean, comparable /1000 for every property.
   const bonusList: ScoreAdjustment[] = [];
-  const dwellingPts = Math.round(
-    extraDwellings.reduce((sum, d) => {
-      const conditionFactor = clamp10(d.conditionScore) / 10; // 0–1
-      const valuePoints = d.replacementCostMid / 10000; // $10k = 1 pt at perfect condition
-      return sum + valuePoints * conditionFactor;
-    }, 0)
-  );
-  if (dwellingPts > 0) {
-    bonusList.push({
-      id: "bonus_dwelling",
-      label: extraDwellings.length > 1 ? "Extra dwellings" : "Extra dwelling",
-      points: dwellingPts,
-    });
-  }
-  if (ctx.hasPool) {
-    const poolScore = clamp10(resultMap.get("out_pool")?.score ?? 5);
-    const poolPts = Math.round((poolScore / 10) * POOL_BONUS_MAX);
-    if (poolPts > 0) bonusList.push({ id: "bonus_pool", label: "Swimming pool / spa", points: poolPts });
+  // Development potential — a persona-weighted opportunity (add a dwelling / subdivide).
+  const devPts = developmentBonus(developmentTier, persona);
+  if (devPts > 0) {
+    bonusList.push({ id: "bonus_development", label: `Development potential — ${DEV_TIERS[developmentTier].short}`, points: devPts });
   }
   const rawBonus = bonusList.reduce((s, a) => s + a.points, 0);
   const bonusTotal = Math.min(BONUS_CAP, rawBonus);

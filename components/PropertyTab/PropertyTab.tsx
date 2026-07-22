@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PropertyTabData, RenoControls } from "@/lib/property-tab/types";
+import type { DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import type { Persona } from "@/lib/scoring/model";
 import { worstSubItemScore } from "@/lib/property-tab/types";
 import { CategoryAccordion } from "./CategoryAccordion";
@@ -19,9 +20,10 @@ interface Props {
   persona?: Persona;
   renoControls?: RenoControls;
   onOpenRenovations?: () => void;
+  dwellingValues?: DwellingValue[];
 }
 
-export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations }: Props) {
+export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues }: Props) {
   const [openAll, setOpenAll] = useState(false);
 
   // Tally issues across all categories
@@ -180,7 +182,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
           </div>
           <div className="space-y-4">
             {data.extraDwellings.map((d) => (
-              <ExtraDwellingCard key={d.id} dwelling={d} noPhotos={noPhotos} />
+              <ExtraDwellingCard key={d.id} dwelling={d} noPhotos={noPhotos} value={dwellingValues?.find((x) => x.id === d.id)} renoControls={renoControls} onOpenRenovations={onOpenRenovations} />
             ))}
           </div>
         </div>

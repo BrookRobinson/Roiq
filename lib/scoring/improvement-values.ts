@@ -102,7 +102,6 @@ export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
   out_driveway: { baseRCN: 7000, scale: "fixed" },
   out_fencing: { baseRCN: 4500, scale: "fixed" },
   out_retaining: { baseRCN: 9000, scale: "fixed" },
-  out_pool: { baseRCN: 45000, scale: "fixed" },
 };
 
 const ITEM_META = new Map(SCORING_MODEL.map((i) => [i.id, i]));

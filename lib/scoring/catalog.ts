@@ -16,7 +16,7 @@ export const INSPECTION_ORDER: Inspection[] = ["improvements", "location", "land
 export const INSPECTION_META: Record<Inspection, { label: string; icon: string; blurb: string }> = {
   improvements: { label: "Improvements", icon: "🏠", blurb: "The building and everything on the land" },
   location: { label: "Location", icon: "📍", blurb: "Demand, lifestyle, and access" },
-  land: { label: "Land", icon: "⛰️", blurb: "Hazards and site quality" },
+  land: { label: "Land", icon: "⛰️", blurb: "Site quality — size, contour, aspect & access" },
   legal: { label: "Legal", icon: "📜", blurb: "Title and compliance" },
 };
 

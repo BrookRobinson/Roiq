@@ -47,6 +47,12 @@ export interface RawSubItem {
   remediation?: RawRemediation | null;
 }
 
+export interface RawDwellingHealthyHomes {
+  standard: string;
+  status: string;
+  note?: string;
+}
+
 export interface RawExtraDwelling {
   type: string;
   size_estimate?: string;
@@ -55,6 +61,13 @@ export interface RawExtraDwelling {
   score: number;
   replacement_cost?: RawReplacementCost | null;
   consent_status?: "consented" | "unconsented" | "unknown";
+  structure_type?: string;
+  habitable?: boolean;
+  size_sqm?: number;
+  bedrooms?: number;
+  self_contained?: boolean;
+  red_flags?: string[];
+  healthy_homes?: RawDwellingHealthyHomes[];
   ai_summary: string;
   photo_references?: number[];
 }
@@ -120,18 +133,62 @@ const remediationSchema = {
 
 const extraDwellingsSchema = {
   type: "array",
-  description: "Separate sleepouts, minor dwellings, pole sheds, or standalone garages of material value.",
+  description:
+    "EVERY standalone structure of material value: minor dwellings, sleepouts, tiny homes, studios, games/rumpus rooms, standalone garages, closed/lockable sheds, open pole sheds, carports, garden sheds, swimming pools and spas. Assess a HABITABLE one like a small house — it may be rented or lived in.",
   items: {
     type: "object",
     properties: {
-      type: { type: "string" },
+      type: { type: "string", description: "Plain-English name as you'd describe it, e.g. 'Open pole shed'." },
+      structure_type: {
+        type: "string",
+        enum: ["minor_dwelling", "tiny_home_fixed", "tiny_home_wheels", "studio_office", "games_room", "garage", "closed_shed", "pole_shed", "carport", "garden_shed", "pool_inground", "pool_above", "spa", "other"],
+        description:
+          "Classify the structure — this sets how it's valued. tiny_home_wheels ONLY when it's clearly on wheels//a towable unit (that makes it a chattel). pole_shed = open-sided implement shed; closed_shed = lockable walls + door.",
+      },
       size_estimate: { type: "string" },
       construction: { type: "string" },
       condition: { type: "string" },
       score: { type: "integer", description: "1-10 condition score." },
       replacement_cost: replacementCostSchema,
       consent_status: { type: "string", enum: ["consented", "unconsented", "unknown"] },
-      ai_summary: { type: "string" },
+      habitable: {
+        type: "boolean",
+        description:
+          "TRUE if someone could sleep in it (sleepout, studio, minor dwelling, cabin). FALSE for a shed, workshop, carport or plain garage. If true it is a DWELLING and Healthy Homes applies when rented.",
+      },
+      size_sqm: { type: "number", description: "Floor area in m² as a NUMBER (e.g. 60). READ IT FROM THE LISTING DESCRIPTION whenever stated ('60m2 pole shed', 'large 45sqm sleepout') — the value is calculated off this. Only estimate from photos when the description doesn't say." },
+      bedrooms: { type: "integer", description: "Separate bedrooms in this structure. 0 for a studio / open-plan sleepout." },
+      self_contained: { type: "boolean", description: "TRUE only if it has its OWN kitchen AND bathroom, so it could be let independently." },
+      red_flags: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Material risks an investor must know, one short line each. Only genuine risks — e.g. 'Sleeping space with no consent on record — can't legally be rented until regularised', 'No visible heat source', 'Ground-level timber with no clearance — damp risk'. Omit if there are none. Do NOT list ordinary missing fittings (splashback, tapware, etc.).",
+      },
+      healthy_homes: {
+        type: "array",
+        description:
+          "ONLY when habitable is true. One entry per standard, honestly reflecting what the photos actually show — most will be not_visible, and that is the correct answer. Do NOT guess.",
+        items: {
+          type: "object",
+          properties: {
+            standard: { type: "string", enum: ["heating", "insulation", "ventilation", "moisture", "draught"] },
+            status: {
+              type: "string",
+              enum: ["met", "not_visible", "absent"],
+              description:
+                "met = clear visible evidence it complies (e.g. a heat pump head visible). absent = clearly not there (e.g. no heat source of any kind in a self-contained studio). not_visible = can't tell from the photos — use this whenever unsure.",
+            },
+            note: { type: "string", description: "Short reason, e.g. 'No heat pump or fixed heater visible'." },
+          },
+          required: ["standard", "status"],
+        },
+      },
+      ai_summary: {
+        type: "string",
+        description:
+          "A tight summary of what the photos ACTUALLY show about this structure — construction, size, apparent use, condition, and what you cannot see. 2-4 sentences. Do not speculate on interior fittings you can't see.",
+      },
       photo_references: { type: "array", items: { type: "integer" } },
     },
     required: ["type", "score", "ai_summary"],

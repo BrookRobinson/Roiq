@@ -9,6 +9,7 @@ import {
   type RawSubItem,
   type RawReplacementCost,
   type RawRemediation,
+  type RawDwellingHealthyHomes,
 } from "./tool-schema";
 import { prepareImages, type PreparedImage } from "./images";
 
@@ -29,7 +30,11 @@ import type {
   Remediation,
   SourceType,
   SpecTier,
+  DwellingHealthyHomes,
+  DwellingHHStandard,
+  DwellingHHStatus,
 } from "@/lib/property-tab/types";
+import type { StructureType } from "@/lib/scoring/structures";
 import type { ScrapedListing } from "@/lib/scraper/types";
 
 export interface GapFinding {
@@ -80,6 +85,30 @@ function normCost(c: RawReplacementCost | null | undefined): ReplacementCost | n
 function normPhotoRefs(refs: number[] | undefined): number[] {
   if (!Array.isArray(refs)) return [];
   return refs.filter((n) => Number.isInteger(n) && n > 0);
+}
+
+const STRUCTURE_TYPES: StructureType[] = ["minor_dwelling","tiny_home_fixed","tiny_home_wheels","studio_office","games_room","garage","closed_shed","pole_shed","carport","garden_shed","pool_inground","pool_above","spa","other"];
+function normStructureType(v: string | undefined): StructureType | undefined {
+  return v && STRUCTURE_TYPES.includes(v as StructureType) ? (v as StructureType) : undefined;
+}
+
+const DW_HH_STANDARDS: DwellingHHStandard[] = ["heating", "insulation", "ventilation", "moisture", "draught"];
+const DW_HH_STATUSES: DwellingHHStatus[] = ["met", "not_visible", "absent"];
+
+/** Keep only valid standard/status pairs, one entry per standard. */
+function normDwellingHH(rows: RawDwellingHealthyHomes[] | undefined): DwellingHealthyHomes[] {
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set<string>();
+  const out: DwellingHealthyHomes[] = [];
+  for (const r of rows) {
+    const standard = r?.standard as DwellingHHStandard;
+    const status = r?.status as DwellingHHStatus;
+    if (!DW_HH_STANDARDS.includes(standard) || !DW_HH_STATUSES.includes(status)) continue;
+    if (seen.has(standard)) continue;
+    seen.add(standard);
+    out.push({ standard, status, note: r.note?.trim() || undefined });
+  }
+  return out;
 }
 
 const SOURCE_TYPES: SourceType[] = [
@@ -254,6 +283,13 @@ function buildAssessment(
     estimatedReplacementCost:
       normCost(d.replacement_cost) ?? { low: 0, high: 0, notes: "Replacement cost not estimated" },
     consentStatus: d.consent_status ?? "unknown",
+    structureType: normStructureType(d.structure_type),
+    habitable: Boolean(d.habitable),
+    sizeSqm: typeof d.size_sqm === "number" && d.size_sqm > 0 ? d.size_sqm : undefined,
+    bedrooms: Number.isInteger(d.bedrooms) && (d.bedrooms as number) >= 0 ? d.bedrooms : undefined,
+    selfContained: Boolean(d.self_contained),
+    redFlags: (d.red_flags ?? []).map((f) => String(f).trim()).filter(Boolean),
+    healthyHomes: normDwellingHH(d.healthy_homes),
     aiSummary: d.ai_summary?.trim() || "",
     photoReferences: normPhotoRefs(d.photo_references),
   }));

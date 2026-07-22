@@ -33,12 +33,14 @@ const fmt = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 export function InspectionCard({
   item,
   inspectionLabel,
+  bandLabel,
   onSeeRenovations,
   verifiedDoc,
   onVerified,
 }: {
   item: SubItem;
   inspectionLabel: string;
+  bandLabel?: string;
   onSeeRenovations: () => void;
   verifiedDoc?: DocAnalysis;
   onVerified?: (doc: DocAnalysis) => void;
@@ -77,6 +79,9 @@ export function InspectionCard({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{item.name}</span>
               <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--surface)", color: "var(--text-muted)" }}>{inspectionLabel}</span>
+              {bandLabel && (
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ background: `${color}1a`, color, border: `1px solid ${color}40` }}>{bandLabel}</span>
+              )}
               {pill && (
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: pill.bg, color: pill.fg }}>
                   {verified && <ShieldCheck size={9} />}{pill.label}

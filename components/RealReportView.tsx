@@ -8,13 +8,16 @@ import { HoldPeriodSlider } from "@/components/HoldPeriodSlider";
 import { ReportGapBanner } from "@/components/ReportGapBanner";
 import type { ReportGap } from "@/lib/property-tab/gaps";
 import { urgencyColor, type RenoControls } from "@/lib/property-tab/types";
-import type { SubItem } from "@/lib/property-tab/types";
+import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
+import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
+import { assessSectionSize } from "@/lib/scoring/land-quality";
+import { valueExtraDwellings, dwellingComplianceWork, type ExtraDwellingValueResult, type DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
 import { MANDATORY_CATEGORIES, categoryLabel } from "@/lib/photo-categories";
 import {
@@ -202,6 +205,8 @@ export function RealReportView({ report }: { report: StoredReport }) {
         // stay, so the inferred risk is still explained, just not scored. (Location /
         // Land / Legal are fact-based and are meant to be inferred + scored.)
         if (isImprovement(s) && s.confidenceTier === 3) return { ...s, score: null as typeof s.score };
+        // Section size is scored objectively vs a typical lot, not the AI's guess.
+        if (s.id === "land_size") return { ...s, score: assessSectionSize(report.listing.landAreaSqm).score as typeof s.score };
         return s;
       }),
     [report.subItems, verifiedDocs, noPhotos]
@@ -210,13 +215,31 @@ export function RealReportView({ report }: { report: StoredReport }) {
   // THE SCORE: re-runs scoreProperty() for the chosen persona + verified docs.
   // Pure + instant — drives the dial, bars, grade, and gating. Recomputes the
   // moment a document is uploaded (auto-rescore).
+  // Development potential — can you add a tiny home / dwelling / subdivide (Land tab).
+  const development = useMemo(
+    () =>
+      assessDevelopment({
+        landAreaSqm: report.listing.landAreaSqm,
+        floorAreaSqm: report.listing.floorAreaSqm,
+        suburbMedianPerSqm: report.suburbValue?.medianPerSqm ?? null,
+      }),
+    [report.listing.landAreaSqm, report.listing.floorAreaSqm, report.suburbValue]
+  );
+
   const scored: ScoreResult = useMemo(
     () =>
       scoreFor(
-        { subItems: effectiveSubItems, extraDwellings: report.extraDwellings, context: report.context, penalties: report.penalties },
+        { subItems: effectiveSubItems, extraDwellings: report.extraDwellings, context: report.context, penalties: report.penalties, developmentTier: development.tier },
         persona
       ),
-    [persona, effectiveSubItems, report.extraDwellings, report.context, report.penalties]
+    [persona, effectiveSubItems, report.extraDwellings, report.context, report.penalties, development.tier]
+  );
+
+  // Extra dwellings are NOT scored (subjective, and ~99% of properties don't have
+  // one — scoring it would make properties incomparable). They contribute VALUE only.
+  const dwellingValue = useMemo(
+    () => valueExtraDwellings(report.extraDwellings),
+    [report.extraDwellings]
   );
 
   // Itemised improvement (building) value — depreciated replacement cost per
@@ -248,7 +271,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
   // Renovation include/exclude toggles (lifted so the header price + yield read
   // the same selection). Default: every line included at full cost.
   const [renoToggles, setRenoToggles] = useState<Record<string, RenoToggle>>({});
-  const renoLines = useMemo(() => buildRenoLines(report.subItems, report.listing, persona), [report.subItems, report.listing, persona]);
+  const renoLines = useMemo(() => buildRenoLines(report.subItems, report.listing, persona, report.extraDwellings), [report.subItems, report.listing, persona, report.extraDwellings]);
   function setRenoToggle(key: string, patch: Partial<RenoToggle>) {
     setRenoToggles((prev) => ({
       ...prev,
@@ -406,16 +429,16 @@ export function RealReportView({ report }: { report: StoredReport }) {
               <a href="/report/upload" className="text-xs mt-1.5 inline-block hover:underline" style={{ color: "var(--brand)" }}>Upload additional photos →</a>
             </div>
           )}
-          {tab === "overview" && <OverviewReal report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} />}
+          {tab === "overview" && <OverviewReal report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} dwellingValue={dwellingValue} />}
           {tab === "improvements" && (
             <div className="space-y-4">
-              <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} />
+              <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
               {persona === "investor" && <HealthyHomesSection subItems={effectiveSubItems} buildYear={listing.buildYear} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} />}
             </div>
           )}
           {tab === "address" && (
             <div className="space-y-4">
-              <PropertyInspections mode="address" scored={scored} subItems={subItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} />
+              <PropertyInspections mode="address" scored={scored} subItems={effectiveSubItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} development={development} persona={persona} landAreaSqm={listing.landAreaSqm} />
               <LocationFactCard subItems={subItems} ids={["loc_noise", "loc_views"]} title="Noise & outlook" />
             </div>
           )}
@@ -423,7 +446,7 @@ export function RealReportView({ report }: { report: StoredReport }) {
           {tab === "financial" && (
             <>
               <PurchasePriceBar value={askingPrice} priceText={listing.priceText} onChange={setAskingPrice} />
-              <FinanceTab key={askingPrice ?? "none"} listing={{ ...listing, askingPrice }} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} improvementValuation={improvementValuation} />
+              <FinanceTab key={askingPrice ?? "none"} listing={{ ...listing, askingPrice }} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} improvementValuation={improvementValuation} dwellingAdded={dwellingValue.addedValue} />
               <div className="mt-4"><LocationFactCard subItems={effectiveSubItems} ids={["loc_growth"]} title="Suburb growth & demand" /></div>
             </>
           )}
@@ -643,7 +666,7 @@ function ScoreBreakdown({ scored }: { scored: ScoreResult }) {
         <div>
           <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Condition &amp; Quality Score</div>
           <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-            The property itself, minus objective location negatives, plus on-site value-adds. Location desirability is shown as facts, never scored.
+            The property itself, minus objective location negatives, plus on-site value-adds. Location desirability is shown as facts, never scored. Always out of 1000, so properties stay comparable — an extra dwelling adds value, not points.
           </div>
         </div>
         <div className="text-right flex-shrink-0">
@@ -839,10 +862,11 @@ function LocationFactCard({ subItems, ids, title }: { subItems: SubItem[]; ids: 
 }
 
 // ── Overview ─────────────────────────────────────────────────────────────────
-function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation }: {
+function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation, dwellingValue }: {
   report: StoredReport; subItems: SubItem[]; scored: ScoreResult; persona: Persona;
   renoLines: RenoLine[]; renoToggles: Record<string, RenoToggle>; askingPrice: number | null;
   improvementValuation: ImprovementValueResult;
+  dwellingValue: ExtraDwellingValueResult;
 }) {
   const subs = subItems;
   const growthScore = subs.find((s) => s.id === "loc_growth")?.score ?? null;
@@ -1003,7 +1027,7 @@ interface RenoLine {
 
 // Unified renovation list: Improvement replacement costs + Location/Land/Legal
 // remediation line items, both obeying the hold-period rule.
-function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], persona: Persona): RenoLine[] {
+function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], persona: Persona, extraDwellings: ExtraDwelling[] = []): RenoLine[] {
   const lines: RenoLine[] = [];
   const ctx = {
     floorSqm: listing.floorAreaSqm ?? null,
@@ -1063,6 +1087,29 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         autoInclude: true, // a specifically flagged remedy — pre-ticked
       });
     }
+  }
+
+  // Extra dwelling compliance — consent + Healthy Homes to make it rentable.
+  // Opt-in (never auto-ticked): it only matters if you intend to let it.
+  for (const d of extraDwellings) {
+    const work = dwellingComplianceWork(d);
+    if (!work.needed) continue;
+    lines.push({
+      key: `${d.id}_compliance`,
+      name: `${d.type} — consent & compliance`,
+      detail: `Make it legally rentable: ${work.scope.join(", ")}`,
+      badge: "Extra dwelling",
+      low: work.low,
+      high: work.high,
+      urgencyYears: 0,
+      detailColor: "#fbbf24",
+      uplift: 0,
+      notes: undefined,
+      costing: costThreeTier({ id: `${d.id}_compliance`, name: "Extra dwelling compliance", ...ctx, fallback: { low: work.low, high: work.high } }),
+      autoInclude: false,
+      legal: true,
+      nonExisting: true,
+    });
   }
 
   // Healthy Homes draught-stopping — investor only, no equivalent quality item.
@@ -1366,8 +1413,8 @@ function FinSection({ title, children }: { title: string; children: React.ReactN
 // ── RoIQ Value Verdict (Change 1) — the headline number, top of the Finance tab.
 // Suburb median $/m² (scraped) × condition multiplier (the hidden quality score)
 // × floor area = RoIQ fair value; compared against asking + selected renovations.
-function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue }: {
-  asking: number; improvementValuation: ImprovementValueResult; landAreaSqm: number | null; suburbValue?: SuburbValue;
+function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, dwellingAdded = 0 }: {
+  asking: number; improvementValuation: ImprovementValueResult; landAreaSqm: number | null; suburbValue?: SuburbValue; dwellingAdded?: number;
 }) {
   const [open, setOpen] = useState(false);
   const land = valueLand({ landAreaSqm, suburbValue });
@@ -1388,7 +1435,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue }
     );
   }
 
-  const rv = roiqValuation(improvementValuation.buildingValue, land);
+  const rv = roiqValuation(improvementValuation.buildingValue + dwellingAdded, land);
   const verdict = asking > rv.high ? "over" : asking < rv.low ? "under" : "fair";
   const diff = rv.total - asking; // + = under (good), − = over
   const VC = verdict === "over" ? "#ff5f5f" : verdict === "under" ? "#00e676" : "#fbbf24";
@@ -1399,7 +1446,10 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue }
 
       <div className="space-y-1.5 text-sm">
         <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Land value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· est.</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(land.landValue)}</span></div>
-        <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Improvement value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· itemised</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>+{fmt(rv.buildingValue)}</span></div>
+        <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Improvement value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· itemised</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>+{fmt(rv.buildingValue - dwellingAdded)}</span></div>
+        {dwellingAdded > 0 && (
+          <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Extra dwelling <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· depreciated, less compliance</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>+{fmt(dwellingAdded)}</span></div>
+        )}
         <div className="flex items-center justify-between font-bold pt-1.5" style={{ borderTop: "1px solid var(--border)" }}><span style={{ color: "var(--text-primary)" }}>RoiQ value</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(rv.total)}</span></div>
         <div className="flex items-center justify-between"><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Likely range</span><span className="mono text-[11px]" style={{ color: "var(--text-muted)" }}>{fmt(rv.low)} – {fmt(rv.high)}</span></div>
         <div className="flex items-center justify-between pt-2"><span style={{ color: "var(--text-secondary)" }}>Asking price</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(asking)}</span></div>
@@ -1448,7 +1498,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue }
   );
 }
 
-function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles, score, suburbValue, improvementValuation }: {
+function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles, score, suburbValue, improvementValuation, dwellingAdded = 0 }: {
   listing: StoredReport["listing"];
   persona: Persona;
   marketRent?: MarketRent;
@@ -1458,6 +1508,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   score: number;
   suburbValue?: SuburbValue;
   improvementValuation: ImprovementValueResult;
+  dwellingAdded?: number;
 }) {
   const { holdYears, withinHold } = useHoldPeriod();
   const renoTotal = selectedRenoCost(renoLines, renoToggles, withinHold);
@@ -1504,7 +1555,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   return (
     <div className="space-y-4">
       {/* RoIQ Value Verdict — the most important thing a buyer needs to know. */}
-      <ValueVerdict asking={price} improvementValuation={improvementValuation} landAreaSqm={listing.landAreaSqm} suburbValue={suburbValue} />
+      <ValueVerdict asking={price} improvementValuation={improvementValuation} landAreaSqm={listing.landAreaSqm} suburbValue={suburbValue} dwellingAdded={dwellingAdded} />
 
       {/* Section 9 — THE FINAL ANSWER */}
       <div className="card p-5" style={{ border: "1px solid var(--brand)", background: "linear-gradient(180deg, rgba(0,212,200,0.06), transparent)" }}>

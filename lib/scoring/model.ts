@@ -161,7 +161,6 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   { id: "out_fencing", label: "Fencing", inspection: "improvements", category: "Outdoor & grounds", buyerPoints: 3, investorPoints: 4, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "out_landscaping", label: "Landscaping / gardens", inspection: "improvements", category: "Outdoor & grounds", buyerPoints: 2, investorPoints: 2, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "out_retaining", label: "Retaining walls", inspection: "improvements", category: "Outdoor & grounds", buyerPoints: 2, investorPoints: 1, conditional: true, appliesWhen: "Property has retaining walls visible or on site plan", costBearing: true, affectsHealthyHomes: false },
-  { id: "out_pool", label: "Pool / spa", inspection: "improvements", category: "Outdoor & grounds", buyerPoints: 1, investorPoints: 1, conditional: true, appliesWhen: "Property has a pool or spa", costBearing: true, affectsHealthyHomes: false },
 
   // ========================================================
   // INSPECTION 2 — LOCATION — facts only, never scored (v4).
@@ -183,7 +182,8 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   { id: "land_topography", label: "Topography / contour (flat vs steep)", inspection: "land", category: "Hazard & site", buyerPoints: 14, investorPoints: 9, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_aspect", label: "Aspect of land (north-facing slope etc.)", inspection: "land", category: "Hazard & site", buyerPoints: 10, investorPoints: 7, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_shape", label: "Shape & usability", inspection: "land", category: "Hazard & site", buyerPoints: 9, investorPoints: 6, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_subdivision", label: "Subdivision / development potential", inspection: "land", category: "Hazard & site", buyerPoints: 3, investorPoints: 14, conditional: false, costBearing: false, affectsHealthyHomes: false },
+  // (land_subdivision removed — development potential is now a headline OPPORTUNITY
+  //  scored as a persona-weighted bonus + value uplift, see lib/scoring/development.ts)
   { id: "land_frontage", label: "Frontage & access (ROW vs road frontage)", inspection: "land", category: "Hazard & site", buyerPoints: 5, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_trees", label: "Established / protected trees & vegetation", inspection: "land", category: "Hazard & site", buyerPoints: 3, investorPoints: 2, conditional: false, costBearing: false, affectsHealthyHomes: false },
 
@@ -232,5 +232,4 @@ export const LOCATION_PENALTIES: LocationPenalty[] = [
 ];
 
 export const PENALTY_CAP = 150; // max total location deduction
-export const BONUS_CAP = 60; // max total on-site value-add bonus
-export const POOL_BONUS_MAX = 12; // pool / spa bonus at perfect condition
+export const BONUS_CAP = 90; // max total on-site value-add bonus (dwellings, pool, development)

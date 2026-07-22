@@ -15,6 +15,7 @@ import {
 } from "./engine";
 import type { Persona } from "./model";
 import { buildCatalog } from "./catalog";
+import type { DevTier } from "./development";
 import type { SubItem, ExtraDwelling, Category } from "@/lib/property-tab/types";
 
 /** Persona-independent assessment that fully determines both persona scores. */
@@ -23,6 +24,7 @@ export interface Assessment {
   extraDwellings: ExtraDwelling[];
   context: PropertyContext;
   penalties?: PenaltyInput[]; // objective location negatives (persona-independent)
+  developmentTier?: DevTier; // add-a-dwelling opportunity (persona-weighted bonus)
 }
 
 /** Raw 1–10 scores + spec tiers the engine consumes (persona-independent). */
@@ -46,7 +48,8 @@ export function scoreFor(assessment: Assessment, persona: Persona): ScoreResult 
     persona,
     assessment.context,
     toEngineDwellings(assessment.extraDwellings),
-    assessment.penalties ?? []
+    assessment.penalties ?? [],
+    assessment.developmentTier ?? "none"
   );
 }
 

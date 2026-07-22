@@ -78,6 +78,17 @@ export interface Category {
   subItems: SubItem[];
 }
 
+/** The 5 Healthy Homes standards, as they apply to a habitable extra dwelling. */
+export type DwellingHHStandard = "heating" | "insulation" | "ventilation" | "moisture" | "draught";
+/** met = visible evidence · not_visible = can't tell from photos, verify · absent = clearly not there. */
+export type DwellingHHStatus = "met" | "not_visible" | "absent";
+
+export interface DwellingHealthyHomes {
+  standard: DwellingHHStandard;
+  status: DwellingHHStatus;
+  note?: string;
+}
+
 export interface ExtraDwelling {
   id: string;
   type: string;
@@ -89,6 +100,22 @@ export interface ExtraDwelling {
   consentStatus: "consented" | "unconsented" | "unknown";
   aiSummary: string;
   photoReferences: number[];
+  /** True when someone could sleep in it — then it's a dwelling, not a shed, and
+   * Healthy Homes applies if it's rented. */
+  habitable?: boolean;
+  /** What kind of structure it is — drives the cost basis and value retention.
+   * See lib/scoring/structures.ts. */
+  structureType?: import("@/lib/scoring/structures").StructureType;
+  /** Numeric floor area (m²) — valued off this whenever the listing states it. */
+  sizeSqm?: number;
+  /** Bedroom count (0 = studio / open plan). */
+  bedrooms?: number;
+  /** Has its own kitchen AND bathroom, so it can be let independently. */
+  selfContained?: boolean;
+  /** Material risks an investor must know about (unconsented sleeping space, damp…). */
+  redFlags?: string[];
+  /** Per-standard Healthy Homes read — only meaningful when habitable. */
+  healthyHomes?: DwellingHealthyHomes[];
 }
 
 export interface PropertyTabData {
