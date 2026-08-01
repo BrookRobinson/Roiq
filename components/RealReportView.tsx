@@ -27,6 +27,7 @@ import {
 import type { CapitalGrowth, MarketRent, SuburbValue } from "@/lib/scoring/investment";
 import { costThreeTier, tierTotal, TIER_ORDER, scaleTier, isScalableKind } from "@/lib/reno-costing/three-tier";
 import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
+import { buildBudgetPlan, PRIORITY_META } from "@/lib/reno-costing/budget-plan";
 import { MaterialStudio } from "@/components/MaterialStudio";
 import { surfaceForKind, materialsFor } from "@/lib/materials-catalogue";
 import { summarise, defaultInputs, FINANCE_DEFAULTS, PURCHASE_COST_LABELS } from "@/lib/finance/calculator";
@@ -1079,6 +1080,8 @@ interface RenoLine {
   costing?: ThreeTierCost; // Patch Up / Replace Budget / Replace High End
   autoInclude: boolean; // pre-ticked into the plan (score ≤30% / flagged remedy)
   valueGap?: number; // renovation upside — value reclaimed if brought to modern & as-new
+  observedDefect?: string; // what's visible in THIS property's photos — keeps the plan specific
+  scopeHint?: string; // real scope for compliance/paperwork lines, which have no costing recipe
   legal?: boolean; // carries a Healthy Homes legal obligation (investor)
   nonExisting?: boolean; // the feature is deteriorated / effectively absent
 }
@@ -1122,6 +1125,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low, high } }),
         autoInclude: s.score !== null && frac <= 0.30,
         valueGap: v?.valueGap,
+        observedDefect: s.observedDefect,
         legal: HH_RENO_KEYS.has(s.id),
         nonExisting: s.specTier === "deteriorated",
       });
@@ -1138,6 +1142,10 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         low: s.remediation.low,
         high: s.remediation.high,
         urgencyYears: s.remediation.urgencyYears,
+        // No photo defect here: the parent item's finding is the WHY, the
+        // remediation description is the WORK.
+        observedDefect: s.finding,
+        scopeHint: s.remediation.description,
         detailColor: "var(--brand)",
         uplift: 0,
         notes: undefined,
@@ -1165,6 +1173,10 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
       notes: undefined,
       costing: costThreeTier({ id: `${d.id}_compliance`, name: "Extra dwelling compliance", ...ctx, fallback: { low: work.low, high: work.high } }),
       autoInclude: false,
+      // Paperwork, not a visible defect: the WHY is the missing paperwork, the
+      // WORK is the scope — the generic costing text would say "full replacement".
+      observedDefect: `Consent and compliance status for this structure isn't confirmed, so it can't be legally rented as it stands.`,
+      scopeHint: work.scope.join(", "),
       legal: true,
       nonExisting: true,
     });
@@ -1306,6 +1318,121 @@ function ThreeTier({ line, toggle, onTier, onLabour, onPct }: {
   );
 }
 
+// ── "If you spent X% on this house, here's what we'd do" ─────────────────────
+// A prioritised spend plan, NOT a return prediction — see lib/reno-costing/budget-plan.ts
+// for why we deliberately don't publish a "this adds $Y" figure.
+const BUDGET_PCTS = [0.5, 1, 2, 3, 5];
+
+function BudgetPlanCard({ lines, price, persona }: { lines: RenoLine[]; price: number; persona: Persona }) {
+  const [pct, setPct] = useState(1);
+  const budget = Math.round((price * pct) / 100);
+  const plan = useMemo(() => buildBudgetPlan(lines, budget, persona), [lines, budget, persona]);
+
+  if (price <= 0 || lines.length === 0) return null;
+
+  return (
+    <div className="card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            If you spent {pct}% of the asking price on this house
+          </h3>
+          <div className="text-2xl font-bold mono mt-1" style={{ color: "var(--brand)" }}>{fmt(budget)}</div>
+          <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+            This is where we&apos;d put it, in the order we&apos;d do it.
+          </div>
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {BUDGET_PCTS.map((p) => (
+            <button
+              key={p}
+              onClick={() => setPct(p)}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg cursor-pointer"
+              style={
+                p === pct
+                  ? { background: "var(--brand)", color: "#04211f" }
+                  : { background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }
+              }
+            >
+              {p}%
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {plan.firstJobExceedsBudget ? (
+        <div className="mt-4 rounded-lg p-3 text-sm" style={{ background: "var(--surface-2)", border: "1px solid rgba(251,191,36,0.3)", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          Nothing fits this budget — the first job we&apos;d do ({plan.deferred[0]?.name}) costs about{" "}
+          <strong style={{ color: "var(--text-primary)" }}>{fmt(plan.deferred[0]?.cost ?? 0)}</strong>. Try a larger percentage.
+        </div>
+      ) : (
+        <div className="mt-4 space-y-2">
+          {plan.included.map((l, i) => {
+            const meta = PRIORITY_META[l.priority];
+            return (
+              <div key={l.key} className="rounded-lg p-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderLeft: `3px solid ${meta.color}` }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>{i + 1}</span>
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{l.name}</span>
+                      {/* Several items share a name across rooms ("Flooring") — the category disambiguates. */}
+                      {l.category && (
+                        <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface)", color: "var(--text-muted)" }}>{l.category}</span>
+                      )}
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ background: `${meta.color}1a`, color: meta.color, border: `1px solid ${meta.color}40` }}>{meta.label}</span>
+                    </div>
+                    {/* What's actually visible in THIS property leads — a generic
+                        "replace failed sheets" tells the buyer nothing about their house. */}
+                    {l.observedDefect && (
+                      <div className="text-xs mt-1.5" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                        <span style={{ color: "var(--text-muted)" }}>
+                          {l.photoRefs && l.photoRefs.length > 0
+                            ? `Seen in photo${l.photoRefs.length > 1 ? "s" : ""} ${l.photoRefs.join(", ")}: `
+                            : "Why it's on the list: "}
+                        </span>
+                        {l.observedDefect}
+                      </div>
+                    )}
+                    <div className="text-xs mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                      <span style={{ color: "var(--text-muted)" }}>We&apos;d do — {l.tierLabel}: </span>{l.scope}
+                    </div>
+                    {!l.observedDefect && (
+                      <div className="text-xs mt-1" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>{l.reason}</div>
+                    )}
+                  </div>
+                  <span className="text-sm font-bold mono flex-shrink-0" style={{ color: "var(--text-primary)" }}>{fmt(l.cost)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {plan.included.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2 text-sm">
+          <span style={{ color: "var(--text-secondary)" }}>
+            {plan.included.length} job{plan.included.length > 1 ? "s" : ""} · <span className="mono">{fmt(plan.spent)}</span> of <span className="mono">{fmt(budget)}</span>
+          </span>
+          {plan.remaining > 0 && <span className="mono text-xs" style={{ color: "var(--text-muted)" }}>{fmt(plan.remaining)} unspent</span>}
+        </div>
+      )}
+
+      {plan.deferred.length > 0 && plan.included.length > 0 && (
+        <div className="mt-2 text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+          <strong style={{ color: "var(--text-secondary)" }}>Next, if you had more:</strong> {plan.deferred[0].name} ({fmt(plan.deferred[0].cost)})
+          {plan.deferred[1] && <> · {plan.deferred[1].name} ({fmt(plan.deferred[1].cost)})</>}
+        </div>
+      )}
+
+      <p className="text-[11px] mt-4 pt-3" style={{ color: "var(--text-muted)", lineHeight: 1.6, borderTop: "1px solid var(--border)" }}>
+        Ordered by what a buyer or valuer reacts to first — legal obligations, then things that are missing or worn out, then work already due, then presentation. Costs are at tradesman rates for the cheapest option that genuinely fixes the item.{" "}
+        <strong style={{ color: "var(--text-secondary)" }}>We deliberately don&apos;t quote a resale gain.</strong> What renovation returns varies far too much by suburb, street and buyer to promise a number — and over-capitalising is the most common way people lose money on a renovation.
+      </p>
+    </div>
+  );
+}
+
 function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listing }: {
   renoLines: RenoLine[];
   renoToggles: Record<string, RenoToggle>;
@@ -1336,6 +1463,22 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
 
   return (
     <div className="space-y-4">
+      {/* Section 1 — what WE would do. A prioritised plan, no resale-gain claim. */}
+      {price > 0 && items.length > 0 && (
+        <div className="text-[11px] uppercase tracking-widest" style={{ color: "var(--brand)" }}>Our recommendation</div>
+      )}
+      <BudgetPlanCard lines={items} price={price} persona={persona} />
+
+      {/* Section 2 — what YOU have chosen. Titled so it doesn't read as a
+          continuation of the recommendation above. */}
+      <div className="pt-3">
+        <div className="text-[11px] uppercase tracking-widest mb-1.5" style={{ color: "var(--brand)" }}>Your renovation plan</div>
+        <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>The work you&apos;ve chosen</h3>
+        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          Separate from our recommendation above — these are the items you&apos;ve ticked on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab. Set the tier and who does the work, and the totals below follow. This is what feeds your yield and predicted sale price.
+        </p>
+      </div>
+
       {/* Renovation Budget Summary — updates live as tiers are chosen */}
       <div className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-4">

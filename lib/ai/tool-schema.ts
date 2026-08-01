@@ -33,6 +33,7 @@ export interface RawSubItem {
   score: number | null;
   confidence_tier: number;
   spec_tier?: string;
+  observed_defect?: string;
   slope_band?: string;
   usable_land_pct?: number;
   shape_type?: string;
@@ -370,6 +371,11 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               type: "integer",
               description:
                 "land_frontage ONLY — REQUIRED for it. How many dwellings use that driveway or access INCLUDING this one. Use 1 for a property with its own direct street frontage. For a shared drive or right of way, count the households sharing it (a ROW serving three rear units plus this one is 4). This is the figure that drives the score, since shared upkeep, dispute risk and traffic all scale with it.",
+            },
+            observed_defect: {
+              type: "string",
+              description:
+                "IMPROVEMENTS items that need work — what you can ACTUALLY SEE in the photos that needs attention on THIS property. One or two concrete sentences describing the specific visible evidence, not a generic condition statement. GOOD: 'Rust is bleeding through the ridge flashing above the garage and two sheets have lifted at the eastern end.' 'No extractor fan in either bathroom, and there is mould staining on the ceiling above the shower.' BAD: 'Roof is below average.' 'Needs replacing.' If the item is NOT visible in any photo, say what you inferred it from instead (e.g. 'Not visible — inferred from the 1975 build era; ceilings of this era typically have little or no insulation'). Leave empty for items in good order that need no work.",
             },
             evidence_source: {
               type: "string",

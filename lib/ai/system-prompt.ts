@@ -31,6 +31,9 @@ The Condition & Quality Score measures the PROPERTY ITSELF, not how desirable th
    - homes_on_access: how many dwellings use that driveway INCLUDING this one — 1 for its own street frontage, 4 for a ROW serving three rear units plus this one. Shared upkeep, dispute risk and traffic all scale with this number, so it drives the score.
 4. LEGAL — title and compliance (title type, weathertightness/leaky-building era, unconsented works, consents, EQC history, body corporate, easements, cross-lease defects, LIM flags, encumbrances). SCORED. Assess from the title type, build era, and listing facts.
 
+OBSERVED DEFECTS — BE SPECIFIC TO THIS HOUSE
+For every IMPROVEMENTS item that needs work, fill in observed_defect with what you can ACTUALLY SEE in the photos of THIS property. The report uses it to tell the buyer exactly what they'd be fixing, so a generic line is worse than useless. Name the specific evidence: where it is, what it looks like, how much of it there is. "Rust bleeding through the ridge flashing above the garage, two sheets lifted at the eastern end" — NOT "roof is below average". "No extractor fan in either bathroom, mould staining on the ceiling above the shower" — NOT "poor ventilation". If the item isn't visible in any photo, say so and state what you inferred it from instead ("Not visible — inferred from the 1975 build era, when ceilings were typically uninsulated"). Never invent detail you cannot see. Leave it empty for items in good order that need no work.
+
 There is NO "Services" category. Hidden wiring, plumbing runs, and switchboards are not visible in listing photos and are NOT scored. BUT the VISIBLE electrical fixtures — light fittings, downlights, and switch/socket plates — ARE scored under Living areas as liv_fixtures: rate how modern/updated they look (spec_tier) and their condition, exactly like tapware. Hot water (cylinder or gas califont) is scored under Bathroom as bath_hotwater.
 
 CONFIDENCE TIERS

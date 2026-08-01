@@ -51,6 +51,51 @@ const SPEC: Record<string, SpecTier> = {
   bath_ventilation: "deteriorated", // no ducted extractor fans fitted
 };
 
+// What's actually VISIBLE in this property's photos for each item needing work —
+// this is what the renovation budget plan quotes, so it must be specific to the
+// house, never a generic "below average". Paired with PHOTOS below.
+const DEFECTS: Record<string, string> = {
+  ext_roof: "Rust is bleeding through the ridge flashing above the garage and two sheets have lifted at the eastern end; the coating has chalked off across the north-facing pitch.",
+  bath_ventilation: "No extractor fan in either bathroom — only an openable window — and there is mould staining spreading across the ceiling above the shower.",
+  liv_insulation: "Not visible in any photo — inferred from the 1975 build era, when ceilings were typically built with little or no insulation, and the report found no upgrade recorded.",
+  bath_flooring: "Two cracked floor tiles beside the vanity and the grout has darkened and lifted along the shower edge, which is where water gets underneath.",
+  bath_hotwater: "Original-looking copper cylinder in the hallway cupboard with no visible lagging and corrosion staining on the tray beneath it.",
+  liv_ceiling: "Hairline cracking along the cornice line in the lounge, consistent with normal settlement in a house of this age rather than anything structural.",
+  liv_heating: "A single wood burner in the lounge doing all the work; its flue collar shows rust at the ceiling penetration.",
+  liv_flooring: "Carpet is worn through to backing in the hallway traffic path and has pulled away from the gripper at the lounge doorway.",
+  bed_ceiling: "Water staining across two ceiling panels in the back bedroom, directly under the section of roof flagged above.",
+  bed_heating: "No fixed heating visible in any of the three bedrooms — the wood burner in the lounge is the only heat source in the house.",
+  bed_flooring: "Carpet in the two rear bedrooms is flattened and sun-bleached in a band along the window wall, with a seam lifting in the main bedroom.",
+  out_fencing: "Three palings missing along the western boundary and the run beside the driveway is leaning noticeably off vertical.",
+  ext_gutters: "Debris and plant growth visible in the gutter above the front entry, with staining down the cladding where it has been overflowing.",
+  ext_soffits: "Paint is flaking off the soffit lining along the south elevation and one sheet has begun to sag away from its fixings near the corner.",
+  gar_door: "Timber tilt door with peeling paint along the bottom rail and visible swelling where it meets the concrete; no auto opener fitted.",
+  ext_paint: "Weatherboards on the south and west elevations have chalked and are flaking above the window heads; the north face is holding up better.",
+  ext_doors: "Original aluminium slider to the deck drags on its track and the rubber seals have perished; the front door itself is sound.",
+  ext_cladding: "Weatherboard is intact overall, with a small area of soft timber at the base of the south wall where the gutter has been overflowing.",
+  ext_decking: "Deck boards are grey and furred from lack of oil, with two boards cupping near the steps and a handrail post that moves when pushed.",
+  bath_shower: "Dated framed shower over bath with a perished seal at the base and silicone that has gone black along the wall junction.",
+  bath_vanity: "Original single vanity with a chipped laminate top and chrome tapware that is pitting around the spout base.",
+  bath_toilet: "Older close-coupled suite, functional, with staining at the pan-to-floor junction suggesting a tired seal.",
+  bath_waterproof: "Not visible — inferred. Behind the 1970s tiling there is unlikely to be a modern waterproof membrane, so budget for it if the bathroom is opened up.",
+  kit_flooring: "Vinyl is lifting at the seam in front of the dishwasher and there is a scorch mark beside the oven.",
+  liv_fixtures: "Original ceiling roses and plastic switch plates throughout, several yellowed with age; no downlights fitted.",
+  bed_storage: "Two bedrooms have shallow original wardrobes with sagging hanging rails; the third has no built-in storage at all.",
+  gar_floor: "Bare concrete with oil staining under the parking bay and a crack running diagonally from the door opening.",
+  out_driveway: "Concrete drive is sound but crazed across the turning area, with weeds through the joints near the street.",
+};
+
+// Photo numbers backing each observation above.
+const PHOTOS: Record<string, number[]> = {
+  ext_roof: [4, 5], bath_ventilation: [6, 11], bath_flooring: [11], bath_hotwater: [14],
+  liv_ceiling: [7], liv_heating: [3, 8], liv_flooring: [7],
+  bed_ceiling: [9], bed_heating: [9, 10], bed_flooring: [9, 10],
+  out_fencing: [16], ext_gutters: [2], ext_soffits: [4], gar_door: [1, 15],
+  ext_paint: [1, 4], ext_doors: [3, 17], ext_cladding: [4], ext_decking: [17],
+  bath_shower: [6], bath_vanity: [6], bath_toilet: [11], kit_flooring: [12],
+  liv_fixtures: [7, 8], bed_storage: [10], gar_floor: [15], out_driveway: [1],
+};
+
 // One-line findings for Location/Land/Legal cards.
 const FINDINGS: Record<string, string> = {
   loc_schools: "Double zone — Remuera Primary + Auckland Grammar",
@@ -164,7 +209,8 @@ function buildSubItems(): SubItem[] {
       ...(item.id === "land_frontage" ? { accessType: "road_frontage" as const, homesOnAccess: 1 } : {}),
       renovationLink: Boolean(cost),
       healthyHomesLink: item.affectsHealthyHomes,
-      photoReferences: item.id === "loc_sun" ? [2, 3] : item.id === "leg_unconsented" ? [12] : [],
+      observedDefect: DEFECTS[item.id],
+      photoReferences: PHOTOS[item.id] ?? (item.id === "loc_sun" ? [2, 3] : item.id === "leg_unconsented" ? [12] : []),
       ...(isImprovement
         ? {}
         : {

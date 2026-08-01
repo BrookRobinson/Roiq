@@ -102,6 +102,8 @@ export interface SubItem {
   estimatedReplacementCost: ReplacementCost | null;
   replacementCostWeight: number;       // 0–1, fraction of category score
   specTier?: SpecTier;                 // quality/spec of the materials (Improvements) — drives building value
+  observedDefect?: string;             // what's actually VISIBLE in this property's photos that needs work
+
   slopeBand?: SlopeBand;               // land_topography only — the measured-ish fact behind its score
   usableLandPct?: number;              // land_topography only — 0–100, share of the section flat enough to use
   shapeType?: ShapeType;               // land_shape only — the named outline its score derives from

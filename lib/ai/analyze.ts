@@ -263,6 +263,7 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem): SubItem {
     estimatedReplacementCost: item.costBearing ? normCost(raw.replacement_cost) : null,
     replacementCostWeight: 0, // v3.1 engine weights by persona points, not this field
     specTier: usesSpecTier(item) ? normSpecTier(raw.spec_tier) : undefined,
+    observedDefect: raw.observed_defect?.trim() || undefined,
     // Topography carries the facts its score is derived from (see land-quality.ts).
     slopeBand: item.id === "land_topography" ? normSlopeBand(raw.slope_band) : undefined,
     usableLandPct: item.id === "land_topography" ? normUsablePct(raw.usable_land_pct) : undefined,
