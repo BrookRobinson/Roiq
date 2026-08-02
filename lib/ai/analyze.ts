@@ -13,7 +13,7 @@ import {
 } from "./tool-schema";
 import { prepareImages, type PreparedImage } from "./images";
 
-import { SCORING_MODEL, LOCATION_PENALTIES, usesSpecTier, type ScoringSubItem, type Inspection } from "@/lib/scoring/model";
+import { SCORING_MODEL, LOCATION_PENALTIES, usesSpecTier, SIZE_ITEM_IDS, type ScoringSubItem, type Inspection } from "@/lib/scoring/model";
 import { buildCatalog, INSPECTION_META, SOURCE_TAXONOMY, type CatalogInspection } from "@/lib/scoring/catalog";
 import { scoreBoth, type Assessment } from "@/lib/scoring/report";
 import { fetchMarketData, type MarketResult } from "./market";
@@ -245,13 +245,52 @@ function normHomesOnAccess(v: number | undefined): number | undefined {
   return n >= 1 && n <= 20 ? n : undefined;
 }
 
-function mapSubItem(raw: RawSubItem, item: ScoringSubItem): SubItem {
+/** Listing facts mapSubItem needs for the age fallback and size estimates. */
+interface SubItemContext {
+  buildYear: number | null;
+  floorAreaSqm: number | null;
+  bedrooms: number | null;
+}
+
+const UNKNOWN_AGE_RE = /^(unknown|n\/?a|not\s*(specified|stated|visible|known|assessed)|tbd|\?+|-|—|see assessment)$/i;
+
+/** Never show "Unknown": fall back to a specific year estimate from the build era + spec tier.
+ * The AI is asked to always give a justified age; this only fires if it omits one. */
+function ageBracket(raw: string | undefined, specTier: SpecTier | undefined, buildYear: number | null): string {
+  const a = raw?.trim();
+  if (a && !UNKNOWN_AGE_RE.test(a)) return a;
+  const now = 2026;
+  // Updated/modern fittings in an older house → recently replaced, so young.
+  if (specTier === "modern") return "~10 years (est.)";
+  if (specTier === "luxury") return "~7 years (est.)";
+  // Original-era fittings → age from the build year.
+  if (buildYear && buildYear > 1850 && buildYear <= now) {
+    return `~${now - buildYear} years (build era, est.)`;
+  }
+  return specTier === "deteriorated" ? "30+ years (end of life, est.)" : "~25 years (est.)";
+}
+
+/** Estimated area for a size item; apportions the total floor area when the AI omits it. */
+function sizeSqm(raw: number | undefined, id: string, floorAreaSqm: number | null, bedrooms: number | null): number | undefined {
+  if (raw != null && Number.isFinite(raw) && raw > 0) return Math.round(raw);
+  const floor = floorAreaSqm && floorAreaSqm > 0 ? floorAreaSqm : null;
+  if (!floor) return undefined;
+  if (id === "liv_size") return Math.round(floor * 0.28); // open living/dining/kitchen zone
+  if (id === "bed_size") {
+    const beds = bedrooms && bedrooms > 0 ? bedrooms : 3;
+    return Math.max(9, Math.round((floor * 0.4) / beds)); // bedrooms ~40% of floor, split across rooms
+  }
+  return undefined;
+}
+
+function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext): SubItem {
   const score = clampScore(raw.score);
+  const specTier = usesSpecTier(item) ? normSpecTier(raw.spec_tier) : undefined;
   return {
     id: item.id,
     name: item.label,
     material: raw.material?.trim() || "Not specified",
-    estimatedAge: raw.estimated_age?.trim() || "Unknown",
+    estimatedAge: ageBracket(raw.estimated_age, specTier, ctx.buildYear),
     condition: raw.condition?.trim() || "See assessment",
     score,
     urgencyLabel: urgencyLabel(score),
@@ -262,8 +301,9 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem): SubItem {
     // Only cost-bearing items carry a replacement cost into the Renovations tab.
     estimatedReplacementCost: item.costBearing ? normCost(raw.replacement_cost) : null,
     replacementCostWeight: 0, // v3.1 engine weights by persona points, not this field
-    specTier: usesSpecTier(item) ? normSpecTier(raw.spec_tier) : undefined,
+    specTier,
     observedDefect: raw.observed_defect?.trim() || undefined,
+    estimatedSqm: SIZE_ITEM_IDS.has(item.id) ? sizeSqm(raw.estimated_sqm, item.id, ctx.floorAreaSqm, ctx.bedrooms) : undefined,
     // Topography carries the facts its score is derived from (see land-quality.ts).
     slopeBand: item.id === "land_topography" ? normSlopeBand(raw.slope_band) : undefined,
     usableLandPct: item.id === "land_topography" ? normUsablePct(raw.usable_land_pct) : undefined,
@@ -284,12 +324,13 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem): SubItem {
   };
 }
 
-function placeholderSubItem(item: ScoringSubItem, hadPhotos: boolean): SubItem {
+function placeholderSubItem(item: ScoringSubItem, hadPhotos: boolean, ctx: SubItemContext): SubItem {
   return {
     id: item.id,
     name: item.label,
     material: "Not visible in photos",
-    estimatedAge: "Unknown",
+    // No spec tier here, so the bracket comes from the build era alone.
+    estimatedAge: ageBracket(undefined, undefined, ctx.buildYear),
     condition: "Not assessed — inspection recommended",
     score: null,
     urgencyLabel: urgencyLabel(null),
@@ -350,14 +391,19 @@ function buildAssessment(
     ? SCORING_MODEL.filter((i) => inspections.includes(i.inspection))
     : SCORING_MODEL;
 
+  const ctx: SubItemContext = {
+    buildYear: listing.buildYear,
+    floorAreaSqm: listing.floorAreaSqm,
+    bedrooms: listing.bedrooms,
+  };
   const subItems: SubItem[] = [];
   for (const item of items) {
     const found = byId.get(item.id);
     if (found && found.present !== false) {
-      subItems.push(mapSubItem(found, item));
+      subItems.push(mapSubItem(found, item, ctx));
     } else if (!item.conditional) {
       // core item the model didn't (or couldn't) assess → Tier 3 placeholder
-      subItems.push(placeholderSubItem(item, hadPhotos));
+      subItems.push(placeholderSubItem(item, hadPhotos, ctx));
     }
     // conditional + absent → omit entirely (drops out of the denominator)
   }

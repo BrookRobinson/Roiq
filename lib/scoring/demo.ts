@@ -163,6 +163,18 @@ const COSTS: Record<string, { low: number; high: number; notes: string }> = {
   ext_gutters: { low: 1800, high: 3200, notes: "Replace spouting + downpipes" },
 };
 
+// Specific item ages (years), demonstrating precise, per-item aging — some
+// original to the c.1975 build, others clearly updated since.
+const AGES: Record<string, string> = {
+  kit_cabinetry: "~8 years", kit_appliances: "~5 years", kit_benchtop: "~8 years", kit_splashback: "~8 years",
+  liv_flooring: "~8 years (engineered oak, updated)",
+  bath_shower: "~10 years", bath_vanity: "~10 years", bath_flooring: "~10 years",
+  ext_roof: "~51 years (original long-run iron)",
+  liv_insulation: "~51 years (original / minimal)",
+  bath_ventilation: "None fitted",
+  liv_fixtures: "~20 years",
+};
+
 function buildSubItems(): SubItem[] {
   const out: SubItem[] = [];
   for (const item of SCORING_MODEL) {
@@ -187,7 +199,7 @@ function buildSubItems(): SubItem[] {
       id: item.id,
       name: item.label,
       material: "See assessment",
-      estimatedAge: isImprovement ? "c.1975 (build era)" : "—",
+      estimatedAge: isImprovement ? (AGES[item.id] ?? "~51 years (original)") : "—",
       condition: urgencyLabel(score),
       score,
       urgencyLabel: urgencyLabel(score),
@@ -203,6 +215,9 @@ function buildSubItems(): SubItem[] {
       ...(item.id === "land_shape" ? { shapeType: "rectangular" as const, workableLandPct: 94 } : {}),
       // Demo planting: settled trees, ordinary upkeep — an amenity, not a project.
       ...(item.id === "land_trees" ? { treeMaturity: "established" as const, treeUpkeep: "tidy" as const, treesProtected: false } : {}),
+      // Size items show an estimated area instead of material/age.
+      ...(item.id === "liv_size" ? { estimatedSqm: 52 } : {}),
+      ...(item.id === "bed_size" ? { estimatedSqm: 14 } : {}),
       // Demo orientation: north-facing, with the established trees taking a little off it.
       ...(item.id === "land_aspect" ? { aspectDirection: "north" as const, sunObstruction: "partly_shaded" as const } : {}),
       // Demo access: its own street frontage, nothing shared.

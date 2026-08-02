@@ -34,6 +34,7 @@ export interface RawSubItem {
   confidence_tier: number;
   spec_tier?: string;
   observed_defect?: string;
+  estimated_sqm?: number;
   slope_band?: string;
   usable_land_pct?: number;
   shape_type?: string;
@@ -293,7 +294,16 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               description: "False only if this (conditional) feature is absent from the property.",
             },
             material: { type: "string", description: "Material / construction, with the mix described if mixed." },
-            estimated_age: { type: "string", description: "Estimated age or 'Unknown'." },
+            estimated_age: {
+              type: "string",
+              description:
+                "A SPECIFIC age for this item in YEARS — NEVER 'Unknown', never a wide bracket. Give your single best estimate like '~10 years', 'approx. 25 years', 'about 2 years'. Judge it from the actual condition, the materials and style, and what was fashionable/standard at the time (e.g. a shower with a certain tile format, mixer style and glass type reads as ~10 years). If an item has clearly been replaced or renovated, age it from THAT, not the building's build year. This age feeds the valuation, so be as precise as the evidence allows — and you MUST justify the number in ai_summary (what about the condition, style and era of the fittings led you to that age).",
+            },
+            estimated_sqm: {
+              type: "number",
+              description:
+                "SIZE/AREA items ONLY (e.g. living-area size, bedroom size) — your best estimate of the floor area in m² as a NUMBER, judged from the photos and the property's total floor area. For a bedroom item, estimate a typical/main bedroom. Leave off for all other items.",
+            },
             condition: { type: "string", description: "One-line condition summary." },
             score: {
               type: ["integer", "null"],

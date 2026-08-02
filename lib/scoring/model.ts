@@ -71,7 +71,11 @@ export function specStatusLabel(tier: SpecTier, score: number | null): string {
 /** Improvements items that are NOT material fit-outs, so they carry no spec tier —
  * they're scored by condition/quality × points (like Land & Legal), and shown as a
  * plain points badge with no tier bubble. Sun & aspect is orientation, not a finish. */
-export const NON_TIERED_IMPROVEMENT_IDS = new Set<string>(["loc_sun"]);
+export const NON_TIERED_IMPROVEMENT_IDS = new Set<string>(["loc_sun", "liv_size", "bed_size"]);
+
+/** Intrinsic "how big is it" items — no material or age to show, so the card
+ * displays an estimated floor area (m²) instead. Scored on generosity, not finish. */
+export const SIZE_ITEM_IDS = new Set<string>(["liv_size", "bed_size"]);
 
 /** True when an item is scored via the spec-tier band (a material Improvements item). */
 export function usesSpecTier(item: { inspection: Inspection; id: string }): boolean {

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { SubItem, SpecTier, RenoControls } from "@/lib/property-tab/types";
+import type { SubItem, RenoControls } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import { improvementItemPoints } from "@/lib/scoring/engine";
-import { SPEC_TIER_SHORT, specStatusLabel, type Persona } from "@/lib/scoring/model";
+import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { ConfidenceTierBadge } from "./ConfidenceTierBadge";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
@@ -17,14 +17,6 @@ import {
   deckRepairCost,
 } from "@/lib/labour-rates";
 import { Camera, ArrowRight, Wrench, Shield } from "lucide-react";
-
-/** Spec / finish tier badge — the quality/era of the materials, which sets the points band. */
-const SPEC_META: Record<SpecTier, { label: string; color: string; bg: string; border: string }> = {
-  deteriorated: { label: SPEC_TIER_SHORT.deteriorated, color: "#ff5f5f", bg: "rgba(255,95,95,0.1)", border: "rgba(255,95,95,0.25)" },
-  dated: { label: SPEC_TIER_SHORT.dated, color: "var(--text-muted)", bg: "var(--surface)", border: "var(--border)" },
-  modern: { label: SPEC_TIER_SHORT.modern, color: "var(--brand)", bg: "rgba(0,212,200,0.1)", border: "rgba(0,212,200,0.2)" },
-  luxury: { label: SPEC_TIER_SHORT.luxury, color: "#fbbf24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.2)" },
-};
 
 const PTS_RED = "#ff5f5f", PTS_ORANGE = "#fb923c", PTS_GREEN = "#00e676";
 /** Colour for a points read, banded by fraction of the max. Shared with the
@@ -129,10 +121,13 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               </div>
             ) : (
               <div className="flex flex-wrap gap-2 mb-2">
-                {[
-                  { label: "Material", value: item.material },
-                  { label: "Age",      value: item.estimatedAge },
-                ].map((pill) => (
+                {(SIZE_ITEM_IDS.has(item.id)
+                  ? [{ label: "Size", value: item.estimatedSqm ? `~${item.estimatedSqm} m²` : "See assessment" }]
+                  : [
+                      { label: "Material", value: item.material },
+                      { label: "Age", value: item.estimatedAge },
+                    ]
+                ).map((pill) => (
                   <div
                     key={pill.label}
                     className="text-xs rounded-md px-2 py-1 max-w-xs"
@@ -173,16 +168,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                     bg={`${conditionScoreColor(item.score)}1f`}
                     border={`${conditionScoreColor(item.score)}55`}
                     title="Condition — how worn or new the item is (1–10)."
-                  />
-                )}
-                {item.specTier && (
-                  <StatBubble
-                    label="Tier"
-                    value={specStatusLabel(item.specTier, item.score)}
-                    color={SPEC_META[item.specTier].color}
-                    bg={SPEC_META[item.specTier].bg}
-                    border={SPEC_META[item.specTier].border}
-                    title="Spec tier — the quality/era of the materials (or 'Non-existing' when the item isn't there). It sets how many points this item can earn."
                   />
                 )}
               </>

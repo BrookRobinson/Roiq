@@ -103,6 +103,7 @@ export interface SubItem {
   replacementCostWeight: number;       // 0–1, fraction of category score
   specTier?: SpecTier;                 // quality/spec of the materials (Improvements) — drives building value
   observedDefect?: string;             // what's actually VISIBLE in this property's photos that needs work
+  estimatedSqm?: number;               // for size/area items — the estimated area in m² (shown instead of material/age)
 
   slopeBand?: SlopeBand;               // land_topography only — the measured-ish fact behind its score
   usableLandPct?: number;              // land_topography only — 0–100, share of the section flat enough to use
