@@ -225,21 +225,26 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {/* Actions */}
+              {/* Actions. The whole card is already a link to the report, so these
+                  can't be nested <a>/<button> inside it (invalid HTML → hydration
+                  error). They're visual affordances; the card handles opening, and
+                  share/download stop the click so they don't navigate. */}
               <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-                <Link
-                  href={`/report/${r.id}`}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                <span
+                  className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
                   style={{
                     background: "var(--surface-2)",
                     color: "var(--text-secondary)",
                     border: "1px solid var(--border)",
                   }}
-                  aria-label="Open report"
+                  aria-hidden="true"
                 >
                   <ExternalLink size={14} />
-                </Link>
-                <button
+                </span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
                   style={{
                     background: "var(--surface-2)",
@@ -249,8 +254,11 @@ export default function DashboardPage() {
                   aria-label="Share report"
                 >
                   <Share2 size={14} />
-                </button>
-                <button
+                </span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
                   style={{
                     background: "var(--surface-2)",
@@ -260,7 +268,7 @@ export default function DashboardPage() {
                   aria-label="Download PDF"
                 >
                   <Download size={14} />
-                </button>
+                </span>
               </div>
             </Link>
           ))}
