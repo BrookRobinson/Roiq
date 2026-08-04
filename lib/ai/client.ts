@@ -1,8 +1,17 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-// Model used for photo analysis. Per RoiQ spec Part 2.1 / Part 17 — Sonnet is the
-// deliberate cost choice for the vision pipeline (Batch + prompt caching layered on top).
+// Text + web-search calls (market rent, capital growth, interest rates, listing
+// recovery) stay on Sonnet 4.6 — they use the web_search_20250305 tool version and
+// don't benefit from the vision gains, so no reason to change them.
 export const ANALYSIS_MODEL = "claude-sonnet-4-6";
+
+// PHOTO / VISION analysis runs on Sonnet 5. A/B tested against 4.6 on 2026-08 (see
+// scripts/vision-resolution-test.mjs): sonnet-5 reads materials + fine defects more
+// accurately, catches things 4.6 confidently denies (e.g. a smoke detector 4.6
+// declared absent), and hallucinates less speculative filler — and it's cheaper than
+// 4.6 on intro pricing through 2026-08-31. Decoupled from ANALYSIS_MODEL so the
+// web-search calls (older tool version) are untouched.
+export const VISION_MODEL = "claude-sonnet-5";
 
 let client: Anthropic | null = null;
 

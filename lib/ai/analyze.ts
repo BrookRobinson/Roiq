@@ -1,6 +1,6 @@
 import Anthropic, { toFile } from "@anthropic-ai/sdk";
 
-import { getAnthropic, ANALYSIS_MODEL } from "./client";
+import { getAnthropic, ANALYSIS_MODEL, VISION_MODEL } from "./client";
 import { SYSTEM_PROMPT } from "./system-prompt";
 import {
   ANALYSIS_TOOL,
@@ -549,10 +549,15 @@ async function runClaude(
   // key, so we must stream — `.finalMessage()` returns the assembled result.
   const resp = await client.messages
     .stream({
-      model: ANALYSIS_MODEL,
+      model: VISION_MODEL,
       // 84 v3.1/v3.2 items with sourced reasoning each can exceed a 16k budget and
       // truncate the tool JSON → give the single-call path generous headroom.
       max_tokens: 32000,
+      // Sonnet 5 runs adaptive thinking by default — disable it for this forced-
+      // tool-choice extraction: the task is guided structured output, not open-ended
+      // reasoning, so thinking only adds latency + input-token pressure (which the
+      // Tier-1 30k ITPM cap is sensitive to). Keeps behaviour equivalent to 4.6.
+      thinking: { type: "disabled" },
       system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       tools: [ANALYSIS_TOOL],
       tool_choice: { type: "tool", name: ANALYSIS_TOOL_NAME },
@@ -599,7 +604,7 @@ export function assembleResult(
     scores,
     gaps,
     photosAnalysed,
-    model: ANALYSIS_MODEL,
+    model: VISION_MODEL,
   };
 }
 
@@ -688,9 +693,11 @@ async function runFanCall(
   instruction: string
 ): Promise<RawAnalysis> {
   const resp = await client.beta.messages.create({
-    model: ANALYSIS_MODEL,
+    model: VISION_MODEL,
     max_tokens: 8000,
     betas: [FILES_BETA],
+    // Disable adaptive thinking (Sonnet 5 default-on) for the forced-tool extraction — see the single-call path.
+    thinking: { type: "disabled" },
     system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     tools: [ANALYSIS_TOOL as unknown as Anthropic.Beta.BetaToolUnion],
     tool_choice: { type: "tool", name: ANALYSIS_TOOL_NAME },
