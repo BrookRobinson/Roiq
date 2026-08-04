@@ -11,27 +11,60 @@ import { useRequireAccount } from "@/lib/account/useRequireAccount";
 type Step = "input" | "analysing" | "done";
 interface Shot { dataUrl: string; name: string }
 
-// Resize a picked photo in the browser before upload — keeps the request small
-// and fast. Anthropic downscales >1568px anyway, so quality is unaffected.
-function resizeToDataUrl(file: File, maxDim = 1400, quality = 0.8): Promise<string> {
+/** Read a file's raw bytes as a data URL — the fallback when the browser can't
+ * decode the format in-canvas (e.g. HEIC in Chrome/Firefox). The server (sharp,
+ * with HEIF support) then converts it to JPEG during analysis. */
+function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(new Error("Could not read that file"));
+    r.readAsDataURL(file);
+  });
+}
+
+// Draw a decoded bitmap/image to a downscaled JPEG data URL.
+function drawToJpeg(src: CanvasImageSource, srcW: number, srcH: number, maxDim: number, quality: number): string | null {
+  const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(src, 0, 0, w, h);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+// Decode + downscale a picked photo in the browser before upload — keeps the
+// request small and fast (Anthropic downscales >1568px anyway, so quality is
+// unaffected). Critically, HEIC (the default iPhone format) must be converted to
+// JPEG here: Anthropic doesn't accept HEIC, and sending raw HEIC makes the upload
+// tens of MB (which fails). Three decode paths, most reliable first:
+//   1. createImageBitmap — Safari decodes HEIC this way, and it honours EXIF rotation.
+//   2. <img> element — the classic path for JPEG/PNG on every browser.
+//   3. raw bytes — last resort; the server (sharp/HEIF) converts them.
+async function resizeToDataUrl(file: File, maxDim = 1400, quality = 0.8): Promise<string> {
+  // 1 — createImageBitmap (handles HEIC in Safari)
+  try {
+    const bitmap = await createImageBitmap(file);
+    const out = drawToJpeg(bitmap, bitmap.width, bitmap.height, maxDim, quality);
+    bitmap.close?.();
+    if (out) return out;
+  } catch { /* fall through */ }
+
+  // 2 — <img> element
+  const viaImg = await new Promise<string | null>((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-      const w = Math.max(1, Math.round(img.width * scale));
-      const h = Math.max(1, Math.round(img.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("Canvas unavailable"));
-      ctx.drawImage(img, 0, 0, w, h);
-      resolve(canvas.toDataURL("image/jpeg", quality));
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read that image")); };
+    img.onload = () => { URL.revokeObjectURL(url); resolve(drawToJpeg(img, img.width, img.height, maxDim, quality)); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
     img.src = url;
   });
+  if (viaImg) return viaImg;
+
+  // 3 — raw bytes; the server converts (e.g. HEIC on a browser that decodes neither way)
+  return fileToDataUrl(file);
 }
 
 export default function UploadReportPage() {
@@ -87,7 +120,7 @@ export default function UploadReportPage() {
       );
       setPhotos((p) => ({ ...p, [catId]: [...(p[catId] ?? []), ...resized] }));
     } catch {
-      setError("One of those images couldn't be read — try a JPEG or PNG.");
+      setError("One of those files couldn't be read as an image — try a JPEG, PNG or HEIC photo.");
     }
   };
   const removeShotAt = (catId: string, index: number) =>
@@ -360,7 +393,7 @@ function PhotoSlot({ cat, shots, onAdd, onRemove }: {
         </button>
       </div>
       {!has && cat.hint && <div className="text-[10px] mt-1.5" style={{ color: "var(--text-muted)" }}>{cat.hint}</div>}
-      <input ref={ref} type="file" accept="image/*" multiple className="hidden" onChange={(e) => { onAdd(cat.id, e.target.files); e.target.value = ""; }} />
+      <input ref={ref} type="file" accept="image/*,.heic,.heif,image/heic,image/heif" multiple className="hidden" onChange={(e) => { onAdd(cat.id, e.target.files); e.target.value = ""; }} />
     </div>
   );
 }
