@@ -19,6 +19,7 @@ import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/deve
 import { assessSectionSize, assessTopography, assessShape, assessTrees, assessAspect, assessFrontage } from "@/lib/scoring/land-quality";
 import { valueExtraDwellings, dwellingComplianceWork, type ExtraDwellingValueResult, type DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
+import { SendReportDialog } from "@/components/SendReportDialog";
 import { MANDATORY_CATEGORIES, categoryLabel } from "@/lib/photo-categories";
 import {
   projectValue, cumulativeGrowthPct, grossYieldPct, netYieldPct, estimateAnnualCosts, vacancyRisk,
@@ -45,7 +46,7 @@ import {
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, Shield, MapPin,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
-  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight,
+  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send,
 } from "lucide-react";
 
 type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "methodology";
@@ -166,9 +167,10 @@ function PurchasePriceBar({ value, priceText, onChange }: {
   );
 }
 
-export function RealReportView({ report }: { report: StoredReport }) {
+export function RealReportView({ report, shared = false }: { report: StoredReport; shared?: boolean }) {
   const [tab, setTab] = useState<Tab>("overview");
   const [persona, setPersona] = useState<Persona>("buyer");
+  const [showSend, setShowSend] = useState(false);
   const [askingPrice, setAskingPrice] = useState<number | null>(
     report.listing.askingPrice ?? parseOverPrice(report.listing.priceText)
   );
@@ -350,7 +352,9 @@ export function RealReportView({ report }: { report: StoredReport }) {
   return (
     <HoldPeriodProvider defaultYears={10}>
       <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-        <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+        <Navbar user={shared ? null : { email: "jane@example.com" }} plan="starter" />
+
+        {showSend && <SendReportDialog report={report} onClose={() => setShowSend(false)} />}
 
         {/* Header */}
         <div className="border-b" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
@@ -358,15 +362,25 @@ export function RealReportView({ report }: { report: StoredReport }) {
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <div className="flex items-center gap-2 text-xs mb-1" style={{ color: "var(--text-muted)" }}>
-                  <a href="/dashboard" className="hover:underline" style={{ color: "var(--text-muted)" }}>← Dashboard</a>
+                  {shared ? (
+                    <span className="flex items-center gap-1" style={{ color: "var(--brand)" }}>
+                      <Send size={11} /> shared report
+                    </span>
+                  ) : (
+                    <a href="/dashboard" className="hover:underline" style={{ color: "var(--text-muted)" }}>← Dashboard</a>
+                  )}
                   <span>·</span>
                   <a href={listing.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:underline" style={{ color: "var(--brand)" }}>
                     {listing.portal} <ExternalLink size={11} />
                   </a>
-                  <span>·</span>
-                  <span className="flex items-center gap-1" style={{ color: "var(--brand)" }}>
-                    <Sparkles size={11} /> live analysis
-                  </span>
+                  {!shared && (
+                    <>
+                      <span>·</span>
+                      <span className="flex items-center gap-1" style={{ color: "var(--brand)" }}>
+                        <Sparkles size={11} /> live analysis
+                      </span>
+                    </>
+                  )}
                 </div>
                 <h1 className="text-xl sm:text-2xl font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
                   {listing.address ?? "Address not found"}
@@ -398,6 +412,17 @@ export function RealReportView({ report }: { report: StoredReport }) {
                   </div>
                 )}
               </div>
+
+              {/* Send / share — owner view only */}
+              {!shared && (
+                <button
+                  onClick={() => setShowSend(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer shrink-0 whitespace-nowrap"
+                  style={{ background: "var(--brand)", color: "#fff" }}
+                >
+                  <Send size={13} /> Send report
+                </button>
+              )}
             </div>
 
             {/* Persona toggle */}

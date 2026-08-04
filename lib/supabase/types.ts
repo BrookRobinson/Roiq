@@ -256,9 +256,39 @@ export interface Database {
         Insert: Omit<Database["public"]["Tables"]["alerts"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["alerts"]["Insert"]>;
       };
+      shared_reports: {
+        Row: {
+          token: string;
+          report: Json;
+          address: string | null;
+          score: number | null;
+          shared_by: string | null;
+          recipient: string | null;
+          note: string | null;
+          view_count: number;
+          created_at: string;
+        };
+        Insert: {
+          token: string;
+          report: Json;
+          address?: string | null;
+          score?: number | null;
+          shared_by?: string | null;
+          recipient?: string | null;
+          note?: string | null;
+          view_count?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["shared_reports"]["Insert"]>;
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      increment_share_view: {
+        Args: { p_token: string };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
   };
 }

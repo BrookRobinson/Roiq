@@ -56,6 +56,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/report/") &&
     !pathname.startsWith("/report/demo") &&
     !pathname.startsWith("/report/analyze") &&
+    !pathname.startsWith("/report/share_") && // shared links are public by design
     pathname !== "/report/new";
 
   if (!REVIEW_MODE && !user && (isProtected || isProtectedReport)) {

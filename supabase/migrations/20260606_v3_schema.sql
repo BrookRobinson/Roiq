@@ -48,19 +48,22 @@ CREATE INDEX IF NOT EXISTS report_gaps_resolved   ON report_gaps(report_id, reso
 -- RLS
 ALTER TABLE report_gaps ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Users can view their own report gaps"
+DROP POLICY IF EXISTS "Users can view their own report gaps" ON report_gaps;
+CREATE POLICY "Users can view their own report gaps"
   ON report_gaps FOR SELECT
   USING (
     report_id IN (SELECT id FROM reports WHERE user_id = auth.uid())
   );
 
-CREATE POLICY IF NOT EXISTS "Users can insert gaps for their own reports"
+DROP POLICY IF EXISTS "Users can insert gaps for their own reports" ON report_gaps;
+CREATE POLICY "Users can insert gaps for their own reports"
   ON report_gaps FOR INSERT
   WITH CHECK (
     report_id IN (SELECT id FROM reports WHERE user_id = auth.uid())
   );
 
-CREATE POLICY IF NOT EXISTS "Users can update their own gaps"
+DROP POLICY IF EXISTS "Users can update their own gaps" ON report_gaps;
+CREATE POLICY "Users can update their own gaps"
   ON report_gaps FOR UPDATE
   USING (
     report_id IN (SELECT id FROM reports WHERE user_id = auth.uid())
@@ -70,7 +73,9 @@ CREATE POLICY IF NOT EXISTS "Users can update their own gaps"
 CREATE TABLE IF NOT EXISTS report_upload_tokens (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   report_id   uuid REFERENCES reports(id) ON DELETE CASCADE,
-  token       text UNIQUE NOT NULL DEFAULT encode(gen_random_bytes(24), 'base64url'),
+  -- URL-safe token: base64 with +/ → -_ and padding stripped (encode() has no
+  -- native 'base64url', so we derive it — Postgres only supports base64/hex/escape).
+  token       text UNIQUE NOT NULL DEFAULT rtrim(replace(replace(encode(gen_random_bytes(24), 'base64'), '+', '-'), '/', '_'), '='),
   created_at  timestamptz DEFAULT now(),
   expires_at  timestamptz DEFAULT (now() + interval '30 days'),
   used_count  integer DEFAULT 0,
@@ -83,11 +88,13 @@ CREATE INDEX IF NOT EXISTS upload_tokens_report ON report_upload_tokens(report_i
 -- No RLS on upload tokens — agents access via token only (public, expiry-controlled)
 ALTER TABLE report_upload_tokens ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Anyone can read active non-expired tokens by token value"
+DROP POLICY IF EXISTS "Anyone can read active non-expired tokens by token value" ON report_upload_tokens;
+CREATE POLICY "Anyone can read active non-expired tokens by token value"
   ON report_upload_tokens FOR SELECT
   USING (is_active = true AND expires_at > now());
 
-CREATE POLICY IF NOT EXISTS "Report owners can manage their tokens"
+DROP POLICY IF EXISTS "Report owners can manage their tokens" ON report_upload_tokens;
+CREATE POLICY "Report owners can manage their tokens"
   ON report_upload_tokens FOR ALL
   USING (
     report_id IN (SELECT id FROM reports WHERE user_id = auth.uid())
@@ -193,7 +200,8 @@ CREATE INDEX IF NOT EXISTS user_quotes_report ON user_cost_quotes(report_id);
 
 ALTER TABLE user_cost_quotes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Users can manage their own quotes"
+DROP POLICY IF EXISTS "Users can manage their own quotes" ON user_cost_quotes;
+CREATE POLICY "Users can manage their own quotes"
   ON user_cost_quotes FOR ALL
   USING (
     report_id IN (SELECT id FROM reports WHERE user_id = auth.uid())
@@ -216,13 +224,15 @@ CREATE INDEX IF NOT EXISTS report_versions_report ON report_versions(report_id);
 
 ALTER TABLE report_versions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Users can view their own report versions"
+DROP POLICY IF EXISTS "Users can view their own report versions" ON report_versions;
+CREATE POLICY "Users can view their own report versions"
   ON report_versions FOR SELECT
   USING (
     report_id IN (SELECT id FROM reports WHERE user_id = auth.uid())
   );
 
-CREATE POLICY IF NOT EXISTS "Users can insert versions for their reports"
+DROP POLICY IF EXISTS "Users can insert versions for their reports" ON report_versions;
+CREATE POLICY "Users can insert versions for their reports"
   ON report_versions FOR INSERT
   WITH CHECK (
     report_id IN (SELECT id FROM reports WHERE user_id = auth.uid())
