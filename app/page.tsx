@@ -3,6 +3,7 @@ import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
 import { WealthHero } from "@/components/landing/WealthHero";
+import { DemoReportSection } from "@/components/landing/DemoReportSection";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
 
@@ -32,6 +33,7 @@ export default function LandingPage() {
       <Navbar />
       <WealthHero />
       <FactBand />
+      <DemoReportSection />
       <Position />
       <WhatsInside />
       <Scoring />

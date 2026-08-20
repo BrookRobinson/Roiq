@@ -167,7 +167,21 @@ function PurchasePriceBar({ value, priceText, onChange }: {
   );
 }
 
-export function RealReportView({ report, shared = false }: { report: StoredReport; shared?: boolean }) {
+export function RealReportView({
+  report,
+  shared = false,
+  embedded = false,
+}: {
+  report: StoredReport;
+  shared?: boolean;
+  /**
+   * Renders the report as a section inside another page (the landing-page
+   * demo) rather than as a standalone route: no Navbar of its own, no
+   * full-viewport height, and no owner-only actions such as Send report,
+   * which would be dead ends for a signed-out visitor.
+   */
+  embedded?: boolean;
+}) {
   const [tab, setTab] = useState<Tab>("overview");
   const [persona, setPersona] = useState<Persona>("buyer");
   const [showSend, setShowSend] = useState(false);
@@ -351,10 +365,10 @@ export function RealReportView({ report, shared = false }: { report: StoredRepor
 
   return (
     <HoldPeriodProvider defaultYears={10}>
-      <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-        <Navbar user={shared ? null : { email: "jane@example.com" }} plan="starter" />
+      <div style={{ background: "var(--bg)", minHeight: embedded ? undefined : "100vh" }}>
+        {!embedded && <Navbar user={shared ? null : { email: "ana@example.co.nz" }} plan="starter" />}
 
-        {showSend && <SendReportDialog report={report} onClose={() => setShowSend(false)} />}
+        {!embedded && showSend && <SendReportDialog report={report} onClose={() => setShowSend(false)} />}
 
         {/* Header */}
         <div className="border-b" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
@@ -366,6 +380,8 @@ export function RealReportView({ report, shared = false }: { report: StoredRepor
                     <span className="flex items-center gap-1" style={{ color: "var(--brand)" }}>
                       <Send size={11} /> shared report
                     </span>
+                  ) : embedded ? (
+                    <span style={{ color: "var(--text-muted)" }}>Sample report</span>
                   ) : (
                     <a href="/dashboard" className="hover:underline" style={{ color: "var(--text-muted)" }}>← Dashboard</a>
                   )}
@@ -414,7 +430,7 @@ export function RealReportView({ report, shared = false }: { report: StoredRepor
               </div>
 
               {/* Send / share — owner view only */}
-              {!shared && (
+              {!shared && !embedded && (
                 <button
                   onClick={() => setShowSend(true)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer shrink-0 whitespace-nowrap"
