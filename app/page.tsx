@@ -248,7 +248,7 @@ function Pricing() {
   ];
 
   const features: { label: string; has: [boolean, boolean, boolean] }[] = [
-    { label: "Reports per month", has: [true, true, true] },
+    { label: "Reports included", has: [true, true, true] },
     { label: "Full photo analysis", has: [false, true, true] },
     { label: "Score breakdown", has: [false, true, true] },
     { label: "Renovation planner", has: [false, true, true] },
@@ -263,6 +263,12 @@ function Pricing() {
       <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
         <Reveal>
           <h2 className="section-heading max-w-[14ch]">Simple, honest pricing</h2>
+          <p
+            className="mt-1 text-[15px] font-semibold"
+            style={{ color: "var(--accent-text)" }}
+          >
+            One-off payment. No subscriptions.
+          </p>
         </Reveal>
 
         <Reveal delay={0.1}>
@@ -295,8 +301,8 @@ function Pricing() {
                         style={{ color: "var(--text-primary)" }}
                       >
                         {p.price}
-                        <span className="text-[13px]" style={{ color: "var(--text-muted)" }}>
-                          /mo
+                        <span className="ml-1 text-[12px] font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--text-muted)" }}>
+                          once
                         </span>
                       </div>
                     </th>
