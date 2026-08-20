@@ -111,7 +111,7 @@ const FINDINGS: Record<string, string> = {
   land_topography: "Gentle cross-slope to the rear — most of the section is usable",
   leg_title: "Freehold — no encumbrances",
   leg_weathertight: "Low risk — 1975 weatherboard, pre-leaky era",
-  leg_unconsented: "Flagged — rear studio may be unconsented",
+  leg_unconsented: "Flagged: rear studio may be unconsented",
 };
 
 // Remediable findings → cost + Renovations line item (Section 8).

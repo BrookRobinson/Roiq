@@ -1,10 +1,10 @@
 import Link from "next/link";
-import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
 import { WealthHero } from "@/components/landing/WealthHero";
 import { DemoReportSection } from "@/components/landing/DemoReportSection";
 import { LiveMapSection } from "@/components/landing/LiveMapSection";
+import { WhatsInside } from "@/components/landing/WhatsInside";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
 
@@ -18,8 +18,10 @@ import { ArrowRight, Check, Minus } from "lucide-react";
  *    mocked-up screenshot, so what is on the marketing page is what ships.
  *  - Pricing is a ruled comparison table, not three identical cards.
  *
- * Photography is placeholder (picsum, seeded so it stays stable between
- * builds). Swap in real NZ listing photography before launch.
+ * There is no stock photography on this page. Every section shows the
+ * product's own output: the hero runs the finance engine, the demo section
+ * embeds the real report, the map is the real map, and "Everything in one
+ * report" quotes findings straight out of buildDemoReport().
  */
 
 export const metadata = {
@@ -115,109 +117,6 @@ function Position() {
         </Reveal>
       </div>
     </section>
-  );
-}
-
-/* ── 4. What's inside ──────────────────────────────────────────────────────
-   Asymmetric bento. Five items, five cells, mixed sizes, two carrying
-   photography so it is not a wall of text tiles.                            */
-function WhatsInside() {
-  return (
-    <section className="border-b py-24 lg:py-28" style={{ borderColor: "var(--rule)" }}>
-      <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
-        <Reveal>
-          <h2 className="section-heading max-w-[16ch]">Everything in one report</h2>
-        </Reveal>
-
-        <div className="mt-14 grid gap-4 lg:grid-cols-3">
-          <Reveal className="lg:col-span-2" as="article">
-            <BentoCell
-              title="Condition, read from the photographs"
-              body="Foundation, roof, cladding, joinery, kitchen, bathrooms. Each one scored, aged, and tied to the photo it came from, so you can check the reasoning."
-              image="https://picsum.photos/seed/roiq-interior-kitchen/1200/560"
-              alt="Kitchen interior of a renovated home"
-            />
-          </Reveal>
-
-          <Reveal delay={0.06} as="article">
-            <BentoCell
-              title="Renovation costing"
-              body="Three tiers, itemised in materials and labour, priced by region."
-            />
-          </Reveal>
-
-          <Reveal delay={0.12} as="article">
-            <BentoCell
-              title="Land and legal"
-              body="Title type, consents, weathertight era, Healthy Homes, and what to verify against the LIM."
-            />
-          </Reveal>
-
-          <Reveal delay={0.18} as="article">
-            <BentoCell
-              title="The money"
-              body="Yield, mortgage, bright-line, equity over a hold period you set."
-            />
-          </Reveal>
-
-          <Reveal delay={0.24} as="article">
-            <BentoCell
-              title="Value verdict"
-              body="What the asking price looks like against the suburb, adjusted for condition."
-              image="https://picsum.photos/seed/roiq-street-suburb/700/420"
-              alt="Suburban street of New Zealand homes"
-              compact
-            />
-          </Reveal>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function BentoCell({
-  title,
-  body,
-  image,
-  alt,
-  compact,
-}: {
-  title: string;
-  body: string;
-  image?: string;
-  alt?: string;
-  compact?: boolean;
-}) {
-  return (
-    <div className="card flex h-full flex-col justify-between overflow-hidden">
-      {image && (
-        <div
-          className={`relative w-full ${compact ? "aspect-[16/10]" : "aspect-[21/9]"}`}
-        >
-          <Image
-            src={image}
-            alt={alt ?? ""}
-            fill
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover"
-          />
-        </div>
-      )}
-      <div className="p-7">
-        <h3
-          className="text-[17px] font-semibold leading-snug"
-          style={{ letterSpacing: "-0.015em", color: "var(--text-primary)" }}
-        >
-          {title}
-        </h3>
-        <p
-          className="mt-2.5 text-[15px] leading-relaxed"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          {body}
-        </p>
-      </div>
-    </div>
   );
 }
 
