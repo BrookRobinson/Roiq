@@ -62,7 +62,8 @@ export function QuestionHero() {
             className="mt-6 max-w-measure text-[17px] leading-relaxed"
             style={{ color: "var(--text-secondary)" }}
           >
-            Do a property report and find out. The end result may shock you.
+            Run a property report and find out. The answer might not be the one
+            the listing is selling you.
           </p>
         </Enter>
 
