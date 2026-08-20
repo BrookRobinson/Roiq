@@ -1504,19 +1504,14 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
 
   return (
     <div className="space-y-4">
-      {/* Section 1 — what WE would do. A prioritised plan, no resale-gain claim. */}
-      {price > 0 && items.length > 0 && (
-        <div className="text-[11px] uppercase tracking-widest" style={{ color: "var(--brand)" }}>Our recommendation</div>
-      )}
-      <BudgetPlanCard lines={items} price={price} persona={persona} />
-
-      {/* Section 2 — what YOU have chosen. Titled so it doesn't read as a
-          continuation of the recommendation above. */}
-      <div className="pt-3">
+      {/* Section 1 — what YOU have chosen. This leads now: a reader arriving
+          on this tab has already ticked items on Improvements, so their own
+          plan is the thing they came back to adjust. */}
+      <div>
         <div className="text-[11px] uppercase tracking-widest mb-1.5" style={{ color: "var(--brand)" }}>Your renovation plan</div>
         <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>The work you&apos;ve chosen</h3>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          Separate from our recommendation above — these are the items you&apos;ve ticked on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab. Set the tier and who does the work, and the totals below follow. This is what feeds your yield and predicted sale price.
+          These are the items you&apos;ve ticked on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab. Set the tier and who does the work, and the totals below follow. This is what feeds your yield and predicted sale price. Our own recommendation is further down, kept separate.
         </p>
       </div>
 
@@ -1613,6 +1608,13 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
           </div>
         );
       })}
+      {/* Section 2 — what WE would do. A prioritised plan, no resale-gain
+          claim. Sits below the reader's own plan rather than above it. */}
+      {price > 0 && items.length > 0 && (
+        <div className="pt-3 text-[11px] uppercase tracking-widest" style={{ color: "var(--brand)" }}>Our recommendation</div>
+      )}
+      <BudgetPlanCard lines={items} price={price} persona={persona} />
+
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
         Choose a tier per item — 🩹 Patch Up, 🔨 Replace Budget or ✨ Replace High End — and DIY vs Pay someone. Tap See breakdown for the itemised materials (from the NZ materials database) plus labour. The total feeds the predicted sale price and investor yield.
         {persona === "investor" && " Rent-uplift figures are indicative typical-market estimates."}
