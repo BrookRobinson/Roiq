@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
 import { WealthHero } from "@/components/landing/WealthHero";
 import { DemoReportSection } from "@/components/landing/DemoReportSection";
+import { NzMapPreview } from "@/components/landing/NzMapPreview";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
 
@@ -359,14 +360,8 @@ function MapSection() {
             </Link>
           </Reveal>
         </div>
-        <div className="relative min-h-[320px] lg:min-h-[520px]">
-          <Image
-            src="https://picsum.photos/seed/roiq-aerial-housing/1100/900"
-            alt="Aerial view of a residential neighbourhood"
-            fill
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            className="object-cover"
-          />
+        <div className="relative min-h-[320px] lg:min-h-[560px]">
+          <NzMapPreview />
         </div>
       </div>
     </section>

@@ -7,6 +7,8 @@ const nextConfig = {
       // Placeholder property photography on the marketing pages.
       // Replace with real NZ listing photography before launch.
       { protocol: "https", hostname: "picsum.photos" },
+      // Mapbox Static Images: the NZ map preview on the landing page.
+      { protocol: "https", hostname: "api.mapbox.com" },
     ],
   },
 };
