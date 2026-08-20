@@ -134,6 +134,93 @@ const DEFAULT_BY_INSPECTION: Record<string, number> = {
 };
 
 const SUMMARIES: Record<string, string> = {
+  // ── Improvements: photo-grounded condition assessments ──────────────────
+  // One per improvements sub-item, written against the DEFECTS and PHOTOS
+  // maps above so the prose, the observed defect and the score agree.
+  ext_foundation:
+    "Concrete perimeter foundation typical of a 1975 Auckland build, with no visible cracking, movement or subsidence in the exterior photos. The gentle cross-slope on the section is being handled without stepping or underpinning. Nothing here suggests structural work, but a builder should still check the subfloor and pile condition from underneath, which no listing photo covers.",
+  ext_cladding:
+    "Bevel-back weatherboard, original to the house and in generally sound order across the elevations shown. The one concern is a patch of soft timber at the base of the south wall where the gutter above has been overflowing (Photo 4). Fix the guttering first, then cut out and replace the affected boards. Left alone, water at the base of a wall is how a small repair turns into a framing job.",
+  ext_windows:
+    "Aluminium joinery throughout, almost certainly a retrofit over the original timber given the condition, and running well in the photos. Single glazed, which is standard for the era and the main comfort weakness of the house. Double glazing is a worthwhile upgrade if you are staying long term, though it rarely pays for itself on resale alone.",
+  ext_decking:
+    "Timber deck off the living area, greyed and furred from going too long without oil, with two boards cupping near the steps (Photo 17). More concerning is the handrail post that moves when pushed, which is a safety item rather than a cosmetic one. Re-fix or replace the post, then sand and re-oil the boards. A weekend of work and a few hundred dollars in materials.",
+  ext_gutters:
+    "Debris and plant growth sitting in the gutter above the front entry, with staining down the cladding where it has been overflowing (Photo 2). This is the root cause of the soft weatherboard noted below it, so it is doing active damage rather than just looking untidy. Clear and re-fall the run, and check the downpipe discharges properly.",
+  ext_soffits:
+    "Paint flaking off the soffit lining along the south elevation and one sheet beginning to sag away from its fixings near the corner (Photo 4). Sagging soffit lining usually means moisture has been getting in behind it, so re-fix and repaint rather than just painting over. Worth checking at the same time as the gutter work above it.",
+  ext_doors:
+    "The front door is sound. The original aluminium slider to the deck drags on its track and its rubber seals have perished (Photos 3 and 17), which lets draughts and driving rain in and makes the living area harder to heat. New seals and a track service are cheap; replacing the unit only makes sense as part of a wider glazing upgrade.",
+  ext_paint:
+    "Weatherboards on the south and west elevations have chalked and are flaking above the window heads, while the north face is holding up better (Photos 1 and 4). That pattern is normal for prevailing weather exposure. A full exterior repaint is due within a year or two, and doing it sooner protects the cladding rather than just improving the look.",
+  ext_chimney:
+    "Masonry chimney serving the lounge wood burner, standing straight with no visible cracking or displaced flashing. Chimneys of this age are worth a specific look at the roof junction, which is the usual leak point, and an engineer should confirm it is seismically restrained if you are altering anything nearby. No evidence of a problem from the photos.",
+  kit_cabinetry:
+    "Renovated kitchen, roughly eight years old, with flat-panel doors and soft-close hardware in good order. This is the strongest room in the house and needs nothing. Expect another decade of service before it starts to look dated, which puts any kitchen spend well down your list.",
+  kit_appliances:
+    "Recent appliance suite of around five years, including an under-bench oven, ceramic cooktop, dishwasher and rangehood, all presenting as working. Nothing here needs replacing on purchase. Budget replacement from about year eight, and check whether the rangehood ducts outside rather than recirculating, which matters for moisture in a house with limited ventilation elsewhere.",
+  kit_benchtop:
+    "Engineered stone benchtop in excellent order with no chipping at the edges or staining around the sink cutout. The best single component in the house. No action needed and no cost to allow for.",
+  kit_flooring:
+    "Vinyl lifting at the seam in front of the dishwasher and a scorch mark beside the oven (Photo 12). A lifting seam next to a dishwasher matters more than it looks: water tracks under the vinyl and into the substrate where you cannot see it. Re-lay or replace the sheet, and check the floor underneath is dry while it is open.",
+  kit_layout:
+    "Workable galley arrangement with the sink, cooktop and fridge in a sensible triangle, and enough bench run either side of the cooktop to actually use. Storage is adequate rather than generous. The kitchen opens to the living area, which is what buyers in this bracket expect and is difficult to retrofit if it were not already there.",
+  kit_sink:
+    "Undermount stainless sink with a modern mixer, consistent with the eight-year renovation and in good condition. No leaks or staining visible at the cabinet base beneath. Nothing to do.",
+  kit_splashback:
+    "Glass splashback behind the cooktop, part of the same renovation, clean and undamaged with no cracking around the fixings. Fully sealed against the benchtop, which is what keeps moisture out of the wall behind. No action needed.",
+  bath_shower:
+    "Dated framed shower over bath with a perished seal at the base and silicone gone black along the wall junction (Photo 6). Black silicone is mould in the joint, and a perished base seal means water has been getting past it for a while. Re-seal as an immediate job, but treat this as the start of a bathroom that is due rather than a repair that will hold indefinitely.",
+  bath_hotwater:
+    "Original-looking copper cylinder in the hallway cupboard, unlagged, with corrosion staining on the tray beneath it (Photo 14). Staining in the tray means it has leaked at some point. A cylinder of this age is at the end of its service life and can fail without warning, so replace it early rather than waiting. Lagging and a modern cylinder will also cut your hot water running costs.",
+  bath_vanity:
+    "Original single vanity with a chipped laminate top and chrome tapware pitting around the spout base (Photo 6). Functional, dated, and matched to the rest of the bathroom in age. Not worth replacing on its own; roll it into the bathroom refresh when you do the shower and waterproofing.",
+  bath_toilet:
+    "Older close-coupled suite, working, with staining at the pan-to-floor junction that suggests a tired seal (Photo 11). Re-seat it on a new wax seal, which is a cheap job, and check the floor underneath is sound while it is lifted. Staining at that junction can mean water has been escaping under the floor covering.",
+  bath_flooring:
+    "Two cracked floor tiles beside the vanity and grout that has darkened and lifted along the shower edge (Photo 11). The shower edge is exactly where water gets underneath, and lifted grout there means it probably already has. Combined with the waterproofing question below, this points at a full wet-area redo rather than patching individual tiles.",
+  liv_heating:
+    "A single wood burner in the lounge is doing all the work for the whole house, and its flue collar shows rust at the ceiling penetration (Photos 3 and 8). Rust at a flue penetration is a weathertightness and fire-safety item, so have it inspected. The bigger issue is distribution: one fire in one room leaves the bedrooms cold, which the bedroom heating item below picks up.",
+  liv_fixtures:
+    "Original ceiling roses and plastic switch plates throughout, several yellowed with age, and no downlights fitted (Photos 7 and 8). Cosmetically dated but electrically unremarkable for the era. Worth asking whether the switchboard still has rewireable fuses, since a 1975 board is often the real electrical cost rather than the fittings you can see.",
+  liv_size:
+    "Generous open living at the scale you would expect from a 185m2 floor plan, with room for a full dining setting alongside the lounge without crowding. Flow to the deck and the north-facing garden is direct. Size and flow are among the harder things to change, so this is a genuine strength of the house.",
+  liv_light:
+    "North-facing living with large windows to the garden and no significant obstruction from neighbouring buildings (Photos 2 and 3). Excellent all-day sun, which is the single most valued feature in Auckland housing stock and one you cannot retrofit. This is the strongest attribute of the property.",
+  liv_flooring:
+    "Engineered oak in the living area from the same renovation cycle as the kitchen, roughly eight years old and presenting well. The problem is the carpeted areas next to it: worn through to backing in the hallway traffic path and pulled away from the gripper at the lounge doorway (Photo 7). Re-stretch or replace the carpet; the timber itself needs nothing.",
+  liv_ceiling:
+    "Hairline cracking along the cornice line in the lounge (Photo 7), consistent with normal settlement in a house of this age rather than anything structural. Stopping and painting will deal with it. Ceiling height is standard for the era at around 2.4m, which is adequate but not a feature.",
+  bed_size:
+    "Three bedrooms at sizes typical for the era: one comfortable main and two that will take a double bed with limited room around it. Adequate for a family, though buyers comparing against newer stock will notice the secondary bedrooms are tight. Nothing to remedy short of reconfiguring.",
+  bed_heating:
+    "No fixed heating visible in any of the three bedrooms, with the lounge wood burner the only heat source in the house (Photos 9 and 10). This is the clearest Healthy Homes gap after insulation: a rental must have a fixed heater capable of heating the main living room, and unheated bedrooms in an uninsulated 1975 house will be cold and prone to condensation. A heat pump would address heating and distribution together.",
+  bed_storage:
+    "Two bedrooms have shallow original wardrobes with sagging hanging rails, and the third has no built-in storage at all (Photo 10). Standard for the period and an easy, low-cost improvement. New rails and a shelf system in the existing recesses, plus a built-in for the third room, would lift the presentation noticeably for modest spend.",
+  bed_windows:
+    "Aluminium joinery matching the rest of the house, with good window area and no obstruction to the light in the rooms photographed. Single glazed like the remainder, so expect condensation on cold mornings, which is a comfort and mould issue rather than a defect. Opens and latches appear intact.",
+  bed_flooring:
+    "Carpet in the two rear bedrooms is flattened and sun-bleached in a band along the window wall, with a seam lifting in the main bedroom (Photos 9 and 10). Cosmetic rather than structural, and consistent with carpet that has done its time. Replace across the bedroom wing at once so it matches rather than doing rooms piecemeal.",
+  bed_ceiling:
+    "Water staining across two ceiling panels in the back bedroom, directly under the section of roof already flagged (Photo 9). This is the roof problem showing up on the inside, which confirms the leak is active rather than historic. Fix the roof first. Repairing the ceiling before the roof is watertight will simply stain again.",
+  gar_type:
+    "Single garage, detached from the house with no internal access, which is normal for the period but less convenient than buyers of newer homes expect. Off-street parking for one vehicle plus the driveway. Adding internal access is not practical given the separation, so treat this as a fixed characteristic of the property.",
+  gar_construction:
+    "Built in the same weatherboard as the house and appearing structurally sound, with no lean, sagging roofline or displaced cladding visible. Ages and weathers at the same rate as the main dwelling, so include it in the exterior repaint rather than treating it separately.",
+  gar_door:
+    "Timber tilt door with peeling paint along the bottom rail and visible swelling where it meets the concrete, and no auto opener fitted (Photos 1 and 15). Swelling at the base means the timber is drawing up moisture off the slab, which will keep recurring. Replacing with a sectional door and opener is the sensible move and modernises the street presentation at the same time.",
+  gar_floor:
+    "Bare concrete with oil staining under the parking bay and a crack running diagonally from the door opening (Photo 15). Diagonal cracks from an opening are usually shrinkage rather than settlement, but have it looked at if it is wide or has a lip. Otherwise cosmetic, and sealing the slab would stop further oil penetration.",
+  gar_power:
+    "Power and lighting are connected, with a functioning light and at least one outlet visible. Adequate for storage and basic workshop use. If you intend to charge an electric vehicle, have an electrician confirm the supply to the garage will carry it, since a 1975 subcircuit generally will not.",
+  out_drainage:
+    "No obvious ponding across the lawn in the photos, and the gentle cross-slope should shed water away from the house. The gutter overflow noted on the exterior is the real water issue on this property rather than ground drainage. Worth walking the section after heavy rain before going unconditional, as photos taken in fine weather cannot show you this.",
+  out_driveway:
+    "Concrete drive is structurally sound but crazed across the turning area, with weeds through the joints near the street (Photo 1). Crazing is surface shrinkage and not a defect that needs correcting. Clearing the joints and water blasting would tidy the approach, which is the first thing anyone sees.",
+  out_fencing:
+    "Three palings missing along the western boundary and the run beside the driveway leaning noticeably off vertical (Photo 16). A leaning run usually means the posts are rotting at ground level, so expect post replacement rather than just re-fixing palings. Confirm the boundary line before rebuilding, and talk to the neighbour about sharing the cost, which the Fencing Act allows for.",
+  out_landscaping:
+    "Established, mature planting with lawn to the north of the house and defined garden beds, presenting well and requiring ordinary upkeep rather than restoration. Mature trees on a Remuera section add real value. Check with the council whether anything on the property carries a protection or notable tree listing before planning removal or heavy pruning.",
   ext_roof:
     "Photos 1 and 4 show a long-run iron roof with surface rust along the ridgeline and around the flashings, consistent with a c.1975 original. Plan for replacement within 1–2 years; budget a recoat only if a full replacement isn't viable this cycle. Confirm purlin condition and underlay when re-roofing.",
   liv_insulation:
