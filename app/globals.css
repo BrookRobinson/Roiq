@@ -1,21 +1,25 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   RoiQ design system, built to the LMCT+ reference.
+   RoiQ design system — White and Gold.
 
-   Tokens below were read off lmctplus.com's live computed styles rather than
-   eyeballed: deep navy ground (#050A19) with a lifted navy panel (#0D1633),
-   one saturated electric blue (#099BFF), Inter with heavy italic uppercase
-   display, 16px cards and full-pill buttons.
+   Structure is carried over from the LMCT+ reference (heavy italic uppercase
+   display, 16px panels, full-pill controls, one saturated accent). The palette
+   is white and gold instead of navy and electric blue.
 
-   Two deliberate departures from the reference:
-   1. Figures stay in JetBrains Mono with tabular numerals. RoiQ is a scoring
-      and money product; aligned columns of numbers matter here in a way they
-      do not on a rewards site.
-   2. Green/amber/red are reserved as semantic (score, risk, cost). The accent
-      blue never carries meaning, so a blue element is always just chrome.
+   GOLD IS TWO TOKENS, NOT ONE, and this is the load-bearing decision here:
+     --accent       #C9A227  fills, bars, chips, slider tracks
+     --accent-text  #8A6A12  gold used AS TEXT on a light ground
+
+   Measured: #C9A227 on white is 2.42:1, which fails WCAG for body text and
+   for large text. #8A6A12 is 5.06:1 and passes body. Near-black on a #C9A227
+   fill is 7.74:1. So gold fills carry dark text, and gold text is the deeper
+   tone. Using one gold for both is the standard way this palette goes wrong.
+
+   Warm cream grounds are deliberately avoided: this is white and gold, not
+   beige and brass, and the cream-plus-brass combination is the generic
+   "premium" default. The ground is a true white with the barest warm cast.
 
    Legacy class names (.btn-primary, .card, .badge, .mono, .grade-*, .tab-*)
-   are preserved and re-implemented, so all 21 pages inherit this language
-   without being individually rewritten.
+   are preserved, so all 21 pages inherit this without being edited.
    ───────────────────────────────────────────────────────────────────────── */
 
 @tailwind base;
@@ -23,43 +27,46 @@
 @tailwind utilities;
 
 @layer base {
-  /* ── Dark: the primary mode, as on the reference ────────────────────── */
+  /* ── Light: white and gold, the primary mode ────────────────────────── */
   :root,
-  .dark {
-    --navy: #050a19;
-    --navy-panel: #0d1633;
-    --navy-lift: #141f47;
+  .light {
+    --bg: #fdfdfb;
+    --surface: #ffffff;
+    --surface-2: #f5f2ea;
 
-    --bg: var(--navy);
-    --surface: var(--navy-panel);
-    --surface-2: var(--navy-lift);
+    --text-primary: #14120c;
+    --text-secondary: #575143;
+    /* 5.12:1 on the page ground, 5.22 on white panels, 4.66 on the tinted
+       panel. The lighter #8a8372 this replaced measured 3.37-3.77 and failed
+       WCAG AA everywhere it was used, which was 39 elements on the landing
+       page alone: every small label, every ledger figure. */
+    --text-muted: #736c5b;
 
-    --text-primary: rgba(255, 255, 255, 0.92);
-    --text-secondary: #9fabcb;
-    --text-muted: #6b7ba3;
-
-    --border: rgba(255, 255, 255, 0.09);
-    --border-subtle: rgba(255, 255, 255, 0.05);
+    --border: rgba(20, 18, 12, 0.11);
+    --border-subtle: rgba(20, 18, 12, 0.06);
     --rule: var(--border);
-    --rule-strong: rgba(255, 255, 255, 0.16);
+    --rule-strong: rgba(20, 18, 12, 0.2);
 
-    --accent: #099bff;
-    --accent-hover: #33aeff;
-    --accent-deep: #1870ec;
-    --accent-wash: rgba(9, 155, 255, 0.1);
-    --on-accent: #ffffff;
+    --accent: #c9a227; /* fills only */
+    --accent-text: #8a6a12; /* gold as text, 5.06:1 on white */
+    --accent-hover: #b8931f;
+    --accent-deep: #7a5c0a;
+    --accent-wash: rgba(201, 162, 39, 0.13);
+    --on-accent: #14120c; /* 7.74:1 on the gold fill */
 
     --brand: var(--accent);
     --brand-hover: var(--accent-hover);
     --brand-light: var(--accent-wash);
-    --brand-glow: rgba(9, 155, 255, 0.45);
+    --brand-glow: rgba(201, 162, 39, 0.42);
 
-    --good: #2fd47a;
-    --good-wash: rgba(47, 212, 122, 0.12);
-    --warn: #ffb91b;
-    --warn-wash: rgba(255, 185, 27, 0.12);
-    --bad: #ff4d40;
-    --bad-wash: rgba(255, 77, 64, 0.12);
+    /* Semantics stay clear of gold. Warn is a burnt orange, not amber,
+       because amber and gold are indistinguishable at badge size. */
+    --good: #1f7a4c;
+    --good-wash: rgba(31, 122, 76, 0.1);
+    --warn: #c2410c;
+    --warn-wash: rgba(194, 65, 12, 0.1);
+    --bad: #b91c1c;
+    --bad-wash: rgba(185, 28, 28, 0.09);
 
     --success: var(--good);
     --success-bg: var(--good-wash);
@@ -70,67 +77,69 @@
     --danger: var(--bad);
     --danger-bg: var(--bad-wash);
 
-    --glass-bg: rgba(5, 10, 25, 0.82);
+    --glass-bg: rgba(253, 253, 251, 0.86);
     --glass-border: var(--border);
 
-    /* One shape system, documented: panels 16, inputs 12, controls pill. */
+    --r-panel: 16px;
+    --r-input: 12px;
+    --r-pill: 9999px;
+
+    color-scheme: light;
+  }
+
+  /* ── Dark: black and gold ───────────────────────────────────────────── */
+  .dark {
+    --bg: #0f0e0b;
+    --surface: #17150f;
+    --surface-2: #211e15;
+
+    --text-primary: rgba(255, 255, 255, 0.94);
+    --text-secondary: #b3ac99;
+    --text-muted: #7d775f;
+
+    --border: rgba(255, 255, 255, 0.1);
+    --border-subtle: rgba(255, 255, 255, 0.055);
+    --rule: var(--border);
+    --rule-strong: rgba(255, 255, 255, 0.2);
+
+    /* On near-black, the bright gold is 11.12:1, so one tone serves both
+       fills and text here. */
+    --accent: #e5c158;
+    --accent-text: #e5c158;
+    --accent-hover: #f0d075;
+    --accent-deep: #c9a227;
+    --accent-wash: rgba(229, 193, 88, 0.14);
+    --on-accent: #14120c;
+
+    --brand: var(--accent);
+    --brand-hover: var(--accent-hover);
+    --brand-light: var(--accent-wash);
+    --brand-glow: rgba(229, 193, 88, 0.4);
+
+    --good: #4ade80;
+    --good-wash: rgba(74, 222, 128, 0.13);
+    --warn: #fb923c;
+    --warn-wash: rgba(251, 146, 60, 0.13);
+    --bad: #f87171;
+    --bad-wash: rgba(248, 113, 113, 0.13);
+
+    --success: var(--good);
+    --success-bg: var(--good-wash);
+    --green: var(--good);
+    --green-bg: var(--good-wash);
+    --warning: var(--warn);
+    --warning-bg: var(--warn-wash);
+    --danger: var(--bad);
+    --danger-bg: var(--bad-wash);
+
+    --glass-bg: rgba(15, 14, 11, 0.86);
+    --glass-border: var(--border);
+
     --r-panel: 16px;
     --r-input: 12px;
     --r-pill: 9999px;
 
     color-scheme: dark;
-  }
-
-  /* ── Light: a coherent daylight version, not an inversion ───────────── */
-  .light {
-    --navy: #f4f7fd;
-    --navy-panel: #ffffff;
-    --navy-lift: #eaf0fb;
-
-    --bg: var(--navy);
-    --surface: var(--navy-panel);
-    --surface-2: var(--navy-lift);
-
-    --text-primary: #081027;
-    --text-secondary: #4a5878;
-    --text-muted: #7d8aa8;
-
-    --border: rgba(8, 16, 39, 0.1);
-    --border-subtle: rgba(8, 16, 39, 0.06);
-    --rule: var(--border);
-    --rule-strong: rgba(8, 16, 39, 0.18);
-
-    --accent: #0b7fd4;
-    --accent-hover: #0969b0;
-    --accent-deep: #1870ec;
-    --accent-wash: rgba(11, 127, 212, 0.09);
-    --on-accent: #ffffff;
-
-    --brand: var(--accent);
-    --brand-hover: var(--accent-hover);
-    --brand-light: var(--accent-wash);
-    --brand-glow: rgba(11, 127, 212, 0.28);
-
-    --good: #10914f;
-    --good-wash: rgba(16, 145, 79, 0.1);
-    --warn: #b57500;
-    --warn-wash: rgba(181, 117, 0, 0.12);
-    --bad: #cf2718;
-    --bad-wash: rgba(207, 39, 24, 0.1);
-
-    --success: var(--good);
-    --success-bg: var(--good-wash);
-    --green: var(--good);
-    --green-bg: var(--good-wash);
-    --warning: var(--warn);
-    --warning-bg: var(--warn-wash);
-    --danger: var(--bad);
-    --danger-bg: var(--bad-wash);
-
-    --glass-bg: rgba(244, 247, 253, 0.85);
-    --glass-border: var(--border);
-
-    color-scheme: light;
   }
 
   * {
@@ -151,11 +160,11 @@
 
   ::selection {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
   }
 
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-text);
     outline-offset: 2px;
     border-radius: var(--r-input);
   }
@@ -180,9 +189,7 @@
 }
 
 @layer components {
-  /* ── The display voice ────────────────────────────────────────────────
-     Heavy italic uppercase, tight. This single treatment is what makes the
-     reference recognisable, so it is a named class rather than ad hoc. */
+  /* ── The display voice ────────────────────────────────────────────── */
   .display {
     font-weight: 900;
     font-style: italic;
@@ -191,18 +198,20 @@
     line-height: 0.94;
   }
 
-  /* Accent-filled words inside a display headline. */
+  /* Gold display text uses the deeper tone so it stays legible at any size. */
   .display-accent {
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
-  /* The white "chip" treatment the reference uses on one headline word. */
+  /* The chip: a gold slab with near-black type. This is the one place the
+     bright gold gets to be loud, and it is legible because the text on it
+     is dark rather than white. */
   .display-chip {
     display: inline-block;
     padding: 0.06em 0.34em;
     border-radius: var(--r-pill);
-    background: var(--text-primary);
-    color: var(--bg);
+    background: var(--accent);
+    color: var(--on-accent);
   }
 
   /* ── Surfaces ─────────────────────────────────────────────────────── */
@@ -210,7 +219,7 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--r-panel);
-    transition: border-color 0.18s ease, transform 0.18s ease;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
   }
 
   .card:hover {
@@ -221,7 +230,8 @@
     background: var(--surface);
     border: 1px solid var(--accent-wash);
     border-radius: var(--r-panel);
-    box-shadow: 0 0 0 1px var(--accent-wash), 0 18px 50px -20px var(--brand-glow);
+    box-shadow: 0 0 0 1px var(--accent-wash),
+      0 20px 55px -24px var(--brand-glow);
   }
 
   .card-glass {
@@ -232,7 +242,7 @@
     -webkit-backdrop-filter: blur(18px);
   }
 
-  /* ── Buttons: full pill, saturated fill ───────────────────────────── */
+  /* ── Buttons ──────────────────────────────────────────────────────── */
   .btn-primary {
     display: inline-flex;
     align-items: center;
@@ -240,24 +250,24 @@
     gap: 8px;
     padding: 12px 26px;
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     border: none;
     border-radius: var(--r-pill);
     font-family: inherit;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 14px;
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
     text-decoration: none;
-    box-shadow: 0 8px 24px -10px var(--brand-glow);
+    box-shadow: 0 8px 24px -12px var(--brand-glow);
     transition: background-color 0.16s ease, box-shadow 0.16s ease,
       transform 0.1s ease;
   }
 
   .btn-primary:hover {
     background: var(--accent-hover);
-    box-shadow: 0 12px 30px -10px var(--brand-glow);
+    box-shadow: 0 12px 30px -12px var(--brand-glow);
   }
 
   .btn-primary:active {
@@ -306,8 +316,8 @@
   .input {
     width: 100%;
     padding: 12px 15px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
+    background: var(--surface);
+    border: 1px solid var(--rule-strong);
     border-radius: var(--r-input);
     color: var(--text-primary);
     font-family: inherit;
@@ -333,7 +343,7 @@
     margin-bottom: 7px;
   }
 
-  /* ── Badges: pill, like the fuel-price chips on the reference ─────── */
+  /* ── Badges ───────────────────────────────────────────────────────── */
   .badge {
     display: inline-flex;
     align-items: center;
@@ -342,7 +352,6 @@
     border-radius: var(--r-pill);
     font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.01em;
     line-height: 1.5;
   }
 
@@ -361,14 +370,14 @@
   .badge-teal,
   .badge-blue {
     background: var(--accent-wash);
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
-  /* ── Tabs: pill group ─────────────────────────────────────────────── */
+  /* ── Tabs ─────────────────────────────────────────────────────────── */
   .tab-nav {
     display: flex;
     gap: 4px;
-    background: var(--surface);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: var(--r-pill);
     padding: 5px;
@@ -389,12 +398,12 @@
 
   .tab-btn.active {
     background: var(--accent);
-    color: #fff;
-    box-shadow: 0 6px 18px -8px var(--brand-glow);
+    color: var(--on-accent);
+    box-shadow: 0 6px 18px -10px var(--brand-glow);
   }
 
   .tab-btn:hover:not(.active) {
-    background: var(--surface-2);
+    background: var(--surface);
     color: var(--text-primary);
   }
 
@@ -402,15 +411,15 @@
   .shimmer-bg {
     background: linear-gradient(
       90deg,
-      var(--surface) 25%,
-      var(--surface-2) 50%,
-      var(--surface) 75%
+      var(--surface-2) 25%,
+      var(--surface) 50%,
+      var(--surface-2) 75%
     );
     background-size: 200% 100%;
     animation: shimmer 1.6s infinite linear;
   }
 
-  /* ── Grades: three-step semantic ramp ─────────────────────────────── */
+  /* ── Grades ───────────────────────────────────────────────────────── */
   .grade-a-plus,
   .grade-a,
   .grade-b-plus {
@@ -428,15 +437,15 @@
     font-weight: 700;
   }
 
-  /* ── Glow utilities: live again, this design earns them ───────────── */
+  /* ── Glow utilities ───────────────────────────────────────────────── */
   .glow-teal {
-    box-shadow: 0 10px 40px -14px var(--brand-glow);
+    box-shadow: 0 12px 44px -18px var(--brand-glow);
   }
   .glow-green {
-    box-shadow: 0 10px 40px -14px rgba(47, 212, 122, 0.4);
+    box-shadow: 0 12px 44px -18px rgba(31, 122, 76, 0.35);
   }
   .text-glow {
-    text-shadow: 0 0 28px var(--brand-glow);
+    text-shadow: none; /* gold text needs contrast, not a halo */
   }
 
   /* ── Section typography ───────────────────────────────────────────── */
@@ -446,7 +455,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--accent);
+    color: var(--accent-text);
     margin-bottom: 14px;
   }
 
@@ -481,6 +490,7 @@
     height: 6px;
     border-radius: var(--r-pill);
     background: var(--surface-2);
+    border: 1px solid var(--border);
   }
 
   .roiq-range::-webkit-slider-thumb {
@@ -488,11 +498,11 @@
     appearance: none;
     width: 20px;
     height: 20px;
-    margin-top: -7px;
+    margin-top: -8px;
     border-radius: var(--r-pill);
     background: var(--accent);
-    border: 3px solid var(--bg);
-    box-shadow: 0 4px 14px -4px var(--brand-glow);
+    border: 3px solid var(--surface);
+    box-shadow: 0 3px 12px -3px var(--brand-glow);
     cursor: grab;
     transition: transform 0.12s ease;
   }
@@ -516,7 +526,7 @@
     height: 20px;
     border-radius: var(--r-pill);
     background: var(--accent);
-    border: 3px solid var(--bg);
+    border: 3px solid var(--surface);
     cursor: grab;
   }
 }
@@ -532,7 +542,7 @@
     color: var(--text-muted);
   }
   .text-brand {
-    color: var(--accent);
+    color: var(--accent-text);
   }
   .text-green {
     color: var(--good);
@@ -550,18 +560,20 @@
     border-top: 1px solid var(--border);
   }
 
-  /* Radial glow behind hero content, the reference's signature ground. */
+  /* A warm gold wash behind the hero. Kept very low opacity: on a white
+     ground a strong gold radial turns the page beige, which is the exact
+     look this palette is trying not to be. */
   .aura {
     background:
       radial-gradient(
-        60% 55% at 62% 38%,
-        rgba(9, 155, 255, 0.22) 0%,
-        transparent 68%
+        58% 52% at 66% 34%,
+        rgba(201, 162, 39, 0.16) 0%,
+        transparent 70%
       ),
       radial-gradient(
-        45% 45% at 12% 8%,
-        rgba(24, 112, 236, 0.14) 0%,
-        transparent 70%
+        44% 44% at 10% 6%,
+        rgba(201, 162, 39, 0.08) 0%,
+        transparent 72%
       );
   }
 }

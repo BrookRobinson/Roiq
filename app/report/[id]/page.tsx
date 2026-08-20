@@ -75,7 +75,7 @@ export default function ReportPage() {
           <h1 className="text-lg font-semibold mb-2" style={{ color: "var(--text-primary)" }}>Report unavailable</h1>
           <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{shareError}</p>
           <a href="/report/new" className="inline-block px-4 py-2 rounded-lg text-sm font-semibold"
-             style={{ background: "var(--brand)", color: "#fff" }}>
+             style={{ background: "var(--brand)", color: "var(--on-accent)" }}>
             Analyse a property
           </a>
         </div>

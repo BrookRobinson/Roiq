@@ -314,7 +314,7 @@ function PersonaToggle({
             style={{
               borderRadius: "var(--r-pill)",
               background: active ? "var(--accent)" : "transparent",
-              color: active ? "#fff" : "var(--text-muted)",
+              color: active ? "var(--on-accent)" : "var(--text-muted)",
               boxShadow: active ? "0 6px 18px -8px var(--brand-glow)" : "none",
             }}
           >

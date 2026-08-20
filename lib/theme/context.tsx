@@ -10,10 +10,10 @@ type Theme = "dark" | "light";
  * persisted whether or not they ever chose it. Reading a new key lets the
  * light default apply without silently overwriting a real preference.
  */
-const STORAGE_KEY = "roiq-theme-v3";
+const STORAGE_KEY = "roiq-theme-v4";
 
 const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
-  theme: "dark",
+  theme: "light",
   toggle: () => {},
 });
 
@@ -22,13 +22,12 @@ export function useTheme() {
 }
 
 /**
- * Dark is the default: this design is navy-grounded and the light theme is the
- * alternate. A saved choice always wins. With no saved choice we default to
- * dark rather than following the system, because the brand expression lives
- * there and a light first impression would not read as the same product.
+ * Light is the default: the palette is white and gold, so the white ground is
+ * the brand expression and the black-and-gold dark theme is the alternate.
+ * A saved choice always wins.
  */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
@@ -36,7 +35,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setTheme(saved);
       return;
     }
-    setTheme("dark");
+    setTheme("light");
   }, []);
 
   useEffect(() => {

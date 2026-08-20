@@ -133,7 +133,7 @@ export function SendReportDialog({
                 onClick={submit}
                 disabled={status === "sending"}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold cursor-pointer disabled:opacity-60"
-                style={{ background: "var(--brand)", color: "#fff" }}
+                style={{ background: "var(--brand)", color: "var(--on-accent)" }}
               >
                 {status === "sending" ? <><Loader2 size={15} className="animate-spin" /> Creating link…</>
                   : email.trim() ? <><Send size={15} /> Send report</>
@@ -167,7 +167,7 @@ export function SendReportDialog({
                 <button
                   onClick={copyLink}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer shrink-0"
-                  style={{ background: copied ? "var(--success, #10b981)" : "var(--brand)", color: "#fff" }}
+                  style={{ background: copied ? "var(--success)" : "var(--brand)", color: copied ? "#fff" : "var(--on-accent)" }}
                 >
                   {copied ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
                 </button>

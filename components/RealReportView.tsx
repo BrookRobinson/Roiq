@@ -418,7 +418,7 @@ export function RealReportView({ report, shared = false }: { report: StoredRepor
                 <button
                   onClick={() => setShowSend(true)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer shrink-0 whitespace-nowrap"
-                  style={{ background: "var(--brand)", color: "#fff" }}
+                  style={{ background: "var(--brand)", color: "var(--on-accent)" }}
                 >
                   <Send size={13} /> Send report
                 </button>
