@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
-import { WealthHero } from "@/components/landing/WealthHero";
+import { QuestionHero } from "@/components/landing/QuestionHero";
 import { DemoReportSection } from "@/components/landing/DemoReportSection";
 import { LiveMapSection } from "@/components/landing/LiveMapSection";
 import { WhatsInside } from "@/components/landing/WhatsInside";
@@ -34,7 +34,7 @@ export default function LandingPage() {
   return (
     <div style={{ background: "var(--bg)" }}>
       <Navbar />
-      <WealthHero />
+      <QuestionHero />
       <FactBand />
       <DemoReportSection />
       <Position />
