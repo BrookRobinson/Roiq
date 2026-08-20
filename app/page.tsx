@@ -115,6 +115,32 @@ function Position() {
             show, including the parts nobody wrote down.
           </p>
         </Reveal>
+
+        {/* The value claim, with the mechanism attached. A bare "could save you
+            hundreds of thousands" reads as hype; naming the specific thing that
+            costs that much is both stronger and checkable. */}
+        <Reveal delay={0.18}>
+          <div
+            className="mt-12 border-l-4 py-2 pl-6 sm:pl-8"
+            style={{ borderColor: "var(--accent)" }}
+          >
+            <p
+              className="max-w-[26ch] text-[1.5rem] font-semibold leading-[1.2] sm:text-[2rem]"
+              style={{ letterSpacing: "-0.02em", color: "var(--text-primary)" }}
+            >
+              One report can save you hundreds of thousands of dollars.
+            </p>
+            <p
+              className="mt-4 max-w-measure text-[16px] leading-relaxed"
+              style={{ color: "var(--text-secondary)" }}
+            >
+              That is not a figure of speech. A full reclad on a leaky-era home
+              runs into the hundreds of thousands in New Zealand, and unconsented
+              work can stall your finance entirely. The difference between finding
+              those before you sign and after is the whole cost of them.
+            </p>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
