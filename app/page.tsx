@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
 import { WealthHero } from "@/components/landing/WealthHero";
 import { DemoReportSection } from "@/components/landing/DemoReportSection";
-import { NzMapPreview } from "@/components/landing/NzMapPreview";
+import { LiveMapSection } from "@/components/landing/LiveMapSection";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
 
@@ -38,7 +38,7 @@ export default function LandingPage() {
       <Position />
       <WhatsInside />
       <Scoring />
-      <MapSection />
+      <LiveMapSection />
       <Pricing />
       <Voices />
       <Close />
@@ -336,35 +336,6 @@ function LedgerRow({
       </span>
       <span className="mono whitespace-nowrap text-sm">{children}</span>
     </div>
-  );
-}
-
-/* ── 6. Map ────────────────────────────────────────────────────────────────
-   Image-led band, content on the left, full-bleed photograph on the right.  */
-function MapSection() {
-  return (
-    <section className="border-b" style={{ borderColor: "var(--rule)" }}>
-      <div className="grid lg:grid-cols-2">
-        <div className="flex items-center px-4 py-24 sm:px-6 lg:px-16 lg:py-28">
-          <Reveal>
-            <h2 className="section-heading max-w-[16ch]">
-              Every listing, on one map
-            </h2>
-            <p className="section-sub mt-5">
-              Filter the country by budget and by what you are optimising for,
-              then read the ten year position on any pin before you shortlist it.
-            </p>
-            <Link href="/map" className="btn-secondary mt-8 px-5 py-3 text-[15px]">
-              Open the map
-              <ArrowRight size={15} />
-            </Link>
-          </Reveal>
-        </div>
-        <div className="relative min-h-[320px] lg:min-h-[560px]">
-          <NzMapPreview />
-        </div>
-      </div>
-    </section>
   );
 }
 

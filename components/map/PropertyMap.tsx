@@ -22,10 +22,21 @@ export function PropertyMap({
   mode,
   vars,
   onSelect,
+  demo = false,
+  embedded = false,
 }: {
   mode: MapMode;
   vars: UserVariables;
   onSelect: (id: string) => void;
+  /** Pin the map to the seeded demo listings, never the database. */
+  demo?: boolean;
+  /**
+   * Embedded in a scrolling page rather than filling a dedicated route.
+   * Turns on Mapbox cooperative gestures, so a plain wheel scroll moves the
+   * PAGE and only ctrl/cmd + wheel zooms the map. Without this an embedded
+   * map swallows the scroll as soon as the cursor crosses it.
+   */
+  embedded?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -33,8 +44,10 @@ export function PropertyMap({
   // Keep the latest mode/vars in refs so map event handlers read current values.
   const modeRef = useRef(mode);
   const varsRef = useRef(vars);
+  const demoRef = useRef(demo);
   modeRef.current = mode;
   varsRef.current = vars;
+  demoRef.current = demo;
 
   async function refresh() {
     const map = mapRef.current;
@@ -44,7 +57,9 @@ export function PropertyMap({
     const bounds = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
     const q = encodeURIComponent(JSON.stringify(varsRef.current));
     try {
-      const res = await fetch(`/api/map/listings?mode=${modeRef.current}&bounds=${bounds}&vars=${q}`);
+      const res = await fetch(
+        `/api/map/listings?mode=${modeRef.current}&bounds=${bounds}&vars=${q}${demoRef.current ? "&demo=1" : ""}`
+      );
       const data = await res.json();
       if (!data.ok) return;
       const fc = {
@@ -72,6 +87,7 @@ export function PropertyMap({
       center: [173.5, -41.2],
       zoom: 4.6,
       attributionControl: false,
+      cooperativeGestures: embedded,
     });
     mapRef.current = map;
 

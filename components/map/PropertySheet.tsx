@@ -28,11 +28,14 @@ export function PropertySheet({
   mode,
   vars,
   onClose,
+  demo = false,
 }: {
   id: string;
   mode: MapMode;
   vars: UserVariables;
   onClose: () => void;
+  /** Resolve from the seeded demo set, matching a demo map. */
+  demo?: boolean;
 }) {
   const [data, setData] = useState<Detail | null>(null);
   const [saved, setSaved] = useState(false);
@@ -40,7 +43,7 @@ export function PropertySheet({
   useEffect(() => {
     setData(null);
     const q = encodeURIComponent(JSON.stringify(vars));
-    fetch(`/api/map/listings/${id}?vars=${q}`)
+    fetch(`/api/map/listings/${id}?vars=${q}${demo ? "&demo=1" : ""}`)
       .then((r) => r.json())
       .then((d) => d.ok && setData(d))
       .catch(() => {});
