@@ -4,8 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useTheme } from "@/lib/theme/context";
-import { Sun, Moon, Menu, X, BarChart3, Map, Home, User } from "lucide-react";
+import { Wordmark } from "@/components/ui/Wordmark";
+import { Sun, Moon, Menu, X } from "lucide-react";
 
+/**
+ * Navigation IA is unchanged from the previous build: same routes, same
+ * labels, same signed-in/signed-out split. Only the visual language moved.
+ *
+ * A single rule under the bar replaces the frosted-glass panel, and the
+ * active item is marked with an underline rather than a filled pill.
+ */
 export default function Navbar({
   user,
   plan,
@@ -17,24 +25,18 @@ export default function Navbar({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const planStyles: Record<string, string> = {
-    free:    "bg-[var(--surface-2)] text-[var(--text-muted)]",
-    starter: "bg-[var(--brand-light)] text-[var(--brand)]",
-    pro:     "bg-[rgba(0,230,118,0.12)] text-[var(--green)]",
-  };
-
   const navLinks = user
     ? [
-        { href: "/dashboard",      label: "Dashboard",  icon: Home      },
-        { href: "/report/new",     label: "New Report", icon: BarChart3 },
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/report/new", label: "New report" },
         ...(plan === "pro"
-          ? [{ href: "/map",       label: "Map",        icon: Map       }]
-          : [{ href: "/pricing",   label: "Upgrade",    icon: User      }]),
-        { href: "/account",        label: "Account",    icon: User      },
+          ? [{ href: "/map", label: "Map" }]
+          : [{ href: "/pricing", label: "Upgrade" }]),
+        { href: "/account", label: "Account" },
       ]
     : [
         { href: "/pricing", label: "Pricing" },
-        { href: "/about",   label: "About"   },
+        { href: "/about", label: "About" },
       ];
 
   return (
@@ -42,37 +44,34 @@ export default function Navbar({
       className="sticky top-0 z-50 w-full"
       style={{
         background: "var(--glass-bg)",
-        borderBottom: "1px solid var(--glass-border)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
+        borderBottom: "1px solid var(--rule)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
       }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-
-          {/* Logo */}
+      <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
+        <div className="flex h-[68px] items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-2.5 font-bold text-xl cursor-pointer group"
-            style={{ color: "var(--brand)" }}
+            className="cursor-pointer"
+            style={{ color: "var(--text-primary)" }}
+            aria-label="RoiQ home"
           >
-            <LogoIcon />
-            <span className="tracking-tight" style={{ letterSpacing: "-0.02em" }}>RoiQ</span>
+            <Wordmark />
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden items-center gap-7 md:flex">
             {navLinks.map((l) => {
               const active = pathname === l.href;
               return (
                 <Link
                   key={l.href}
                   href={l.href}
-                  className="px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
+                  className="cursor-pointer py-1 text-sm transition-colors"
                   style={{
-                    color: active ? "var(--brand)" : "var(--text-muted)",
-                    background: active ? "var(--brand-light)" : "transparent",
-                    boxShadow: active ? "0 0 12px var(--brand-glow)" : "none",
+                    color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                    fontWeight: active ? 600 : 400,
+                    borderBottom: `2px solid ${active ? "var(--accent)" : "transparent"}`,
                   }}
                 >
                   {l.label}
@@ -81,58 +80,55 @@ export default function Navbar({
             })}
           </div>
 
-          {/* Right side */}
-          <div className="flex items-center gap-2.5">
-            {/* Theme toggle */}
+          <div className="flex items-center gap-2">
             <button
               onClick={toggle}
-              aria-label="Toggle theme"
-              className="w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer"
+              aria-label={theme === "dark" ? "Switch to light" : "Switch to dark"}
+              className="flex h-9 w-9 cursor-pointer items-center justify-center transition-colors"
               style={{
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                color: "var(--text-muted)",
+                border: "1px solid var(--rule)",
+                color: "var(--text-secondary)",
               }}
             >
               {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
 
             {user ? (
-              <div className="hidden md:flex items-center gap-2">
+              <div className="hidden items-center gap-2.5 md:flex">
                 {plan && (
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${planStyles[plan]}`}>
-                    {plan}
-                  </span>
+                  <span className="badge badge-blue">{plan}</span>
                 )}
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                  className="mono flex h-9 w-9 items-center justify-center text-sm font-medium"
                   style={{
-                    background: "var(--brand-light)",
-                    border: "1.5px solid var(--brand)",
-                    color: "var(--brand)",
-                    boxShadow: "0 0 8px var(--brand-glow)",
+                    border: "1px solid var(--rule-strong)",
+                    color: "var(--text-primary)",
                   }}
+                  aria-label={user.email}
                 >
                   {user.email[0].toUpperCase()}
                 </div>
               </div>
             ) : (
-              <div className="hidden md:flex items-center gap-2">
-                <Link href="/login"  className="btn-secondary text-sm py-2 px-4">Log in</Link>
-                <Link href="/signup" className="btn-primary  text-sm py-2 px-4">Get started</Link>
+              <div className="hidden items-center gap-2 md:flex">
+                <Link href="/login" className="btn-secondary px-4 py-2 text-sm">
+                  Log in
+                </Link>
+                <Link href="/signup" className="btn-primary px-4 py-2 text-sm">
+                  Get started
+                </Link>
               </div>
             )}
 
-            {/* Mobile toggle */}
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center md:hidden"
               style={{
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
+                border: "1px solid var(--rule)",
                 color: "var(--text-primary)",
               }}
               aria-label="Toggle menu"
+              aria-expanded={mobileOpen}
             >
               {mobileOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
@@ -140,17 +136,16 @@ export default function Navbar({
         </div>
       </div>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <div
-          className="md:hidden border-t px-4 py-4 space-y-1"
-          style={{ borderColor: "var(--border)", background: "var(--bg)" }}
+          className="space-y-1 border-t px-4 py-4 md:hidden"
+          style={{ borderColor: "var(--rule)", background: "var(--bg)" }}
         >
           {navLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer"
+              className="block cursor-pointer px-1 py-2.5 text-sm"
               style={{ color: "var(--text-primary)" }}
               onClick={() => setMobileOpen(false)}
             >
@@ -158,29 +153,17 @@ export default function Navbar({
             </Link>
           ))}
           {!user && (
-            <div className="pt-2 flex flex-col gap-2">
-              <Link href="/login"  className="btn-secondary justify-center">Log in</Link>
-              <Link href="/signup" className="btn-primary  justify-center">Get started</Link>
+            <div className="flex flex-col gap-2 pt-3">
+              <Link href="/login" className="btn-secondary justify-center">
+                Log in
+              </Link>
+              <Link href="/signup" className="btn-primary justify-center">
+                Get started
+              </Link>
             </div>
           )}
         </div>
       )}
     </nav>
-  );
-}
-
-function LogoIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-      <rect width="28" height="28" rx="7" fill="currentColor" opacity="0.15" />
-      <path
-        d="M7 20L11 14L14 17L18 10L21 14"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="21" cy="14" r="2" fill="currentColor" />
-    </svg>
   );
 }

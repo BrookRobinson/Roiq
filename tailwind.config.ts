@@ -1,5 +1,12 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * "Survey Report" scale.
+ *
+ * Radius is 0 everywhere by design (one shape system, no exceptions), so
+ * borderRadius is pinned rather than extended. Colours resolve through the
+ * CSS variables in globals.css so both themes come for free.
+ */
 const config: Config = {
   darkMode: ["class"],
   content: [
@@ -10,45 +17,59 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Space Grotesk", "system-ui", "sans-serif"],
-        mono: ["Fira Code", "monospace"],
+        sans: ["var(--font-display)", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       colors: {
-        brand: {
-          DEFAULT: "#00d4c8",
-          hover:   "#00bfb4",
-          dark:    "#008a84",
-          light:   "rgba(0,212,200,0.12)",
+        paper: {
+          DEFAULT: "var(--paper)",
+          2: "var(--paper-2)",
+          raised: "var(--paper-raised)",
         },
-        green: {
-          neon: "#00e676",
-          DEFAULT: "#00d479",
+        ink: {
+          DEFAULT: "var(--ink)",
+          2: "var(--ink-2)",
+          3: "var(--ink-3)",
+        },
+        rule: {
+          DEFAULT: "var(--rule)",
+          strong: "var(--rule-strong)",
+        },
+        accent: {
+          DEFAULT: "var(--accent)",
+          hover: "var(--accent-hover)",
+          wash: "var(--accent-wash)",
+        },
+        good: "var(--good)",
+        warn: "var(--warn)",
+        bad: "var(--bad)",
+
+        // Legacy aliases, still referenced across the app.
+        brand: {
+          DEFAULT: "var(--accent)",
+          hover: "var(--accent-hover)",
+          light: "var(--accent-wash)",
         },
         surface: {
-          DEFAULT: "#091919",
-          2: "#0e2525",
-        },
-        border: {
-          DEFAULT: "#153632",
+          DEFAULT: "var(--surface)",
+          2: "var(--surface-2)",
         },
       },
-      backgroundImage: {
-        "gradient-brand": "linear-gradient(135deg, #00d4c8 0%, #00e676 100%)",
-        "gradient-dark":  "linear-gradient(135deg, #050d0d 0%, #091919 100%)",
-        "gradient-hero":  "linear-gradient(135deg, #050d0d 0%, #071e1c 50%, #050d0d 100%)",
+      borderColor: {
+        DEFAULT: "var(--rule)",
+      },
+      letterSpacing: {
+        tightest: "-0.035em",
+        label: "0.11em",
+      },
+      maxWidth: {
+        measure: "62ch",
+        page: "1320px",
       },
       animation: {
-        "fade-in":   "fadeIn 0.5s ease-out",
-        "slide-up":  "slideUp 0.4s ease-out",
-        "pulse-teal":"pulse-teal 2s ease-in-out infinite",
-        shimmer:     "shimmer 2s infinite linear",
-        "spin-slow": "spin 8s linear infinite",
-      },
-      boxShadow: {
-        glow:       "0 0 20px rgba(0,212,200,0.25)",
-        "glow-lg":  "0 0 40px rgba(0,212,200,0.2)",
-        "glow-green":"0 0 20px rgba(0,230,118,0.25)",
-        glass:      "0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,212,200,0.1)",
+        "fade-in": "fadeIn 0.4s ease-out both",
+        "slide-up": "slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
+        shimmer: "shimmer 1.6s infinite linear",
       },
     },
   },
