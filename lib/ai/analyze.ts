@@ -468,14 +468,16 @@ function formatFacts(listing: ScrapedListing): string {
     .join("\n");
 }
 
-function idsFor(insp: CatalogInspection): string {
+function idsFor(insp: CatalogInspection, onlyIds?: Set<string>): string {
   return insp.categories
     .map((c) => {
       const items = c.items
+        .filter((s) => !onlyIds || onlyIds.has(s.id))
         .map((s) => `${s.id}${s.conditional ? " (only if present)" : ""}`)
         .join(", ");
-      return `  ${c.category}: ${items}`;
+      return items ? `  ${c.category}: ${items}` : "";
     })
+    .filter(Boolean)
     .join("\n");
 }
 
@@ -486,14 +488,22 @@ const INSPECTION_HOWTO: Record<Inspection, string> = {
   legal: "assess from the title type, build era, and listing facts",
 };
 
-function checklistText(inspections?: Inspection[]): string {
+function checklistText(inspections?: Inspection[], onlyIds?: Set<string>): string {
   return buildCatalog()
     .filter((insp) => !inspections || inspections.includes(insp.inspection))
-    .map((insp) => `${insp.label.toUpperCase()} — ${INSPECTION_HOWTO[insp.inspection]}\n${idsFor(insp)}`)
+    .map((insp) => ({ insp, ids: idsFor(insp, onlyIds) }))
+    .filter(({ ids }) => ids !== "") // a continuation may not touch every inspection
+    .map(({ insp, ids }) => `${insp.label.toUpperCase()} — ${INSPECTION_HOWTO[insp.inspection]}\n${ids}`)
     .join("\n\n");
 }
 
-function buildUserMessage(listing: ScrapedListing, photoCount: number, inspections?: Inspection[], labelled?: boolean): string {
+function buildUserMessage(
+  listing: ScrapedListing,
+  photoCount: number,
+  inspections?: Inspection[],
+  labelled?: boolean,
+  onlyIds?: Set<string>
+): string {
   const facts = formatFacts(listing);
   const photoLine =
     photoCount > 0
@@ -512,9 +522,13 @@ PHOTOS
 ${photoLine}
 
 SUB-ITEMS TO ASSESS (use these exact ids)
-${checklistText(inspections)}
+${checklistText(inspections, onlyIds)}
 
-${listing.description ? `LISTING DESCRIPTION\n${listing.description.slice(0, 2000)}\n\n` : ""}Assess every non-conditional sub-item across all four inspections. Include a conditional sub-item only if it is genuinely present. Return property_context, add any separate dwellings to extra_dwellings, and any unknowns to information_gaps.`;
+${listing.description ? `LISTING DESCRIPTION\n${listing.description.slice(0, 2000)}\n\n` : ""}${
+    onlyIds
+      ? `This is the REMAINING part of an analysis that ran out of output room. Assess ONLY the ${onlyIds.size} sub-item id(s) listed above — do not repeat any others. Keep each ai_summary to two or three sentences so the whole set fits in one response. Still return property_context, extra_dwellings and information_gaps for the property as a whole.`
+      : "Assess every non-conditional sub-item across all four inspections. Include a conditional sub-item only if it is genuinely present. Return property_context, add any separate dwellings to extra_dwellings, and any unknowns to information_gaps."
+  }`;
 }
 
 // ── main entry point ───────────────────────────────────────────────────────
@@ -532,27 +546,72 @@ function base64ImageContent(images: PreparedImage[], labels?: string[]): Anthrop
   return content;
 }
 
-async function runClaude(
+// Sonnet 5 accepts up to 128k output tokens and this path streams, so the old
+// 32000 ceiling bought nothing: a full report with photo-grounded evidence on
+// every sub-item lands right around it. See runClaude for why overshooting it
+// used to fail SILENTLY rather than loudly.
+const MAX_OUTPUT_TOKENS = 64000;
+
+// How many follow-up calls we will spend recovering a truncated response.
+const MAX_CONTINUATIONS = 2;
+
+/**
+ * True only when every field the report actually consumes arrived.
+ *
+ * This matters because the SDK assembles streamed tool JSON with a PARTIAL
+ * parser: when a response is cut off at max_tokens the tool_use block still
+ * parses, but the trailing sub-item is missing fields and every sub-item after
+ * it is missing entirely. Nothing throws. `buildAssessment` then turns each
+ * absent id into a Tier-3 `placeholderSubItem` reading "Not visible in listing
+ * photos" — so a truncated response looks to the user exactly like a report
+ * where the photos were never used.
+ */
+function isCompleteSubItem(s: RawSubItem | undefined | null): boolean {
+  return (
+    !!s &&
+    typeof s.id === "string" &&
+    s.id !== "" &&
+    typeof s.ai_summary === "string" &&
+    s.ai_summary.trim() !== "" &&
+    typeof s.confidence_tier === "number"
+  );
+}
+
+/** Fold a continuation response into the accumulating analysis. */
+function mergeAnalysis(into: RawAnalysis, next: RawAnalysis, seen: Set<string>): void {
+  for (const s of next.sub_items ?? []) {
+    if (!isCompleteSubItem(s) || seen.has(s.id)) continue;
+    seen.add(s.id);
+    into.sub_items.push(s);
+  }
+  // Whole-property fields are emitted AFTER sub_items, so a truncated first call
+  // has none of them — take them from whichever response actually carried them.
+  into.property_context ??= next.property_context;
+  into.extra_dwellings ??= next.extra_dwellings;
+  into.information_gaps ??= next.information_gaps;
+  into.location_penalties ??= next.location_penalties;
+}
+
+async function callAnalysis(
+  client: Anthropic,
   listing: ScrapedListing,
   images: PreparedImage[],
   inspections?: Inspection[],
-  photoLabels?: string[]
-): Promise<RawAnalysis> {
+  photoLabels?: string[],
+  onlyIds?: Set<string>
+): Promise<{ raw: RawAnalysis; truncated: boolean }> {
   const content: Anthropic.ContentBlockParam[] = [
     ...base64ImageContent(images, photoLabels),
-    { type: "text", text: buildUserMessage(listing, images.length, inspections, !!photoLabels?.length) },
+    { type: "text", text: buildUserMessage(listing, images.length, inspections, !!photoLabels?.length, onlyIds) },
   ];
 
-  const client = getAnthropic();
-  // Stream and assemble the final message. A full 84-item report at max_tokens
-  // 32000 can exceed the SDK's 10-minute non-streaming guard on a slow (Tier-1)
+  // Stream and assemble the final message. A full report at this max_tokens
+  // would exceed the SDK's 10-minute non-streaming guard on a slow (Tier-1)
   // key, so we must stream — `.finalMessage()` returns the assembled result.
   const resp = await client.messages
     .stream({
       model: VISION_MODEL,
-      // 84 v3.1/v3.2 items with sourced reasoning each can exceed a 16k budget and
-      // truncate the tool JSON → give the single-call path generous headroom.
-      max_tokens: 32000,
+      max_tokens: MAX_OUTPUT_TOKENS,
       // Sonnet 5 runs adaptive thinking by default — disable it for this forced-
       // tool-choice extraction: the task is guided structured output, not open-ended
       // reasoning, so thinking only adds latency + input-token pressure (which the
@@ -571,7 +630,55 @@ async function runClaude(
   if (!toolUse) {
     throw new Error("Claude did not return a structured analysis (no tool_use block)");
   }
-  return toolUse.input as RawAnalysis;
+  const raw = toolUse.input as RawAnalysis;
+  raw.sub_items ??= [];
+  return { raw, truncated: resp.stop_reason === "max_tokens" };
+}
+
+/**
+ * One full analysis, recovering from output truncation.
+ *
+ * A response cut off at max_tokens loses the tail of `sub_items` silently (see
+ * isCompleteSubItem), so we detect `stop_reason === "max_tokens"` and re-ask for
+ * exactly the ids that never arrived, merging each continuation into the result.
+ */
+async function runClaude(
+  listing: ScrapedListing,
+  images: PreparedImage[],
+  inspections?: Inspection[],
+  photoLabels?: string[]
+): Promise<RawAnalysis> {
+  const client = getAnthropic();
+  const requested = new Set(
+    (inspections ? SCORING_MODEL.filter((i) => inspections.includes(i.inspection)) : SCORING_MODEL).map((i) => i.id)
+  );
+
+  const merged: RawAnalysis = { sub_items: [] };
+  const seen = new Set<string>();
+  let onlyIds: Set<string> | undefined;
+
+  for (let attempt = 0; ; attempt++) {
+    const { raw, truncated } = await callAnalysis(client, listing, images, inspections, photoLabels, onlyIds);
+    mergeAnalysis(merged, raw, seen);
+    if (!truncated) break;
+
+    // Conditional items the model deliberately skipped land in `missing` too;
+    // re-asking for them is harmless — they stay marked "(only if present)".
+    const missing = [...requested].filter((id) => !seen.has(id));
+    console.warn(
+      `[analyze] output truncated at max_tokens — ${seen.size}/${requested.size} sub-items complete, ${missing.length} missing`
+    );
+    if (missing.length === 0) break;
+    if (attempt >= MAX_CONTINUATIONS) {
+      console.warn(
+        `[analyze] gave up after ${MAX_CONTINUATIONS} continuation(s); ${missing.length} sub-item(s) fall back to Tier-3 placeholders`
+      );
+      break;
+    }
+    onlyIds = new Set(missing);
+  }
+
+  return merged;
 }
 
 /**
@@ -703,6 +810,12 @@ async function runFanCall(
     tool_choice: { type: "tool", name: ANALYSIS_TOOL_NAME },
     messages: [{ role: "user", content: [...imageContent, { type: "text", text: instruction }] }],
   });
+  if (resp.stop_reason === "max_tokens") {
+    // Same silent-truncation trap as the single-call path, minus the recovery:
+    // this fan-out path is opt-in (ANALYZE_FANOUT) and never used by the photo
+    // upload flow, so for now we only make the loss visible in the logs.
+    console.warn(`[analyze:fanout] output truncated at max_tokens (${resp.usage?.output_tokens} tokens) — sub-items will be dropped`);
+  }
   const tu = resp.content.find(
     (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use" && b.name === ANALYSIS_TOOL_NAME
   );
