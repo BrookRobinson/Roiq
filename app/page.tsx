@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/Navbar";
-import { Reveal, Enter } from "@/components/ui/Reveal";
+import { Reveal } from "@/components/ui/Reveal";
+import { WealthHero } from "@/components/landing/WealthHero";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
 
@@ -29,7 +30,7 @@ export default function LandingPage() {
   return (
     <div style={{ background: "var(--bg)" }}>
       <Navbar />
-      <Hero />
+      <WealthHero />
       <FactBand />
       <Position />
       <WhatsInside />
@@ -40,98 +41,6 @@ export default function LandingPage() {
       <Close />
       <Footer />
     </div>
-  );
-}
-
-/* ── 1. Hero ───────────────────────────────────────────────────────────────
-   Asymmetric split. The photograph carries the emotional weight, the ruled
-   annotation under it carries the proof.                                    */
-function Hero() {
-  return (
-    <section className="relative overflow-hidden border-b" style={{ borderColor: "var(--rule)" }}>
-      <div
-        className="plan-grid pointer-events-none absolute inset-0 opacity-[0.45]"
-        aria-hidden="true"
-      />
-      <div className="relative mx-auto max-w-page px-4 pb-20 pt-16 sm:px-6 lg:px-8 lg:pb-24 lg:pt-24">
-        <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
-          <div className="lg:col-span-7">
-            <Enter>
-              <h1
-                className="text-[2.75rem] font-semibold leading-[1.03] sm:text-6xl lg:text-[4.25rem]"
-                style={{ letterSpacing: "-0.038em", color: "var(--text-primary)" }}
-              >
-                Know before
-                <br />
-                you buy.
-              </h1>
-            </Enter>
-
-            <Enter delay={0.08}>
-              <p
-                className="mt-6 max-w-measure text-lg leading-relaxed"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Paste any New Zealand listing. Every photo assessed, every score
-                sourced, the whole property scored out of 1,000.
-              </p>
-            </Enter>
-
-            <Enter delay={0.16}>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Link
-                  href="/report/new"
-                  className="btn-primary px-6 py-3.5 text-[15px]"
-                >
-                  Analyse a listing
-                  <ArrowRight size={16} />
-                </Link>
-                <Link
-                  href="/report/rpt_001"
-                  className="btn-secondary px-6 py-3.5 text-[15px]"
-                >
-                  Read a sample report
-                </Link>
-              </div>
-            </Enter>
-          </div>
-
-          <Enter delay={0.24} className="lg:col-span-5">
-            <figure className="w-full">
-              <div className="relative aspect-[4/3] w-full overflow-hidden border" style={{ borderColor: "var(--rule-strong)" }}>
-                <Image
-                  src="https://picsum.photos/seed/roiq-villa-remuera/900/675"
-                  alt="A weatherboard villa photographed from the street"
-                  fill
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 40vw"
-                  className="object-cover"
-                />
-              </div>
-              {/* Annotation sits under the image, never on top of it. */}
-              <figcaption
-                className="mono flex items-stretch justify-between border border-t-0 text-[11px]"
-                style={{ borderColor: "var(--rule-strong)" }}
-              >
-                <span
-                  className="flex-1 px-3 py-2.5 uppercase tracking-label"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  14 Ferndale Rd, Remuera
-                </span>
-                <span
-                  className="flex items-baseline gap-1.5 border-l px-3 py-2.5"
-                  style={{ borderColor: "var(--rule-strong)", color: "var(--text-primary)" }}
-                >
-                  <span className="text-[15px] font-semibold">742</span>
-                  <span style={{ color: "var(--text-muted)" }}>/1000</span>
-                </span>
-              </figcaption>
-            </figure>
-          </Enter>
-        </div>
-      </div>
-    </section>
   );
 }
 

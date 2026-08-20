@@ -465,6 +465,60 @@
     line-height: 1.65;
   }
 
+  /* ── Range control ────────────────────────────────────────────────────
+     A measuring slider: square handle, hairline track, no rounded chrome. */
+  .roiq-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 22px;
+    background: transparent;
+  }
+
+  .roiq-range::-webkit-slider-runnable-track {
+    height: 2px;
+    background: var(--rule-strong);
+  }
+
+  .roiq-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 18px;
+    margin-top: -8px;
+    background: var(--ink);
+    border: none;
+    border-radius: 0;
+    cursor: grab;
+    transition: background-color 0.14s ease;
+  }
+
+  .roiq-range:hover::-webkit-slider-thumb,
+  .roiq-range:focus-visible::-webkit-slider-thumb {
+    background: var(--accent);
+  }
+
+  .roiq-range:active::-webkit-slider-thumb {
+    cursor: grabbing;
+  }
+
+  .roiq-range::-moz-range-track {
+    height: 2px;
+    background: var(--rule-strong);
+  }
+
+  .roiq-range::-moz-range-thumb {
+    width: 12px;
+    height: 18px;
+    background: var(--ink);
+    border: none;
+    border-radius: 0;
+    cursor: grab;
+  }
+
+  .roiq-range:hover::-moz-range-thumb {
+    background: var(--accent);
+  }
+
   /* A hairline that carries a mono label, like a drawing annotation. */
   .ruled-label {
     display: flex;
