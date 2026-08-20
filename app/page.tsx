@@ -35,7 +35,6 @@ export default function LandingPage() {
     <div style={{ background: "var(--bg)" }}>
       <Navbar />
       <QuestionHero />
-      <FactBand />
       <DemoReportSection />
       <Position />
       <WhatsInside />
@@ -46,47 +45,6 @@ export default function LandingPage() {
       <Close />
       <Footer />
     </div>
-  );
-}
-
-/* ── 2. Fact band ──────────────────────────────────────────────────────────
-   A ruled strip of real figures from the scoring engine. Every number here
-   is one the product actually produces.                                     */
-function FactBand() {
-  const facts = [
-    { figure: "68", label: "sub-items assessed" },
-    { figure: "4", label: "inspections per report" },
-    { figure: "1,000", label: "point scale" },
-    { figure: "30", label: "photos read" },
-  ];
-
-  return (
-    <section className="border-b" style={{ borderColor: "var(--rule)" }}>
-      <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
-        <dl className="grid grid-cols-2 lg:grid-cols-4">
-          {facts.map((f, i) => (
-            <Reveal
-              key={f.label}
-              delay={i * 0.05}
-              className="border-b px-1 py-8 lg:border-b-0 lg:border-l lg:px-8 lg:first:border-l-0 lg:first:pl-0"
-            >
-              <div
-                className="mono text-[2.25rem] font-semibold leading-none"
-                style={{ color: "var(--text-primary)" }}
-              >
-                {f.figure}
-              </div>
-              <dt
-                className="mt-2.5 text-[12px] font-semibold uppercase tracking-[0.07em]"
-                style={{ color: "var(--text-muted)" }}
-              >
-                {f.label}
-              </dt>
-            </Reveal>
-          ))}
-        </dl>
-      </div>
-    </section>
   );
 }
 
