@@ -1,17 +1,21 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   RoiQ — "Survey Report" design system.
+   RoiQ design system, built to the LMCT+ reference.
 
-   The visual language is a surveyor's report crossed with a financial
-   prospectus: ink on paper stock, hairline rules, figures set in mono,
-   zero corner radius. Authority through restraint, not decoration.
+   Tokens below were read off lmctplus.com's live computed styles rather than
+   eyeballed: deep navy ground (#050A19) with a lifted navy panel (#0D1633),
+   one saturated electric blue (#099BFF), Inter with heavy italic uppercase
+   display, 16px cards and full-pill buttons.
 
-   Deliberately NOT: neon glows, gradient text, pill badges, glassmorphism.
-   Those read as generic AI-tech and undercut a product whose entire value
-   proposition is being trustworthy about a six-figure decision.
+   Two deliberate departures from the reference:
+   1. Figures stay in JetBrains Mono with tabular numerals. RoiQ is a scoring
+      and money product; aligned columns of numbers matter here in a way they
+      do not on a rewards site.
+   2. Green/amber/red are reserved as semantic (score, risk, cost). The accent
+      blue never carries meaning, so a blue element is always just chrome.
 
-   The legacy class names (.btn-primary, .card, .badge, .mono, .grade-*)
-   are all preserved and re-implemented here, so every page in the app
-   inherits the new language without being individually rewritten.
+   Legacy class names (.btn-primary, .card, .badge, .mono, .grade-*, .tab-*)
+   are preserved and re-implemented, so all 21 pages inherit this language
+   without being individually rewritten.
    ───────────────────────────────────────────────────────────────────────── */
 
 @tailwind base;
@@ -19,49 +23,43 @@
 @tailwind utilities;
 
 @layer base {
-  /* ── Light: "paper" (default) ──────────────────────────────────────────
-     Paper is the point of this direction, so light is the primary mode.  */
+  /* ── Dark: the primary mode, as on the reference ────────────────────── */
   :root,
-  .light {
-    --paper: #f1f0ec;
-    --paper-2: #e9e8e3;
-    --paper-raised: #fbfaf8;
+  .dark {
+    --navy: #050a19;
+    --navy-panel: #0d1633;
+    --navy-lift: #141f47;
 
-    /* Legacy aliases — 21 pages reference these. */
-    --bg: var(--paper);
-    --surface: var(--paper-raised);
-    --surface-2: var(--paper-2);
+    --bg: var(--navy);
+    --surface: var(--navy-panel);
+    --surface-2: var(--navy-lift);
 
-    --ink: #14130f;
-    --ink-2: #55534c;
-    --ink-3: #86847b;
-    --text-primary: var(--ink);
-    --text-secondary: var(--ink-2);
-    --text-muted: var(--ink-3);
+    --text-primary: rgba(255, 255, 255, 0.92);
+    --text-secondary: #9fabcb;
+    --text-muted: #6b7ba3;
 
-    --rule: #d8d6ce;
-    --rule-strong: #b9b6ac;
-    --border: var(--rule);
-    --border-subtle: #e4e2da;
+    --border: rgba(255, 255, 255, 0.09);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --rule: var(--border);
+    --rule-strong: rgba(255, 255, 255, 0.16);
 
-    /* Blueprint ultramarine. Chosen so it is NOT a semantic colour —
-       red/amber/green stay free to mean something in a scoring product. */
-    --accent: #2438ce;
-    --accent-hover: #1b2ba8;
-    --accent-wash: rgba(36, 56, 206, 0.07);
+    --accent: #099bff;
+    --accent-hover: #33aeff;
+    --accent-deep: #1870ec;
+    --accent-wash: rgba(9, 155, 255, 0.1);
     --on-accent: #ffffff;
 
     --brand: var(--accent);
     --brand-hover: var(--accent-hover);
     --brand-light: var(--accent-wash);
-    --brand-glow: transparent; /* neutralised: see .glow-* below */
+    --brand-glow: rgba(9, 155, 255, 0.45);
 
-    --good: #2e6b4e;
-    --good-wash: rgba(46, 107, 78, 0.09);
-    --warn: #96650f;
-    --warn-wash: rgba(150, 101, 15, 0.1);
-    --bad: #a3301f;
-    --bad-wash: rgba(163, 48, 31, 0.09);
+    --good: #2fd47a;
+    --good-wash: rgba(47, 212, 122, 0.12);
+    --warn: #ffb91b;
+    --warn-wash: rgba(255, 185, 27, 0.12);
+    --bad: #ff4d40;
+    --bad-wash: rgba(255, 77, 64, 0.12);
 
     --success: var(--good);
     --success-bg: var(--good-wash);
@@ -72,52 +70,53 @@
     --danger: var(--bad);
     --danger-bg: var(--bad-wash);
 
-    --glass-bg: rgba(241, 240, 236, 0.92);
-    --glass-border: var(--rule);
+    --glass-bg: rgba(5, 10, 25, 0.82);
+    --glass-border: var(--border);
 
-    color-scheme: light;
+    /* One shape system, documented: panels 16, inputs 12, controls pill. */
+    --r-panel: 16px;
+    --r-input: 12px;
+    --r-pill: 9999px;
+
+    color-scheme: dark;
   }
 
-  /* ── Dark: "ink" ──────────────────────────────────────────────────────
-     Not a recolour of the light theme. Paper becomes ink, the accent
-     lifts to stay legible, and the rules get quieter.                    */
-  .dark {
-    --paper: #111110;
-    --paper-2: #191917;
-    --paper-raised: #1a1917;
+  /* ── Light: a coherent daylight version, not an inversion ───────────── */
+  .light {
+    --navy: #f4f7fd;
+    --navy-panel: #ffffff;
+    --navy-lift: #eaf0fb;
 
-    --bg: var(--paper);
-    --surface: var(--paper-raised);
-    --surface-2: var(--paper-2);
+    --bg: var(--navy);
+    --surface: var(--navy-panel);
+    --surface-2: var(--navy-lift);
 
-    --ink: #edebe4;
-    --ink-2: #a5a29a;
-    --ink-3: #6e6c64;
-    --text-primary: var(--ink);
-    --text-secondary: var(--ink-2);
-    --text-muted: var(--ink-3);
+    --text-primary: #081027;
+    --text-secondary: #4a5878;
+    --text-muted: #7d8aa8;
 
-    --rule: #2b2a26;
-    --rule-strong: #3f3d38;
-    --border: var(--rule);
-    --border-subtle: #232220;
+    --border: rgba(8, 16, 39, 0.1);
+    --border-subtle: rgba(8, 16, 39, 0.06);
+    --rule: var(--border);
+    --rule-strong: rgba(8, 16, 39, 0.18);
 
-    --accent: #7b88ff;
-    --accent-hover: #98a2ff;
-    --accent-wash: rgba(123, 136, 255, 0.13);
-    --on-accent: #0b0b0a;
+    --accent: #0b7fd4;
+    --accent-hover: #0969b0;
+    --accent-deep: #1870ec;
+    --accent-wash: rgba(11, 127, 212, 0.09);
+    --on-accent: #ffffff;
 
     --brand: var(--accent);
     --brand-hover: var(--accent-hover);
     --brand-light: var(--accent-wash);
-    --brand-glow: transparent;
+    --brand-glow: rgba(11, 127, 212, 0.28);
 
-    --good: #5fbf8c;
-    --good-wash: rgba(95, 191, 140, 0.13);
-    --warn: #d9a13c;
-    --warn-wash: rgba(217, 161, 60, 0.13);
-    --bad: #e2705e;
-    --bad-wash: rgba(226, 112, 94, 0.13);
+    --good: #10914f;
+    --good-wash: rgba(16, 145, 79, 0.1);
+    --warn: #b57500;
+    --warn-wash: rgba(181, 117, 0, 0.12);
+    --bad: #cf2718;
+    --bad-wash: rgba(207, 39, 24, 0.1);
 
     --success: var(--good);
     --success-bg: var(--good-wash);
@@ -128,10 +127,10 @@
     --danger: var(--bad);
     --danger-bg: var(--bad-wash);
 
-    --glass-bg: rgba(17, 17, 16, 0.92);
-    --glass-border: var(--rule);
+    --glass-bg: rgba(244, 247, 253, 0.85);
+    --glass-border: var(--border);
 
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   * {
@@ -146,24 +145,21 @@
     background-color: var(--bg);
     color: var(--text-primary);
     font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
-    font-feature-settings: "kern" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
     background: var(--accent);
-    color: var(--on-accent);
+    color: #fff;
   }
 
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: 0;
+    border-radius: var(--r-input);
   }
 
-  /* Every figure in this app is mono. Scores, prices, areas, dates.
-     Tabular numerals keep columns of figures aligned. */
   .mono,
   .tabular {
     font-family: var(--font-mono), ui-monospace, monospace;
@@ -184,67 +180,95 @@
 }
 
 @layer components {
-  /* ── Surfaces ─────────────────────────────────────────────────────────
-     A panel is defined by its rule, not by elevation. No shadows, no
-     radius. Hover shifts the rule, it does not light the panel up.      */
+  /* ── The display voice ────────────────────────────────────────────────
+     Heavy italic uppercase, tight. This single treatment is what makes the
+     reference recognisable, so it is a named class rather than ad hoc. */
+  .display {
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: -0.025em;
+    line-height: 0.94;
+  }
+
+  /* Accent-filled words inside a display headline. */
+  .display-accent {
+    color: var(--accent);
+  }
+
+  /* The white "chip" treatment the reference uses on one headline word. */
+  .display-chip {
+    display: inline-block;
+    padding: 0.06em 0.34em;
+    border-radius: var(--r-pill);
+    background: var(--text-primary);
+    color: var(--bg);
+  }
+
+  /* ── Surfaces ─────────────────────────────────────────────────────── */
   .card {
     background: var(--surface);
-    border: 1px solid var(--rule);
-    border-radius: 0;
-    transition: border-color 0.16s ease, background-color 0.16s ease;
+    border: 1px solid var(--border);
+    border-radius: var(--r-panel);
+    transition: border-color 0.18s ease, transform 0.18s ease;
   }
 
   .card:hover {
     border-color: var(--rule-strong);
   }
 
-  /* Legacy names kept so existing pages keep rendering. Both now resolve
-     to the same flat panel: the glow and the frosted glass are gone. */
-  .card-glow,
-  .card-glass {
+  .card-glow {
     background: var(--surface);
-    border: 1px solid var(--rule);
-    border-radius: 0;
+    border: 1px solid var(--accent-wash);
+    border-radius: var(--r-panel);
+    box-shadow: 0 0 0 1px var(--accent-wash), 0 18px 50px -20px var(--brand-glow);
   }
 
-  /* ── Buttons ──────────────────────────────────────────────────────────
-     Sharp, stamped, tactile on press. No lift-on-hover, no glow.        */
+  .card-glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r-panel);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  /* ── Buttons: full pill, saturated fill ───────────────────────────── */
   .btn-primary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 11px 20px;
-    background: var(--ink);
-    color: var(--paper);
-    border: 1px solid var(--ink);
-    border-radius: 0;
+    padding: 12px 26px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--r-pill);
     font-family: inherit;
     font-weight: 600;
     font-size: 14px;
-    letter-spacing: -0.005em;
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
     text-decoration: none;
-    transition: background-color 0.14s ease, border-color 0.14s ease,
-      transform 0.08s ease;
+    box-shadow: 0 8px 24px -10px var(--brand-glow);
+    transition: background-color 0.16s ease, box-shadow 0.16s ease,
+      transform 0.1s ease;
   }
 
   .btn-primary:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--on-accent);
+    background: var(--accent-hover);
+    box-shadow: 0 12px 30px -10px var(--brand-glow);
   }
 
   .btn-primary:active {
-    transform: scale(0.985);
+    transform: scale(0.97);
   }
 
   .btn-primary:disabled,
   .btn-primary[disabled] {
-    opacity: 0.4;
+    opacity: 0.45;
     cursor: not-allowed;
+    box-shadow: none;
     transform: none;
   }
 
@@ -253,208 +277,188 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 11px 20px;
+    padding: 12px 26px;
     background: transparent;
     color: var(--text-primary);
     border: 1px solid var(--rule-strong);
-    border-radius: 0;
+    border-radius: var(--r-pill);
     font-family: inherit;
-    font-weight: 500;
+    font-weight: 600;
     font-size: 14px;
     line-height: 1;
     white-space: nowrap;
     cursor: pointer;
     text-decoration: none;
-    transition: border-color 0.14s ease, color 0.14s ease,
-      background-color 0.14s ease, transform 0.08s ease;
+    transition: border-color 0.16s ease, background-color 0.16s ease,
+      transform 0.1s ease;
   }
 
   .btn-secondary:hover {
-    border-color: var(--ink);
+    border-color: var(--accent);
     background: var(--accent-wash);
   }
 
   .btn-secondary:active {
-    transform: scale(0.985);
+    transform: scale(0.97);
   }
 
-  /* ── Forms ────────────────────────────────────────────────────────────
-     Label above, error below, never placeholder-as-label.               */
+  /* ── Forms ────────────────────────────────────────────────────────── */
   .input {
     width: 100%;
-    padding: 11px 13px;
-    background: var(--paper-raised);
-    border: 1px solid var(--rule-strong);
-    border-radius: 0;
+    padding: 12px 15px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-input);
     color: var(--text-primary);
     font-family: inherit;
     font-size: 15px;
-    transition: border-color 0.14s ease, box-shadow 0.14s ease;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
     outline: none;
   }
 
   .input:focus {
     border-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-wash);
   }
 
   .input::placeholder {
-    color: var(--ink-3);
+    color: var(--text-muted);
   }
 
   .label {
     display: block;
-    font-family: var(--font-mono), ui-monospace, monospace;
-    font-size: 11px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
+    font-size: 13px;
+    font-weight: 600;
     color: var(--text-secondary);
     margin-bottom: 7px;
   }
 
-  /* ── Badges ───────────────────────────────────────────────────────────
-     Rectangular tags, mono, uppercase. Not pills.                       */
+  /* ── Badges: pill, like the fuel-price chips on the reference ─────── */
   .badge {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 3px 8px;
-    border-radius: 0;
-    border: 1px solid transparent;
-    font-family: var(--font-mono), ui-monospace, monospace;
-    font-size: 11px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
+    padding: 4px 11px;
+    border-radius: var(--r-pill);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
     line-height: 1.5;
   }
 
   .badge-green {
     background: var(--good-wash);
     color: var(--good);
-    border-color: var(--good);
   }
   .badge-amber {
     background: var(--warn-wash);
     color: var(--warn);
-    border-color: var(--warn);
   }
   .badge-red {
     background: var(--bad-wash);
     color: var(--bad);
-    border-color: var(--bad);
   }
   .badge-teal,
   .badge-blue {
     background: var(--accent-wash);
     color: var(--accent);
-    border-color: var(--accent);
   }
 
-  /* ── Tabs ─────────────────────────────────────────────────────────────
-     A ruled strip with an underline marker, like a document index.      */
+  /* ── Tabs: pill group ─────────────────────────────────────────────── */
   .tab-nav {
     display: flex;
-    gap: 0;
-    background: transparent;
-    border-radius: 0;
-    border: none;
-    border-bottom: 1px solid var(--rule);
-    padding: 0;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    padding: 5px;
   }
 
   .tab-btn {
-    padding: 10px 16px;
+    padding: 8px 18px;
     border: none;
-    border-bottom: 2px solid transparent;
-    border-radius: 0;
-    margin-bottom: -1px;
+    border-radius: var(--r-pill);
     background: transparent;
     color: var(--text-muted);
     font-family: inherit;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: color 0.14s ease, border-color 0.14s ease;
+    transition: color 0.16s ease, background-color 0.16s ease;
   }
 
   .tab-btn.active {
-    background: transparent;
-    color: var(--text-primary);
-    border-bottom-color: var(--accent);
-    box-shadow: none;
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 6px 18px -8px var(--brand-glow);
   }
 
   .tab-btn:hover:not(.active) {
-    background: transparent;
+    background: var(--surface-2);
     color: var(--text-primary);
-    border-bottom-color: var(--rule-strong);
   }
 
-  /* ── Loading ──────────────────────────────────────────────────────────
-     Skeletons match the shape of what they replace. No spinners.        */
+  /* ── Loading ──────────────────────────────────────────────────────── */
   .shimmer-bg {
     background: linear-gradient(
       90deg,
-      var(--paper-2) 25%,
-      var(--surface) 50%,
-      var(--paper-2) 75%
+      var(--surface) 25%,
+      var(--surface-2) 50%,
+      var(--surface) 75%
     );
     background-size: 200% 100%;
     animation: shimmer 1.6s infinite linear;
   }
 
-  /* ── Grades ───────────────────────────────────────────────────────────
-     A three-step semantic ramp, not a seven-colour rainbow.             */
+  /* ── Grades: three-step semantic ramp ─────────────────────────────── */
   .grade-a-plus,
   .grade-a,
   .grade-b-plus {
     color: var(--good);
-    font-weight: 600;
+    font-weight: 700;
   }
   .grade-b,
   .grade-c-plus {
     color: var(--warn);
-    font-weight: 600;
+    font-weight: 700;
   }
   .grade-c,
   .grade-d {
     color: var(--bad);
-    font-weight: 600;
+    font-weight: 700;
   }
 
-  /* ── Neutralised legacy glow utilities ────────────────────────────────
-     Kept as no-ops rather than deleted: they are referenced across the
-     app, and emptying them here removes the neon look everywhere at
-     once without touching those files.                                  */
-  .glow-teal,
+  /* ── Glow utilities: live again, this design earns them ───────────── */
+  .glow-teal {
+    box-shadow: 0 10px 40px -14px var(--brand-glow);
+  }
   .glow-green {
-    box-shadow: none;
+    box-shadow: 0 10px 40px -14px rgba(47, 212, 122, 0.4);
   }
   .text-glow {
-    text-shadow: none;
+    text-shadow: 0 0 28px var(--brand-glow);
   }
 
   /* ── Section typography ───────────────────────────────────────────── */
   .section-label {
     display: inline-block;
-    font-family: var(--font-mono), ui-monospace, monospace;
-    font-size: 11px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.11em;
-    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    color: var(--accent);
     margin-bottom: 14px;
   }
 
   .section-heading {
-    font-size: clamp(1.75rem, 3.2vw, 2.75rem);
-    font-weight: 600;
-    letter-spacing: -0.028em;
-    line-height: 1.1;
+    font-size: clamp(2rem, 4vw, 3.25rem);
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: -0.025em;
+    line-height: 0.96;
     color: var(--text-primary);
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     text-wrap: balance;
   }
 
@@ -465,36 +469,36 @@
     line-height: 1.65;
   }
 
-  /* ── Range control ────────────────────────────────────────────────────
-     A measuring slider: square handle, hairline track, no rounded chrome. */
+  /* ── Range control ────────────────────────────────────────────────── */
   .roiq-range {
     -webkit-appearance: none;
     appearance: none;
-    height: 22px;
+    height: 24px;
     background: transparent;
   }
 
   .roiq-range::-webkit-slider-runnable-track {
-    height: 2px;
-    background: var(--rule-strong);
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
   }
 
   .roiq-range::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 12px;
-    height: 18px;
-    margin-top: -8px;
-    background: var(--ink);
-    border: none;
-    border-radius: 0;
+    width: 20px;
+    height: 20px;
+    margin-top: -7px;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    border: 3px solid var(--bg);
+    box-shadow: 0 4px 14px -4px var(--brand-glow);
     cursor: grab;
-    transition: background-color 0.14s ease;
+    transition: transform 0.12s ease;
   }
 
-  .roiq-range:hover::-webkit-slider-thumb,
-  .roiq-range:focus-visible::-webkit-slider-thumb {
-    background: var(--accent);
+  .roiq-range:hover::-webkit-slider-thumb {
+    transform: scale(1.12);
   }
 
   .roiq-range:active::-webkit-slider-thumb {
@@ -502,40 +506,18 @@
   }
 
   .roiq-range::-moz-range-track {
-    height: 2px;
-    background: var(--rule-strong);
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: var(--surface-2);
   }
 
   .roiq-range::-moz-range-thumb {
-    width: 12px;
-    height: 18px;
-    background: var(--ink);
-    border: none;
-    border-radius: 0;
-    cursor: grab;
-  }
-
-  .roiq-range:hover::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: var(--r-pill);
     background: var(--accent);
-  }
-
-  /* A hairline that carries a mono label, like a drawing annotation. */
-  .ruled-label {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    font-family: var(--font-mono), ui-monospace, monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.11em;
-    color: var(--text-muted);
-  }
-
-  .ruled-label::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--rule);
+    border: 3px solid var(--bg);
+    cursor: grab;
   }
 }
 
@@ -562,17 +544,25 @@
     background: var(--surface-2);
   }
   .border-default {
-    border-color: var(--rule);
+    border-color: var(--border);
   }
   .divider {
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--border);
   }
 
-  /* Faint blueprint grid. Used once, behind the hero. */
-  .plan-grid {
-    background-image: linear-gradient(var(--rule) 1px, transparent 1px),
-      linear-gradient(90deg, var(--rule) 1px, transparent 1px);
-    background-size: 64px 64px;
+  /* Radial glow behind hero content, the reference's signature ground. */
+  .aura {
+    background:
+      radial-gradient(
+        60% 55% at 62% 38%,
+        rgba(9, 155, 255, 0.22) 0%,
+        transparent 68%
+      ),
+      radial-gradient(
+        45% 45% at 12% 8%,
+        rgba(24, 112, 236, 0.14) 0%,
+        transparent 70%
+      );
   }
 }
 
@@ -605,8 +595,6 @@
   }
 }
 
-/* Legacy keyframe name, kept so any remaining reference resolves.
-   The pulse itself is gone. */
 @keyframes pulse-teal {
   0%,
   100% {
@@ -622,10 +610,9 @@
   background: var(--bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--rule-strong);
-  border: 3px solid var(--bg);
-  border-radius: 0;
+  background: var(--surface-2);
+  border-radius: var(--r-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--ink-3);
+  background: var(--accent);
 }

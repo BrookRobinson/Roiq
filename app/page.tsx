@@ -63,16 +63,16 @@ function FactBand() {
             <Reveal
               key={f.label}
               delay={i * 0.05}
-              className="border-b px-1 py-7 lg:border-b-0 lg:border-l lg:px-8 lg:first:border-l-0 lg:first:pl-0"
+              className="border-b px-1 py-8 lg:border-b-0 lg:border-l lg:px-8 lg:first:border-l-0 lg:first:pl-0"
             >
               <div
-                className="mono text-[2rem] font-medium leading-none"
+                className="mono text-[2.25rem] font-semibold leading-none"
                 style={{ color: "var(--text-primary)" }}
               >
                 {f.figure}
               </div>
               <dt
-                className="mono mt-2.5 text-[11px] uppercase tracking-label"
+                className="mt-2.5 text-[12px] font-semibold uppercase tracking-[0.07em]"
                 style={{ color: "var(--text-muted)" }}
               >
                 {f.label}
@@ -93,11 +93,8 @@ function Position() {
       <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
         <Reveal>
           <p className="section-label">The case for it</p>
-          <h2
-            className="max-w-[20ch] text-[2rem] font-semibold leading-[1.12] sm:text-[2.75rem] lg:text-[3.25rem]"
-            style={{ letterSpacing: "-0.032em", color: "var(--text-primary)" }}
-          >
-            A report the agent would rather you didn&apos;t read.
+          <h2 className="section-heading max-w-[16ch]">
+            The agent won&apos;t tell you this
           </h2>
         </Reveal>
         <Reveal delay={0.1}>
@@ -129,7 +126,7 @@ function WhatsInside() {
           <h2 className="section-heading max-w-[16ch]">Everything in one report</h2>
         </Reveal>
 
-        <div className="mt-14 grid gap-px lg:grid-cols-3" style={{ background: "var(--rule)" }}>
+        <div className="mt-14 grid gap-4 lg:grid-cols-3">
           <Reveal className="lg:col-span-2" as="article">
             <BentoCell
               title="Condition, read from the photographs"
@@ -189,10 +186,7 @@ function BentoCell({
   compact?: boolean;
 }) {
   return (
-    <div
-      className="flex h-full flex-col justify-between"
-      style={{ background: "var(--surface)" }}
-    >
+    <div className="card flex h-full flex-col justify-between overflow-hidden">
       {image && (
         <div
           className={`relative w-full ${compact ? "aspect-[16/10]" : "aspect-[21/9]"}`}
@@ -263,9 +257,9 @@ function Scoring() {
           </Reveal>
 
           <Reveal delay={0.12}>
-            <div className="border" style={{ borderColor: "var(--rule-strong)" }}>
+            <div className="card overflow-hidden">
               <div
-                className="mono flex items-center justify-between border-b px-5 py-3 text-[11px] uppercase tracking-label"
+                className="flex items-center justify-between border-b px-5 py-3 text-[12px] font-semibold uppercase tracking-[0.07em]"
                 style={{ borderColor: "var(--rule)", color: "var(--text-muted)" }}
               >
                 <span>Score breakdown</span>
@@ -293,10 +287,10 @@ function Scoring() {
 
               <div
                 className="flex items-baseline justify-between border-t px-5 py-4"
-                style={{ borderColor: "var(--rule-strong)", background: "var(--paper-2)" }}
+                style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
               >
                 <span
-                  className="mono text-[11px] uppercase tracking-label"
+                  className="text-[12px] font-semibold uppercase tracking-[0.07em]"
                   style={{ color: "var(--text-muted)" }}
                 >
                   Total
@@ -351,7 +345,7 @@ function MapSection() {
         <div className="flex items-center px-4 py-24 sm:px-6 lg:px-16 lg:py-28">
           <Reveal>
             <h2 className="section-heading max-w-[16ch]">
-              Every scored listing, on one map
+              Every listing, on one map
             </h2>
             <p className="section-sub mt-5">
               Filter the country by budget and by what you are optimising for,
@@ -409,9 +403,9 @@ function Pricing() {
             <table className="w-full min-w-[640px] border-collapse text-left">
               <thead>
                 <tr>
-                  <th className="w-[34%] border-b py-5 pr-4 align-bottom" style={{ borderColor: "var(--rule-strong)" }}>
+                  <th className="w-[34%] border-b py-5 pr-4 align-bottom" style={{ borderColor: "var(--border)" }}>
                     <span
-                      className="mono text-[11px] uppercase tracking-label"
+                      className="text-[12px] font-semibold uppercase tracking-[0.07em]"
                       style={{ color: "var(--text-muted)" }}
                     >
                       Plan
@@ -421,7 +415,7 @@ function Pricing() {
                     <th
                       key={p.name}
                       className="border-b py-5 pl-4 align-bottom"
-                      style={{ borderColor: "var(--rule-strong)" }}
+                      style={{ borderColor: "var(--border)" }}
                     >
                       <div
                         className="text-[15px] font-semibold"
@@ -514,7 +508,7 @@ function Voices() {
           <h2 className="section-heading max-w-[18ch]">They knew before they bought</h2>
         </Reveal>
 
-        <div className="mt-14 grid gap-px lg:grid-cols-3" style={{ background: "var(--rule)" }}>
+        <div className="mt-14 grid gap-4 lg:grid-cols-3">
           {quotes.map((q, i) => (
             <Reveal
               key={q.name}
@@ -522,10 +516,7 @@ function Voices() {
               as="article"
               className={i === 1 ? "lg:mt-10" : ""}
             >
-              <figure
-                className="flex h-full flex-col justify-between p-8"
-                style={{ background: "var(--surface)" }}
-              >
+              <figure className="card flex h-full flex-col justify-between p-8">
                 <blockquote
                   className="text-[17px] leading-relaxed"
                   style={{ color: "var(--text-primary)" }}
@@ -540,7 +531,7 @@ function Voices() {
                     {q.name}
                   </div>
                   <div
-                    className="mono mt-1 text-[11px] uppercase tracking-label"
+                    className="mt-1.5 text-[12px] font-semibold uppercase tracking-[0.07em]"
                     style={{ color: "var(--text-muted)" }}
                   >
                     {q.role}
@@ -562,11 +553,8 @@ function Close() {
     <section className="border-b py-28 lg:py-36" style={{ borderColor: "var(--rule)" }}>
       <div className="mx-auto max-w-page px-4 text-center sm:px-6 lg:px-8">
         <Reveal>
-          <h2
-            className="mx-auto max-w-[18ch] text-[2.25rem] font-semibold leading-[1.1] sm:text-[3rem]"
-            style={{ letterSpacing: "-0.032em", color: "var(--text-primary)" }}
-          >
-            It is the largest cheque you will ever write.
+          <h2 className="section-heading mx-auto max-w-[15ch]">
+            The biggest cheque you&apos;ll ever write
           </h2>
           <p
             className="mx-auto mt-6 max-w-[54ch] text-lg leading-relaxed"
@@ -630,7 +618,7 @@ function Footer() {
           {groups.map((g) => (
             <div key={g.heading} className="md:col-span-3">
               <h3
-                className="mono text-[11px] uppercase tracking-label"
+                className="text-[12px] font-semibold uppercase tracking-[0.07em]"
                 style={{ color: "var(--text-muted)" }}
               >
                 {g.heading}
@@ -653,7 +641,7 @@ function Footer() {
         </div>
 
         <div
-          className="mono mt-14 border-t pt-6 text-[11px] uppercase tracking-label"
+          className="mt-14 border-t pt-6 text-[12px] font-semibold uppercase tracking-[0.07em]"
           style={{ borderColor: "var(--rule)", color: "var(--text-muted)" }}
         >
           RoiQ, Aotearoa New Zealand

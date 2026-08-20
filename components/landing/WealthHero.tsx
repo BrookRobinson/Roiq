@@ -72,31 +72,37 @@ export function WealthHero() {
   const principalPaid = Math.max(0, summary.loan - summary.remainingLoan);
   const growth = summary.projectedValue - price;
 
+  // Headline-safe short form, so the display line never wraps awkwardly.
+  // Sub-million reads as "$897K"; "$0.90M" is technically right and reads wrong.
+  const ownRounded =
+    equity >= 1_000_000
+      ? `$${(equity / 1_000_000).toFixed(2)}M`
+      : `$${Math.round(equity / 1000)}K`;
+
   return (
     <section
       className="relative overflow-hidden border-b"
       style={{ borderColor: "var(--rule)" }}
     >
-      <div
-        className="plan-grid pointer-events-none absolute inset-0 opacity-40"
-        aria-hidden="true"
-      />
+      <div className="aura pointer-events-none absolute inset-0" aria-hidden="true" />
 
-      <div className="relative mx-auto max-w-page px-4 pb-16 pt-14 sm:px-6 lg:px-8 lg:pb-20 lg:pt-20">
+      <div className="relative mx-auto max-w-page px-4 pb-16 pt-14 sm:px-6 lg:px-8 lg:pb-14 lg:pt-12">
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-14">
           {/* ── Left: the question, the answer, the controls ─────────── */}
           <div className="lg:col-span-7">
             <h1
-              className="text-[2.25rem] font-semibold leading-[1.06] sm:text-[3rem] lg:text-[3.5rem]"
-              style={{ letterSpacing: "-0.038em", color: "var(--text-primary)" }}
+              className="display text-[2.25rem] sm:text-[3rem] lg:text-[3.5rem]"
+              style={{ color: "var(--text-primary)" }}
             >
-              If you buy it, what
+              Buy this house.
               <br />
-              are you left with?
+              <span className="display-accent">In {years} years</span>
+              <br />
+              <span className="display-chip">you own {ownRounded}</span>
             </h1>
 
             <p
-              className="mt-5 max-w-measure text-[17px] leading-relaxed"
+              className="mt-4 max-w-measure text-[16px] leading-relaxed"
               style={{ color: "var(--text-secondary)" }}
             >
               Drag the numbers. This is the same engine that runs inside a real
@@ -104,13 +110,10 @@ export function WealthHero() {
             </p>
 
             {/* The answer */}
-            <div
-              className="mt-9 border"
-              style={{ borderColor: "var(--rule-strong)", background: "var(--surface)" }}
-            >
+            <div className="card-glow mt-7 overflow-hidden">
               <div
-                className="mono flex items-center justify-between border-b px-5 py-2.5 text-[11px] uppercase tracking-label"
-                style={{ borderColor: "var(--rule)", color: "var(--text-muted)" }}
+                className="flex items-center justify-between border-b px-5 py-3 text-[12px] font-semibold uppercase tracking-[0.08em]"
+                style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}
               >
                 <span>
                   In {years} {years === 1 ? "year" : "years"}, you would own
@@ -118,7 +121,7 @@ export function WealthHero() {
                 <PersonaToggle persona={persona} onChange={setPersona} />
               </div>
 
-              <div className="px-5 pb-5 pt-6">
+              <div className="px-5 pb-4 pt-5">
                 <AnimatedCurrency value={equity} />
 
                 <p className="mt-2.5 text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -136,8 +139,8 @@ export function WealthHero() {
                 {/* The three parts that make up that equity, to scale. */}
                 <Composition
                   parts={[
-                    { label: "Your deposit", value: deposit, tone: "var(--ink-3)" },
-                    { label: "Loan paid down", value: principalPaid, tone: "var(--ink-2)" },
+                    { label: "Your deposit", value: deposit, tone: "var(--text-muted)" },
+                    { label: "Loan paid down", value: principalPaid, tone: "var(--good)" },
                     { label: "Market growth", value: growth, tone: "var(--accent)" },
                   ]}
                   total={equity}
@@ -197,7 +200,7 @@ export function WealthHero() {
 
             {/* Assumptions, stated rather than buried. */}
             <p
-              className="mono mt-3 text-[11px] leading-relaxed"
+              className="mt-3 text-[12px] leading-relaxed"
               style={{ color: "var(--text-muted)" }}
             >
               {persona === "buyer" ? "20%" : "30%"} deposit,{" "}
@@ -206,7 +209,7 @@ export function WealthHero() {
               property&apos;s own figures.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link href="/report/new" className="btn-primary px-6 py-3.5 text-[15px]">
                 Run this on a real listing
                 <ArrowRight size={16} />
@@ -223,7 +226,7 @@ export function WealthHero() {
           {/* ── Right: the ledger behind the number ──────────────────── */}
           <div className="lg:col-span-5">
             <div
-              className="mono flex items-center gap-3 pb-3 text-[11px] uppercase tracking-label"
+              className="flex items-center gap-3 pb-3 text-[11px] font-semibold uppercase tracking-[0.06em]"
               style={{ color: "var(--text-muted)" }}
             >
               <span>Where the number comes from</span>
@@ -245,10 +248,10 @@ export function WealthHero() {
 
             <div
               className="mt-1 flex items-baseline justify-between border-t-2 pt-4"
-              style={{ borderColor: "var(--ink)" }}
+              style={{ borderColor: "var(--rule-strong)" }}
             >
               <span
-                className="mono text-[11px] uppercase tracking-label"
+                className="text-[11px] font-semibold uppercase tracking-[0.06em]"
                 style={{ color: "var(--text-muted)" }}
               >
                 You own
@@ -262,8 +265,7 @@ export function WealthHero() {
             </div>
 
             <div
-              className="mt-6 grid grid-cols-2 gap-px"
-              style={{ background: "var(--rule)" }}
+              className="mt-6 grid grid-cols-2 gap-3"
             >
               <MiniStat
                 label="Equity gained"
@@ -295,7 +297,12 @@ function PersonaToggle({
   onChange: (p: "buyer" | "investor") => void;
 }) {
   return (
-    <div className="flex" role="group" aria-label="Scoring persona">
+    <div
+      className="flex gap-1 p-1"
+      role="group"
+      aria-label="Scoring persona"
+      style={{ background: "var(--surface-2)", borderRadius: "var(--r-pill)" }}
+    >
       {(["buyer", "investor"] as const).map((p) => {
         const active = persona === p;
         return (
@@ -303,10 +310,12 @@ function PersonaToggle({
             key={p}
             onClick={() => onChange(p)}
             aria-pressed={active}
-            className="mono cursor-pointer px-2.5 py-1 text-[11px] uppercase tracking-label transition-colors"
+            className="cursor-pointer px-3.5 py-1.5 text-[12px] font-bold uppercase tracking-[0.06em] transition-all"
             style={{
-              background: active ? "var(--ink)" : "transparent",
-              color: active ? "var(--paper)" : "var(--text-muted)",
+              borderRadius: "var(--r-pill)",
+              background: active ? "var(--accent)" : "transparent",
+              color: active ? "#fff" : "var(--text-muted)",
+              boxShadow: active ? "0 6px 18px -8px var(--brand-glow)" : "none",
             }}
           >
             {p}
@@ -359,7 +368,7 @@ function Composition({
   const safeTotal = total > 0 ? total : 1;
   return (
     <div className="mt-5">
-      <div className="flex h-1.5 w-full overflow-hidden">
+      <div className="flex h-2 w-full overflow-hidden" style={{ borderRadius: "var(--r-pill)" }}>
         {parts.map((p) => (
           <div
             key={p.label}
@@ -375,12 +384,12 @@ function Composition({
           <div key={p.label}>
             <dt className="flex items-center gap-1.5">
               <span
-                className="inline-block h-2 w-2 flex-shrink-0"
+                className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full"
                 style={{ background: p.tone }}
                 aria-hidden="true"
               />
               <span
-                className="mono text-[10px] uppercase tracking-label"
+                className="text-[11px] font-semibold uppercase tracking-[0.06em]"
                 style={{ color: "var(--text-muted)" }}
               >
                 {p.label}
@@ -401,7 +410,7 @@ function Composition({
 
 function EquityChart({ data }: { data: { year: number; equity: number }[] }) {
   return (
-    <div className="mt-5 h-[92px] w-full">
+    <div className="mt-4 h-[64px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
           <defs>
@@ -449,7 +458,7 @@ function Control({
       <div className="flex items-baseline justify-between">
         <label
           htmlFor={id}
-          className="mono text-[11px] uppercase tracking-label"
+          className="text-[11px] font-semibold uppercase tracking-[0.06em]"
           style={{ color: "var(--text-muted)" }}
         >
           {label}
@@ -513,9 +522,12 @@ function Line({
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="px-4 py-3.5" style={{ background: "var(--surface)" }}>
+    <div
+      className="px-4 py-3.5"
+      style={{ background: "var(--surface)", borderRadius: "var(--r-input)" }}
+    >
       <div
-        className="mono text-[11px] uppercase tracking-label"
+        className="text-[11px] font-semibold uppercase tracking-[0.06em]"
         style={{ color: "var(--text-muted)" }}
       >
         {label}
