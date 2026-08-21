@@ -234,7 +234,7 @@ function Pricing() {
   ];
 
   const features: { label: string; has: [boolean, boolean, boolean] }[] = [
-    { label: "Reports included", has: [true, true, true] },
+    { label: "Reports for the month", has: [true, true, true] },
     { label: "Full photo analysis", has: [false, true, true] },
     { label: "Score breakdown", has: [false, true, true] },
     { label: "Renovation planner", has: [false, true, true] },
@@ -253,7 +253,7 @@ function Pricing() {
             className="mt-1 text-[15px] font-semibold"
             style={{ color: "var(--accent-text)" }}
           >
-            One-off payment. No subscriptions.
+            Pay for a month at a time. No subscription, nothing auto-renews.
           </p>
         </Reveal>
 
@@ -287,8 +287,8 @@ function Pricing() {
                         style={{ color: "var(--text-primary)" }}
                       >
                         {p.price}
-                        <span className="ml-1 text-[12px] font-semibold uppercase tracking-[0.06em]" style={{ color: "var(--text-muted)" }}>
-                          once
+                        <span className="ml-0.5 text-[13px] font-medium" style={{ color: "var(--text-muted)" }}>
+                          /month
                         </span>
                       </div>
                     </th>

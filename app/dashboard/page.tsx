@@ -285,7 +285,7 @@ export default function DashboardPage() {
             Get unlimited reports and the NZ investment map
           </h3>
           <p className="text-[var(--text-secondary)] text-sm mb-4">
-            Starter $49 once · Pro with map $99 once
+            Starter $49 / month · Pro with map $99 / month
           </p>
           <Link
             href="/pricing"
