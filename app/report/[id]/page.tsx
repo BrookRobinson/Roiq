@@ -8,6 +8,8 @@ import { RealReportView } from "@/components/RealReportView";
 import { buildDemoReport } from "@/lib/scoring/demo";
 import { SHARE_ID_PREFIX } from "@/lib/share";
 import { fetchSavedReport } from "@/lib/reports/client";
+import { NegotiationLetter } from "@/components/Negotiation/NegotiationLetter";
+import type { NegotiationPayload } from "@/lib/negotiation/payload";
 
 // Built once: the demo report is fully powered by the real v3.1 engine, so the
 // persona toggle recomputes on it exactly as it does on a live report.
@@ -27,6 +29,8 @@ export default function ReportPage() {
   const [ready, setReady] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [needsPro, setNeedsPro] = useState(false);
+  // A share can carry the agent document instead of a full report.
+  const [letter, setLetter] = useState<NegotiationPayload | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   // A share_<token> id is a report someone sent us: it isn't in this browser's
@@ -42,7 +46,16 @@ export default function ReportPage() {
       fetch(`/api/report/share?token=${encodeURIComponent(token)}`)
         .then(async (r) => {
           const j = await r.json().catch(() => null);
-          if (r.ok && j?.ok && j.report) { setReport(j.report as StoredReport); }
+          if (r.ok && j?.ok && j.report) {
+            const payload = j.report as StoredReport | NegotiationPayload;
+            // Two kinds of share live in the same table: a full report, and the
+            // agent document, which deliberately carries none of the report.
+            if ((payload as NegotiationPayload).kind === "negotiation") {
+              setLetter(payload as NegotiationPayload);
+            } else {
+              setReport(payload as StoredReport);
+            }
+          }
           else { setShareError(j?.error ?? "This shared report couldn't be loaded."); }
           setReady(true);
         })
@@ -105,6 +118,18 @@ export default function ReportPage() {
              style={{ background: "var(--brand)", color: "var(--on-accent)" }}>
             Analyse a property
           </a>
+        </div>
+      </div>
+    );
+  }
+
+  // The agent document — shown on its own, with no report chrome around it.
+  if (letter) {
+    return (
+      <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
+        <Navbar user={null} />
+        <div className="px-4 py-10">
+          <NegotiationLetter data={letter.case} preparedBy={letter.preparedBy} note={letter.note} />
         </div>
       </div>
     );

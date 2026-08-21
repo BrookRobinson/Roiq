@@ -30,6 +30,7 @@ import { costThreeTier, tierTotal, TIER_ORDER, scaleTier, isScalableKind } from 
 import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
 import { buildBudgetPlan, PRIORITY_META } from "@/lib/reno-costing/budget-plan";
 import { MaterialStudio } from "@/components/MaterialStudio";
+import { NegotiationTab } from "@/components/Negotiation/NegotiationTab";
 import { surfaceForKind, materialsFor } from "@/lib/materials-catalogue";
 import { summarise, defaultInputs, FINANCE_DEFAULTS, PURCHASE_COST_LABELS } from "@/lib/finance/calculator";
 import type { FinanceInputs, LoanType, PurchaseCostKey } from "@/lib/finance/calculator";
@@ -44,12 +45,12 @@ import {
   isVerifiedDocItem,
 } from "@/lib/scoring/catalog";
 import {
-  Home, Building2, Wrench, Calculator, ClipboardList, Shield, MapPin,
+  Home, Building2, Wrench, Calculator, ClipboardList, Shield, MapPin, Handshake,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
   TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send,
 } from "lucide-react";
 
-type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "methodology";
+type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "negotiation" | "methodology";
 
 const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?: boolean }[] = [
   { id: "overview", label: "Overview", icon: Home },
@@ -57,6 +58,7 @@ const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?
   { id: "address", label: "Land", icon: ClipboardList },
   { id: "renovations", label: "Renovations", icon: Wrench },
   { id: "financial", label: "Financial", icon: Calculator },
+  { id: "negotiation", label: "For the agent", icon: Handshake },
   { id: "methodology", label: "How we score", icon: Info },
 ];
 
@@ -520,6 +522,7 @@ export function RealReportView({
               <div className="mt-4"><LocationFactCard subItems={effectiveSubItems} ids={["loc_growth"]} title="Suburb growth & demand" /></div>
             </>
           )}
+          {tab === "negotiation" && <NegotiationTab report={report} />}
           {tab === "methodology" && <MethodologyTab />}
         </div>
 
