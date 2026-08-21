@@ -3,8 +3,7 @@ import { resolveListing, resolveListingByAddress } from "@/lib/listing-resolver"
 import { analyseProperty } from "@/lib/ai/analyze";
 import { buildMapListing } from "@/lib/map/from-analysis";
 import { addUserListing } from "@/lib/map/user-listings";
-import { createClient } from "@/lib/supabase/server";
-import { mapListingInsert } from "@/lib/map/store";
+import { persistMapListing } from "@/lib/map/persist";
 import { computeRepairAllowance } from "@/lib/map/repair-allowance";
 import type { ReportContribution } from "@/lib/map/contribution";
 
@@ -58,24 +57,17 @@ export async function POST(req: NextRequest) {
     const built = await buildMapListing(contribution, `manual-${Date.now()}`);
     const local = await addUserListing(built.listing);
 
-    // Best-effort persist — RLS or an unreachable DB may block the write; the
-    // caller still gets the result, and the local copy still serves the map.
-    let persisted = false;
-    try {
-      const supabase = createClient();
-      // supabase-js infers the Omit-based Insert type as `never`; cast the validated row.
-      const { error } = await supabase.from("map_listings").insert(mapListingInsert(built.listing, url ?? "") as never);
-      persisted = !error;
-    } catch {
-      /* ignore persistence failure */
-    }
+    // Best-effort persist — the caller still gets the result, and the local copy
+    // still serves the map, if the database is away.
+    const db = await persistMapListing(built.listing, url ?? "");
 
     return NextResponse.json({
       ok: true,
       listing: built.listing,
       geocoded: built.geocoded,
       stored: local.stored,
-      persisted,
+      persisted: db.persisted,
+      persistReason: db.reason ?? null,
       // Where each live figure came from, so the caller can cite it rather than
       // present a bond median and a fallback estimate as the same number.
       sources: built.sources,

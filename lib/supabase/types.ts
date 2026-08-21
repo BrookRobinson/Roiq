@@ -205,6 +205,8 @@ export interface Database {
           gross_yield_est: number | null;
           profit_10yr_est: number | null;
           opportunity_grade: OpportunityGrade | null;
+          source_key: string | null;
+          full_report_ref: string | null;
           full_report_id: string | null;
           listing_status: ListingStatus;
           first_seen: string;

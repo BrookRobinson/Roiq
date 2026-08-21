@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { SEED_LISTINGS, mapListingInsert } from "@/lib/map/store";
+import { SEED_LISTINGS } from "@/lib/map/store";
+import { persistMapListing } from "@/lib/map/persist";
 import { fetchActiveListings, fetchSuburbRentDetail, fetchSuburbGrowth } from "@/lib/map/sources";
 
 export const runtime = "nodejs";
@@ -70,18 +70,19 @@ async function handle(req: NextRequest) {
     listings.push({ ...l, estimatedWeeklyRent: rent?.weekly ?? l.estimatedWeeklyRent, suburbGrowthRatePct: growth });
   }
 
-  try {
-    const supabase = createClient();
-    for (const l of listings) {
-      // Live: only NEW/CHANGED listings would run the full scoring pipeline here.
-      // Seed listings are already scored, so persist their refreshed snapshot.
-      const { error } = await supabase.from("map_listings").insert(mapListingInsert(l, "") as never);
-      if (error) failed++;
-      else scored++;
+  let persistReason: string | null = null;
+  for (const l of listings) {
+    // Live: only NEW/CHANGED listings would run the full scoring pipeline here.
+    // Seed listings are already scored, so persist their refreshed snapshot.
+    const db = await persistMapListing(l, "");
+    if (db.persisted) {
+      scored++;
+    } else {
+      failed++;
+      persistReason ??= db.detail ?? db.reason ?? null;
     }
-  } catch (err) {
-    console.error("[map/score-run]", err);
   }
+  if (persistReason) console.warn("[map/score-run] not persisted:", persistReason);
 
   const run = {
     at: new Date().toISOString(),
@@ -90,6 +91,7 @@ async function handle(req: NextRequest) {
     growthRefreshed,
     scored,
     failed,
+    persistReason,
     // new / changed / sold counts arrive with the listings feed.
   };
   console.log("[map/score-run]", run);

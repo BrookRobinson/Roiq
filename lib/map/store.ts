@@ -40,7 +40,8 @@ function rowToMapListing(r: MapListingRow): MapListing {
       ? (r.repair_breakdown as Record<string, number>)
       : {};
   return {
-    id: r.id,
+    // Prefer our stable pin key; `id` is a generated uuid the app never coins.
+    id: r.source_key ?? r.id,
     address: r.address ?? "",
     suburb: r.suburb,
     city: r.city ?? null,
@@ -62,7 +63,7 @@ function rowToMapListing(r: MapListingRow): MapListing {
     repairBreakdown: breakdown,
     estimatedWeeklyRent: r.estimated_weekly_rent ?? 0,
     suburbGrowthRatePct: r.suburb_growth_rate_pct ?? 0,
-    fullReportId: r.full_report_id,
+    fullReportId: r.full_report_ref ?? r.full_report_id,
     status: r.listing_status === "sold" ? "sold" : "active",
   };
 }
@@ -109,7 +110,8 @@ export async function isShowingSeedData(): Promise<boolean> {
 export async function getListingById(id: string): Promise<MapListing | null> {
   try {
     const supabase = createClient();
-    const { data, error } = await supabase.from("map_listings").select("*").eq("id", id).single();
+    // Pins are addressed by source_key — `id` is a uuid the app never sees.
+    const { data, error } = await supabase.from("map_listings").select("*").eq("source_key", id).maybeSingle();
     if (!error && data) return rowToMapListing(data);
   } catch {
     /* fall through */
@@ -184,7 +186,12 @@ export function mapListingInsert(l: MapListing, sourceUrl = ""): MapListingInser
     five_year_return_pct: Math.round(inv.returnOnDepositPct * 10) / 10,
     home_buyer_colour: hb.colour,
     investor_colour: inv.colour,
-    full_report_id: l.fullReportId,
+    // Our stable pin id — the upsert key, so a property keeps one row.
+    source_key: l.id,
+    // full_report_id is a FK to public.reports, which nothing writes to, so
+    // setting it would fail the insert. The plain-text ref carries it instead.
+    full_report_id: null,
+    full_report_ref: l.fullReportId,
     listing_status: l.status,
     first_seen: now,
     last_seen: now,

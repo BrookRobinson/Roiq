@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createClient } from "@/lib/supabase/server";
 import { buildMapListing } from "@/lib/map/from-analysis";
 import { isPublicListing, type ReportContribution } from "@/lib/map/contribution";
 import { addUserListing } from "@/lib/map/user-listings";
-import { mapListingInsert } from "@/lib/map/store";
+import { persistMapListing } from "@/lib/map/persist";
 
 export const runtime = "nodejs";
 export const maxDuration = 60; // rent lookup + geocode only — the analysis is already done
@@ -51,23 +50,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, added: false, reason: local.reason ?? "not_stored" });
     }
 
-    // Supabase is the real home for these; it's just unreachable right now.
-    let persisted = false;
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("map_listings")
-        .insert(mapListingInsert(built.listing, `report:${c.reportId}`) as never);
-      persisted = !error;
-    } catch {
-      /* local copy carries it until the database is back */
-    }
+    // Supabase is the real home for these; the local copy carries them until it's back.
+    const db = await persistMapListing(built.listing, `report:${c.reportId}`);
 
     return NextResponse.json({
       ok: true,
       added: true,
       id,
-      persisted,
+      persisted: db.persisted,
+      persistReason: db.reason ?? null,
       geocoded: built.geocoded,
       sources: built.sources,
     });
