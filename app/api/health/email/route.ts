@@ -28,18 +28,24 @@ export async function GET() {
   // before someone tries to email an agent.
   let domains: { name: string; status: string }[] = [];
   let keyValid = true;
+  let restricted = false;
   let detail: string | null = null;
   try {
     const res = await fetch("https://api.resend.com/domains", {
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
       cache: "no-store",
     });
-    if (res.status === 401 || res.status === 403) {
-      keyValid = false;
-      detail = "Resend rejected the API key.";
-    } else if (res.ok) {
+    if (res.ok) {
       const json = (await res.json().catch(() => null)) as { data?: { name: string; status: string }[] } | null;
       domains = (json?.data ?? []).map((d) => ({ name: d.name, status: d.status }));
+    } else if (res.status === 401 || res.status === 403) {
+      // A sending-only key is FORBIDDEN from listing domains, which looks exactly
+      // like a bad key here. Tell the two apart, or a perfectly good key gets
+      // reported as broken.
+      const body = await res.text().catch(() => "");
+      restricted = /restricted_api_key|restricted to only send/i.test(body);
+      keyValid = restricted ? await authenticates() : false;
+      if (!keyValid) detail = "Resend rejected the API key.";
     } else {
       detail = `Resend responded ${res.status}.`;
     }
@@ -50,22 +56,49 @@ export async function GET() {
   const verified = domains.filter((d) => d.status === "verified");
   const usingShared = !hasVerifiedSender();
 
+  // With a sending-only key the domain list can't be read from here, so the
+  // honest answer is "send one and see" rather than a guess dressed as a status.
+  const summary = !keyValid
+    ? "The Resend API key was rejected — check RESEND_API_KEY."
+    : restricted && usingShared
+      ? `The key works. It's a sending-only key, so domains can't be listed from here — and RESEND_FROM is unset, so mail goes out as ${DEFAULT_FROM}, which Resend only delivers to your own account address. Verify a domain and set RESEND_FROM to email anyone else.`
+      : restricted
+        ? `Sending as ${fromAddress()}. The key is sending-only, so domain verification can't be confirmed from here — POST to this endpoint to prove it end to end.`
+        : verified.length === 0
+          ? "The key works, but no domain is verified in Resend yet. Sends will only reach your own account address."
+          : usingShared
+            ? `${verified.map((d) => d.name).join(", ")} is verified, but RESEND_FROM still points at the shared sender (${DEFAULT_FROM}). Set RESEND_FROM to an address on your domain.`
+            : `Ready — sending as ${fromAddress()}.`;
+
   return NextResponse.json({
-    ok: keyValid && !usingShared && verified.length > 0,
+    ok: keyValid && !usingShared,
     configured: true,
     keyValid,
+    sendingOnlyKey: restricted,
     from: fromAddress(),
     usingSharedSender: usingShared,
     domains,
-    summary: !keyValid
-      ? "The Resend API key was rejected — check RESEND_API_KEY."
-      : verified.length === 0
-        ? "The key works, but no domain is verified in Resend yet. Sends will only reach your own account address."
-        : usingShared
-          ? `${verified.map((d) => d.name).join(", ")} is verified, but RESEND_FROM still points at the shared sender (${DEFAULT_FROM}). Set RESEND_FROM to an address on your domain.`
-          : `Ready — sending as ${fromAddress()}.`,
+    summary,
     detail,
   });
+}
+
+/**
+ * Auth probe that sends nothing: with the key accepted an empty body fails
+ * validation (422); a rejected key never gets that far.
+ */
+async function authenticates(): Promise<boolean> {
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: "{}",
+      cache: "no-store",
+    });
+    return res.status !== 401 && res.status !== 403;
+  } catch {
+    return false;
+  }
 }
 
 /** POST { to } — actually send one, so setup is proven rather than assumed. */
