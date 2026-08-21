@@ -1,0 +1,108 @@
+# Working on BDR Report
+
+NZ property analysis: paste a listing URL → scrape → Claude vision → a scored,
+persona-aware report out of 1,000. Next.js 14 App Router, TypeScript, Tailwind,
+Supabase, Mapbox.
+
+This file is **operating rules that stay true across features**. Current state —
+what's built, what's blocked, what's being quoted — lives in memory, not here. If
+something in this file goes stale, fix it in the same commit.
+
+## Commands
+
+```bash
+npm run dev                  # port 3000
+./node_modules/.bin/tsc --noEmit   # type check — see the trap below
+npm run lint
+npm run db:setup-sql         # regenerate supabase/setup.sql from the migrations
+```
+
+**There are no tests.** Verification is `tsc`, the health endpoints, and driving
+the app. If you add anything to `lib/scoring`, `lib/negotiation` or
+`lib/reno-costing`, consider that the strongest argument for finally adding some:
+it's pure, deterministic, and a wrong number there ends up in a letter to a
+vendor's agent.
+
+## Traps that have actually bitten
+
+- **`npx tsc` installs a bogus package.** Always `./node_modules/.bin/tsc --noEmit`.
+- **Never `npm run build` while `next dev` is running.** It clobbers `.next` and
+  every page renders unstyled. If that happens: `pkill -f "next dev"; rm -rf .next`
+  then restart.
+- **Supabase types need `Relationships: []` on every table** in
+  `lib/supabase/types.ts`. Without it the schema fails supabase-js's
+  `GenericSchema` constraint and **every typed query silently resolves to
+  `never`** — which is what the scattered `as never` casts were working around.
+  If a query types as `never`, check this first.
+- **A Next.js route file may only export route handlers.** Extra exported types
+  or constants fail the generated type check — put them in `lib/`.
+- **Folders starting with `_` are private** and never routed.
+- **Free Supabase projects pause after ~7 days idle and lose their DNS.** NXDOMAIN
+  looks exactly like deletion. Check the dashboard before concluding anything.
+- **Screenshots of the scrolled landing page come back blank** in the preview
+  browser even when the DOM is correct. Render the component on a temp page at
+  scroll 0 instead.
+- **`<input type="number">` eats the mouse wheel.** Every one of them takes
+  `onWheel={blurOnWheel}` (`lib/ui/number-input.ts`), or scrolling the page
+  silently edits the user's numbers.
+
+## Where things live
+
+| Path | What |
+| --- | --- |
+| `components/landing/` | Landing page sections. **Check here before adding anything to the landing page** — a duplicate map got shipped by grepping for `PropertyMap` and missing `LiveMapSection`. |
+| `components/map/` | `MapExperience.tsx` is the whole map; `/map` and `/map/demo` are thin wrappers around it with a `demo` flag. Don't fork it. |
+| `components/Negotiation/` | The agent document. |
+| `lib/scoring/` | The 1,000-point engine. `model.ts` is the rubric, `engine.ts` scores, `catalog.ts` is the item list. |
+| `lib/map/`, `lib/reports/`, `lib/negotiation/`, `lib/email/`, `lib/auth/` | Feature libs. Server-only modules say so at the top. |
+| `supabase/migrations/` | Source of truth for schema. Regenerate `setup.sql` after adding one. |
+
+## Rules that aren't obvious from the code
+
+**Never show the demo report as a real property.** `/report/[id]` falls back to
+the demo, so only non-uuid ids (`rpt_*`, `sample-*`) may do that. A real id that
+isn't found says so. Map pins publish report ids — rendering 14 Ferndale Rd under
+someone else's address is the failure mode this guards against.
+
+**Seed listings are a display fallback, never data.** They exist so an empty map
+isn't blank. Writing them to `map_listings` makes invented properties
+indistinguishable from real ones on the next read.
+
+**Map writes go through the service role** (`lib/supabase/admin.ts` →
+`lib/map/persist.ts`). `map_listings` has a read-everyone RLS policy and
+deliberately no write policy: the anon key ships to every browser, so an insert
+policy would let anyone write to the map.
+
+**The agent letter invents nothing.** Every item, defect, photo reference,
+confidence tier and cost is copied from the report. If the analysis didn't find
+it, the document doesn't say it — and when nothing is critical or urgent it says
+that plainly rather than manufacturing a case. It also carries **no valuation
+claim**, and the share link carries **only the document**, never the report: the
+Financial tab holds the buyer's walk-away price and the recipient is the vendor's
+agent.
+
+**Valuations are estimates until a licensed sold-sales feed lands.** Land value
+and suburb $/m² are inferred, and everything downstream inherits that. Don't
+write copy that presents them as settled fact.
+
+**Email is best-effort.** The share link is the deliverable; a failed send shows
+a reason next to a link that already works. Never fail a request because email
+failed.
+
+**The map's `teaser` flag must be settled before `PropertyMap` mounts** — layers
+are built once, so a Pro user rendering early gets stuck with the blurred version.
+
+## Verifying
+
+```bash
+curl -s localhost:3000/api/health/db    | python3 -m json.tool
+curl -s localhost:3000/api/health/email | python3 -m json.tool
+```
+
+`/report/rpt_001` is the demo report — real engine, seeded data, no API spend.
+Use it to check report changes instead of burning a live analysis (a real run
+takes ~4 minutes and real tokens).
+
+## Git
+
+Commit freely; **the user pushes** via GitHub Desktop. Don't push.
