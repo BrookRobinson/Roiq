@@ -1,5 +1,5 @@
 // ============================================================
-// RoiQ report scoring bridge (v3.1)
+// BDR Report report scoring bridge (v3.1)
 // Pure helpers that turn the persona-independent assessment into
 // engine inputs and both persona ScoreResults. Used on the server
 // (report generation) AND the client (instant re-score on toggle).

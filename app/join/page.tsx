@@ -30,7 +30,7 @@ function JoinInner() {
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "32px 16px" }}>
       <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", marginBottom: 28 }}>
-        <span style={{ fontWeight: 700, fontSize: 22, color: "var(--brand)" }}>RoiQ</span>
+        <span style={{ fontWeight: 700, fontSize: 22, color: "var(--brand)" }}>BDR Report</span>
       </Link>
 
       <div className="card" style={{ width: "100%", maxWidth: 460, padding: 28 }}>

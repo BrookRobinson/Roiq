@@ -28,7 +28,7 @@ export default function SimpleOnboardingPage() {
     >
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="font-bold text-2xl mb-1" style={{ color: "var(--brand)" }}>RoiQ</div>
+          <div className="font-bold text-2xl mb-1" style={{ color: "var(--brand)" }}>BDR Report</div>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Quick setup — 30 seconds</p>
         </div>
 

@@ -26,7 +26,7 @@ export default function AboutPage() {
             after costs.
           </p>
           <p className="text-lg max-w-2xl mt-4" style={{ color: "var(--text-secondary)", lineHeight: 1.8 }}>
-            RoiQ was built to fix that. We give you the honest picture before you make an offer.
+            BDR Report was built to fix that. We give you the honest picture before you make an offer.
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export default function AboutPage() {
         >
           <h3 className="font-semibold mb-3" style={{ color: "var(--text-primary)" }}>Important</h3>
           <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            RoiQ analyses publicly available listing data and photos. It is not a registered property
+            BDR Report analyses publicly available listing data and photos. It is not a registered property
             valuation, a building inspection, or legal advice. It is AI-assisted analysis that helps you
             ask better questions and make more informed decisions. Always engage qualified professionals
             — a building inspector, registered valuer, or lawyer — before purchasing.

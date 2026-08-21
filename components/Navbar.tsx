@@ -55,7 +55,7 @@ export default function Navbar({
             href="/"
             className="cursor-pointer"
             style={{ color: "var(--text-primary)" }}
-            aria-label="RoiQ home"
+            aria-label="BDR Report home"
           >
             <Wordmark />
           </Link>

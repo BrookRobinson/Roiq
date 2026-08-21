@@ -4,7 +4,7 @@ import { getAnthropic, ANALYSIS_MODEL } from "./client";
 
 // Targeted floor-area + land-area lookup by address. Listings often render these two
 // figures client-side (or omit them), so even a clean scrape can come back without
-// them — and the RoIQ Value Verdict (suburb median $/m² × condition × FLOOR AREA)
+// them — and the BDR Report Value Verdict (suburb median $/m² × condition × FLOOR AREA)
 // can't compute without the floor area. This does ONE focused web search against the
 // NZ property-data sites that publish council / RV records, and is only called when
 // the scrape didn't already supply both. Never estimates — omits what it can't find.

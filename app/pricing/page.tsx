@@ -225,14 +225,14 @@ export default function PricingPage() {
               },
               {
                 q: "Is this a registered property valuation?",
-                a: "No. RoiQ is AI-assisted analysis of publicly available listing data. It is not a registered valuation, building inspection, or legal advice.",
+                a: "No. BDR Report is AI-assisted analysis of publicly available listing data. It is not a registered valuation, building inspection, or legal advice.",
               },
               {
                 q: "How accurate is the photo analysis?",
                 a: "Photos are scored with a confidence tier. Tier 1 (≥90% confidence) findings are stated as fact. Tier 2 (65–89%) are labelled 'verify at inspection'. Tier 3 findings are unscored.",
               },
               {
-                q: "What currency does RoiQ use?",
+                q: "What currency does BDR Report use?",
                 a: "NZD by default. Australian users will see AUD pricing automatically based on browser locale.",
               },
             ].map((faq) => (

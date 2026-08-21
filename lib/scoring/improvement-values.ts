@@ -1,5 +1,5 @@
 // ============================================================
-// RoiQ — ITEMISED IMPROVEMENT VALUATION (v5)
+// BDR Report — ITEMISED IMPROVEMENT VALUATION (v5)
 //
 // Turns the Improvements scores into a dollar value, one line per component,
 // using the Depreciated Replacement Cost (cost approach) method:

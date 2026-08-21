@@ -87,7 +87,7 @@ function SignupForm() {
             style={{ color: "var(--brand)" }}
           >
             <LogoIcon />
-            RoiQ
+            BDR Report
           </Link>
         </div>
 

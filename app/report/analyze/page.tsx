@@ -117,7 +117,7 @@ export default function AnalyzePage() {
           </span>
         </div>
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-          Paste a NZ listing URL. RoiQ scrapes it, sends the photos to Claude vision, and returns a real
+          Paste a NZ listing URL. BDR Report scrapes it, sends the photos to Claude vision, and returns a real
           condition report and 1,000-point score. This is the actual pipeline — not the demo.
         </p>
 

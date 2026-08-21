@@ -1,5 +1,5 @@
 // ============================================================
-// RoiQ — Healthy Homes standards (investor / rental compliance)
+// BDR Report — Healthy Homes standards (investor / rental compliance)
 //
 // The 5 NZ Healthy Homes Standards, scored with the SAME tier-band method as the
 // rest of Improvements. Four of them reuse an existing scored item (so ticking a

@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 font-bold text-2xl cursor-pointer" style={{ color: "var(--brand)" }}>
-            RoiQ
+            BDR Report
           </Link>
         </div>
         <div className="rounded-2xl p-8" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>

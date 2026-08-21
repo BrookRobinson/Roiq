@@ -142,13 +142,13 @@ async function sendShareEmail(args: {
 
   const address = args.report.listing.address ?? "a property";
   const score = args.report.scores.buyer?.total;
-  const from = process.env.SHARE_EMAIL_FROM || "RoiQ <onboarding@resend.dev>";
+  const from = process.env.SHARE_EMAIL_FROM || "BDR Report <onboarding@resend.dev>";
 
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a">
-      <h2 style="margin:0 0 4px">A RoiQ property report has been shared with you</h2>
+      <h2 style="margin:0 0 4px">A BDR Report property report has been shared with you</h2>
       <p style="color:#475569;margin:0 0 20px">${escapeHtml(address)}${
-        typeof score === "number" ? ` — RoiQ score ${score}/1000` : ""
+        typeof score === "number" ? ` — BDR Report score ${score}/1000` : ""
       }</p>
       ${
         args.note
@@ -168,7 +168,7 @@ async function sendShareEmail(args: {
       body: JSON.stringify({
         from,
         to: args.to,
-        subject: `RoiQ report shared with you — ${address}`,
+        subject: `BDR Report report shared with you — ${address}`,
         html,
       }),
     });

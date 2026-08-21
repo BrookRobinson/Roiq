@@ -54,7 +54,7 @@ export default function AgentUploadPage({ params }: { params: { token: string } 
             Thank you. The buyer has been notified and their report will be updated within a few minutes.
           </p>
           <p className="text-xs mt-4" style={{ color: "var(--text-muted)" }}>
-            Powered by RoiQ · roiq.co.nz
+            Powered by BDR Report · roiq.co.nz
           </p>
         </div>
       </div>
@@ -66,7 +66,7 @@ export default function AgentUploadPage({ params }: { params: { token: string } 
       <div className="max-w-xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="font-bold text-2xl mb-1" style={{ color: "var(--brand)" }}>RoiQ</div>
+          <div className="font-bold text-2xl mb-1" style={{ color: "var(--brand)" }}>BDR Report</div>
           <h1 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
             Agent information upload
           </h1>
@@ -193,7 +193,7 @@ export default function AgentUploadPage({ params }: { params: { token: string } 
 
         <p className="text-center text-xs mt-6" style={{ color: "var(--text-muted)" }}>
           Files are securely stored and only shared with the buyer who requested them.<br />
-          This link expires in 30 days. Powered by RoiQ · roiq.co.nz
+          This link expires in 30 days. Powered by BDR Report · roiq.co.nz
         </p>
       </div>
     </div>

@@ -1,5 +1,5 @@
 // ============================================================
-// RoiQ — "If you spent X% on this house, here's what we'd do"
+// BDR Report — "If you spent X% on this house, here's what we'd do"
 //
 // A PRIORITISED SPEND PLAN, deliberately NOT a return prediction.
 //

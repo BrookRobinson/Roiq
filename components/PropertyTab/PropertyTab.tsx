@@ -200,7 +200,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
         <p style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
           <strong style={{ color: "var(--text-secondary)" }}>Scoring methodology:</strong>{" "}
           This is the <strong>Improvements</strong> inspection — one of four (Improvements, Location,
-          Land, Legal) in RoiQ&apos;s 1,000-point model. Each sub-item is scored 1–10, then weighted by
+          Land, Legal) in BDR Report&apos;s 1,000-point model. Each sub-item is scored 1–10, then weighted by
           persona-specific points that differ for Home Buyers and Investors; toggle the mode in the
           header to re-weight the whole score. Extra dwellings add a bonus of up to 50 points.
           Tier 3 (unscored) items are excluded from the denominator and flagged for inspection.

@@ -6,7 +6,7 @@
 
 import { SEED_LISTINGS } from "./seed";
 
-/** A raw listing as the portal APIs return it (before RoiQ scoring). */
+/** A raw listing as the portal APIs return it (before BDR Report scoring). */
 export interface RawListing {
   listingId: string;
   source: "oneroof" | "realestate";

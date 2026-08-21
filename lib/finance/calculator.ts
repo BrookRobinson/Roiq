@@ -1,5 +1,5 @@
 // ============================================================
-// RoiQ — property financial calculator (v3.8)
+// BDR Report — property financial calculator (v3.8)
 // Pure + deterministic. Answers: "buy today, sell in N years → walk away with $X".
 // All NZ defaults live here; every value is overridable from the Finance tab UI.
 // ============================================================

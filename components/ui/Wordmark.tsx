@@ -1,5 +1,5 @@
 /**
- * RoiQ wordmark.
+ * BDR Report wordmark.
  *
  * A single geometric mark: a square plan outline with a corner survey tick,
  * which is the one drawing convention this whole design language is built on.
@@ -41,7 +41,7 @@ export function Wordmark({
           className="text-[19px] font-semibold"
           style={{ letterSpacing: "-0.03em" }}
         >
-          RoiQ
+          BDR Report
         </span>
       )}
     </span>

@@ -47,7 +47,7 @@ function LoginForm() {
             style={{ color: "var(--brand)" }}
           >
             <LogoIcon />
-            RoiQ
+            BDR Report
           </Link>
           <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
             Know before you buy.
@@ -62,7 +62,7 @@ function LoginForm() {
             Welcome back
           </h1>
           <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-            Log in to your RoiQ account
+            Log in to your BDR Report account
           </p>
 
           {error && (

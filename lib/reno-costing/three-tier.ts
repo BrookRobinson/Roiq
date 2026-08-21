@@ -1,5 +1,5 @@
 // ============================================================
-// RoiQ — three-tier renovation costing (v3.7)
+// BDR Report — three-tier renovation costing (v3.7)
 // Every flagged reno item gets three options:
 //   Patch Up        — cheap short-term fix (bespoke repair materials)
 //   Replace Budget  — full replacement using the `budget` MATERIALS_DB option

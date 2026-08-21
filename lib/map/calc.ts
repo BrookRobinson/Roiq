@@ -17,7 +17,7 @@ function colourFor(pct: number): DealColour {
 }
 
 /**
- * Homebuyer mode = value vs price. The colour compares RoiQ's valuation (already
+ * Homebuyer mode = value vs price. The colour compares BDR Report's valuation (already
  * computed from suburb $/m² × quality × floor area) against the asking price and
  * is the same for every user. Investor mode = projected return over the hold
  * period using this user's deposit / rate / costs, so it varies per user.

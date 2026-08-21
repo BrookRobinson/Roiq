@@ -115,8 +115,8 @@ export function PropertySheet({
 
               {mode === "homebuyer" ? (
                 <div className="space-y-2.5">
-                  <Row label="RoiQ Score" value={`${l.roiqScore}/1000`} />
-                  <Row label="RoiQ Valuation" value={money(c.roiqValuation)} />
+                  <Row label="BDR Report Score" value={`${l.roiqScore}/1000`} />
+                  <Row label="BDR Report Valuation" value={money(c.roiqValuation)} />
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm" style={{ color: "var(--text-secondary)" }}>vs Asking Price</span>
                     <span className="text-sm font-bold mono px-2 py-0.5 rounded-md" style={{ color: hex, background: `${hex}1a` }}>
@@ -127,7 +127,7 @@ export function PropertySheet({
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  <Row label="RoiQ Score" value={`${l.roiqScore}/1000`} />
+                  <Row label="BDR Report Score" value={`${l.roiqScore}/1000`} />
                   <Row label="Adjusted buy-in" value={money(c.adjustedBuyIn)} hint="asking + repairs" />
                   <Row label="Est. weekly rent" value={`${money(c.weeklyRent)}/wk`} />
                   <Row label="Annual cashflow" value={signed(c.annualCashflow)} valueColor={c.annualCashflow >= 0 ? "#00e676" : "#ff5f5f"} />
@@ -182,7 +182,7 @@ function Row({ label, value, hint, valueColor, bold }: { label: string; value: s
 
 function homebuyerNote(gap: number): string {
   const g = Math.round(gap);
-  if (g > 15) return `Great deal — RoiQ values it ${g}% above the asking price.`;
-  if (g < -15) return `Overpriced — RoiQ values it ${Math.abs(g)}% below the asking price.`;
-  return "Fair price — close to RoiQ's estimated value.";
+  if (g > 15) return `Great deal — BDR Report values it ${g}% above the asking price.`;
+  if (g < -15) return `Overpriced — BDR Report values it ${Math.abs(g)}% below the asking price.`;
+  return "Fair price — close to BDR Report's estimated value.";
 }

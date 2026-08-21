@@ -1,5 +1,5 @@
 // ============================================================
-// RoiQ SCORING CATALOG (v3.1)
+// BDR Report SCORING CATALOG (v3.1)
 // Display + AI structure DERIVED from SCORING_MODEL so the model
 // stays the single source of truth. Icons, labels, ordering, the
 // AI checklist, and the tool enum all come from here.
@@ -160,7 +160,7 @@ export interface SourceRef {
 export const SOURCE_TAXONOMY: Record<string, SourceRef> = {
   // Location
   loc_schools: { source: "Ministry of Education enrolment zones + property address", sourceType: "moe_zones", verifyAgainst: "Ministry of Education / the school" },
-  loc_growth: { source: "RoiQ market data — suburb median trend & days-to-sell", sourceType: "market_data" },
+  loc_growth: { source: "BDR Report market data — suburb median trend & days-to-sell", sourceType: "market_data" },
   loc_sun: { source: "Photo analysis (sun, shadows, room orientation) + section orientation", sourceType: "photo" },
   loc_amenities: { source: "Map POI data — distance to supermarket, shops, cafés", sourceType: "map_poi" },
   loc_street: { source: "Streetscape photos + street-level inference", sourceType: "photo" },

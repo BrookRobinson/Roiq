@@ -294,7 +294,7 @@ function NewReportInner() {
                 Upload property photos
               </p>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                For a property you can&apos;t link to. Enter the address and upload a photo of each area — RoIQ runs the full analysis.
+                For a property you can&apos;t link to. Enter the address and upload a photo of each area — BDR Report runs the full analysis.
               </p>
               <button
                 className="btn-secondary mt-4 text-sm"

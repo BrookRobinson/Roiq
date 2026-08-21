@@ -1,4 +1,4 @@
-// Lightweight prototype account. RoiQ has no working auth in the running app
+// Lightweight prototype account. BDR Report has no working auth in the running app
 // (REVIEW_MODE bypasses Supabase login + the dashboard uses a mock user), so to
 // gate "post a job" and "get a report" behind sign-up we store a free account
 // locally (localStorage + a cookie mirror). No card details — the free tier covers
