@@ -10,7 +10,7 @@ export default function BillingRedirectPage() {
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-      <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+      <Navbar />
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <div className="card p-8">
           <ExternalLink size={36} className="mx-auto mb-4" style={{ color: "var(--brand)" }} />

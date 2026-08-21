@@ -30,7 +30,7 @@ function SignupForm() {
     setError(null);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -42,6 +42,14 @@ function SignupForm() {
     if (error) {
       setError(error.message);
       setLoading(false);
+      return;
+    }
+
+    // Supabase returns a session immediately when email confirmation is off, and
+    // none when it's on. Handle both: send them straight in if they're already
+    // signed in, otherwise tell them to go and check their email.
+    if (data.session) {
+      window.location.href = "/dashboard";
       return;
     }
 

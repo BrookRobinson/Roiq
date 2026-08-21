@@ -73,7 +73,7 @@ export default function MapPage() {
 
   return (
     <div className="flex flex-col" style={{ background: "var(--bg)", height: "100vh", overflow: "hidden" }}>
-      <Navbar user={{ email: "jane@example.com" }} plan="pro" />
+      <Navbar />
 
       {!ready ? (
         <div className="flex-1" />

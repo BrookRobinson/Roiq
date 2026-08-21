@@ -1,7 +1,7 @@
 // ============================================================
 // Property Map — personal variables: defaults, localStorage persistence, and
 // mapping to/from the Supabase `users` map_* columns. localStorage is the
-// working store today (auth is still bypassed, like lib/account/account.ts);
+// working store today (these are per-device preferences, not account data);
 // the API route additionally persists to the users row when a real user exists.
 // ============================================================
 

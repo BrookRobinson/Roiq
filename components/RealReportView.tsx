@@ -366,7 +366,9 @@ export function RealReportView({
   return (
     <HoldPeriodProvider defaultYears={10}>
       <div style={{ background: "var(--bg)", minHeight: embedded ? undefined : "100vh" }}>
-        {!embedded && <Navbar user={shared ? null : { email: "ana@example.co.nz" }} plan="starter" />}
+        {/* A shared report is read by someone who may not have an account, so it
+            shows the signed-out bar; otherwise the real session. */}
+        {!embedded && (shared ? <Navbar user={null} /> : <Navbar />)}
 
         {!embedded && showSend && <SendReportDialog report={report} onClose={() => setShowSend(false)} />}
 

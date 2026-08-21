@@ -29,17 +29,26 @@ export function persistReport(report: StoredReport): void {
 }
 
 /**
- * Fetch a saved report. Returns null when this browser doesn't own it — the
- * server 404s rather than 403s, so a report id someone found on a map pin
- * reveals nothing.
+ * Fetch a saved report. Three outcomes: it's yours (or you're Pro), it exists but
+ * needs Pro, or there's nothing here. A report that simply doesn't exist 404s
+ * without confirming anything.
  */
-export async function fetchSavedReport(id: string): Promise<StoredReport | null> {
+export type SavedReportResult =
+  | { status: "ok"; report: StoredReport }
+  | { status: "upgrade_required" }
+  | { status: "not_found" };
+
+export async function fetchSavedReport(id: string): Promise<SavedReportResult> {
   try {
     const res = await fetch(`/api/reports/${encodeURIComponent(id)}`);
-    if (!res.ok) return null;
+    // 402: the report exists and it isn't theirs — Pro opens it.
+    if (res.status === 402) return { status: "upgrade_required" };
+    if (!res.ok) return { status: "not_found" };
     const json = await res.json();
-    return json?.ok && json.report ? (json.report as StoredReport) : null;
+    return json?.ok && json.report
+      ? { status: "ok", report: json.report as StoredReport }
+      : { status: "not_found" };
   } catch {
-    return null;
+    return { status: "not_found" };
   }
 }

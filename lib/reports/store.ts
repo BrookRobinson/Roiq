@@ -50,7 +50,11 @@ function slim(report: StoredReport): StoredReport {
   return { ...report, listing: { ...report.listing, photoUrls } };
 }
 
-export async function saveReport(report: StoredReport, ownerKey: string): Promise<SaveResult> {
+export async function saveReport(
+  report: StoredReport,
+  ownerKey: string,
+  userId: string | null = null
+): Promise<SaveResult> {
   const supabase = createAdminClient();
   if (!supabase) return { saved: false, reason: "no_database" };
 
@@ -60,7 +64,7 @@ export async function saveReport(report: StoredReport, ownerKey: string): Promis
   const row = {
     id: body.id,
     owner_key: ownerKey,
-    user_id: null, // no signed-in user yet; claimed when auth lands
+    user_id: userId, // null when signed out; claimReports() attaches it later
     created_at: body.createdAt,
     report: body as unknown as Record<string, unknown>,
 
@@ -101,16 +105,33 @@ export async function saveReport(report: StoredReport, ownerKey: string): Promis
  * is what keeps a report id from being a password — map pins publish report ids,
  * so an id-only lookup would hand the paid product to anyone who clicked a pin.
  */
-export async function loadReport(id: string, ownerKey: string | null): Promise<StoredReport | null> {
+/**
+ * A report belongs to whoever made it — identified by a signed-in user id, or by
+ * the browser cookie that made it before they signed in. Matching on either is
+ * what stops signing in from orphaning your own reports.
+ */
+function ownerFilter(ownerKey: string | null, userId: string | null): string | null {
+  const clauses: string[] = [];
+  if (userId) clauses.push(`user_id.eq.${userId}`);
+  if (ownerKey) clauses.push(`owner_key.eq.${ownerKey}`);
+  return clauses.length ? clauses.join(",") : null;
+}
+
+export async function loadReport(
+  id: string,
+  ownerKey: string | null,
+  userId: string | null = null
+): Promise<StoredReport | null> {
   const supabase = createAdminClient();
-  if (!supabase || !ownerKey) return null;
+  const filter = ownerFilter(ownerKey, userId);
+  if (!supabase || !filter) return null;
 
   try {
     const { data, error } = await supabase
       .from("reports")
       .select("*")
       .eq("id", id)
-      .eq("owner_key", ownerKey)
+      .or(filter)
       .maybeSingle();
     if (error || !data?.report) return null;
     return data.report as unknown as StoredReport;
@@ -120,15 +141,20 @@ export async function loadReport(id: string, ownerKey: string | null): Promise<S
 }
 
 /** The caller's reports, newest first. */
-export async function listReports(ownerKey: string | null, limit = 50): Promise<ReportSummary[]> {
+export async function listReports(
+  ownerKey: string | null,
+  userId: string | null = null,
+  limit = 50
+): Promise<ReportSummary[]> {
   const supabase = createAdminClient();
-  if (!supabase || !ownerKey) return [];
+  const filter = ownerFilter(ownerKey, userId);
+  if (!supabase || !filter) return [];
 
   try {
     const { data, error } = await supabase
       .from("reports")
       .select("*")
-      .eq("owner_key", ownerKey)
+      .or(filter)
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error || !data) return [];
@@ -152,13 +178,55 @@ export async function listReports(ownerKey: string | null, limit = 50): Promise<
   }
 }
 
-export async function deleteReport(id: string, ownerKey: string | null): Promise<boolean> {
+export async function deleteReport(
+  id: string,
+  ownerKey: string | null,
+  userId: string | null = null
+): Promise<boolean> {
   const supabase = createAdminClient();
-  if (!supabase || !ownerKey) return false;
+  const filter = ownerFilter(ownerKey, userId);
+  if (!supabase || !filter) return false;
   try {
-    const { error } = await supabase.from("reports").delete().eq("id", id).eq("owner_key", ownerKey);
+    const { error } = await supabase.from("reports").delete().eq("id", id).or(filter);
     return !error;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Attach this browser's anonymous reports to the person who just signed in.
+ * Runs on every session check — it's a no-op once there's nothing left to claim.
+ */
+export async function claimReports(ownerKey: string | null, userId: string): Promise<number> {
+  const supabase = createAdminClient();
+  if (!supabase || !ownerKey) return 0;
+  try {
+    const { data, error } = await supabase
+      .from("reports")
+      .update({ user_id: userId } as never)
+      .eq("owner_key", ownerKey)
+      .is("user_id", null)
+      .select("id");
+    return error || !data ? 0 : data.length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * The full report behind a map pin, for a Pro subscriber. Deliberately NOT
+ * ownership-filtered: the map of everyone's analyses is what Pro buys. Limited to
+ * properties that are publicly for sale, which is the only kind that reaches a pin.
+ */
+export async function loadReportForPro(id: string): Promise<StoredReport | null> {
+  const supabase = createAdminClient();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from("reports").select("*").eq("id", id).maybeSingle();
+    if (error || !data?.report) return null;
+    return data.report as unknown as StoredReport;
+  } catch {
+    return null;
   }
 }

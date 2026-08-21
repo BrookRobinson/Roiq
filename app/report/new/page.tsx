@@ -8,7 +8,7 @@ import { ArrowRight, Upload, Link2, Loader2, CheckCircle2 } from "lucide-react";
 import { saveReport } from "@/lib/report-store";
 import { contributeToMap } from "@/lib/map/contribution";
 import { persistReport } from "@/lib/reports/client";
-import { useRequireAccount } from "@/lib/account/useRequireAccount";
+import { useRequireAuth } from "@/lib/auth/useRequireAuth";
 
 type Step = "input" | "scraping" | "analysing" | "done";
 
@@ -44,7 +44,7 @@ function NewReportInner() {
   // so first-time visitors return here (with the URL intact) after signing up.
   const prefillUrl = searchParams.get("url")?.trim() || "";
   const nextPath = prefillUrl ? `/report/new?url=${encodeURIComponent(prefillUrl)}` : "/report/new";
-  const acctReady = useRequireAccount(nextPath);
+  const acctReady = useRequireAuth(nextPath);
   const [url, setUrl] = useState(prefillUrl);
   const [addressInput, setAddressInput] = useState("");
   const [needAddress, setNeedAddress] = useState(false);
@@ -179,7 +179,7 @@ function NewReportInner() {
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-      <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+      <Navbar />
       <div className="max-w-2xl mx-auto px-4 py-12">
         {step === "input" && (
           <>

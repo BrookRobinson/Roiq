@@ -8,7 +8,7 @@ import { saveReport } from "@/lib/report-store";
 import { contributeToMap } from "@/lib/map/contribution";
 import { persistReport } from "@/lib/reports/client";
 import { MANDATORY_CATEGORIES, OPTIONAL_CATEGORIES, type PhotoCategory } from "@/lib/photo-categories";
-import { useRequireAccount } from "@/lib/account/useRequireAccount";
+import { useRequireAuth } from "@/lib/auth/useRequireAuth";
 
 type Step = "input" | "analysing" | "done";
 interface Shot { dataUrl: string; name: string }
@@ -71,7 +71,7 @@ async function resizeToDataUrl(file: File, maxDim = 1400, quality = 0.8): Promis
 
 export default function UploadReportPage() {
   const router = useRouter();
-  const acctReady = useRequireAccount("/report/upload");
+  const acctReady = useRequireAuth("/report/upload");
   const [address, setAddress] = useState("");
   const [price, setPrice] = useState(""); // formatted, e.g. "310,000"
   const [scrapedPrice, setScrapedPrice] = useState<number | null>(null);
@@ -236,7 +236,7 @@ export default function UploadReportPage() {
   if (step === "analysing" || step === "done") {
     return (
       <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-        <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+        <Navbar />
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
           {step === "done"
             ? <><CheckCircle2 size={56} className="mx-auto mb-4" style={{ color: "var(--success)" }} /><h2 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Report ready</h2><p className="text-sm" style={{ color: "var(--text-secondary)" }}>Redirecting…</p></>
@@ -248,7 +248,7 @@ export default function UploadReportPage() {
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-      <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+      <Navbar />
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>Upload property photos</h1>

@@ -13,12 +13,21 @@ import { fetchSavedReport } from "@/lib/reports/client";
 // persona toggle recomputes on it exactly as it does on a live report.
 const DEMO_REPORT = buildDemoReport();
 
+// Generated reports are uuids; the demo and bundled samples use readable ids like
+// `rpt_001`. Only the latter may fall back to the demo — rendering the demo for a
+// uuid that wasn't found would present 14 Ferndale Rd as whatever property the
+// viewer actually asked for, which is exactly what a map pin would do to them.
+const isGeneratedId = (v: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
 export default function ReportPage() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : String(params.id ?? "");
   const [report, setReport] = useState<StoredReport | null>(null);
   const [ready, setReady] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [needsPro, setNeedsPro] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
   // A share_<token> id is a report someone sent us: it isn't in this browser's
   // storage, so fetch the snapshot from the server and render it read-only.
@@ -57,9 +66,11 @@ export default function ReportPage() {
     // the browser that created it can read it back.
     let live = true;
     fetchSavedReport(id)
-      .then((saved) => {
+      .then((res) => {
         if (!live) return;
-        if (saved) setReport(saved);
+        if (res.status === "ok") setReport(res.report);
+        else if (res.status === "upgrade_required") setNeedsPro(true);
+        else if (isGeneratedId(id)) setNotFound(true);
         setReady(true);
       })
       .catch(() => live && setReady(true));
@@ -73,7 +84,7 @@ export default function ReportPage() {
   if (!ready) {
     return (
       <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-        <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+        <Navbar />
         <div className="max-w-7xl mx-auto px-4 py-20 text-center text-sm" style={{ color: "var(--text-muted)" }}>
           Loading report…
         </div>
@@ -93,6 +104,58 @@ export default function ReportPage() {
           <a href="/report/new" className="inline-block px-4 py-2 rounded-lg text-sm font-semibold"
              style={{ background: "var(--brand)", color: "var(--on-accent)" }}>
             Analyse a property
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // A real report id that isn't there — deleted, or never saved. Say so instead
+  // of rendering the demo as if it were this property.
+  if (notFound) {
+    return (
+      <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
+        <Navbar />
+        <div className="max-w-md mx-auto px-4 py-24 text-center">
+          <h1 className="text-lg font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
+            Report not found
+          </h1>
+          <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+            This report no longer exists, or it was never saved to your account.
+          </p>
+          <a
+            href="/report/new"
+            className="inline-block px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: "var(--brand)", color: "var(--on-accent)" }}
+          >
+            Analyse a property
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Someone else's report, opened from a map pin without Pro. Show the upgrade
+  // rather than the demo report — rendering another property's analysis here
+  // would be worse than showing nothing.
+  if (needsPro) {
+    return (
+      <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
+        <Navbar />
+        <div className="max-w-md mx-auto px-4 py-24 text-center">
+          <h1 className="text-lg font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
+            This report is part of Pro
+          </h1>
+          <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+            Pro opens every report on the map — every property anyone has analysed, scored out of
+            1,000 and valued against its asking price.
+          </p>
+          <a
+            href="/pricing?plan=pro"
+            className="inline-block px-4 py-2 rounded-lg text-sm font-semibold"
+            style={{ background: "var(--brand)", color: "var(--on-accent)" }}
+          >
+            See Pro
           </a>
         </div>
       </div>

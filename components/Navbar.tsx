@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useTheme } from "@/lib/theme/context";
 import { Wordmark } from "@/components/ui/Wordmark";
@@ -15,12 +17,27 @@ import { Sun, Moon, Menu, X } from "lucide-react";
  * active item is marked with an underline rather than a filled pill.
  */
 export default function Navbar({
-  user,
-  plan,
+  user: userProp,
+  plan: planProp,
 }: {
+  /** Overrides for the rare page that needs a fixed state; otherwise the real session is used. */
   user?: { email: string } | null;
   plan?: "free" | "starter" | "pro";
-}) {
+} = {}) {
+  const session = useSession();
+
+  async function signOut() {
+    try {
+      await createClient().auth.signOut();
+    } finally {
+      // Full reload rather than a router push: the session lives in cookies the
+      // server reads, so every cached client view needs to be rebuilt.
+      window.location.href = "/";
+    }
+  }
+
+  const user = userProp !== undefined ? userProp : session.user;
+  const plan = planProp ?? session.plan;
   const { theme, toggle } = useTheme();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -105,9 +122,17 @@ export default function Navbar({
                     color: "var(--text-primary)",
                   }}
                   aria-label={user.email}
+                  title={user.email}
                 >
                   {user.email[0].toUpperCase()}
                 </div>
+                <button
+                  onClick={signOut}
+                  className="cursor-pointer text-sm"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Sign out
+                </button>
               </div>
             ) : (
               <div className="hidden items-center gap-2 md:flex">
@@ -152,7 +177,14 @@ export default function Navbar({
               {l.label}
             </Link>
           ))}
-          {!user && (
+          {user ? (
+            <div className="flex flex-col gap-2 pt-3">
+              <span className="px-1 text-xs" style={{ color: "var(--text-muted)" }}>{user.email}</span>
+              <button onClick={signOut} className="btn-secondary justify-center">
+                Sign out
+              </button>
+            </div>
+          ) : (
             <div className="flex flex-col gap-2 pt-3">
               <Link href="/login" className="btn-secondary justify-center">
                 Log in

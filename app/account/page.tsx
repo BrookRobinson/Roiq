@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import { useState } from "react";
 import { CheckCircle2, AlertTriangle, ExternalLink, CreditCard, User, Bell, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/lib/theme/context";
+import { useSession } from "@/lib/auth/session";
 
 export default function AccountPage() {
   const { theme, toggle } = useTheme();
@@ -11,7 +12,7 @@ export default function AccountPage() {
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
-      <Navbar user={{ email: "jane@example.com" }} plan="starter" />
+      <Navbar />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--text-primary)" }}>
           Account settings
@@ -44,19 +45,23 @@ export default function AccountPage() {
 }
 
 function ProfileTab({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => void }) {
+  const { user, loading } = useSession();
   return (
     <div className="space-y-5 max-w-lg">
       <div className="card p-6 space-y-4">
         <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>Personal information</h2>
         <div>
           <label className="label">Email address</label>
-          <input className="input" defaultValue="jane@example.com" type="email" />
+          {/* Read-only: the email IS the login, so changing it is an auth
+              operation (re-verification), not a profile edit. */}
+          <input
+            className="input"
+            value={loading ? "" : (user?.email ?? "Not signed in")}
+            type="email"
+            readOnly
+            disabled
+          />
         </div>
-        <div>
-          <label className="label">Display name</label>
-          <input className="input" defaultValue="Jane Smith" />
-        </div>
-        <button className="btn-primary">Save changes</button>
       </div>
 
       <div className="card p-6 space-y-4">

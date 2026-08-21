@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { ensureOwnerKey, readOwnerKey } from "@/lib/reports/owner";
 import { listReports, saveReport } from "@/lib/reports/store";
+import { getUser } from "@/lib/supabase/auth";
 import type { StoredReport } from "@/lib/report-store";
 
 export const runtime = "nodejs";
@@ -26,9 +27,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "missing_input", message: "Need a full report." }, { status: 400 });
   }
 
-  // Mints the owner cookie on a first save, so a browser's reports stay theirs.
+  // Mints the owner cookie on a first save, so a browser's reports stay theirs
+  // even before they sign in; the user id attaches ownership properly when there is one.
   const ownerKey = ensureOwnerKey();
-  const result = await saveReport(report, ownerKey);
+  const { authUser } = await getUser().catch(() => ({ authUser: null }));
+  const result = await saveReport(report, ownerKey, authUser?.id ?? null);
 
   return NextResponse.json({
     ok: result.saved,
@@ -41,7 +44,7 @@ export async function POST(req: NextRequest) {
 
 /** GET /api/reports — the caller's saved reports, newest first. */
 export async function GET() {
-  const ownerKey = readOwnerKey();
-  const reports = await listReports(ownerKey);
+  const { authUser } = await getUser().catch(() => ({ authUser: null }));
+  const reports = await listReports(readOwnerKey(), authUser?.id ?? null);
   return NextResponse.json({ ok: true, count: reports.length, reports });
 }

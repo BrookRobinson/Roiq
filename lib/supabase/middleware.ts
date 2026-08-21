@@ -52,9 +52,17 @@ export async function updateSession(request: NextRequest) {
 
   // Report view routes are also protected (but /report/demo and the live
   // analysis test page are public)
+  // Real reports need an account; the demo and the bundled samples must not,
+  // because the landing and pricing pages send prospects straight to them —
+  // gating the one thing that shows what you're selling would be self-defeating.
+  const isPublicSample =
+    pathname.startsWith("/report/demo") ||
+    pathname.startsWith("/report/rpt_") ||
+    pathname.startsWith("/report/sample-");
+
   const isProtectedReport =
     pathname.startsWith("/report/") &&
-    !pathname.startsWith("/report/demo") &&
+    !isPublicSample &&
     !pathname.startsWith("/report/analyze") &&
     !pathname.startsWith("/report/share_") && // shared links are public by design
     pathname !== "/report/new";

@@ -5,6 +5,7 @@ import { X, ChevronRight, Bookmark, BookmarkCheck, Bed, Bath } from "lucide-reac
 import type { MapListing, ComputedListing, MapMode, UserVariables } from "@/lib/map/types";
 import { DEAL_HEX, pctLabel } from "@/lib/map/calc";
 import { loadReport } from "@/lib/report-store";
+import { useSession } from "@/lib/auth/session";
 
 interface Detail {
   listing: MapListing;
@@ -40,6 +41,7 @@ export function PropertySheet({
 }) {
   const [data, setData] = useState<Detail | null>(null);
   const [saved, setSaved] = useState(false);
+  const { isPro } = useSession();
 
   useEffect(() => {
     setData(null);
@@ -68,9 +70,10 @@ export function PropertySheet({
 
   const l = data?.listing;
   const c = data ? (mode === "homebuyer" ? data.homebuyer : data.investor) : null;
-  // Reports are held in the session of whoever ran them, so a pin's report is
-  // only openable in that browser.
-  const hasReport = !!l?.fullReportId && !!loadReport(l.fullReportId);
+  // Every pin came from a real report. You can open it if you ran it, or if
+  // you're on Pro — reading everyone else's analyses is what Pro is for.
+  const ownReport = !!l?.fullReportId && !!loadReport(l.fullReportId);
+  const hasReport = !!l?.fullReportId && (ownReport || isPro);
   const hex = c ? DEAL_HEX[c.colour] : "var(--brand)";
 
   return (
@@ -157,12 +160,27 @@ export function PropertySheet({
 
               {/* Actions */}
               <div className="flex items-center gap-2 mt-5">
-                {/* Pins come from reports other people ran, and reports live in the
-                    author's own session — so only offer the link when this browser
-                    can actually open it. Otherwise /report/[id] would render the
-                    DEMO report as if it were this property. */}
-                <a href={hasReport ? `/report/${l.fullReportId}` : "/report/new"} className="btn-primary flex-1 justify-center py-2 text-sm">
-                  {hasReport ? "View full report" : "Run this report"} <ChevronRight size={14} />
+                {/* Three states: it's yours or you're Pro (open it), it exists but
+                    you're not Pro (sell the upgrade), or there's no report behind
+                    this pin at all (offer to run one). Never link to a report the
+                    viewer can't open — /report/[id] would fall through to the DEMO
+                    report and present it as this property. */}
+                <a
+                  href={
+                    hasReport
+                      ? `/report/${l.fullReportId}`
+                      : l.fullReportId
+                        ? "/pricing?plan=pro"
+                        : "/report/new"
+                  }
+                  className="btn-primary flex-1 justify-center py-2 text-sm"
+                >
+                  {hasReport
+                    ? "View full report"
+                    : l.fullReportId
+                      ? "Unlock with Pro"
+                      : "Run this report"}{" "}
+                  <ChevronRight size={14} />
                 </a>
                 <button onClick={save} className="btn-secondary py-2 px-3 text-sm gap-1.5" style={saved ? { color: "var(--green)", borderColor: "var(--good-wash)" } : undefined}>
                   {saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
