@@ -1,4 +1,5 @@
 "use client";
+import { CopyUrlHelp } from "@/components/CopyUrlHelp";
 
 import Navbar from "@/components/Navbar";
 import { useState, Suspense } from "react";
@@ -247,6 +248,9 @@ function NewReportInner() {
                 <ArrowRight size={18} />
               </button>
             </div>
+
+            {/* How to copy a link — collapsed, for anyone who needs it */}
+            <CopyUrlHelp />
 
             {/* Supported portals */}
             <div className="mb-6">
