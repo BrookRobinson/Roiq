@@ -1,10 +1,19 @@
 // ============================================================
-// Property Map — third-party data sources. Every function here is scaffolded
-// with a clear TODO and returns mock data in the real shape, so the scoring job
-// and the rest of the feature run today. Swap the bodies for live calls.
+// Property Map — third-party data sources.
+//
+// SERVER ONLY. Rent and capital growth are now LIVE:
+//   • rent   → MBIE / Tenancy Services bond data (official, free, no key)
+//   • growth → the report pipeline's own web-search research (lib/ai/market.ts)
+// Both cache per suburb and fall back to the seed figures rather than failing a
+// scoring run, so a flat source degrades the map instead of emptying it.
+//
+// Listings are the one source still on mock data — see fetchActiveListings().
 // ============================================================
 
 import { SEED_LISTINGS } from "./seed";
+import { fetchMarketRent, type SuburbRent } from "./market-rent";
+import { fetchMarketData } from "@/lib/ai/market";
+import { emptyListing } from "@/lib/scraper/types";
 
 /** A raw listing as the portal APIs return it (before BDR scoring). */
 export interface RawListing {
@@ -30,8 +39,16 @@ export interface RawListing {
 
 /**
  * Fetch every active listing for sale nationwide.
- * TODO: replace with live OneRoof + realestate.co.nz API calls
- *       (ONEROOF_API_KEY, REALESTATE_API_KEY). Merge + de-dupe by address.
+ *
+ * STILL MOCK — and unlike rent and growth, this one cannot be fixed by pointing
+ * at a better URL. There is no free or licensed listings feed wired up:
+ * OneRoof and realestate.co.nz publish no public API, both sit behind bot
+ * protection, and SCRAPER_API_KEY is empty. Until a feed exists the map is
+ * populated by properties users actually run through /api/map/score-now, which
+ * is the intended long-run source anyway.
+ *
+ * TODO: swap for a licensed feed (the Cotality/CoreLogic enquiry) when it lands.
+ *       Merge + de-dupe by address, then diff against map_listings.
  */
 export async function fetchActiveListings(): Promise<RawListing[]> {
   // Mock: derive the raw shape from the seed listings.
@@ -57,20 +74,85 @@ export async function fetchActiveListings(): Promise<RawListing[]> {
   }));
 }
 
+// ── Rent ────────────────────────────────────────────────────────────────────
+
+const seedRent = (suburb: string, bedrooms: number | null): number | null =>
+  SEED_LISTINGS.find((l) => l.suburb === suburb && l.bedrooms === bedrooms)?.estimatedWeeklyRent ??
+  SEED_LISTINGS.find((l) => l.suburb === suburb)?.estimatedWeeklyRent ??
+  null;
+
 /**
- * Median weekly rent for a suburb + bedroom count.
- * TODO: rental data source (Trade Me Rentals API, else MBIE rental-bond data).
+ * Median weekly rent for a suburb + bedroom count, from MBIE's lodged-bond data.
+ * Returns the full record (quartiles, sample size, period, citation) so callers
+ * can show how solid the figure is; `fetchSuburbRent` below is the plain-number
+ * version for the scoring maths.
  */
-export async function fetchSuburbRent(suburb: string, bedrooms: number | null): Promise<number | null> {
-  const match = SEED_LISTINGS.find((l) => l.suburb === suburb && l.bedrooms === bedrooms);
-  return match?.estimatedWeeklyRent ?? SEED_LISTINGS.find((l) => l.suburb === suburb)?.estimatedWeeklyRent ?? null;
+export async function fetchSuburbRentDetail(
+  suburb: string,
+  bedrooms: number | null,
+  opts: { city?: string | null; propertyType?: string | null } = {}
+): Promise<SuburbRent | null> {
+  if (!suburb?.trim()) return null;
+  try {
+    return await fetchMarketRent(suburb, {
+      city: opts.city,
+      bedrooms,
+      propertyType: opts.propertyType,
+    });
+  } catch (err) {
+    console.error("[map/sources] rent lookup failed", suburb, err);
+    return null;
+  }
 }
+
+/** Median weekly rent, live where MBIE has the suburb, else the seed figure. */
+export async function fetchSuburbRent(
+  suburb: string,
+  bedrooms: number | null,
+  opts: { city?: string | null; propertyType?: string | null } = {}
+): Promise<number | null> {
+  const live = await fetchSuburbRentDetail(suburb, bedrooms, opts);
+  return live?.weekly ?? seedRent(suburb, bedrooms);
+}
+
+// ── Capital growth ──────────────────────────────────────────────────────────
 
 /**
  * Annual capital-growth rate for a suburb.
- * TODO: capital-growth source (CoreLogic / QV / Infometrics). Cache per suburb,
- *       refresh weekly; fall back to the regional average when suburb data is thin.
+ *
+ * There is no free NZ capital-growth feed — QV, REINZ and CoreLogic all sit
+ * behind licences — so this reuses the research the report pipeline already
+ * does (`lib/ai/market.ts`: web search over QV HPI / OneRoof / REINZ, source
+ * cited, never invented). Cached for a week: a long-run growth rate does not
+ * move day to day, and each miss costs a web search.
  */
-export async function fetchSuburbGrowth(suburb: string): Promise<number | null> {
-  return SEED_LISTINGS.find((l) => l.suburb === suburb)?.suburbGrowthRatePct ?? null;
+const GROWTH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const growthCache = new Map<string, { at: number; value: number | null }>();
+
+export async function fetchSuburbGrowth(
+  suburb: string,
+  opts: { city?: string | null; region?: string | null } = {}
+): Promise<number | null> {
+  const seed = SEED_LISTINGS.find((l) => l.suburb === suburb)?.suburbGrowthRatePct ?? null;
+  if (!suburb?.trim()) return seed;
+
+  const key = suburb.trim().toLowerCase();
+  const hit = growthCache.get(key);
+  if (hit && Date.now() - hit.at < GROWTH_TTL_MS) return hit.value ?? seed;
+
+  let value: number | null = null;
+  try {
+    const listing = emptyListing("", "unknown");
+    listing.suburb = suburb;
+    listing.city = opts.city ?? null;
+    listing.region = opts.region ?? null;
+    const market = await fetchMarketData(listing);
+    const rate = market.capitalGrowth?.annualRatePct;
+    if (Number.isFinite(rate) && (rate as number) > 0) value = rate as number;
+  } catch (err) {
+    console.error("[map/sources] growth lookup failed", suburb, err);
+  }
+
+  growthCache.set(key, { at: Date.now(), value });
+  return value ?? seed;
 }

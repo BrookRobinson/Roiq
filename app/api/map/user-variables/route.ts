@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_VARIABLES, variablesFromColumns, variablesToColumns, withDefaults } from "@/lib/map/variables";
-import { getDefaultInterestRate } from "@/lib/map/interest-rate";
+import { getLiveDefaultRate } from "@/lib/map/interest-rate.server";
 import type { UserVariables } from "@/lib/map/types";
 
 export const runtime = "nodejs";
@@ -15,8 +15,14 @@ export async function GET() {
   } catch {
     /* not signed in */
   }
-  const rate = await getDefaultInterestRate();
-  return NextResponse.json({ ok: true, variables: { ...DEFAULT_VARIABLES, interestRatePct: rate } });
+  const rate = await getLiveDefaultRate();
+  return NextResponse.json({
+    ok: true,
+    variables: { ...DEFAULT_VARIABLES, interestRatePct: rate.ratePct },
+    // So the UI can say where the pre-filled rate came from instead of presenting
+    // a researched figure and a fallback constant as the same thing.
+    interestRate: rate,
+  });
 }
 
 /** POST — save variables to the users row when signed in. The client also keeps them

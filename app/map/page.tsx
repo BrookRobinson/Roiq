@@ -22,6 +22,10 @@ const PropertyMap = dynamic(() => import("@/components/map/PropertyMap").then((m
 export default function MapPage() {
   const [ready, setReady] = useState(false);
   const [vars, setVars] = useState<UserVariables | null>(null);
+  // Today's mortgage rate, fetched for first-time users — it drives every deal
+  // colour, so starting from a stale constant would mis-colour the whole map.
+  const [liveRatePct, setLiveRatePct] = useState<number | null>(null);
+  const [rateNote, setRateNote] = useState<{ label: string; source: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [mode, setMode] = useState<MapMode>("homebuyer");
   const [selected, setSelected] = useState<string | null>(null);
@@ -31,8 +35,31 @@ export default function MapPage() {
     if (v) {
       setVars(v);
       setMode(v.defaultMode);
+      setReady(true);
+      return;
     }
+
+    // No saved numbers yet. Render the setup screen straight away with its built-in
+    // defaults, and fetch the current mortgage rate alongside it — the lookup is a
+    // web search, and blanking the map for twenty seconds to pre-fill one field is
+    // a bad trade. The screen adopts the rate when it lands.
     setReady(true);
+
+    let live = true;
+    fetch("/api/map/user-variables")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!live || !d?.interestRate || d.interestRate.isFallback) return;
+        setRateNote({ label: d.interestRate.label as string, source: d.interestRate.source as string });
+        setLiveRatePct(d.interestRate.ratePct as number);
+      })
+      .catch(() => {
+        /* the screen keeps its own default rate */
+      });
+
+    return () => {
+      live = false;
+    };
   }, []);
 
   function handleSaved(v: UserVariables) {
@@ -53,6 +80,9 @@ export default function MapPage() {
         <div className="flex-1 overflow-y-auto">
           <VariablesScreen
             initial={vars}
+            liveRatePct={liveRatePct}
+            rateNote={rateNote?.label ?? null}
+            rateSource={rateNote?.source ?? null}
             onSaved={handleSaved}
             onClose={vars ? () => setEditing(false) : undefined}
           />

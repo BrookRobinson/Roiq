@@ -1,17 +1,9 @@
-// Current NZ average mortgage rate — the default interest rate on Screen 1.
-// TODO: fetch live from the RBNZ B20 "new residential mortgage" series (or a
-// reliable aggregator) and cache for 24h in Upstash Redis. Until that's wired,
-// a current-market constant so the rest of the feature works end to end.
+// Fallback NZ mortgage rate — the value Screen 1 starts from before the live
+// figure arrives, and what it keeps if the live lookup comes back empty.
+//
+// This file is pulled into the CLIENT bundle (via `variables.ts`), so it holds
+// the constant and nothing else. The live lookup lives in
+// `interest-rate.server.ts`, which reuses `lib/ai/rates.ts` (interest.co.nz +
+// the major banks, with the source cited).
 
-export const DEFAULT_INTEREST_RATE = 6.5; // % — indicative NZ floating rate
-
-let cache: { rate: number; at: number } | null = null;
-
-/** Server-side: current average NZ mortgage rate, cached 24h. */
-export async function getDefaultInterestRate(): Promise<number> {
-  const DAY = 24 * 60 * 60 * 1000;
-  if (cache && Date.now() - cache.at < DAY) return cache.rate;
-  // TODO: replace with `await fetch(RBNZ...)` + parse.
-  cache = { rate: DEFAULT_INTEREST_RATE, at: Date.now() };
-  return cache.rate;
-}
+export const DEFAULT_INTEREST_RATE = 6.5; // % — indicative NZ rate

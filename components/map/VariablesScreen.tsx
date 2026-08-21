@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Wallet, Home, TrendingUp, Sprout, ArrowRight, X } from "lucide-react";
 import type { UserVariables, MapMode } from "@/lib/map/types";
 import { DEFAULT_VARIABLES, saveVariables } from "@/lib/map/variables";
+import { DEFAULT_INTEREST_RATE } from "@/lib/map/interest-rate";
 
 /**
  * Screen 1 — the user's personal financial variables. Filled once (smart defaults),
@@ -12,15 +13,32 @@ import { DEFAULT_VARIABLES, saveVariables } from "@/lib/map/variables";
  */
 export function VariablesScreen({
   initial,
+  liveRatePct,
+  rateNote,
+  rateSource,
   onSaved,
   onClose,
 }: {
   initial?: UserVariables | null;
+  /** Today's mortgage rate, once the lookup returns. */
+  liveRatePct?: number | null;
+  /** Short attribution for the pre-filled interest rate, when it came from a live lookup. */
+  rateNote?: string | null;
+  /** The full citation behind `rateNote`, shown on hover. */
+  rateSource?: string | null;
   onSaved: (v: UserVariables) => void;
   onClose?: () => void; // present when reopened from the map
 }) {
   const [v, setV] = useState<UserVariables>(initial ?? DEFAULT_VARIABLES);
   const [saving, setSaving] = useState(false);
+
+  // The live rate arrives after this screen mounts, so adopt it — but only while
+  // the field still holds the fallback constant. Once someone has typed their own
+  // rate, a late-landing lookup must not overwrite it.
+  useEffect(() => {
+    if (liveRatePct == null) return;
+    setV((p) => (p.interestRatePct === DEFAULT_INTEREST_RATE ? { ...p, interestRatePct: liveRatePct } : p));
+  }, [liveRatePct]);
 
   const set = <K extends keyof UserVariables>(k: K, val: UserVariables[K]) => setV((p) => ({ ...p, [k]: val }));
 
@@ -62,7 +80,7 @@ export function VariablesScreen({
           <Section icon={Wallet} title="Purchase">
             <Money label="Budget" hint="max price" value={v.budget} onChange={(n) => set("budget", n)} />
             <Money label="Deposit amount" value={v.depositAmount} onChange={(n) => set("depositAmount", n)} />
-            <Pct label="Interest rate" value={v.interestRatePct} onChange={(n) => set("interestRatePct", n)} />
+            <Pct label="Interest rate" note={rateNote} noteTitle={rateSource} value={v.interestRatePct} onChange={(n) => set("interestRatePct", n)} />
             <Slider label="Loan term" unit="yrs" value={v.loanTermYears} onChange={(n) => set("loanTermYears", n)} />
             <Slider label="Hold period" unit="yrs" value={v.holdPeriodYears} onChange={(n) => set("holdPeriodYears", n)} />
             <Money label="Buying costs" hint="legal + LIM" value={v.buyingCosts} onChange={(n) => set("buyingCosts", n)} />
@@ -181,7 +199,22 @@ function Money({ label, hint, value, onChange }: { label: string; hint?: string;
   );
 }
 
-function Pct({ label, hint, value, onChange }: { label: string; hint?: string; value: number; onChange: (n: number) => void }) {
+function Pct({
+  label,
+  hint,
+  note,
+  noteTitle,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  note?: string | null;
+  /** Full citation behind `note`, shown on hover. */
+  noteTitle?: string | null;
+  value: number;
+  onChange: (n: number) => void;
+}) {
   return (
     <FieldShell label={label} hint={hint}>
       <div className="relative">
@@ -194,6 +227,11 @@ function Pct({ label, hint, value, onChange }: { label: string; hint?: string; v
         />
         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-muted)" }}>%</span>
       </div>
+      {note && (
+        <p className="text-[11px] leading-snug" style={{ color: "var(--text-muted)" }} title={noteTitle ?? note}>
+          Today&rsquo;s market rate — {note}
+        </p>
+      )}
     </FieldShell>
   );
 }

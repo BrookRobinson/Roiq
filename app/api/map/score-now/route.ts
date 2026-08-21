@@ -4,6 +4,7 @@ import { analyseProperty } from "@/lib/ai/analyze";
 import { costThreeTier } from "@/lib/reno-costing/three-tier";
 import { roiqFairValue } from "@/lib/scoring/investment";
 import { geocodeAddress } from "@/lib/map/geocode";
+import { fetchSuburbRentDetail, fetchSuburbGrowth } from "@/lib/map/sources";
 import { createClient } from "@/lib/supabase/server";
 import { mapListingInsert } from "@/lib/map/store";
 import type { MapListing } from "@/lib/map/types";
@@ -59,6 +60,24 @@ export async function POST(req: NextRequest) {
     const asking = listing.askingPrice ?? 0;
     const roiqValuation = medianPerSqm && floor ? roiqFairValue(medianPerSqm, score, floor) : asking;
     const addr = listing.address ?? address ?? "";
+
+    // Rent: prefer MBIE's lodged-bond median for this exact suburb/size/type over
+    // the analysis's web-searched figure — same dataset, but matched precisely and
+    // with a sample size behind it. Falls back to the analysis when MBIE is thin.
+    const suburb = listing.suburb ?? "";
+    const bondRent = await fetchSuburbRentDetail(suburb, listing.bedrooms, {
+      city: listing.city,
+      propertyType: listing.propertyType,
+    });
+    const weeklyRent = Math.round(bondRent?.weekly ?? result.marketRent?.weekly ?? 0);
+
+    // Growth: analyseProperty already researched it, so only go looking again
+    // when it came back empty.
+    const growthPct =
+      result.capitalGrowth?.annualRatePct ??
+      (await fetchSuburbGrowth(suburb, { city: listing.city, region: listing.region })) ??
+      0;
+
     const geo = await geocodeAddress(addr);
 
     const mapListing: MapListing = {
@@ -82,8 +101,8 @@ export async function POST(req: NextRequest) {
       medianPerSqm,
       repairAllowance,
       repairBreakdown,
-      estimatedWeeklyRent: Math.round(result.marketRent?.weekly ?? 0),
-      suburbGrowthRatePct: result.capitalGrowth?.annualRatePct ?? 0,
+      estimatedWeeklyRent: weeklyRent,
+      suburbGrowthRatePct: growthPct,
       fullReportId: null,
       status: "active",
     };
@@ -97,7 +116,19 @@ export async function POST(req: NextRequest) {
       /* ignore persistence failure */
     }
 
-    return NextResponse.json({ ok: true, listing: mapListing, geocoded: !!geo });
+    return NextResponse.json({
+      ok: true,
+      listing: mapListing,
+      geocoded: !!geo,
+      // Where each live figure came from, so the caller can cite it rather than
+      // present a bond median and a fallback estimate as the same number.
+      sources: {
+        rent: bondRent
+          ? { live: true, source: bondRent.source, activeBonds: bondRent.activeBonds, exactMatch: bondRent.exactMatch }
+          : { live: false, source: result.marketRent?.source ?? "estimate" },
+        growth: result.capitalGrowth?.source ?? null,
+      },
+    });
   } catch (err) {
     console.error("[map/score-now]", err);
     return NextResponse.json({ error: "score_failed", message: (err as Error).message }, { status: 500 });
