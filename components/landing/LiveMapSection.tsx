@@ -69,8 +69,11 @@ export function LiveMapSection() {
               <ModeToggle mode={mode} onChange={setMode} />
             </div>
 
-            <Link href="/map" className="btn-secondary mt-7 px-5 py-3 text-[15px]">
-              Open the full map
+            {/* Goes to the demo map, not the real one: the same experience end to
+                end — including setting your own deposit, rate and hold period —
+                but on demo listings, so it's driveable without an account. */}
+            <Link href="/map/demo" className="btn-secondary mt-7 px-5 py-3 text-[15px]">
+              Open Demo Map
               <ArrowRight size={15} />
             </Link>
           </div>
