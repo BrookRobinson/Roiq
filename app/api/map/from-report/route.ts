@@ -1,0 +1,78 @@
+import { NextRequest, NextResponse } from "next/server";
+
+import { createClient } from "@/lib/supabase/server";
+import { buildMapListing } from "@/lib/map/from-analysis";
+import { isPublicListing, type ReportContribution } from "@/lib/map/contribution";
+import { addUserListing } from "@/lib/map/user-listings";
+import { mapListingInsert } from "@/lib/map/store";
+
+export const runtime = "nodejs";
+export const maxDuration = 60; // rent lookup + geocode only — the analysis is already done
+
+/**
+ * POST /api/map/from-report — put a report a user just ran onto the map.
+ *
+ * This is how the map fills up. There is no NZ listings feed to crawl, so every
+ * pin is a property someone actually paid attention to, already scored by the
+ * real pipeline. Cheap by design: the analysis arrives with the request, so this
+ * only costs a bond-data lookup and a geocode.
+ *
+ * Called fire-and-forget from the report flow, so it answers 200 with a reason
+ * whenever it declines. A property missing from the map is not worth surfacing
+ * an error to someone who just wanted their report.
+ */
+export async function POST(req: NextRequest) {
+  let c: ReportContribution;
+  try {
+    c = (await req.json()) as ReportContribution;
+  } catch {
+    return NextResponse.json({ error: "bad_json", message: "Invalid JSON body." }, { status: 400 });
+  }
+
+  if (!c?.listing || !Number.isFinite(c.score)) {
+    return NextResponse.json({ error: "missing_input", message: "Need a listing and a score." }, { status: 400 });
+  }
+
+  // Re-check server-side. The client already gates on this, but "is this property
+  // public?" decides whether someone's home ends up on a shared map, so it is not
+  // a decision to leave to a caller we don't control.
+  if (!isPublicListing(c.listing)) {
+    return NextResponse.json({ ok: false, added: false, reason: "not_a_public_listing" });
+  }
+
+  try {
+    // Keyed by report id so re-running the same property replaces its pin.
+    const id = c.reportId ? `report-${c.reportId}` : `report-${Date.now()}`;
+    const built = await buildMapListing(c, id);
+
+    const local = await addUserListing(built.listing);
+    if (!local.stored) {
+      // Almost always a geocode miss — better no pin than a pin in the wrong place.
+      return NextResponse.json({ ok: false, added: false, reason: local.reason ?? "not_stored" });
+    }
+
+    // Supabase is the real home for these; it's just unreachable right now.
+    let persisted = false;
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("map_listings")
+        .insert(mapListingInsert(built.listing, `report:${c.reportId}`) as never);
+      persisted = !error;
+    } catch {
+      /* local copy carries it until the database is back */
+    }
+
+    return NextResponse.json({
+      ok: true,
+      added: true,
+      id,
+      persisted,
+      geocoded: built.geocoded,
+      sources: built.sources,
+    });
+  } catch (err) {
+    console.error("[map/from-report]", err);
+    return NextResponse.json({ ok: false, added: false, reason: "build_failed" });
+  }
+}

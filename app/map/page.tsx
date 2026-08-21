@@ -29,6 +29,7 @@ export default function MapPage() {
   const [editing, setEditing] = useState(false);
   const [mode, setMode] = useState<MapMode>("homebuyer");
   const [selected, setSelected] = useState<string | null>(null);
+  const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
     const v = loadVariables();
@@ -102,10 +103,10 @@ export default function MapPage() {
               </button>
             </div>
 
-            <MapLegend mode={mode} />
+            <MapLegend mode={mode} seeded={seeded} />
 
             <div className="flex-1 min-h-0 relative flex">
-              <PropertyMap mode={mode} vars={vars} onSelect={setSelected} />
+              <PropertyMap mode={mode} vars={vars} onSelect={setSelected} onSeeded={setSeeded} />
             </div>
 
             {selected && <PropertySheet id={selected} mode={mode} vars={vars} onClose={() => setSelected(null)} />}

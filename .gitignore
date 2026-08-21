@@ -31,3 +31,6 @@ next-env.d.ts
 
 # local test fixtures — bundled sample reports for /report/sample-*
 /public/sample-*.json
+
+# local map pins contributed by user-run reports (dev store; Supabase owns these in production)
+/.data/

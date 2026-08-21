@@ -22,12 +22,15 @@ export function PropertyMap({
   mode,
   vars,
   onSelect,
+  onSeeded,
   demo = false,
   embedded = false,
 }: {
   mode: MapMode;
   vars: UserVariables;
   onSelect: (id: string) => void;
+  /** Reports whether the pins on screen are the demo set rather than real ones. */
+  onSeeded?: (seeded: boolean) => void;
   /** Pin the map to the seeded demo listings, never the database. */
   demo?: boolean;
   /**
@@ -62,6 +65,7 @@ export function PropertyMap({
       );
       const data = await res.json();
       if (!data.ok) return;
+      onSeeded?.(!!data.seeded);
       const fc = {
         type: "FeatureCollection" as const,
         features: data.listings.map((l: { id: string; lat: number; lng: number; colour: string; pct: number }) => ({

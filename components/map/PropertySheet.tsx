@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X, ChevronRight, Bookmark, BookmarkCheck, Bed, Bath } from "lucide-react";
 import type { MapListing, ComputedListing, MapMode, UserVariables } from "@/lib/map/types";
 import { DEAL_HEX, pctLabel } from "@/lib/map/calc";
+import { loadReport } from "@/lib/report-store";
 
 interface Detail {
   listing: MapListing;
@@ -67,6 +68,9 @@ export function PropertySheet({
 
   const l = data?.listing;
   const c = data ? (mode === "homebuyer" ? data.homebuyer : data.investor) : null;
+  // Reports are held in the session of whoever ran them, so a pin's report is
+  // only openable in that browser.
+  const hasReport = !!l?.fullReportId && !!loadReport(l.fullReportId);
   const hex = c ? DEAL_HEX[c.colour] : "var(--brand)";
 
   return (
@@ -153,8 +157,12 @@ export function PropertySheet({
 
               {/* Actions */}
               <div className="flex items-center gap-2 mt-5">
-                <a href={l.fullReportId ? `/report/${l.fullReportId}` : "/report/new"} className="btn-primary flex-1 justify-center py-2 text-sm">
-                  View full report <ChevronRight size={14} />
+                {/* Pins come from reports other people ran, and reports live in the
+                    author's own session — so only offer the link when this browser
+                    can actually open it. Otherwise /report/[id] would render the
+                    DEMO report as if it were this property. */}
+                <a href={hasReport ? `/report/${l.fullReportId}` : "/report/new"} className="btn-primary flex-1 justify-center py-2 text-sm">
+                  {hasReport ? "View full report" : "Run this report"} <ChevronRight size={14} />
                 </a>
                 <button onClick={save} className="btn-secondary py-2 px-3 text-sm gap-1.5" style={saved ? { color: "var(--green)", borderColor: "var(--good-wash)" } : undefined}>
                   {saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}

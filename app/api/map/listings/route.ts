@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getActiveListings, parseBBox, resolveVariables } from "@/lib/map/store";
+import { getActiveListings, isShowingSeedData, parseBBox, resolveVariables } from "@/lib/map/store";
 import { SEED_LISTINGS } from "@/lib/map/seed";
 import { computeListing } from "@/lib/map/calc";
 import type { MapMode } from "@/lib/map/types";
@@ -38,5 +38,9 @@ export async function GET(req: NextRequest) {
     return { id: l.id, lat: l.lat, lng: l.lng, colour: c.colour, pct: Math.round(c.pct) };
   });
 
-  return NextResponse.json({ ok: true, mode, count: points.length, listings: points });
+  // Tell the client whether these are real properties or the demo backdrop, so
+  // the map can say so rather than passing invented listings off as findings.
+  const seeded = demo ? true : await isShowingSeedData();
+
+  return NextResponse.json({ ok: true, mode, count: points.length, seeded, listings: points });
 }

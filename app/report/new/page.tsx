@@ -6,6 +6,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Upload, Link2, Loader2, CheckCircle2 } from "lucide-react";
 import { saveReport } from "@/lib/report-store";
+import { contributeToMap } from "@/lib/map/contribution";
 import { useRequireAccount } from "@/lib/account/useRequireAccount";
 
 type Step = "input" | "scraping" | "analysing" | "done";
@@ -96,7 +97,7 @@ function NewReportInner() {
       }
 
       const id = crypto.randomUUID();
-      const saved = saveReport({
+      const report = {
         id,
         createdAt: new Date().toISOString(),
         listing: data.listing,
@@ -111,12 +112,18 @@ function NewReportInner() {
         suburbValue: data.suburbValue,
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
-      });
+      };
+      const saved = saveReport(report);
       if (!saved) {
         setError("Your report was generated but couldn't be saved in this browser. Please try again.");
         setStep("input");
         return;
       }
+
+      // Every pin on the map comes from a report someone ran — there is no
+      // listings feed. Fire-and-forget, and only for properties that are
+      // publicly for sale (the helper drops uploads).
+      contributeToMap(report);
 
       setPipelineStep(PIPELINE_STEPS.length);
       setStep("done");

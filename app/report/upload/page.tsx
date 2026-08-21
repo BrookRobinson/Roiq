@@ -5,6 +5,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, CheckCircle2, ImagePlus, X, AlertTriangle, Plus } from "lucide-react";
 import { saveReport } from "@/lib/report-store";
+import { contributeToMap } from "@/lib/map/contribution";
 import { MANDATORY_CATEGORIES, OPTIONAL_CATEGORIES, type PhotoCategory } from "@/lib/photo-categories";
 import { useRequireAccount } from "@/lib/account/useRequireAccount";
 
@@ -187,7 +188,7 @@ export default function UploadReportPage() {
         return;
       }
       const id = crypto.randomUUID();
-      const saved = saveReport({
+      const report = {
         id,
         createdAt: new Date().toISOString(),
         listing: data.listing,
@@ -203,13 +204,19 @@ export default function UploadReportPage() {
         photoCoverage: data.photoCoverage,
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
-      });
+      };
+      const saved = saveReport(report);
       if (!saved) {
         // Don't navigate to /report/[id] — with nothing stored it would show the demo.
         setError("Your report was generated but couldn't be saved in this browser. Try again with fewer photos.");
         setStep("input");
         return;
       }
+
+      // Every pin on the map comes from a report someone ran — there is no
+      // listings feed. Fire-and-forget, and only for properties that are
+      // publicly for sale (the helper drops uploads).
+      contributeToMap(report);
       setStep("done");
       router.push(`/report/${id}`);
     } catch {

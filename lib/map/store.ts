@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/supabase/auth";
 import type { Database, MapListingRow } from "@/lib/supabase/types";
 import { SEED_LISTINGS, seedById } from "./seed";
+import { getUserListings, getUserListingById } from "./user-listings";
 import { DEFAULT_VARIABLES, withDefaults, variablesFromColumns } from "./variables";
 import { computeListing } from "./calc";
 import type { MapListing, UserVariables } from "./types";
@@ -66,7 +67,15 @@ function rowToMapListing(r: MapListingRow): MapListing {
   };
 }
 
-/** Active listings, optionally within a viewport. Supabase first, seed fallback. */
+/**
+ * Active listings, optionally within a viewport.
+ *
+ * Supabase first. Failing that, the pins users have contributed by running
+ * reports — and the seed listings ONLY while there are none, so a brand new map
+ * isn't empty. Once a real property is on there the demo data steps aside:
+ * mixing invented listings in with real ones, on a product whose whole promise
+ * is sourced numbers, would be the wrong trade.
+ */
 export async function getActiveListings(bbox: BBox | null): Promise<MapListing[]> {
   try {
     const supabase = createClient();
@@ -77,10 +86,24 @@ export async function getActiveListings(bbox: BBox | null): Promise<MapListing[]
     const { data, error } = await q.limit(2000);
     if (!error && data && data.length > 0) return data.map(rowToMapListing);
   } catch {
-    /* DB unavailable — fall through to seed */
+    /* DB unavailable — fall through to the local pins */
   }
-  const seed = SEED_LISTINGS.filter((l) => l.status === "active");
-  return bbox ? seed.filter((l) => inBBox(l, bbox)) : seed;
+
+  const contributed = (await getUserListings()).filter((l) => l.status === "active");
+  const pool = contributed.length > 0 ? contributed : SEED_LISTINGS.filter((l) => l.status === "active");
+  return bbox ? pool.filter((l) => inBBox(l, bbox)) : pool;
+}
+
+/** True while the map is still showing demo data rather than real reports. */
+export async function isShowingSeedData(): Promise<boolean> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.from("map_listings").select("id").limit(1);
+    if (!error && data && data.length > 0) return false;
+  } catch {
+    /* fall through */
+  }
+  return (await getUserListings()).filter((l) => l.status === "active").length === 0;
 }
 
 export async function getListingById(id: string): Promise<MapListing | null> {
@@ -91,7 +114,7 @@ export async function getListingById(id: string): Promise<MapListing | null> {
   } catch {
     /* fall through */
   }
-  return seedById(id) ?? null;
+  return (await getUserListingById(id)) ?? seedById(id) ?? null;
 }
 
 /**
