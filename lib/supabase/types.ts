@@ -75,11 +75,19 @@ export interface Database {
           map_default_mode?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
+        Relationships: [];
       };
       reports: {
         Row: {
           id: string;
-          user_id: string;
+          // Nullable since 20260821_reports_persistence: no signed-in user to
+          // attribute a report to yet; owner_key carries ownership meanwhile.
+          user_id: string | null;
+          owner_key: string | null;
+          /** The full StoredReport as generated — the source of truth. */
+          report: Json | null;
+          photos_analysed: number | null;
+          model: string | null;
           created_at: string;
           listing_url: string | null;
           address: string | null;
@@ -113,7 +121,11 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          user_id: string;
+          user_id?: string | null;
+          owner_key?: string | null;
+          report?: Json | null;
+          photos_analysed?: number | null;
+          model?: string | null;
           created_at?: string;
           listing_url?: string | null;
           address?: string | null;
@@ -146,6 +158,7 @@ export interface Database {
           quick_score_only?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["reports"]["Insert"]>;
+        Relationships: [];
       };
       listing_photos: {
         Row: {
@@ -167,6 +180,7 @@ export interface Database {
           flags?: Json | null;
         };
         Update: Partial<Database["public"]["Tables"]["listing_photos"]["Insert"]>;
+        Relationships: [];
       };
       market_data: {
         Row: {
@@ -184,6 +198,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["market_data"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["market_data"]["Insert"]>;
+        Relationships: [];
       };
       map_listings: {
         Row: {
@@ -236,6 +251,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["map_listings"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["map_listings"]["Insert"]>;
+        Relationships: [];
       };
       watchlist: {
         Row: {
@@ -246,6 +262,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["watchlist"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["watchlist"]["Insert"]>;
+        Relationships: [];
       };
       alerts: {
         Row: {
@@ -257,6 +274,7 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["alerts"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["alerts"]["Insert"]>;
+        Relationships: [];
       };
       shared_reports: {
         Row: {
@@ -282,6 +300,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["shared_reports"]["Insert"]>;
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
@@ -292,6 +311,10 @@ export interface Database {
       };
     };
     Enums: Record<string, never>;
+    // Required by supabase-js's GenericSchema constraint. Without it the schema
+    // fails the constraint and EVERY typed query result silently resolves to
+    // `never` — which is what the scattered `as never` casts were working around.
+    CompositeTypes: Record<string, never>;
   };
 }
 

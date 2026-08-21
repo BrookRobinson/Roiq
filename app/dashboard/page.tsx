@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import {
   Plus,
@@ -13,61 +14,49 @@ import {
   Search,
   Filter,
 } from "lucide-react";
+import type { ReportSummary } from "@/lib/reports/store";
 
-const MOCK_REPORTS = [
-  {
-    id: "rpt_001",
-    address: "14 Ferndale Rd, Remuera, Auckland",
-    date: "03/06/2026",
-    score: 724,
-    vfm: "B+",
-    status: "complete",
-    price: "$1,150,000",
-    type: "House",
-    beds: 3,
-    baths: 2,
-    source: "trademe.co.nz",
-  },
-  {
-    id: "rpt_002",
-    address: "Unit 4/22 Willis St, Te Aro, Wellington",
-    date: "01/06/2026",
-    score: 541,
-    vfm: "C+",
-    status: "complete",
-    price: "$495,000",
-    type: "Apartment",
-    beds: 2,
-    baths: 1,
-    source: "realestate.co.nz",
-  },
-  {
-    id: "rpt_003",
-    address: "88 Beach Rd, Sumner, Christchurch",
-    date: "28/05/2026",
-    score: 612,
-    vfm: "A",
-    status: "complete",
-    price: "$720,000",
-    type: "House",
-    beds: 4,
-    baths: 2,
-    source: "harcourts.net",
-  },
-  {
-    id: "rpt_004",
-    address: "37 Victoria St West, Auckland CBD",
-    date: "26/05/2026",
-    score: null,
+/** A saved report, shaped for the card below. */
+interface Card {
+  id: string;
+  address: string;
+  date: string;
+  score: number | null;
+  vfm: string | null;
+  status: string;
+  price: string;
+  type: string;
+  beds: number | null;
+  baths: number | null;
+  source: string;
+}
+
+const money = (n: number | null) => (n ? `$${Math.round(n).toLocaleString("en-NZ")}` : "Price undisclosed");
+
+function toCard(r: ReportSummary): Card {
+  let source = "manual upload";
+  if (r.listingUrl) {
+    try {
+      source = new URL(r.listingUrl).hostname.replace(/^www\./, "");
+    } catch {
+      source = "listing";
+    }
+  }
+  return {
+    id: r.id,
+    address: r.address ?? "Address not recorded",
+    date: new Date(r.createdAt).toLocaleDateString("en-NZ"),
+    score: r.score,
+    // Real reports don't carry a value-for-money grade; the card hides it when null.
     vfm: null,
-    status: "processing",
-    price: "$680,000",
-    type: "Apartment",
-    beds: 1,
-    baths: 1,
-    source: "trademe.co.nz",
-  },
-];
+    status: "complete",
+    price: money(r.askingPrice),
+    type: r.propertyType ?? "Property",
+    beds: r.bedrooms,
+    baths: r.bathrooms,
+    source,
+  };
+}
 
 function scoreColor(s: number | null) {
   if (!s) return "var(--text-muted)";
@@ -86,6 +75,36 @@ function vfmClass(v: string | null) {
 }
 
 export default function DashboardPage() {
+  const [reports, setReports] = useState<Card[] | null>(null);
+
+  // Reports are owned by an httpOnly cookie, so the browser can't read them
+  // itself — the server resolves "mine" from the request.
+  useEffect(() => {
+    let live = true;
+    fetch("/api/reports")
+      .then((r) => r.json())
+      .then((d) => live && setReports(((d?.reports ?? []) as ReportSummary[]).map(toCard)))
+      .catch(() => live && setReports([]));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // Derived from the real list — a hardcoded headline that disagrees with the
+  // reports underneath it is worse than no headline.
+  const list = reports ?? [];
+  const scored = list.filter((r) => typeof r.score === "number");
+  const now = new Date();
+  const thisMonth = list.filter((r) => {
+    const d = new Date(r.date.split("/").reverse().join("-"));
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+  const avgScore = scored.length
+    ? Math.round(scored.reduce((a, r) => a + (r.score as number), 0) / scored.length)
+    : null;
+  const bestScore = scored.length ? Math.max(...scored.map((r) => r.score as number)) : null;
+  const dash = (v: number | null) => (reports === null ? "—" : v === null ? "—" : String(v));
+
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
       <Navbar user={{ email: "jane@example.com" }} plan="starter" />
@@ -109,10 +128,10 @@ export default function DashboardPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           {[
-            { label: "Reports", value: "4", icon: FileText, color: "#00d4c8" },
-            { label: "This month", value: "3", icon: Clock, color: "#a78bfa" },
-            { label: "Avg score", value: "626", icon: TrendingUp, color: "#00e676" },
-            { label: "Best VFM", value: "A", icon: TrendingUp, color: "#fbbf24" },
+            { label: "Reports", value: dash(reports === null ? null : list.length), icon: FileText, color: "#00d4c8" },
+            { label: "This month", value: dash(reports === null ? null : thisMonth), icon: Clock, color: "#a78bfa" },
+            { label: "Avg score", value: dash(avgScore), icon: TrendingUp, color: "#00e676" },
+            { label: "Best score", value: dash(bestScore), icon: TrendingUp, color: "#fbbf24" },
           ].map((s) => (
             <div key={s.label} className="card p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -154,8 +173,23 @@ export default function DashboardPage() {
         </div>
 
         {/* Report cards */}
+        {reports !== null && reports.length === 0 && (
+          <div className="card p-10 text-center">
+            <p className="text-sm mb-1" style={{ color: "var(--text-primary)" }}>No reports yet</p>
+            <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>
+              Analyse a listing and it will be saved here.
+            </p>
+            <Link href="/report/new" className="btn-primary inline-flex gap-2" style={{ textDecoration: "none" }}>
+              <Plus size={14} /> New report
+            </Link>
+            <p className="text-xs mt-5" style={{ color: "var(--text-muted)" }}>
+              Or open the <Link href="/report/rpt_001" style={{ color: "var(--brand)" }}>sample report</Link> to see what one looks like.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-3">
-          {MOCK_REPORTS.map((r) => (
+          {(reports ?? []).map((r) => (
             <Link
               key={r.id}
               href={`/report/${r.id}`}

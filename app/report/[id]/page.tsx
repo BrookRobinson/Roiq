@@ -7,6 +7,7 @@ import { loadReport, type StoredReport } from "@/lib/report-store";
 import { RealReportView } from "@/components/RealReportView";
 import { buildDemoReport } from "@/lib/scoring/demo";
 import { SHARE_ID_PREFIX } from "@/lib/share";
+import { fetchSavedReport } from "@/lib/reports/client";
 
 // Built once: the demo report is fully powered by the real v3.1 engine, so the
 // persona toggle recomputes on it exactly as it does on a live report.
@@ -50,7 +51,22 @@ export default function ReportPage() {
         .catch(() => setReady(true));
       return;
     }
-    setReady(true);
+
+    // Not in this tab's storage. Before falling back to the demo, ask the server
+    // — a report saved yesterday, or opened in a new tab, lives there now. Only
+    // the browser that created it can read it back.
+    let live = true;
+    fetchSavedReport(id)
+      .then((saved) => {
+        if (!live) return;
+        if (saved) setReport(saved);
+        setReady(true);
+      })
+      .catch(() => live && setReady(true));
+
+    return () => {
+      live = false;
+    };
   }, [id, isShared]);
 
   // Avoid a hydration flash: sessionStorage is only available client-side.

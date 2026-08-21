@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, CheckCircle2, ImagePlus, X, AlertTriangle, Plus } from "lucide-react";
 import { saveReport } from "@/lib/report-store";
 import { contributeToMap } from "@/lib/map/contribution";
+import { persistReport } from "@/lib/reports/client";
 import { MANDATORY_CATEGORIES, OPTIONAL_CATEGORIES, type PhotoCategory } from "@/lib/photo-categories";
 import { useRequireAccount } from "@/lib/account/useRequireAccount";
 
@@ -212,6 +213,10 @@ export default function UploadReportPage() {
         setStep("input");
         return;
       }
+
+      // Outlive the tab: sessionStorage above is the fast path, this is the
+      // durable copy that puts the report on the dashboard tomorrow.
+      persistReport(report);
 
       // Every pin on the map comes from a report someone ran — there is no
       // listings feed. Fire-and-forget, and only for properties that are
