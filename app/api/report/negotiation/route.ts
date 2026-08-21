@@ -5,6 +5,7 @@ import { getUser } from "@/lib/supabase/auth";
 import { SHARE_TTL_DAYS, newShareToken } from "@/lib/share";
 import type { NegotiationCase } from "@/lib/negotiation/build";
 import { NEGOTIATION_KIND, type NegotiationPayload } from "@/lib/negotiation/payload";
+import { sendEmail } from "@/lib/email/send";
 import type { Json } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
@@ -111,14 +112,6 @@ async function sendToAgent(args: {
   url: string;
   payload: NegotiationPayload;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return {
-      ok: false,
-      error: "Email isn't configured (set RESEND_API_KEY). The link still works — copy and send it yourself.",
-    };
-  }
-
   const { case: c, preparedBy, note } = args.payload;
   const count = c.critical.length + c.urgent.length;
   const address = c.address || "the property";
@@ -161,23 +154,5 @@ async function sendToAgent(args: {
     </p>
   </div>`;
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM ?? "BDR Report <onboarding@resend.dev>",
-        to: [args.to],
-        subject,
-        html,
-      }),
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      return { ok: false, error: `Email provider rejected the send${detail ? `: ${detail.slice(0, 140)}` : ""}.` };
-    }
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "Couldn't reach the email provider." };
-  }
+  return sendEmail({ to: args.to, subject, html });
 }

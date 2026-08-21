@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/supabase/auth";
 import { SHARE_TTL_DAYS, newShareToken, isShareToken } from "@/lib/share";
 import type { StoredReport } from "@/lib/report-store";
+import { sendEmail } from "@/lib/email/send";
 import type { Json } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
@@ -135,14 +136,8 @@ async function sendShareEmail(args: {
   report: StoredReport;
   note: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return { ok: false, error: "Email isn't configured (set RESEND_API_KEY). The link still works — copy and send it yourself." };
-  }
-
   const address = args.report.listing.address ?? "a property";
   const score = args.report.scores.buyer?.total;
-  const from = process.env.SHARE_EMAIL_FROM || "BDR Report <onboarding@resend.dev>";
 
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a">
@@ -161,25 +156,11 @@ async function sendShareEmail(args: {
       <p style="color:#94a3b8;font-size:12px;margin:24px 0 0">Or paste this link into your browser:<br>${args.url}</p>
     </div>`;
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from,
-        to: args.to,
-        subject: `BDR Report shared with you — ${address}`,
-        html,
-      }),
-    });
-    if (!res.ok) {
-      const detail = await res.text();
-      return { ok: false, error: `Email provider rejected the send (${res.status}). ${detail.slice(0, 160)}` };
-    }
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Unknown email error" };
-  }
+  return sendEmail({
+    to: args.to,
+    subject: `BDR Report shared with you — ${address}`,
+    html,
+  });
 }
 
 function escapeHtml(s: string): string {
