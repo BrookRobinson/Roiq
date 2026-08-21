@@ -14,6 +14,9 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import type { MapMode, UserVariables } from "@/lib/map/types";
 
+/** Remembers that the Variables nudge has been seen, so it never nags. */
+const HINT_KEY = "bdr:map:variables-hint";
+
 // Mapbox GL touches `window` — load it client-side only.
 const PropertyMap = dynamic(() => import("@/components/map/PropertyMap").then((m) => m.PropertyMap), {
   ssr: false,
@@ -44,6 +47,10 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [seeded, setSeeded] = useState(false);
   const [locked, setLocked] = useState(false);
+  // One-time nudge toward the Variables button. Every pin is coloured against
+  // the viewer's own numbers, which is the whole idea and completely invisible
+  // if you don't know the button is there.
+  const [showHint, setShowHint] = useState(false);
   const { isPro, loading: sessionLoading } = useSession();
 
   // Demo listings are nobody's paid analysis, so there is nothing to withhold.
@@ -91,6 +98,28 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   // deposit and interest rate first — those only matter once the pins are readable.
   const showSetup = unlocked && ready && (!vars || editing);
 
+  // Shown once the map itself is on screen, and never again after it's dismissed.
+  useEffect(() => {
+    if (!unlocked || showSetup) return;
+    try {
+      if (localStorage.getItem(HINT_KEY)) return;
+    } catch {
+      /* storage blocked — showing it each visit is the lesser evil */
+    }
+    const t = setTimeout(() => setShowHint(true), 900);
+    return () => clearTimeout(t);
+  }, [unlocked, showSetup]);
+
+  function dismissHint() {
+    setShowHint(false);
+    try {
+      localStorage.setItem(HINT_KEY, "1");
+    } catch {
+      /* non-fatal */
+    }
+  }
+
+
   return (
     <div className="flex flex-col" style={{ background: "var(--bg)", height: "100vh", overflow: "hidden" }}>
       <Navbar />
@@ -118,13 +147,75 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
             <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               <ModeToggle mode={mode} onChange={setMode} />
               {unlocked && (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="btn-secondary text-xs py-1.5 px-3 gap-1.5"
-                  aria-label="Edit your variables"
-                >
-                  <Settings size={13} /> Variables
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      dismissHint();
+                      setEditing(true);
+                    }}
+                    className="btn-secondary text-xs py-1.5 px-3 gap-1.5"
+                    aria-label="Edit your variables"
+                  >
+                    <Settings size={13} /> Variables
+                  </button>
+
+                  {showHint && (
+                    <div
+                      role="dialog"
+                      aria-label="Adjust your numbers"
+                      className="absolute right-0 z-20 mt-2 w-72 p-4 text-left"
+                      style={{
+                        top: "100%",
+                        background: "var(--surface)",
+                        border: "1px solid var(--rule-strong)",
+                        boxShadow: "0 12px 32px rgba(0,0,0,0.28)",
+                      }}
+                    >
+                      {/* Points back at the button it's talking about. */}
+                      <span
+                        aria-hidden="true"
+                        className="absolute h-2.5 w-2.5 rotate-45"
+                        style={{
+                          top: -6,
+                          right: 22,
+                          background: "var(--surface)",
+                          borderLeft: "1px solid var(--rule-strong)",
+                          borderTop: "1px solid var(--rule-strong)",
+                        }}
+                      />
+                      <div className="flex items-start gap-2">
+                        <Settings size={14} style={{ color: "var(--brand)", marginTop: 2, flexShrink: 0 }} />
+                        <div>
+                          <p className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
+                            These colours are yours, not ours
+                          </p>
+                          <p className="mt-1 text-[12.5px]" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                            Every pin is scored against <strong>your</strong> budget, deposit, interest rate
+                            and how long you&rsquo;d hold it. Change them and the whole map re-colours.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            dismissHint();
+                            setEditing(true);
+                          }}
+                          className="btn-primary px-3 py-1.5 text-xs"
+                        >
+                          Set my numbers
+                        </button>
+                        <button
+                          onClick={dismissHint}
+                          className="cursor-pointer px-2 py-1.5 text-xs"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          Got it
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

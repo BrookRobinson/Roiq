@@ -1,5 +1,6 @@
 "use client";
 
+import { blurOnWheel } from "@/lib/ui/number-input";
 import { useMemo, useState } from "react";
 import { Wand2, Upload, Loader2, ChevronRight, ExternalLink } from "lucide-react";
 import {
@@ -172,7 +173,7 @@ export function MaterialStudio({
               <div className="flex items-end gap-3">
                 <div className="flex-1">
                   <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Area (m²)</label>
-                  <input type="number" min={1} value={area} onChange={(e) => setArea(Math.max(1, Number(e.target.value) || 0))} className="input mt-1 w-full text-sm" />
+                  <input type="number" onWheel={blurOnWheel} min={1} value={area} onChange={(e) => setArea(Math.max(1, Number(e.target.value) || 0))} className="input mt-1 w-full text-sm" />
                 </div>
                 <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
                   {(["diy", "pay"] as const).map((m) => {

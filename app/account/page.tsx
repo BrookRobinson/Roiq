@@ -1,5 +1,6 @@
 "use client";
 
+import { blurOnWheel } from "@/lib/ui/number-input";
 import Navbar from "@/components/Navbar";
 import { useState } from "react";
 import { CheckCircle2, AlertTriangle, ExternalLink, CreditCard, User, Bell, Moon, Sun } from "lucide-react";
@@ -86,7 +87,7 @@ function ProfileTab({ theme, onToggleTheme }: { theme: string; onToggleTheme: ()
         </div>
         <div>
           <label className="label">Default deposit %</label>
-          <input className="input" defaultValue="30" type="number" min={5} max={60} />
+          <input className="input" defaultValue="30" type="number" onWheel={blurOnWheel} min={5} max={60} />
           <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Used as default in map and calculator</div>
         </div>
         <div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { blurOnWheel } from "@/lib/ui/number-input";
 import { useState } from "react";
 import type { CostItem } from "@/lib/labour-rates";
 import { ChevronDown, ChevronUp, PenLine, CheckCircle2 } from "lucide-react";
@@ -185,7 +186,7 @@ export function CostWorkings({ item, onQuoteEntered, withinHoldPeriod = true }: 
                   $
                 </span>
                 <input
-                  type="number"
+                  type="number" onWheel={blurOnWheel}
                   className="input pl-7 text-sm"
                   placeholder="e.g. 14,500"
                   value={quoteInput}

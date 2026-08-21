@@ -1,5 +1,6 @@
 "use client";
 
+import { blurOnWheel } from "@/lib/ui/number-input";
 import { useEffect, useState } from "react";
 import { Wallet, Home, TrendingUp, Sprout, ArrowRight, X } from "lucide-react";
 import type { UserVariables, MapMode } from "@/lib/map/types";
@@ -116,7 +117,7 @@ export function VariablesScreen({
                   <div className="relative flex-1">
                     <input
                       className="input text-sm py-1.5 pr-7 w-full"
-                      type="number"
+                      type="number" onWheel={blurOnWheel}
                       step="0.1"
                       value={v.capitalGrowthPct}
                       onChange={(e) => set("capitalGrowthPct", Number(e.target.value))}
@@ -190,7 +191,7 @@ function Money({ label, hint, value, onChange }: { label: string; hint?: string;
         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-muted)" }}>$</span>
         <input
           className="input text-sm py-1.5 pl-6 w-full mono"
-          type="number"
+          type="number" onWheel={blurOnWheel}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
         />
@@ -220,7 +221,7 @@ function Pct({
       <div className="relative">
         <input
           className="input text-sm py-1.5 pr-7 w-full mono"
-          type="number"
+          type="number" onWheel={blurOnWheel}
           step="0.1"
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}

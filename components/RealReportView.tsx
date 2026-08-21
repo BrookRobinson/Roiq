@@ -1,5 +1,6 @@
 "use client";
 
+import { blurOnWheel } from "@/lib/ui/number-input";
 import { useState, useMemo, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import { PropertyTab } from "@/components/PropertyTab/PropertyTab";
@@ -616,7 +617,7 @@ function InvestorRatingPanel({
       <div className="card p-5" style={{ border: "1px solid var(--border)" }}>
         <h3 className="font-semibold mb-2" style={{ color: "var(--text-primary)" }}>Investor rating</h3>
         <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>Enter an estimated weekly rent to calculate yield (no market-rent figure on file).</p>
-        <input type="number" value={override} onChange={(e) => setOverride(e.target.value)} placeholder="Weekly rent $" className="rounded-lg px-3 py-2 text-sm w-40" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input type="number" onWheel={blurOnWheel} value={override} onChange={(e) => setOverride(e.target.value)} placeholder="Weekly rent $" className="rounded-lg px-3 py-2 text-sm w-40" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
       </div>
     );
   }
@@ -657,7 +658,7 @@ function InvestorRatingPanel({
 
       <div className="flex items-center gap-2 mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>Weekly rent</span>
-        <input type="number" value={override} onChange={(e) => setOverride(e.target.value)} placeholder={String(marketRent?.weekly ?? "")} className="rounded-lg px-2 py-1 text-sm w-24 mono" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+        <input type="number" onWheel={blurOnWheel} value={override} onChange={(e) => setOverride(e.target.value)} placeholder={String(marketRent?.weekly ?? "")} className="rounded-lg px-2 py-1 text-sm w-24 mono" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
           /wk{override === "" && marketRent ? ` · ${marketRent.source}${marketRent.isEstimate ? " (estimate)" : ""}` : " · your figure"}
         </span>
@@ -1636,7 +1637,7 @@ function FinNum({ label, value, onChange, hint, disabled }: { label: string; val
       <span style={{ color: "var(--text-secondary)" }}>{label}{hint && <span className="text-[11px] ml-1" style={{ color: "var(--text-muted)" }}>· {hint}</span>}</span>
       <span className="inline-flex items-center gap-1 flex-shrink-0">
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>$</span>
-        <input type="number" value={value} disabled={disabled} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+        <input type="number" onWheel={blurOnWheel} value={value} disabled={disabled} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
           className="rounded px-2 py-1 text-sm w-28 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: disabled ? 0.4 : 1 }} />
       </span>
     </div>
@@ -1853,7 +1854,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
         <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
           <span style={{ color: "var(--text-secondary)" }}>Deposit</span>
           <span className="inline-flex items-center gap-1">
-            <input type="number" value={Math.round(inp.depositPct * 100)} onChange={(e) => set({ depositPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) / 100 })} className="rounded px-2 py-1 text-sm w-16 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input type="number" onWheel={blurOnWheel} value={Math.round(inp.depositPct * 100)} onChange={(e) => set({ depositPct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) / 100 })} className="rounded px-2 py-1 text-sm w-16 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>% = {fmt(s.deposit)}</span>
           </span>
         </div>
@@ -1867,7 +1868,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
         <div className="flex items-center justify-between gap-2 py-1.5 text-sm flex-wrap">
           <span style={{ color: "var(--text-secondary)" }}>Interest rate</span>
           <span className="inline-flex items-center gap-2">
-            <input type="number" step={0.01} value={inp.interestRatePct} onChange={(e) => set({ interestRatePct: Math.max(0, Number(e.target.value) || 0) })} className="rounded px-2 py-1 text-sm w-20 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
+            <input type="number" onWheel={blurOnWheel} step={0.01} value={inp.interestRatePct} onChange={(e) => set({ interestRatePct: Math.max(0, Number(e.target.value) || 0) })} className="rounded px-2 py-1 text-sm w-20 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>%</span>
             <button onClick={fetchRate} disabled={rateLoading} className="text-xs inline-flex items-center gap-1 cursor-pointer" style={{ color: "var(--brand)" }}>
               {rateLoading ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />} fetch today&apos;s rate
@@ -1890,7 +1891,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
         </div>
         <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
           <span style={{ color: "var(--text-secondary)" }}>Loan term</span>
-          <span className="inline-flex items-center gap-1"><input type="number" value={inp.loanTermYears} onChange={(e) => set({ loanTermYears: Math.max(1, Math.min(30, Number(e.target.value) || 30)) })} className="rounded px-2 py-1 text-sm w-16 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>years</span></span>
+          <span className="inline-flex items-center gap-1"><input type="number" onWheel={blurOnWheel} value={inp.loanTermYears} onChange={(e) => set({ loanTermYears: Math.max(1, Math.min(30, Number(e.target.value) || 30)) })} className="rounded px-2 py-1 text-sm w-16 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>years</span></span>
         </div>
         <div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px solid var(--border)" }}>
           <FinRow label="Weekly repayment" value={fmt(s.weekly) + "/wk"} />
@@ -1909,7 +1910,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
               <input type="checkbox" checked={inp.purchaseCostsEnabled[k]} onChange={() => toggleCost(k)} className="w-3.5 h-3.5 cursor-pointer" />
               {PURCHASE_COST_LABELS[k]}
             </label>
-            <span className="inline-flex items-center gap-1"><span className="text-xs" style={{ color: "var(--text-muted)" }}>$</span><input type="number" value={inp.purchaseCosts[k]} disabled={!inp.purchaseCostsEnabled[k]} onChange={(e) => setCost(k, Math.max(0, Number(e.target.value) || 0))} className="rounded px-2 py-1 text-sm w-24 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: inp.purchaseCostsEnabled[k] ? 1 : 0.4 }} /></span>
+            <span className="inline-flex items-center gap-1"><span className="text-xs" style={{ color: "var(--text-muted)" }}>$</span><input type="number" onWheel={blurOnWheel} value={inp.purchaseCosts[k]} disabled={!inp.purchaseCostsEnabled[k]} onChange={(e) => setCost(k, Math.max(0, Number(e.target.value) || 0))} className="rounded px-2 py-1 text-sm w-24 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: inp.purchaseCostsEnabled[k] ? 1 : 0.4 }} /></span>
           </div>
         ))}
         <div className="mt-1 pt-2" style={{ borderTop: "1px solid var(--border)" }}><FinRow label="Total purchase costs" value={fmt(s.purchaseCostsTotal)} strong /></div>
@@ -1936,11 +1937,11 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
           <FinNum label="Weekly rent" value={inp.weeklyRent} onChange={(v) => set({ weeklyRent: v })} hint={marketRent ? marketRent.source : "estimate — verify"} />
           <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
             <span style={{ color: "var(--text-secondary)" }}>Vacancy allowance</span>
-            <span className="inline-flex items-center gap-1"><input type="number" value={inp.vacancyWeeks} onChange={(e) => set({ vacancyWeeks: Math.max(0, Number(e.target.value) || 0) })} className="rounded px-2 py-1 text-sm w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>wks/yr</span></span>
+            <span className="inline-flex items-center gap-1"><input type="number" onWheel={blurOnWheel} value={inp.vacancyWeeks} onChange={(e) => set({ vacancyWeeks: Math.max(0, Number(e.target.value) || 0) })} className="rounded px-2 py-1 text-sm w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>wks/yr</span></span>
           </div>
           <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
             <label className="inline-flex items-center gap-2 cursor-pointer" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={inp.mgmtEnabled} onChange={() => set({ mgmtEnabled: !inp.mgmtEnabled })} className="w-3.5 h-3.5 cursor-pointer" />Property management</label>
-            <span className="inline-flex items-center gap-1"><input type="number" step={0.5} value={Math.round(inp.mgmtFeePct * 1000) / 10} disabled={!inp.mgmtEnabled} onChange={(e) => set({ mgmtFeePct: Math.max(0, Number(e.target.value) || 0) / 100 })} className="rounded px-2 py-1 text-sm w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: inp.mgmtEnabled ? 1 : 0.4 }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>%</span></span>
+            <span className="inline-flex items-center gap-1"><input type="number" onWheel={blurOnWheel} step={0.5} value={Math.round(inp.mgmtFeePct * 1000) / 10} disabled={!inp.mgmtEnabled} onChange={(e) => set({ mgmtFeePct: Math.max(0, Number(e.target.value) || 0) / 100 })} className="rounded px-2 py-1 text-sm w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: inp.mgmtEnabled ? 1 : 0.4 }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>%</span></span>
           </div>
           <div className="mt-2 rounded-lg p-3" style={{ border: `1px solid ${cf >= 0 ? "var(--good)" : "var(--bad)"}`, background: cf >= 0 ? "var(--good-wash)" : "var(--bad-wash)" }}>
             <div className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Net weekly cash flow</div>
@@ -1959,7 +1960,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
       <FinSection title="Capital growth projection">
         <div className="text-xs mb-2" style={{ color: "var(--text-secondary)" }}>
           Based on <span className="mono" style={{ color: "var(--text-primary)" }}>{inp.growthPct}%</span> average annual growth{capitalGrowth ? ` in ${listing.suburb ?? listing.region ?? "this area"}` : ""}{capitalGrowth?.source ? ` (${capitalGrowth.source})` : ""}.
-          <span className="inline-flex items-center gap-1 ml-2">override <input type="number" step={0.1} value={inp.growthPct} onChange={(e) => set({ growthPct: Number(e.target.value) || 0 })} className="rounded px-1.5 py-0.5 text-xs w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />%</span>
+          <span className="inline-flex items-center gap-1 ml-2">override <input type="number" onWheel={blurOnWheel} step={0.1} value={inp.growthPct} onChange={(e) => set({ growthPct: Number(e.target.value) || 0 })} className="rounded px-1.5 py-0.5 text-xs w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} />%</span>
         </div>
         <div style={{ width: "100%", height: 200 }}>
           <ResponsiveContainer>
@@ -1984,7 +1985,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
       <FinSection title="Sale costs (end of hold)">
         <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
           <span style={{ color: "var(--text-secondary)" }}>Agent commission</span>
-          <span className="inline-flex items-center gap-1"><input type="number" step={0.1} value={Math.round(inp.agentCommissionPct * 1000) / 10} onChange={(e) => set({ agentCommissionPct: Math.max(0, Number(e.target.value) || 0) / 100 })} className="rounded px-2 py-1 text-sm w-16 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>% = {fmt(s.agentFees)}</span></span>
+          <span className="inline-flex items-center gap-1"><input type="number" onWheel={blurOnWheel} step={0.1} value={Math.round(inp.agentCommissionPct * 1000) / 10} onChange={(e) => set({ agentCommissionPct: Math.max(0, Number(e.target.value) || 0) / 100 })} className="rounded px-2 py-1 text-sm w-16 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>% = {fmt(s.agentFees)}</span></span>
         </div>
         <FinNum label="Legal fees at sale" value={inp.legalAtSale} onChange={(v) => set({ legalAtSale: v })} />
         <div className="mt-1 pt-2" style={{ borderTop: "1px solid var(--border)" }}><FinRow label="Total sale costs" value={fmt(s.agentFees + s.saleLegal)} strong /></div>
