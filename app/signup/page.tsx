@@ -18,9 +18,9 @@ function SignupForm() {
   const [success, setSuccess] = useState(false);
 
   const planLabels: Record<string, { name: string; price: string; color: string }> = {
-    free: { name: "Free", price: "$0/mo", color: "#6b7280" },
-    starter: { name: "Starter", price: "$49/mo", color: "#3b82f6" },
-    pro: { name: "Pro", price: "$99/mo", color: "#f59e0b" },
+    free: { name: "Free", price: "$0", color: "#6b7280" },
+    starter: { name: "Starter", price: "$49 once", color: "#3b82f6" },
+    pro: { name: "Pro", price: "$99 once", color: "#f59e0b" },
   };
   const planInfo = planLabels[plan] ?? planLabels.free;
 

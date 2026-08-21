@@ -8,7 +8,7 @@ const FEATURES = [
   {
     category: "Reports",
     rows: [
-      { label: "Reports per month", free: "3", starter: "Unlimited", pro: "Unlimited" },
+      { label: "Reports included", free: "3", starter: "Unlimited", pro: "Unlimited" },
       { label: "Watermark-free reports", free: false, starter: true, pro: true },
       { label: "Photo analysis (AI vision)", free: false, starter: true, pro: true },
       { label: "Full 6-category score breakdown", free: false, starter: true, pro: true },
@@ -68,10 +68,10 @@ export default function PricingPage() {
             Simple, honest pricing
           </h1>
           <p className="text-lg" style={{ color: "var(--text-secondary)" }}>
-            No per-report charges. No hidden fees. Cancel any time.
+            One-off payment. No subscriptions. No hidden fees.
           </p>
           <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-            Prices in NZD. Monthly only — no lock-in.
+            Prices in NZD. Pay once, nothing recurring.
           </p>
           <Link
             href="/report/rpt_001"
@@ -92,7 +92,7 @@ export default function PricingPage() {
               href: "/signup",
               cta: "Start free",
               highlight: false,
-              features: ["3 reports/month", "Market value estimate", "Quality score preview", "Basic equity calculator"],
+              features: ["3 reports", "Market value estimate", "Quality score preview", "Basic equity calculator"],
             },
             {
               name: "Starter",
@@ -135,7 +135,7 @@ export default function PricingPage() {
                   {p.price}
                 </span>
                 {p.price !== "$0" && (
-                  <span className="text-sm" style={{ color: p.highlight ? "rgba(255,255,255,0.6)" : "var(--text-muted)" }}>/mo</span>
+                  <span className="text-sm" style={{ color: p.highlight ? "rgba(255,255,255,0.6)" : "var(--text-muted)" }}>once</span>
                 )}
               </div>
               <p className="text-sm mb-5" style={{ color: p.highlight ? "rgba(255,255,255,0.75)" : "var(--text-secondary)" }}>
@@ -220,8 +220,8 @@ export default function PricingPage() {
           <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
             {[
               {
-                q: "Can I cancel at any time?",
-                a: "Yes. Cancel through your account settings and you won't be charged again. You keep access until the end of your billing period.",
+                q: "Is this a subscription?",
+                a: "No. You pay once and the plan is yours. There is no recurring charge, nothing to cancel, and no billing period to keep track of.",
               },
               {
                 q: "Is this a registered property valuation?",

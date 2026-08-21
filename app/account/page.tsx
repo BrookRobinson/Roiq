@@ -116,7 +116,7 @@ function PlanTab() {
             <h2 className="font-semibold mb-1" style={{ color: "var(--text-primary)" }}>Current plan</h2>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold" style={{ color: "var(--brand)" }}>Starter</span>
-              <span className="badge badge-blue">$49/mo</span>
+              <span className="badge badge-blue">$49 once</span>
             </div>
           </div>
           <CheckCircle2 size={24} style={{ color: "var(--success)" }} />
@@ -161,7 +161,7 @@ function PlanTab() {
           href="/pricing"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[var(--brand)] font-semibold text-sm cursor-pointer hover:bg-[var(--brand-light)] transition-colors"
         >
-          Upgrade to Pro — $99/mo
+          Upgrade to Pro, $99 once
         </a>
       </div>
 
