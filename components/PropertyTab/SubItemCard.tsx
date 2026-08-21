@@ -74,12 +74,15 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
 
   return (
     <div
-      className="rounded-xl overflow-hidden transition-opacity"
+      className="rounded-xl overflow-hidden"
       style={{
         background: "var(--surface-2)",
         border: "1px solid var(--border)",
         borderLeft: `3px solid ${color}`,
-        opacity: !isWithinHold && item.score !== null && item.score <= 7 ? 0.55 : 1,
+        // Deliberately NOT faded when the work falls outside the hold period. The
+        // findings are the same findings either way, and dimming them made the AI
+        // assessment hard to read — the "monitor only" badge below says it in
+        // words, and the COST is where the hold period actually changes anything.
       }}
     >
       {/* Header row — always visible */}
@@ -275,7 +278,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
             ) : (
               <div
                 className="rounded-lg p-3"
-                style={{ background: "var(--surface)", border: "1px solid var(--border)", opacity: isWithinHold ? 1 : 0.5 }}
+                style={{ background: "var(--surface)", border: "1px solid var(--border)", opacity: isWithinHold ? 1 : 0.75 }}
               >
                 <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
                   Estimated replacement cost

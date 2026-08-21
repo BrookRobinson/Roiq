@@ -1571,7 +1571,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
         const t = renoToggles[l.key];
         const included = renoIncluded(l, renoToggles);
         return (
-          <div key={l.key} className="card p-4" style={{ opacity: included ? 1 : 0.55, transition: "opacity 0.15s" }}>
+          <div key={l.key} className="card p-4" style={{ opacity: included ? 1 : 0.8, transition: "opacity 0.15s" }}>
             <div className="flex items-start gap-3">
               <input type="checkbox" checked={included} onChange={(e) => setRenoToggle(l.key, { included: e.target.checked })} className="mt-1 w-4 h-4 cursor-pointer flex-shrink-0" aria-label={`Include ${l.name}`} />
               <div className="flex-1 min-w-0">

@@ -33,7 +33,7 @@ export function CostWorkings({ item, onQuoteEntered, withinHoldPeriod = true }: 
   if (!withinHoldPeriod) {
     return (
       <div
-        className="rounded-xl p-3 opacity-40"
+        className="rounded-xl p-3 opacity-75"
         style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
       >
         <div className="flex items-center justify-between">
