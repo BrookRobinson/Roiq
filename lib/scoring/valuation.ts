@@ -1,5 +1,5 @@
 // ============================================================
-// BDR Report IMPROVEMENT (BUILDING) VALUATION — v4, slice 1
+// BDR IMPROVEMENT (BUILDING) VALUATION — v4, slice 1
 //
 // Values the building on TWO axes, because condition alone is not enough:
 //   • SPEC   — quality of the materials/finish (a tiled bathroom is worth more
@@ -167,7 +167,7 @@ export interface RoiqValuation {
   isEstimate: boolean;
 }
 
-/** Land + improvements = BDR Report value, with a confidence band. Takes the building
+/** Land + improvements = BDR value, with a confidence band. Takes the building
  * value as a plain number so it works with the itemised valuation (v5.1). */
 export function roiqValuation(
   buildingValue: number,

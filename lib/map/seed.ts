@@ -1,6 +1,6 @@
 // ============================================================
 // Property Map — 20 seed listings across Auckland, Wellington and Christchurch,
-// with pre-computed BDR Report scores, valuations and repair allowances. Used as the
+// with pre-computed BDR scores, valuations and repair allowances. Used as the
 // fallback when the `map_listings` table is empty (it currently always is, since
 // the 24h scoring job hasn't run against live portals yet). Tuned for a
 // green/orange/red spread in BOTH modes: homebuyer colour = valuation vs asking;

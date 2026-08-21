@@ -7,7 +7,7 @@ import type { ScrapedListing } from "@/lib/scraper/types";
 // Researches the suburb's median sale price per m² from REAL recent sales using
 // Anthropic's web-search tool (OneRoof first, cross-checked against homes.co.nz /
 // QV). Never hardcoded, never invented. Non-fatal: callers fall back gracefully.
-// Powers the BDR Report Value Verdict (Change 1/2).
+// Powers the BDR Value Verdict (Change 1/2).
 
 interface RawSuburbValue {
   found: boolean;

@@ -1,5 +1,5 @@
 // ============================================================
-// BDR Report SCORING CATALOG (v3.1)
+// BDR SCORING CATALOG (v3.1)
 // Display + AI structure DERIVED from SCORING_MODEL so the model
 // stays the single source of truth. Icons, labels, ordering, the
 // AI checklist, and the tool enum all come from here.

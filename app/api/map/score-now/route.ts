@@ -14,7 +14,7 @@ export const maxDuration = 300; // Claude vision can take a while
 /**
  * POST /api/map/score-now { url } | { address }
  * Manually score ONE property through the real BDR Report pipeline (dev/admin): resolve →
- * Claude Vision analysis → 1000-pt score → summed repair allowance → BDR Report valuation →
+ * Claude Vision analysis → 1000-pt score → summed repair allowance → BDR valuation →
  * geocode → upsert into map_listings. Returns the scored listing.
  */
 export async function POST(req: NextRequest) {

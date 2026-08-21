@@ -64,7 +64,7 @@ function merge(base: ScrapedListing, f: Partial<ScrapedListing>): ScrapedListing
 }
 
 /**
- * Floor area powers the BDR Report Value Verdict (suburb median $/m² × condition × FLOOR
+ * Floor area powers the BDR Value Verdict (suburb median $/m² × condition × FLOOR
  * AREA) and land area shows on the report; portals routinely render these two figures
  * client-side or omit them, so even a complete scrape can lack them. When EITHER is
  * missing, fill it from council / RV records by address — only the absent field, and

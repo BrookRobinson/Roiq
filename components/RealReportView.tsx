@@ -479,7 +479,7 @@ export function RealReportView({
             <div className="card p-5 mb-6" style={{ border: "1px solid var(--brand)", background: "rgba(0,212,200,0.05)" }}>
               <div className="flex items-center gap-2 font-semibold text-base mb-1" style={{ color: "var(--text-primary)" }}>📷 No listing photos found</div>
               <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                We couldn&apos;t retrieve photos from this listing. TradeMe and some other portals block photo access. Without photos we can&apos;t give condition scores — only build-year risk flags. To get a full BDR Report report you have two options:
+                We couldn&apos;t retrieve photos from this listing. TradeMe and some other portals block photo access. Without photos we can&apos;t give condition scores — only build-year risk flags. To get a full BDR Report you have two options:
               </p>
               <div className="flex flex-wrap gap-2 mt-3">
                 <a href={`/report/upload?address=${encodeURIComponent(listing.address ?? "")}${listing.askingPrice ? `&price=${listing.askingPrice}` : ""}`}
@@ -912,7 +912,7 @@ function MethodologyTab() {
           We value land and building <em>separately</em>, then add them — because land appreciates and buildings depreciate, so a single blended figure hides the truth.
         </p>
         <div className="mt-3 rounded-lg p-3 text-sm mono" style={{ ...box, color: "var(--text-secondary)" }}>
-          Land value + Improvement value = BDR Report value → vs asking → over / under
+          Land value + Improvement value = BDR value → vs asking → over / under
         </div>
         <p className="text-xs mt-3" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
           Improvement value is built up <strong style={bold}>item by item</strong>: each component&apos;s replacement cost × its spec tier × its condition, plus a base structure &amp; services allowance for what can&apos;t be seen (framing, wiring, plumbing). Land value comes from comparable sales. Every estimate carries a confidence range.
@@ -998,7 +998,7 @@ function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggle
           <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Predicted sale value</div>
           <FutureSalePrice askingPrice={askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="left" />
           <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
-            See the <strong style={{ color: "var(--brand)" }}>Financial</strong> tab for the BDR Report Value Verdict — whether the asking price is fair once renovations are factored in.
+            See the <strong style={{ color: "var(--brand)" }}>Financial</strong> tab for the BDR Value Verdict — whether the asking price is fair once renovations are factored in.
           </div>
         </div>
         <div className="card p-5 lg:col-span-2">
@@ -1654,9 +1654,9 @@ function FinSection({ title, children }: { title: string; children: React.ReactN
   );
 }
 
-// ── BDR Report Value Verdict (Change 1) — the headline number, top of the Finance tab.
+// ── BDR Value Verdict (Change 1) — the headline number, top of the Finance tab.
 // Suburb median $/m² (scraped) × condition multiplier (the hidden quality score)
-// × floor area = BDR Report fair value; compared against asking + selected renovations.
+// × floor area = BDR fair value; compared against asking + selected renovations.
 function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, dwellingAdded = 0 }: {
   asking: number; improvementValuation: ImprovementValueResult; landAreaSqm: number | null; suburbValue?: SuburbValue; dwellingAdded?: number;
 }) {
@@ -1673,7 +1673,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
           : "Not enough data to estimate a value.";
     return (
       <div className="card p-5" style={{ border: "1px solid var(--border)" }}>
-        <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--brand)" }}>BDR Report Value Verdict</div>
+        <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--brand)" }}>BDR Value Verdict</div>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{why}</p>
       </div>
     );
@@ -1686,7 +1686,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
 
   return (
     <div className="card p-5" style={{ border: `1px solid ${VC}55` }}>
-      <div className="text-[11px] uppercase tracking-widest mb-3" style={{ color: "var(--brand)" }}>BDR Report Value Verdict</div>
+      <div className="text-[11px] uppercase tracking-widest mb-3" style={{ color: "var(--brand)" }}>BDR Value Verdict</div>
 
       <div className="space-y-1.5 text-sm">
         <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Land value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· est.</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(land.landValue)}</span></div>
@@ -1694,7 +1694,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
         {dwellingAdded > 0 && (
           <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Extra dwelling <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· depreciated, less compliance</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>+{fmt(dwellingAdded)}</span></div>
         )}
-        <div className="flex items-center justify-between font-bold pt-1.5" style={{ borderTop: "1px solid var(--border)" }}><span style={{ color: "var(--text-primary)" }}>BDR Report value</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(rv.total)}</span></div>
+        <div className="flex items-center justify-between font-bold pt-1.5" style={{ borderTop: "1px solid var(--border)" }}><span style={{ color: "var(--text-primary)" }}>BDR value</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(rv.total)}</span></div>
         <div className="flex items-center justify-between"><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Likely range</span><span className="mono text-[11px]" style={{ color: "var(--text-muted)" }}>{fmt(rv.low)} – {fmt(rv.high)}</span></div>
         <div className="flex items-center justify-between pt-2"><span style={{ color: "var(--text-secondary)" }}>Asking price</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(asking)}</span></div>
       </div>
@@ -1732,7 +1732,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
             {improvementValuation.totalValueGap > 0 && <div className="mono" style={{ color: "var(--text-muted)" }}>renovation upside if modernised: +{fmt(improvementValuation.totalValueGap)}</div>}
           </div>
           <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-            <div className="font-semibold" style={{ color: "var(--text-primary)" }}>BDR Report value &amp; verdict</div>
+            <div className="font-semibold" style={{ color: "var(--text-primary)" }}>BDR value &amp; verdict</div>
             <div className="mono" style={{ color: "var(--text-secondary)" }}>land {fmt(land.landValue)} + improvements {fmt(rv.buildingValue)} = {fmt(rv.total)} (range {fmt(rv.low)}–{fmt(rv.high)})</div>
             <div className="mono" style={{ color: "var(--text-secondary)" }}>vs asking {fmt(asking)} → {diff >= 0 ? "under" : "over"} by {fmt(Math.abs(diff))}</div>
           </div>
@@ -1798,7 +1798,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 
   return (
     <div className="space-y-4">
-      {/* BDR Report Value Verdict — the most important thing a buyer needs to know. */}
+      {/* BDR Value Verdict — the most important thing a buyer needs to know. */}
       <ValueVerdict asking={price} improvementValuation={improvementValuation} landAreaSqm={listing.landAreaSqm} suburbValue={suburbValue} dwellingAdded={dwellingAdded} />
 
       {/* Section 9 — THE FINAL ANSWER */}

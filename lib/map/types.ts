@@ -36,7 +36,7 @@ export interface MapListing {
   estimatedWeeklyRent: number;              // NZD/week (suburb + bedrooms)
   suburbGrowthRatePct: number;              // annual capital-growth %, e.g. 4.5
 
-  fullReportId: string | null;              // link to an existing BDR Report report, if any
+  fullReportId: string | null;              // link to an existing BDR Report, if any
   status: "active" | "sold";
 }
 

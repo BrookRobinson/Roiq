@@ -287,7 +287,7 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
             id: {
               type: "string",
               enum: ALL_V31_IDS,
-              description: "The sub-item id being assessed (BDR Report v3.1 scoring model).",
+              description: "The sub-item id being assessed (BDR v3.1 scoring model).",
             },
             present: {
               type: "boolean",

@@ -146,9 +146,9 @@ async function sendShareEmail(args: {
 
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a">
-      <h2 style="margin:0 0 4px">A BDR Report property report has been shared with you</h2>
+      <h2 style="margin:0 0 4px">A BDR property report has been shared with you</h2>
       <p style="color:#475569;margin:0 0 20px">${escapeHtml(address)}${
-        typeof score === "number" ? ` — BDR Report score ${score}/1000` : ""
+        typeof score === "number" ? ` — BDR score ${score}/1000` : ""
       }</p>
       ${
         args.note
@@ -168,7 +168,7 @@ async function sendShareEmail(args: {
       body: JSON.stringify({
         from,
         to: args.to,
-        subject: `BDR Report report shared with you — ${address}`,
+        subject: `BDR Report shared with you — ${address}`,
         html,
       }),
     });

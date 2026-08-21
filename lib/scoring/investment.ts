@@ -43,7 +43,7 @@ export function qualityMultiplier(score: number): number {
   return 1.45;
 }
 
-/** BDR Report fair value = suburb median $/m² × quality multiplier × floor area. */
+/** BDR fair value = suburb median $/m² × quality multiplier × floor area. */
 export function roiqFairValue(medianPerSqm: number, score: number, floorAreaSqm: number): number {
   return Math.round(medianPerSqm * qualityMultiplier(score) * floorAreaSqm);
 }
