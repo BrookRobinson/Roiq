@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SEED_LISTINGS } from "@/lib/map/store";
+import { getRealListings } from "@/lib/map/store";
 import { persistMapListing } from "@/lib/map/persist";
 import { fetchActiveListings, fetchSuburbRentDetail, fetchSuburbGrowth } from "@/lib/map/sources";
 
@@ -45,8 +45,9 @@ async function handle(req: NextRequest) {
   // Sequential on purpose: tenancy.govt.nz is a public service we don't want to
   // fan 20 concurrent requests at, and going one at a time lets the per-suburb
   // cache actually hit when several listings share a suburb.
-  const listings: typeof SEED_LISTINGS = [];
-  for (const l of SEED_LISTINGS) {
+  const targets = await getRealListings();
+  const listings: typeof targets = [];
+  for (const l of targets) {
     if (!l.suburb) {
       listings.push(l);
       continue;
@@ -87,6 +88,7 @@ async function handle(req: NextRequest) {
   const run = {
     at: new Date().toISOString(),
     fetched: raw.length,
+    refreshing: targets.length,
     rentRefreshed,
     growthRefreshed,
     scored,

@@ -95,6 +95,30 @@ export async function getActiveListings(bbox: BBox | null): Promise<MapListing[]
   return bbox ? pool.filter((l) => inBBox(l, bbox)) : pool;
 }
 
+/**
+ * Pins that stand for REAL properties: whatever is in the database, else the ones
+ * contributed locally. Never the seed set.
+ *
+ * The daily job uses this rather than `getActiveListings`, which falls back to
+ * seed listings so the map isn't empty. That fallback is a display decision —
+ * writing invented properties into the database would make them indistinguishable
+ * from real ones on the next read.
+ */
+export async function getRealListings(): Promise<MapListing[]> {
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("map_listings")
+      .select("*")
+      .eq("listing_status", "active")
+      .limit(2000);
+    if (!error && data && data.length > 0) return data.map(rowToMapListing);
+  } catch {
+    /* DB unavailable — fall through to the local pins */
+  }
+  return (await getUserListings()).filter((l) => l.status === "active");
+}
+
 /** True while the map is still showing demo data rather than real reports. */
 export async function isShowingSeedData(): Promise<boolean> {
   try {
