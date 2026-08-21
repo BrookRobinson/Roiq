@@ -47,7 +47,8 @@ export function LiveMapSection() {
   const [selected, setSelected] = useState<string | null>(null);
 
   return (
-    <section className="border-b" style={{ borderColor: "var(--border)" }}>
+    // Anchored: the locked map at /map links back here with "play with the sample map".
+    <section id="the-map" className="border-b" style={{ borderColor: "var(--border)" }}>
       <div className="grid lg:grid-cols-2">
         <div className="flex items-center px-4 py-20 sm:px-6 lg:px-16 lg:py-24">
           <div>
