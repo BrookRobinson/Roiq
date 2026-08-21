@@ -8,6 +8,7 @@ import { WhatsInside } from "@/components/landing/WhatsInside";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
+import { MapShowcase } from "@/components/MapShowcase";
 
 /**
  * Landing page, "Survey Report" language.
@@ -41,6 +42,7 @@ export default function LandingPage() {
       <Position />
       <WhatsInside />
       <Scoring />
+      <MapShowcase />
       <LiveMapSection />
       <Pricing />
       <Voices />

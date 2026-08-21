@@ -47,7 +47,10 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Protected routes — redirect to /login if unauthenticated
-  const protectedPaths = ["/dashboard", "/report/new", "/account", "/map"];
+  // /map is deliberately PUBLIC: anyone can browse it and see where the activity
+  // is, but the pins are blurred and the reports don't open without Pro. Gating
+  // the page itself would hide the thing that sells the subscription.
+  const protectedPaths = ["/dashboard", "/report/new", "/account"];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
   // Report view routes are also protected (but /report/demo and the live

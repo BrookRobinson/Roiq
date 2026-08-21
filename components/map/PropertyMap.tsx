@@ -23,6 +23,8 @@ export function PropertyMap({
   vars,
   onSelect,
   onSeeded,
+  onLocked,
+  teaser = false,
   demo = false,
   embedded = false,
 }: {
@@ -31,6 +33,15 @@ export function PropertyMap({
   onSelect: (id: string) => void;
   /** Reports whether the pins on screen are the demo set rather than real ones. */
   onSeeded?: (seeded: boolean) => void;
+  /**
+   * Locked preview: real pins, but softened and unlabelled, and clicking one asks
+   * for an upgrade instead of opening it. Enough to show the map is alive and
+   * where the activity is, without giving away the readings that are the product.
+   * Must be settled before mount — the layers are built once.
+   */
+  teaser?: boolean;
+  /** Called when a locked pin is clicked. */
+  onLocked?: () => void;
   /** Pin the map to the seeded demo listings, never the database. */
   demo?: boolean;
   /**
@@ -51,6 +62,10 @@ export function PropertyMap({
   modeRef.current = mode;
   varsRef.current = vars;
   demoRef.current = demo;
+  const teaserRef = useRef(teaser);
+  teaserRef.current = teaser;
+  const onLockedRef = useRef(onLocked);
+  onLockedRef.current = onLocked;
 
   async function refresh() {
     const map = mapRef.current;
@@ -124,19 +139,24 @@ export function PropertyMap({
         paint: {
           "circle-color": CLUSTER_COLOUR,
           "circle-opacity": 0.9,
+          ...(teaser ? { "circle-blur": 0.45 } : {}),
           "circle-radius": ["step", ["get", "point_count"], 16, 5, 22, 15, 30],
-          "circle-stroke-width": 2,
+          "circle-stroke-width": teaser ? 0 : 2,
           "circle-stroke-color": "#050d0d",
         },
       });
-      map.addLayer({
-        id: "cluster-count",
-        type: "symbol",
-        source: "listings",
-        filter: ["has", "point_count"],
-        layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 12 },
-        paint: { "text-color": "#050d0d" },
-      });
+      // The counts and the deal % ARE the product — a locked map shows where the
+      // activity is, not what it says.
+      if (!teaser) {
+        map.addLayer({
+          id: "cluster-count",
+          type: "symbol",
+          source: "listings",
+          filter: ["has", "point_count"],
+          layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 12 },
+          paint: { "text-color": "#050d0d" },
+        });
+      }
 
       // Unclustered marker — coloured dot with its %.
       map.addLayer({
@@ -147,33 +167,47 @@ export function PropertyMap({
         paint: {
           "circle-color": POINT_COLOUR,
           "circle-radius": 15,
-          "circle-stroke-width": 1.5,
+          ...(teaser ? { "circle-blur": 0.55 } : {}),
+          "circle-stroke-width": teaser ? 0 : 1.5,
           "circle-stroke-color": "#050d0d",
         },
       });
-      map.addLayer({
-        id: "point-label",
-        type: "symbol",
-        source: "listings",
-        filter: ["!", ["has", "point_count"]],
-        layout: { "text-field": ["get", "label"], "text-size": 10, "text-allow-overlap": true },
-        paint: { "text-color": "#050d0d" },
-      });
+      if (!teaser) {
+        map.addLayer({
+          id: "point-label",
+          type: "symbol",
+          source: "listings",
+          filter: ["!", ["has", "point_count"]],
+          layout: { "text-field": ["get", "label"], "text-size": 10, "text-allow-overlap": true },
+          paint: { "text-color": "#050d0d" },
+        });
+      }
 
       // Interactions.
       map.on("click", "clusters", (e) => {
+        // Zooming into a cluster is how you'd find the individual pins, so a
+        // locked map asks for the upgrade here too rather than letting someone
+        // drill down to the detail it's meant to be withholding.
+        if (teaserRef.current) {
+          onLockedRef.current?.();
+          return;
+        }
         const f = map.queryRenderedFeatures(e.point, { layers: ["clusters"] })[0];
         if (!f) return;
         const coords = (f.geometry as GeoJSON.Point).coordinates as [number, number];
         map.easeTo({ center: coords, zoom: Math.min(map.getZoom() + 2, 14) });
       });
       const openPoint = (e: mapboxgl.MapLayerMouseEvent) => {
+        if (teaserRef.current) {
+          onLockedRef.current?.();
+          return;
+        }
         const id = e.features?.[0]?.properties?.id;
         if (id) onSelect(String(id));
       };
       map.on("click", "point", openPoint);
-      map.on("click", "point-label", openPoint);
-      for (const layer of ["clusters", "point", "point-label"]) {
+      if (!teaser) map.on("click", "point-label", openPoint);
+      for (const layer of teaser ? ["clusters", "point"] : ["clusters", "point", "point-label"]) {
         map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
         map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
       }

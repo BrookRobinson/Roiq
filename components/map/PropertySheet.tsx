@@ -160,26 +160,31 @@ export function PropertySheet({
 
               {/* Actions */}
               <div className="flex items-center gap-2 mt-5">
-                {/* Three states: it's yours or you're Pro (open it), it exists but
-                    you're not Pro (sell the upgrade), or there's no report behind
-                    this pin at all (offer to run one). Never link to a report the
-                    viewer can't open — /report/[id] would fall through to the DEMO
-                    report and present it as this property. */}
+                {/* The demo map is a showcase, so its pins open the sample report
+                    rather than dead-ending. Otherwise: it's yours or you're Pro
+                    (open it), it exists but you're not Pro (sell the upgrade), or
+                    there's no report behind this pin (offer to run one). Never link
+                    to a report the viewer can't open — /report/[id] would fall
+                    through to the DEMO report and present it as this property. */}
                 <a
                   href={
-                    hasReport
-                      ? `/report/${l.fullReportId}`
-                      : l.fullReportId
-                        ? "/pricing?plan=pro"
-                        : "/report/new"
+                    demo
+                      ? "/report/rpt_001"
+                      : hasReport
+                        ? `/report/${l.fullReportId}`
+                        : l.fullReportId
+                          ? "/pricing?plan=pro"
+                          : "/report/new"
                   }
                   className="btn-primary flex-1 justify-center py-2 text-sm"
                 >
-                  {hasReport
-                    ? "View full report"
-                    : l.fullReportId
-                      ? "Unlock with Pro"
-                      : "Run this report"}{" "}
+                  {demo
+                    ? "View sample report"
+                    : hasReport
+                      ? "View full report"
+                      : l.fullReportId
+                        ? "Unlock with Pro"
+                        : "Run this report"}{" "}
                   <ChevronRight size={14} />
                 </a>
                 <button onClick={save} className="btn-secondary py-2 px-3 text-sm gap-1.5" style={saved ? { color: "var(--green)", borderColor: "var(--good-wash)" } : undefined}>

@@ -8,7 +8,10 @@ import { ModeToggle } from "@/components/map/ModeToggle";
 import { MapLegend } from "@/components/map/MapLegend";
 import { PropertySheet } from "@/components/map/PropertySheet";
 import { VariablesScreen } from "@/components/map/VariablesScreen";
-import { loadVariables } from "@/lib/map/variables";
+import { loadVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
+import { useSession } from "@/lib/auth/session";
+import Link from "next/link";
+import { Lock } from "lucide-react";
 import type { MapMode, UserVariables } from "@/lib/map/types";
 
 // Mapbox GL touches `window` — load it client-side only.
@@ -30,6 +33,8 @@ export default function MapPage() {
   const [mode, setMode] = useState<MapMode>("homebuyer");
   const [selected, setSelected] = useState<string | null>(null);
   const [seeded, setSeeded] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const { isPro, loading: sessionLoading } = useSession();
 
   useEffect(() => {
     const v = loadVariables();
@@ -69,13 +74,18 @@ export default function MapPage() {
     setEditing(false);
   }
 
-  const showSetup = ready && (!vars || editing);
+  // A non-Pro visitor gets the locked preview, so don't make them fill in their
+  // deposit and interest rate first — those only matter once the pins are readable.
+  const showSetup = isPro && ready && (!vars || editing);
 
   return (
     <div className="flex flex-col" style={{ background: "var(--bg)", height: "100vh", overflow: "hidden" }}>
       <Navbar />
 
-      {!ready ? (
+      {/* Wait for the plan before building the map: the locked/unlocked layers are
+          created once at mount, so a Pro user who renders early would be stuck with
+          the blurred version. */}
+      {!ready || sessionLoading ? (
         <div className="flex-1" />
       ) : showSetup ? (
         <div className="flex-1 overflow-y-auto">
@@ -89,27 +99,105 @@ export default function MapPage() {
           />
         </div>
       ) : (
-        vars && (
+        (vars || !isPro) && (
           <>
             {/* Mode toggle + settings */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               <ModeToggle mode={mode} onChange={setMode} />
-              <button
-                onClick={() => setEditing(true)}
-                className="btn-secondary text-xs py-1.5 px-3 gap-1.5"
-                aria-label="Edit your variables"
-              >
-                <Settings size={13} /> Variables
-              </button>
+              {isPro && (
+                <button
+                  onClick={() => setEditing(true)}
+                  className="btn-secondary text-xs py-1.5 px-3 gap-1.5"
+                  aria-label="Edit your variables"
+                >
+                  <Settings size={13} /> Variables
+                </button>
+              )}
             </div>
 
             <MapLegend mode={mode} seeded={seeded} />
 
             <div className="flex-1 min-h-0 relative flex">
-              <PropertyMap mode={mode} vars={vars} onSelect={setSelected} onSeeded={setSeeded} />
+              <PropertyMap
+                mode={mode}
+                vars={vars ?? DEFAULT_VARIABLES}
+                teaser={!isPro}
+                onSelect={setSelected}
+                onSeeded={setSeeded}
+                onLocked={() => setLocked(true)}
+              />
+
+              {/* Non-Pro: a slim bar that stays out of the way, and the full
+                  prompt only once they actually reach for a property. */}
+              {!isPro && !locked && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4">
+                  <div
+                    className="pointer-events-auto flex items-center gap-3 px-4 py-2.5"
+                    style={{ background: "var(--surface)", border: "1px solid var(--rule-strong)" }}
+                  >
+                    <Lock size={13} style={{ color: "var(--brand)" }} />
+                    <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                      Pins are blurred — Pro opens every report.
+                    </span>
+                    <Link
+                      href="/pricing?plan=pro"
+                      className="btn-primary px-3 py-1.5 text-xs"
+                      style={{ textDecoration: "none" }}
+                    >
+                      Get Pro
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {!isPro && locked && (
+                <div className="absolute inset-0 flex items-center justify-center p-5">
+                  <div
+                    className="max-w-sm px-6 py-5 text-center"
+                    style={{
+                      background: "var(--surface)",
+                      border: "1px solid var(--rule-strong)",
+                      boxShadow: "0 10px 40px rgba(0,0,0,0.35)",
+                    }}
+                  >
+                    <div className="mb-2 flex items-center justify-center gap-2">
+                      <Lock size={15} style={{ color: "var(--brand)" }} />
+                      <span className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
+                        Upgrade to Pro to fully view the map
+                      </span>
+                    </div>
+                    <p className="mb-5 text-[13px]" style={{ color: "var(--text-muted)" }}>
+                      Every pin is a real report on a property that&rsquo;s for sale — condition,
+                      renovation costs, valuation and five-year return, scored out of 1,000.
+                    </p>
+                    <Link
+                      href="/pricing?plan=pro"
+                      className="btn-primary inline-flex px-5 py-2 text-sm"
+                      style={{ textDecoration: "none" }}
+                    >
+                      Get Pro
+                    </Link>
+                    <button
+                      onClick={() => setLocked(false)}
+                      className="mt-4 block w-full cursor-pointer text-[12px]"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      Keep looking around
+                    </button>
+                    <p className="mt-3 text-[12px]" style={{ color: "var(--text-muted)" }}>
+                      Or{" "}
+                      <Link href="/#the-map" style={{ color: "var(--brand)" }}>
+                        play with the sample map
+                      </Link>
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {selected && <PropertySheet id={selected} mode={mode} vars={vars} onClose={() => setSelected(null)} />}
+            {isPro && selected && vars && (
+              <PropertySheet id={selected} mode={mode} vars={vars} onClose={() => setSelected(null)} />
+            )}
           </>
         )
       )}
