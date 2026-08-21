@@ -72,12 +72,12 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
               {category.subItems.length} items
             </span>
             {issues > 0 && (
-              <span className="text-xs font-semibold" style={{ color: "#ff5f5f" }}>
+              <span className="text-xs font-semibold" style={{ color: "var(--bad)" }}>
                 {issues} issue{issues > 1 ? "s" : ""}
               </span>
             )}
             {warnings > 0 && (
-              <span className="text-xs font-semibold" style={{ color: "#fbbf24" }}>
+              <span className="text-xs font-semibold" style={{ color: "var(--warn)" }}>
                 {warnings} to monitor
               </span>
             )}

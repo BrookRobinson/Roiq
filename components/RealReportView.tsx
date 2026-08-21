@@ -139,7 +139,7 @@ function PurchasePriceBar({ value, priceText, onChange }: {
   };
   const noFirm = !value;
   return (
-    <div className="card p-4 mb-4" style={{ border: noFirm ? "1px solid rgba(251,191,36,0.35)" : "1px solid var(--border)", background: noFirm ? "rgba(251,191,36,0.06)" : "var(--surface)" }}>
+    <div className="card p-4 mb-4" style={{ border: noFirm ? "1px solid var(--warn-wash)" : "1px solid var(--border)", background: noFirm ? "var(--warn-wash)" : "var(--surface)" }}>
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Purchase price</div>
@@ -409,17 +409,17 @@ export function RealReportView({
                   <span className="flex items-center gap-1"><ImageIcon size={12} /> {listing.photoUrls.length > 0 ? `${listing.photoUrls.length} found · ${photosAnalysed} analysed` : `${photosAnalysed} photos analysed`}</span>
                   <span className="mono">{model}</span>
                   {(!listing.scrapedOk || photosAnalysed === 0) && (
-                    <span style={{ color: "#fb923c" }}>⚠ scrape partial — leans Tier 3</span>
+                    <span style={{ color: "var(--warn)" }}>⚠ scrape partial — leans Tier 3</span>
                   )}
                 </div>
                 {listing.dataSource && (
-                  <div className="mt-2 inline-flex items-center gap-1.5 text-xs rounded-md px-2 py-1" style={{ background: "rgba(0,212,200,0.08)", color: "var(--brand)", border: "1px solid var(--border)" }}>
+                  <div className="mt-2 inline-flex items-center gap-1.5 text-xs rounded-md px-2 py-1" style={{ background: "var(--accent-wash)", color: "var(--brand)", border: "1px solid var(--border)" }}>
                     <Info size={12} /> {listing.dataSource}
                   </div>
                 )}
                 {report.photoCoverage && (
                   <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-xs">
-                    <span style={{ color: report.photoCoverage.missingMandatory.length === 0 ? "var(--success)" : "#fb923c" }}>
+                    <span style={{ color: report.photoCoverage.missingMandatory.length === 0 ? "var(--success)" : "var(--warn)" }}>
                       {report.photoCoverage.missingMandatory.length === 0 ? "✅" : "⚠"} {MANDATORY_CATEGORIES.length - report.photoCoverage.missingMandatory.length} of {MANDATORY_CATEGORIES.length} required areas covered
                     </span>
                     {report.photoCoverage.missingOptional.length > 0 && (
@@ -476,7 +476,7 @@ export function RealReportView({
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {noPhotos && !continuedWithoutPhotos && (
-            <div className="card p-5 mb-6" style={{ border: "1px solid var(--brand)", background: "rgba(0,212,200,0.05)" }}>
+            <div className="card p-5 mb-6" style={{ border: "1px solid var(--brand)", background: "var(--accent-wash)" }}>
               <div className="flex items-center gap-2 font-semibold text-base mb-1" style={{ color: "var(--text-primary)" }}>📷 No listing photos found</div>
               <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
                 We couldn&apos;t retrieve photos from this listing. TradeMe and some other portals block photo access. Without photos we can&apos;t give condition scores — only build-year risk flags. To get a full BDR Report you have two options:
@@ -489,8 +489,8 @@ export function RealReportView({
             </div>
           )}
           {report.photoCoverage && report.photoCoverage.missingOptional.length > 0 && (
-            <div className="card p-4 mb-6" style={{ border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.06)" }}>
-              <div className="text-sm font-semibold mb-1" style={{ color: "#fbbf24" }}>💡 Your report could be more accurate</div>
+            <div className="card p-4 mb-6" style={{ border: "1px solid var(--warn-wash)", background: "var(--warn-wash)" }}>
+              <div className="text-sm font-semibold mb-1" style={{ color: "var(--warn)" }}>💡 Your report could be more accurate</div>
               <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 These areas weren&apos;t photographed: {report.photoCoverage.missingOptional.map(categoryLabel).join("  ·  ")}
               </div>
@@ -547,7 +547,7 @@ function FutureSalePrice({
   const cumPct = cumulativeGrowthPct(rate, holdYears);
   return (
     <div className={`mt-1.5 ${align === "right" ? "text-right" : ""}`}>
-      <div className="text-lg font-bold mono leading-tight" style={{ color: predicted >= askingPrice ? "#00e676" : "var(--text-primary)" }}>
+      <div className="text-lg font-bold mono leading-tight" style={{ color: predicted >= askingPrice ? "var(--good)" : "var(--text-primary)" }}>
         Est. {fmtShort(predicted)} <span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>in {holdYears} yrs</span>
       </div>
       <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
@@ -566,7 +566,7 @@ function CapitalGrowthPanel({ capitalGrowth, askingPrice }: { capitalGrowth?: Ca
   return (
     <div className="card p-5">
       <div className="flex items-center gap-2 mb-1">
-        <TrendingUp size={16} style={{ color: "#00e676" }} />
+        <TrendingUp size={16} style={{ color: "var(--good)" }} />
         <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>Capital growth</h3>
         <span className="text-xs px-1.5 py-0.5 rounded mono" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>{rate}% p.a. trend</span>
       </div>
@@ -575,12 +575,12 @@ function CapitalGrowthPanel({ capitalGrowth, askingPrice }: { capitalGrowth?: Ca
           <div key={p.label} className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
             <div className="text-xs" style={{ color: "var(--text-muted)" }}>{p.label} · by {p.year}</div>
             <div className="text-xl font-bold mono" style={{ color: "var(--text-primary)" }}>Est. {fmtShort(p.value)}</div>
-            <div className="text-xs font-semibold" style={{ color: "#00e676" }}>+{p.pct.toFixed(0)}%</div>
+            <div className="text-xs font-semibold" style={{ color: "var(--good)" }}>+{p.pct.toFixed(0)}%</div>
           </div>
         ))}
       </div>
       <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>{capitalGrowth.why}</p>
-      {capitalGrowth.recentNote && <p className="text-xs mt-2" style={{ color: "#fbbf24" }}>⚠ {capitalGrowth.recentNote}</p>}
+      {capitalGrowth.recentNote && <p className="text-xs mt-2" style={{ color: "var(--warn)" }}>⚠ {capitalGrowth.recentNote}</p>}
       <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Source: {capitalGrowth.source}</p>
     </div>
   );
@@ -622,7 +622,7 @@ function InvestorRatingPanel({
   const vac = vacancyRisk(growthScore);
   const strong = gross >= 6;
   const lowCondition = qualityBase < 660;
-  const rating = gross >= 6.5 ? { label: "Strong", c: "#00e676" } : gross >= 4.5 ? { label: "Moderate", c: "#fbbf24" } : { label: "Modest", c: "#ff5f5f" };
+  const rating = gross >= 6.5 ? { label: "Strong", c: "var(--good)" } : gross >= 4.5 ? { label: "Moderate", c: "var(--warn)" } : { label: "Modest", c: "var(--bad)" };
 
   return (
     <div className="card p-5" style={{ border: `1px solid ${rating.c}33` }}>
@@ -635,10 +635,10 @@ function InvestorRatingPanel({
       </div>
 
       {strong && lowCondition && (
-        <div className="rounded-lg p-3 mb-4 flex items-start gap-2 text-sm" style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)" }}>
-          <Zap size={15} className="mt-0.5 flex-shrink-0" style={{ color: "#fbbf24" }} />
+        <div className="rounded-lg p-3 mb-4 flex items-start gap-2 text-sm" style={{ background: "var(--warn-wash)", border: "1px solid var(--warn-wash)" }}>
+          <Zap size={15} className="mt-0.5 flex-shrink-0" style={{ color: "var(--warn)" }} />
           <span style={{ color: "var(--text-secondary)" }}>
-            <strong style={{ color: "#fbbf24" }}>High-yield property</strong> — {gross.toFixed(1)}% gross return may offset the property&apos;s lower condition. Weigh cashflow against the repair list.
+            <strong style={{ color: "var(--warn)" }}>High-yield property</strong> — {gross.toFixed(1)}% gross return may offset the property&apos;s lower condition. Weigh cashflow against the repair list.
           </span>
         </div>
       )}
@@ -678,7 +678,7 @@ function InspectionBars({ scored }: { scored: ScoreResult }) {
       {INSPECTION_ORDER.filter((insp) => scored.byInspection[insp].max > 0).map((insp) => {
         const v = scored.byInspection[insp];
         const meta = INSPECTION_META[insp];
-        const col = v.pct >= 80 ? "#00e676" : v.pct >= 55 ? "#fbbf24" : "#ff5f5f";
+        const col = v.pct >= 80 ? "var(--good)" : v.pct >= 55 ? "var(--warn)" : "var(--bad)";
         return (
           <div key={insp} className="flex items-center gap-3">
             <div className="w-36 text-sm flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
@@ -702,7 +702,7 @@ function CategoryBars({ scored }: { scored: ScoreResult }) {
   return (
     <div className="space-y-2.5">
       {rows.map((c) => {
-        const col = c.v.pct >= 80 ? "#00e676" : c.v.pct >= 55 ? "#fbbf24" : "#ff5f5f";
+        const col = c.v.pct >= 80 ? "var(--good)" : c.v.pct >= 55 ? "var(--warn)" : "var(--bad)";
         return (
           <div key={c.key} className="flex items-center gap-3">
             <div className="w-44 text-xs flex items-center gap-1.5 truncate" style={{ color: "var(--text-secondary)" }}>
@@ -756,7 +756,7 @@ function ScoreBreakdown({ scored }: { scored: ScoreResult }) {
               {p.label}
               {p.note && <span className="text-[11px] block" style={{ color: "var(--text-muted)" }}>{p.note}</span>}
             </span>
-            <span className="mono flex-shrink-0" style={{ color: "#ff5f5f" }}>{p.points}</span>
+            <span className="mono flex-shrink-0" style={{ color: "var(--bad)" }}>{p.points}</span>
           </div>
         ))}
         {penaltyCapped && (
@@ -766,7 +766,7 @@ function ScoreBreakdown({ scored }: { scored: ScoreResult }) {
         {scored.bonuses.map((b) => (
           <div key={b.id} className="flex items-center justify-between gap-3">
             <span style={{ color: "var(--text-secondary)" }}>{b.label}</span>
-            <span className="mono flex-shrink-0" style={{ color: "#00e676" }}>+{b.points}</span>
+            <span className="mono flex-shrink-0" style={{ color: "var(--good)" }}>+{b.points}</span>
           </div>
         ))}
         {bonusCapped && (
@@ -806,7 +806,7 @@ function ImprovementValueCard({ iv }: { iv: ImprovementValueResult }) {
       <div className="mt-3 flex flex-wrap gap-2">
         <span style={chip}>Structure &amp; services: {fmt(iv.shellValue)}</span>
         <span style={chip}>Scored components: {fmt(iv.componentsValue)}</span>
-        {iv.totalValueGap > 0 && <span style={{ ...chip, color: "#00e676", borderColor: "rgba(0,230,118,0.35)" }}>Renovation upside: +{fmt(iv.totalValueGap)}</span>}
+        {iv.totalValueGap > 0 && <span style={{ ...chip, color: "var(--good)", borderColor: "var(--good-wash)" }}>Renovation upside: +{fmt(iv.totalValueGap)}</span>}
       </div>
     </div>
   );
@@ -1025,10 +1025,10 @@ function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggle
       {/* Tally */}
       <div className="grid sm:grid-cols-5 gap-3">
         {[
-          { label: "Critical", v: tally.critical, c: "#ff5f5f" },
-          { label: "Urgent", v: tally.urgent, c: "#fb923c" },
-          { label: "Monitor", v: tally.monitor, c: "#fbbf24" },
-          { label: "Good", v: tally.good, c: "#00e676" },
+          { label: "Critical", v: tally.critical, c: "var(--bad)" },
+          { label: "Urgent", v: tally.urgent, c: "var(--warn)" },
+          { label: "Monitor", v: tally.monitor, c: "var(--warn)" },
+          { label: "Good", v: tally.good, c: "var(--good)" },
           { label: "Not assessed", v: tally.unscored, c: "var(--text-muted)" },
         ].map((s) => (
           <div key={s.label} className="card p-4 text-center">
@@ -1040,8 +1040,8 @@ function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggle
 
       {/* Priority repairs */}
       {repairs.length > 0 && (
-        <div className="card p-5" style={{ border: "1px solid rgba(255,95,95,0.2)" }}>
-          <div className="flex items-center gap-2 font-semibold text-sm mb-3" style={{ color: "#ff5f5f" }}>
+        <div className="card p-5" style={{ border: "1px solid var(--bad-wash)" }}>
+          <div className="flex items-center gap-2 font-semibold text-sm mb-3" style={{ color: "var(--bad)" }}>
             <AlertTriangle size={15} /> Priority repairs — act before making an offer
           </div>
           <div className="space-y-2">
@@ -1061,7 +1061,7 @@ function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggle
       {/* Risk flags — Location / Land / Legal */}
       {risks.length > 0 && (
         <div className="card p-5" style={{ border: "1px solid rgba(251,146,60,0.2)" }}>
-          <div className="flex items-center gap-2 font-semibold text-sm mb-3" style={{ color: "#fb923c" }}>
+          <div className="flex items-center gap-2 font-semibold text-sm mb-3" style={{ color: "var(--warn)" }}>
             <ShieldAlert size={15} /> Risk flags — investigate during due diligence
           </div>
           <div className="space-y-2.5">
@@ -1158,7 +1158,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         low,
         high,
         urgencyYears: urgencyScoreToYears(s.score),
-        detailColor: col === "red" ? "#ff5f5f" : col === "amber" ? "#fbbf24" : "#00e676",
+        detailColor: col === "red" ? "var(--bad)" : col === "amber" ? "var(--warn)" : "var(--good)",
         uplift: rentUplift(s.id),
         notes: s.estimatedReplacementCost?.notes || undefined,
         category,
@@ -1209,7 +1209,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
       low: work.low,
       high: work.high,
       urgencyYears: 0,
-      detailColor: "#fbbf24",
+      detailColor: "var(--warn)",
       uplift: 0,
       notes: undefined,
       costing: costThreeTier({ id: `${d.id}_compliance`, name: "Extra dwelling compliance", ...ctx, fallback: { low: work.low, high: work.high } }),
@@ -1234,7 +1234,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         low: draught.remediation.low,
         high: draught.remediation.high,
         urgencyYears: 0,
-        detailColor: draught.compliant ? "#00e676" : "#ff5f5f",
+        detailColor: draught.compliant ? "var(--good)" : "var(--bad)",
         uplift: 0,
         notes: undefined,
         costing: costThreeTier({ id: "hh_draught", name: "Draught stopping", ...ctx, fallback: { low: draught.remediation.low, high: draught.remediation.high } }),
@@ -1330,7 +1330,7 @@ function ThreeTier({ line, toggle, onTier, onLabour, onPct }: {
             <div key={tk} role="button" tabIndex={0} onClick={() => onTier(tk)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTier(tk); } }}
               className="rounded-lg p-2.5 cursor-pointer flex flex-col transition-colors"
-              style={{ border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "rgba(0,212,200,0.06)" : "var(--surface)" }}>
+              style={{ border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "var(--accent-wash)" : "var(--surface)" }}>
               <div className="flex items-center justify-between gap-1">
                 <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{t.icon} {t.label}</span>
                 <span className="text-sm font-bold mono" style={{ color: active ? "var(--brand)" : "var(--text-secondary)" }}>{fmt(total)}</span>
@@ -1340,7 +1340,7 @@ function ThreeTier({ line, toggle, onTier, onLabour, onPct }: {
                 {(["diy", "tradie"] as LabourMode[]).map((m) => (
                   <button key={m} onClick={(e) => { e.stopPropagation(); onTier(tk); onLabour(m); }}
                     className="text-[10px] px-1.5 py-0.5 rounded cursor-pointer"
-                    style={{ background: labourMode === m ? "var(--brand)" : "var(--surface-2)", color: labourMode === m ? "#04110f" : "var(--text-muted)", border: "1px solid var(--border)" }}>
+                    style={{ background: labourMode === m ? "var(--brand)" : "var(--surface-2)", color: labourMode === m ? "var(--on-accent)" : "var(--text-muted)", border: "1px solid var(--border)" }}>
                     {m === "diy" ? "DIY" : "Pay someone"}
                   </button>
                 ))}
@@ -1391,7 +1391,7 @@ function BudgetPlanCard({ lines, price, persona }: { lines: RenoLine[]; price: n
               className="text-xs font-semibold px-2.5 py-1 rounded-lg cursor-pointer"
               style={
                 p === pct
-                  ? { background: "var(--brand)", color: "#04211f" }
+                  ? { background: "var(--brand)", color: "var(--on-accent)" }
                   : { background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }
               }
             >
@@ -1402,7 +1402,7 @@ function BudgetPlanCard({ lines, price, persona }: { lines: RenoLine[]; price: n
       </div>
 
       {plan.firstJobExceedsBudget ? (
-        <div className="mt-4 rounded-lg p-3 text-sm" style={{ background: "var(--surface-2)", border: "1px solid rgba(251,191,36,0.3)", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+        <div className="mt-4 rounded-lg p-3 text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--warn-wash)", color: "var(--text-secondary)", lineHeight: 1.6 }}>
           Nothing fits this budget — the first job we&apos;d do ({plan.deferred[0]?.name}) costs about{" "}
           <strong style={{ color: "var(--text-primary)" }}>{fmt(plan.deferred[0]?.cost ?? 0)}</strong>. Try a larger percentage.
         </div>
@@ -1526,7 +1526,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
           {persona === "investor" && upliftTotal > 0 && (
             <div className="text-right">
               <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Est. rent uplift</div>
-              <div className="text-2xl font-bold mono" style={{ color: "#00e676" }}>+{fmt(upliftTotal)}<span className="text-sm">/wk</span></div>
+              <div className="text-2xl font-bold mono" style={{ color: "var(--good)" }}>+{fmt(upliftTotal)}<span className="text-sm">/wk</span></div>
             </div>
           )}
           <div className="text-right">
@@ -1575,15 +1575,15 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{l.name}</span>
-                  {l.badge && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "rgba(0,212,200,0.1)", color: "var(--brand)" }}>{l.badge} remedy</span>}
+                  {l.badge && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--accent-wash)", color: "var(--brand)" }}>{l.badge} remedy</span>}
                   {persona === "investor" && l.legal && l.nonExisting && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold" style={{ background: "rgba(255,95,95,0.14)", color: "#ff5f5f", border: "1px solid rgba(255,95,95,0.3)" }}>⚖️ Must do, by law</span>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold" style={{ background: "var(--bad-wash)", color: "var(--bad)", border: "1px solid var(--bad-wash)" }}>⚖️ Must do, by law</span>
                   )}
                   {l.valueGap != null && l.valueGap > 0 && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "rgba(0,230,118,0.12)", color: "#00b894" }} title="Value reclaimed if this item is brought to modern &amp; as-new">+{fmt(l.valueGap)} value</span>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "var(--good-wash)", color: "var(--good)" }} title="Value reclaimed if this item is brought to modern &amp; as-new">+{fmt(l.valueGap)} value</span>
                   )}
                   {persona === "investor" && included && l.uplift > 0 && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "rgba(0,230,118,0.12)", color: "#00e676" }}>+${l.uplift}/wk rent</span>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "var(--good-wash)", color: "var(--good)" }}>+${l.uplift}/wk rent</span>
                   )}
                   {!included && <span className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>removed</span>}
                 </div>
@@ -1682,7 +1682,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
   const rv = roiqValuation(improvementValuation.buildingValue + dwellingAdded, land);
   const verdict = asking > rv.high ? "over" : asking < rv.low ? "under" : "fair";
   const diff = rv.total - asking; // + = under (good), − = over
-  const VC = verdict === "over" ? "#ff5f5f" : verdict === "under" ? "#00e676" : "#fbbf24";
+  const VC = verdict === "over" ? "var(--bad)" : verdict === "under" ? "var(--good)" : "var(--warn)";
 
   return (
     <div className="card p-5" style={{ border: `1px solid ${VC}55` }}>
@@ -1802,12 +1802,12 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
       <ValueVerdict asking={price} improvementValuation={improvementValuation} landAreaSqm={listing.landAreaSqm} suburbValue={suburbValue} dwellingAdded={dwellingAdded} />
 
       {/* Section 9 — THE FINAL ANSWER */}
-      <div className="card p-5" style={{ border: "1px solid var(--brand)", background: "linear-gradient(180deg, rgba(0,212,200,0.06), transparent)" }}>
+      <div className="card p-5" style={{ border: "1px solid var(--brand)", background: "linear-gradient(180deg, var(--accent-wash), transparent)" }}>
         <div className="text-[11px] uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>If you buy today and sell in {holdYears} years</div>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <div className="text-sm" style={{ color: "var(--text-secondary)" }}>You walk away with</div>
-            <div className="text-4xl font-bold mono" style={{ color: s.walkAway >= 0 ? "#00e676" : "#ff5f5f" }}>{fmt(s.walkAway)}</div>
+            <div className="text-4xl font-bold mono" style={{ color: s.walkAway >= 0 ? "var(--good)" : "var(--bad)" }}>{fmt(s.walkAway)}</div>
           </div>
           <div className="flex gap-6">
             <div><div className="text-xs" style={{ color: "var(--text-muted)" }}>Return on cash</div><div className="text-xl font-bold mono" style={{ color: "var(--text-primary)" }}>{s.returnOnCashPct.toFixed(1)}%</div></div>
@@ -1837,7 +1837,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
           </div>
         </div>
         <div className="text-xs mt-4 pt-3" style={{ borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-          Put {fmt(s.totalCashIn)} in a term deposit at {inp.termDepositRatePct}% for {holdYears} years and you&apos;d have <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(s.termDepositValue)}</span>. This property returns <span className="mono" style={{ color: s.walkAway >= 0 ? "#00e676" : "#ff5f5f" }}>{fmt(s.walkAway)}</span>.
+          Put {fmt(s.totalCashIn)} in a term deposit at {inp.termDepositRatePct}% for {holdYears} years and you&apos;d have <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(s.termDepositValue)}</span>. This property returns <span className="mono" style={{ color: s.walkAway >= 0 ? "var(--good)" : "var(--bad)" }}>{fmt(s.walkAway)}</span>.
         </div>
       </div>
 
@@ -1874,12 +1874,12 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
         ) : (
           <div className="text-[11px] mb-1" style={{ color: "var(--text-muted)" }}>Indicative current NZ rate — tap fetch for today&apos;s live rate, or type your own.</div>
         )}
-        {rateErr && <div className="text-[11px] mb-1" style={{ color: "#ff5f5f" }}>{rateErr}</div>}
+        {rateErr && <div className="text-[11px] mb-1" style={{ color: "var(--bad)" }}>{rateErr}</div>}
         <div className="flex items-center gap-2 py-1.5 text-sm">
           <span style={{ color: "var(--text-secondary)" }}>Loan type</span>
           <div className="flex gap-1">
             {(["pi", "io"] as LoanType[]).map((lt) => (
-              <button key={lt} onClick={() => set({ loanType: lt })} className="text-xs px-2 py-0.5 rounded cursor-pointer" style={{ background: inp.loanType === lt ? "var(--brand)" : "var(--surface-2)", color: inp.loanType === lt ? "#04110f" : "var(--text-muted)", border: "1px solid var(--border)" }}>{lt === "pi" ? "Principal & interest" : "Interest only"}</button>
+              <button key={lt} onClick={() => set({ loanType: lt })} className="text-xs px-2 py-0.5 rounded cursor-pointer" style={{ background: inp.loanType === lt ? "var(--brand)" : "var(--surface-2)", color: inp.loanType === lt ? "var(--on-accent)" : "var(--text-muted)", border: "1px solid var(--border)" }}>{lt === "pi" ? "Principal & interest" : "Interest only"}</button>
             ))}
           </div>
         </div>
@@ -1937,9 +1937,9 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
             <label className="inline-flex items-center gap-2 cursor-pointer" style={{ color: "var(--text-secondary)" }}><input type="checkbox" checked={inp.mgmtEnabled} onChange={() => set({ mgmtEnabled: !inp.mgmtEnabled })} className="w-3.5 h-3.5 cursor-pointer" />Property management</label>
             <span className="inline-flex items-center gap-1"><input type="number" step={0.5} value={Math.round(inp.mgmtFeePct * 1000) / 10} disabled={!inp.mgmtEnabled} onChange={(e) => set({ mgmtFeePct: Math.max(0, Number(e.target.value) || 0) / 100 })} className="rounded px-2 py-1 text-sm w-14 mono text-right" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: inp.mgmtEnabled ? 1 : 0.4 }} /><span className="text-xs" style={{ color: "var(--text-muted)" }}>%</span></span>
           </div>
-          <div className="mt-2 rounded-lg p-3" style={{ border: `1px solid ${cf >= 0 ? "#00e676" : "#ff5f5f"}`, background: cf >= 0 ? "rgba(0,230,118,0.08)" : "rgba(255,95,95,0.08)" }}>
+          <div className="mt-2 rounded-lg p-3" style={{ border: `1px solid ${cf >= 0 ? "var(--good)" : "var(--bad)"}`, background: cf >= 0 ? "var(--good-wash)" : "var(--bad-wash)" }}>
             <div className="text-xs mb-1" style={{ color: "var(--text-secondary)" }}>Net weekly cash flow</div>
-            <div className="text-2xl font-bold mono" style={{ color: cf >= 0 ? "#00e676" : "#ff5f5f" }}>{cf >= 0 ? "+" : ""}{fmt(cf)}/wk</div>
+            <div className="text-2xl font-bold mono" style={{ color: cf >= 0 ? "var(--good)" : "var(--bad)" }}>{cf >= 0 ? "+" : ""}{fmt(cf)}/wk</div>
             <div className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>Net rent {fmt(s.netWeeklyRent)} − mortgage {fmt(s.weekly)} − ongoing {fmt(s.weeklyOngoing)} {cf >= 0 ? "= cash positive" : "= top-up required"}</div>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-2 text-center">
@@ -1963,8 +1963,8 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
               <XAxis dataKey="year" tick={{ fontSize: 11, fill: "var(--text-muted)" }} />
               <YAxis tickFormatter={(v) => fmtShort(v as number)} tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={48} />
               <Tooltip formatter={(v) => fmt(v as number)} labelFormatter={(l) => `Year ${l}`} contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-              <Line type="monotone" dataKey="value" name="Property value" stroke="#3b82f6" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="equity" name="Your equity" stroke="#00e676" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="value" name="Property value" stroke="var(--accent)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="equity" name="Your equity" stroke="var(--good)" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -1987,13 +1987,13 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 
       {/* Section 8 — Tax */}
       <FinSection title="Tax (NZ)">
-        <div className="rounded-lg p-3 text-sm" style={{ background: s.brightLineApplies ? "rgba(255,95,95,0.08)" : "rgba(0,230,118,0.08)", border: `1px solid ${s.brightLineApplies ? "#ff5f5f" : "#00e676"}`, color: "var(--text-secondary)" }}>
+        <div className="rounded-lg p-3 text-sm" style={{ background: s.brightLineApplies ? "var(--bad-wash)" : "var(--good-wash)", border: `1px solid ${s.brightLineApplies ? "var(--bad)" : "var(--good)"}`, color: "var(--text-secondary)" }}>
           {s.brightLineApplies
-            ? <>⚠️ <strong style={{ color: "#ff5f5f" }}>Bright-line test applies</strong> (holding under {FINANCE_DEFAULTS.brightLineYears} years). Any capital gain may be taxed as income. Consult your accountant.</>
-            : <>✅ <strong style={{ color: "#00e676" }}>Outside the bright-line period</strong> ({holdYears} years ≥ {FINANCE_DEFAULTS.brightLineYears}). No bright-line tax applies (consult your accountant).</>}
+            ? <>⚠️ <strong style={{ color: "var(--bad)" }}>Bright-line test applies</strong> (holding under {FINANCE_DEFAULTS.brightLineYears} years). Any capital gain may be taxed as income. Consult your accountant.</>
+            : <>✅ <strong style={{ color: "var(--good)" }}>Outside the bright-line period</strong> ({holdYears} years ≥ {FINANCE_DEFAULTS.brightLineYears}). No bright-line tax applies (consult your accountant).</>}
         </div>
         {isInvestor && (
-          <div className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>✅ Mortgage interest is fully deductible against rental income (from April 2024). Est. annual tax saving at {inp.taxRatePct}%: <span className="mono" style={{ color: "#00e676" }}>{fmt(s.interestDeductSaving)}</span>.</div>
+          <div className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>✅ Mortgage interest is fully deductible against rental income (from April 2024). Est. annual tax saving at {inp.taxRatePct}%: <span className="mono" style={{ color: "var(--good)" }}>{fmt(s.interestDeductSaving)}</span>.</div>
         )}
         <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>Tax figures are estimates only — speak to a qualified NZ accountant.</div>
       </FinSection>
@@ -2007,8 +2007,8 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 //  rendered with full depth by components/PropertyInspections.)
 
 // ── Healthy Homes (investor only) — the 5 legal standards, scored + reno-tickable
-const HH_TIER_COLOR: Record<string, string> = { deteriorated: "#ff5f5f", dated: "var(--text-muted)", modern: "var(--brand)", luxury: "#fbbf24" };
-const hhPointsColor = (f: number): string => (f >= 0.7 ? "#00e676" : f >= 0.4 ? "#fb923c" : "#ff5f5f");
+const HH_TIER_COLOR: Record<string, string> = { deteriorated: "var(--bad)", dated: "var(--text-muted)", modern: "var(--brand)", luxury: "var(--warn)" };
+const hhPointsColor = (f: number): string => (f >= 0.7 ? "var(--good)" : f >= 0.4 ? "var(--warn)" : "var(--bad)");
 
 function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovations }: {
   subItems: SubItem[]; buildYear: number | null; renoControls: RenoControls; onOpenRenovations: () => void;
@@ -2023,7 +2023,7 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
           <Shield size={16} style={{ color: "var(--brand)" }} />
           <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Healthy Homes — rental compliance</h3>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: toFix ? "rgba(255,95,95,0.12)" : "rgba(0,230,118,0.12)", color: toFix ? "#ff5f5f" : "#00e676" }}>
+        <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: toFix ? "var(--bad-wash)" : "var(--good-wash)", color: toFix ? "var(--bad)" : "var(--good)" }}>
           {toFix ? `${toFix} of 5 to remediate` : "All 5 standards met"}
         </span>
       </div>
@@ -2042,7 +2042,7 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{r.label}</span>
-                    <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: r.compliant ? "rgba(0,230,118,0.12)" : "rgba(255,95,95,0.12)", color: r.compliant ? "#00e676" : "#ff5f5f" }}>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: r.compliant ? "var(--good-wash)" : "var(--bad-wash)", color: r.compliant ? "var(--good)" : "var(--bad)" }}>
                       {r.compliant ? "Compliant" : "⚖️ Must do, by law"}
                     </span>
                   </div>
@@ -2060,7 +2060,7 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
                 </div>
               </div>
               {canReno && (
-                <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "rgba(0,212,200,0.06)" : "transparent" }}>
+                <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "var(--accent-wash)" : "transparent" }}>
                   <label className="inline-flex items-center gap-2 cursor-pointer select-none">
                     <input type="checkbox" checked={inPlan} onChange={(e) => renoControls.toggle(r.renoKey, e.target.checked)} className="w-4 h-4 cursor-pointer flex-shrink-0" aria-label={`Add ${r.label} to the renovation plan`} />
                     <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: inPlan ? "var(--brand)" : "var(--text-secondary)" }}>

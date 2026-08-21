@@ -124,7 +124,7 @@ export function SendReportDialog({
 
               {status === "error" && message && (
                 <div className="flex items-start gap-2 text-xs mb-3 rounded-lg px-3 py-2"
-                     style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444" }}>
+                     style={{ background: "rgba(239,68,68,0.08)", color: "var(--bad)" }}>
                   <AlertTriangle size={14} className="mt-0.5 shrink-0" /> <span>{message}</span>
                 </div>
               )}
@@ -144,13 +144,13 @@ export function SendReportDialog({
             <>
               {emailed && (
                 <div className="flex items-center gap-2 text-xs mb-3 rounded-lg px-3 py-2"
-                     style={{ background: "rgba(16,185,129,0.10)", color: "var(--success, #10b981)" }}>
+                     style={{ background: "rgba(16,185,129,0.10)", color: "var(--success, var(--good))" }}>
                   <Check size={14} /> Sent to {email.trim()}.
                 </div>
               )}
               {message && (
                 <div className="flex items-start gap-2 text-xs mb-3 rounded-lg px-3 py-2"
-                     style={{ background: "rgba(245,158,11,0.10)", color: "#f59e0b" }}>
+                     style={{ background: "rgba(245,158,11,0.10)", color: "var(--warn)" }}>
                   <AlertTriangle size={14} className="mt-0.5 shrink-0" /> <span>{message}</span>
                 </div>
               )}

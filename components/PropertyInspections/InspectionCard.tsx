@@ -13,7 +13,7 @@ import {
   GraduationCap, Lightbulb, Wrench, ArrowRight, ChevronRight, CheckCircle2, ShieldCheck, Lock, FileSearch,
 } from "lucide-react";
 
-const accent = { green: "#00e676", amber: "#fbbf24", red: "#ff5f5f", muted: "#3d7872" } as const;
+const accent = { green: "var(--good)", amber: "var(--warn)", red: "var(--bad)", muted: "var(--text-muted)" } as const;
 
 const SOURCE_ICON: Record<string, React.ElementType> = {
   photo: Camera, council_data: Landmark, linz: MapIcon, title: FileText, lim: ScrollText,
@@ -65,17 +65,17 @@ export function InspectionCard({
 
   // Status pill
   const pill = verified
-    ? { label: "Verified ✓", bg: "rgba(0,230,118,0.12)", fg: "#00e676" }
+    ? { label: "Verified ✓", bg: "var(--good-wash)", fg: "var(--good)" }
     : isDoc
-    ? { label: "Needs document", bg: "rgba(251,191,36,0.12)", fg: "#fbbf24" }
+    ? { label: "Needs document", bg: "var(--warn-wash)", fg: "var(--warn)" }
     : isTitle
     ? { label: "Indicative", bg: "var(--surface)", fg: "var(--text-muted)" }
     : item.remediation
-    ? { label: "Reno tab", bg: "rgba(0,212,200,0.1)", fg: "var(--brand)" }
+    ? { label: "Reno tab", bg: "var(--accent-wash)", fg: "var(--brand)" }
     : null;
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderLeft: `3px solid ${isDoc && !verified ? "#fbbf24" : color}` }}>
+    <div className="rounded-xl overflow-hidden" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderLeft: `3px solid ${isDoc && !verified ? "var(--warn)" : color}` }}>
       <button className="w-full text-left p-4 cursor-pointer" onClick={() => setOpen(!open)}>
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
@@ -94,7 +94,7 @@ export function InspectionCard({
 
             {/* Header line */}
             {isDoc && !verified ? (
-              <div className="text-sm mt-1" style={{ color: "#fbbf24" }}>Upload {DOC_NAME[item.id]} to get a verified score.</div>
+              <div className="text-sm mt-1" style={{ color: "var(--warn)" }}>Upload {DOC_NAME[item.id]} to get a verified score.</div>
             ) : verified ? (
               <div className="flex items-center gap-1.5 text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
                 <FileText size={11} /> Verified from <span style={{ color: "var(--text-secondary)" }}>{verified.fileName}</span> · read by Claude
@@ -122,8 +122,8 @@ export function InspectionCard({
           {/* Score badge on the RIGHT (matches the Improvements tab) — or a lock for
               unverified document items. */}
           {isDoc && !verified ? (
-            <div className="flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center" style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.3)" }}>
-              <Lock size={16} style={{ color: "#fbbf24" }} />
+            <div className="flex-shrink-0 w-11 h-11 rounded-lg flex items-center justify-center" style={{ background: "var(--warn-wash)", border: "1px solid var(--warn-wash)" }}>
+              <Lock size={16} style={{ color: "var(--warn)" }} />
             </div>
           ) : statOverride ? (
             // A measurement beats a 1–10 here: "612m²" is the fact the buyer wants,
@@ -181,7 +181,7 @@ export function InspectionCard({
               )}
               {isTitle && <TitleVerify itemId={item.id} onVerified={onVerified} />}
               {rem && (
-                <div className="rounded-lg p-3" style={{ background: "var(--surface)", border: "1px solid rgba(0,212,200,0.2)" }}>
+                <div className="rounded-lg p-3" style={{ background: "var(--surface)", border: "1px solid var(--accent-wash)" }}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-xs font-semibold mb-0.5" style={{ color: "var(--text-secondary)" }}>Est. cost to remedy</div>
@@ -204,9 +204,9 @@ export function InspectionCard({
 
 function UploadPrompt({ itemId, onVerified }: { itemId: string; onVerified?: (doc: DocAnalysis) => void }) {
   return (
-    <div className="pt-3 rounded-lg p-3 mt-3" style={{ background: "var(--surface)", border: "1px dashed rgba(251,191,36,0.4)" }}>
+    <div className="pt-3 rounded-lg p-3 mt-3" style={{ background: "var(--surface)", border: "1px dashed var(--warn-wash)" }}>
       <div className="flex items-start gap-2 mb-3">
-        <FileSearch size={15} className="mt-0.5 flex-shrink-0" style={{ color: "#fbbf24" }} />
+        <FileSearch size={15} className="mt-0.5 flex-shrink-0" style={{ color: "var(--warn)" }} />
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           This item isn&apos;t scored from a guess. Upload {DOC_NAME[itemId]} and Claude will read the whole document,
           summarise it in plain English, give it a verified 1–10 score, and update your overall property score.
@@ -229,15 +229,15 @@ function VerifiedView({ doc, itemId, onVerified }: { doc: DocAnalysis; itemId: s
           <ul className="space-y-1">
             {doc.keyFindings.map((f, i) => (
               <li key={i} className="flex items-start gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                <CheckCircle2 size={11} className="mt-0.5 flex-shrink-0" style={{ color: "#00e676" }} />{f}
+                <CheckCircle2 size={11} className="mt-0.5 flex-shrink-0" style={{ color: "var(--good)" }} />{f}
               </li>
             ))}
           </ul>
         </div>
       )}
       {doc.redFlags.length > 0 && (
-        <div className="rounded-lg p-2.5" style={{ background: "rgba(255,95,95,0.06)", border: "1px solid rgba(255,95,95,0.2)" }}>
-          <div className="text-xs font-semibold mb-1.5" style={{ color: "#ff5f5f" }}>Red flags</div>
+        <div className="rounded-lg p-2.5" style={{ background: "var(--bad-wash)", border: "1px solid var(--bad-wash)" }}>
+          <div className="text-xs font-semibold mb-1.5" style={{ color: "var(--bad)" }}>Red flags</div>
           <ul className="space-y-1">
             {doc.redFlags.map((f, i) => (
               <li key={i} className="text-xs" style={{ color: "var(--text-secondary)" }}>• {f}</li>

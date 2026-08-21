@@ -18,7 +18,7 @@ import {
 } from "@/lib/labour-rates";
 import { Camera, ArrowRight, Wrench, Shield } from "lucide-react";
 
-const PTS_RED = "#ff5f5f", PTS_ORANGE = "#fb923c", PTS_GREEN = "#00e676";
+const PTS_RED = "var(--bad)", PTS_ORANGE = "var(--warn)", PTS_GREEN = "var(--good)";
 /** Colour for a points read, banded by fraction of the max. Shared with the
  * category accordion so per-item and category summaries read the same way. */
 export function pointsColor(frac: number): string {
@@ -96,7 +96,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               {item.renovationLink && (
                 <span
                   className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(0,212,200,0.1)", color: "var(--brand)", border: "1px solid rgba(0,212,200,0.2)" }}
+                  style={{ background: "var(--accent-wash)", color: "var(--brand)", border: "1px solid var(--accent-wash)" }}
                 >
                   <Wrench size={9} />
                   Reno tab
@@ -105,7 +105,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               {item.healthyHomesLink && (
                 <span
                   className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-                  style={{ background: "rgba(251,191,36,0.1)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.2)" }}
+                  style={{ background: "var(--warn-wash)", color: "var(--warn)", border: "1px solid var(--warn-wash)" }}
                 >
                   <Shield size={9} />
                   Healthy Homes
@@ -223,7 +223,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
 
       {/* Add-to-renovation-plan control — only for items we can cost (renovate) */}
       {canReno && (
-        <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "rgba(0,212,200,0.06)" : "transparent" }}>
+        <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "var(--accent-wash)" : "transparent" }}>
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -313,7 +313,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
           {item.healthyHomesLink && (
             <button
               className="flex items-center gap-1.5 text-sm font-semibold cursor-pointer"
-              style={{ color: "#fbbf24" }}
+              style={{ color: "var(--warn)" }}
             >
               <Shield size={13} />
               View Healthy Homes assessment

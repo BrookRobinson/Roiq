@@ -48,8 +48,8 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
           </div>
 
           {eraFlags.length > 0 && (
-            <div className="rounded-2xl p-5" style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.3)" }}>
-              <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: "#fbbf24" }}>
+            <div className="rounded-2xl p-5" style={{ background: "var(--warn-wash)", border: "1px solid var(--warn-wash)" }}>
+              <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: "var(--warn)" }}>
                 <AlertTriangle size={15} /> Build era risk flags
               </div>
               <div className="text-xs mt-0.5 mb-3" style={{ color: "var(--text-muted)" }}>
@@ -72,10 +72,10 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
           style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
         >
           {[
-            { label: "Critical",       count: critical,  color: "#ff5f5f",   bg: "rgba(255,95,95,0.1)"    },
-            { label: "Urgent",         count: urgent,    color: "#fb923c",   bg: "rgba(251,146,60,0.1)"   },
-            { label: "Monitor",        count: monitor,   color: "#fbbf24",   bg: "rgba(251,191,36,0.1)"   },
-            { label: "Good",           count: good,      color: "#00e676",   bg: "rgba(0,230,118,0.1)"    },
+            { label: "Critical",       count: critical,  color: "var(--bad)",   bg: "var(--bad-wash)"    },
+            { label: "Urgent",         count: urgent,    color: "var(--warn)",   bg: "rgba(251,146,60,0.1)"   },
+            { label: "Monitor",        count: monitor,   color: "var(--warn)",   bg: "var(--warn-wash)"   },
+            { label: "Good",           count: good,      color: "var(--good)",   bg: "var(--good-wash)"    },
             { label: "Not assessed",   count: unscored,  color: "var(--text-muted)", bg: "var(--surface-2)" },
           ].map((s) => (
             <div
@@ -97,11 +97,11 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
         <div
           className="rounded-xl p-4"
           style={{
-            background: "rgba(255,95,95,0.06)",
-            border: "1px solid rgba(255,95,95,0.2)",
+            background: "var(--bad-wash)",
+            border: "1px solid var(--bad-wash)",
           }}
         >
-          <div className="flex items-center gap-2 font-semibold text-sm mb-3" style={{ color: "#ff5f5f" }}>
+          <div className="flex items-center gap-2 font-semibold text-sm mb-3" style={{ color: "var(--bad)" }}>
             <AlertTriangle size={15} />
             Priority items — act before making an offer
           </div>
@@ -112,7 +112,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
                 <div key={s.id} className="flex items-start gap-2 text-sm">
                   <div
                     className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
-                    style={{ background: s.score! <= 2 ? "#ff5f5f" : "#fb923c" }}
+                    style={{ background: s.score! <= 2 ? "var(--bad)" : "var(--warn)" }}
                   />
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium" style={{ color: "var(--text-primary)" }}>

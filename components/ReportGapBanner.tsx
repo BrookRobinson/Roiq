@@ -13,8 +13,8 @@ export function ReportGapBanner({ gaps }: { gaps: ReportGap[] }) {
     <div
       className="rounded-xl overflow-hidden mb-4"
       style={{
-        border: "1px solid rgba(0,212,200,0.2)",
-        background: "rgba(0,212,200,0.04)",
+        border: "1px solid var(--accent-wash)",
+        background: "var(--accent-wash)",
       }}
     >
       {/* Header */}
@@ -42,7 +42,7 @@ export function ReportGapBanner({ gaps }: { gaps: ReportGap[] }) {
       {expanded && (
         <div
           className="px-4 pb-4 space-y-2"
-          style={{ borderTop: "1px solid rgba(0,212,200,0.15)" }}
+          style={{ borderTop: "1px solid var(--accent-wash)" }}
         >
           <div className="pt-3 space-y-1.5">
             {open.map((gap) => (

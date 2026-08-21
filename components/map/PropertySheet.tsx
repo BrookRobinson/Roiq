@@ -130,7 +130,7 @@ export function PropertySheet({
                   <Row label="BDR Score" value={`${l.roiqScore}/1000`} />
                   <Row label="Adjusted buy-in" value={money(c.adjustedBuyIn)} hint="asking + repairs" />
                   <Row label="Est. weekly rent" value={`${money(c.weeklyRent)}/wk`} />
-                  <Row label="Annual cashflow" value={signed(c.annualCashflow)} valueColor={c.annualCashflow >= 0 ? "#00e676" : "#ff5f5f"} />
+                  <Row label="Annual cashflow" value={signed(c.annualCashflow)} valueColor={c.annualCashflow >= 0 ? "var(--good)" : "var(--bad)"} />
                   <Row label={`${c.holdYears}-year capital gain`} value={signed(c.capitalGain)} />
                   <Row label={`${c.holdYears}-year net profit`} value={signed(c.netProfit)} valueColor={hex} bold />
                   <Row label={`${c.holdYears}-yr return on deposit`} value={`${Math.round(c.returnOnDepositPct)}%`} valueColor={hex} />
@@ -156,7 +156,7 @@ export function PropertySheet({
                 <a href={l.fullReportId ? `/report/${l.fullReportId}` : "/report/new"} className="btn-primary flex-1 justify-center py-2 text-sm">
                   View full report <ChevronRight size={14} />
                 </a>
-                <button onClick={save} className="btn-secondary py-2 px-3 text-sm gap-1.5" style={saved ? { color: "var(--green)", borderColor: "rgba(0,230,118,0.4)" } : undefined}>
+                <button onClick={save} className="btn-secondary py-2 px-3 text-sm gap-1.5" style={saved ? { color: "var(--green)", borderColor: "var(--good-wash)" } : undefined}>
                   {saved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
                   {saved ? "Saved" : "Save"}
                 </button>

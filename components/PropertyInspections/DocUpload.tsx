@@ -75,13 +75,13 @@ export function DocUpload({
         onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
         disabled={busy}
         className="inline-flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
-        style={{ background: busy ? "var(--surface-2)" : "var(--brand)", color: busy ? "var(--text-muted)" : "#04110f", opacity: busy ? 0.8 : 1 }}
+        style={{ background: busy ? "var(--surface-2)" : "var(--brand)", color: busy ? "var(--text-muted)" : "var(--on-accent)", opacity: busy ? 0.8 : 1 }}
       >
         {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
         {busy ? "Reading document…" : label}
       </button>
       {error && (
-        <div className="mt-2 flex items-start gap-1.5 text-xs" style={{ color: "#ff5f5f" }}>
+        <div className="mt-2 flex items-start gap-1.5 text-xs" style={{ color: "var(--bad)" }}>
           <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" /> {error}
         </div>
       )}

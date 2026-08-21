@@ -8,13 +8,13 @@ import type { UrgencyScore } from "@/lib/property-tab/types";
 // urgency, the value verdict and the hidden quality score internally; this is
 // purely a clean read on current condition.
 
-const RED = "#ff5f5f";
-const ORANGE = "#fb923c";
-const GREEN = "#00e676";
+const RED = "var(--bad)";
+const ORANGE = "var(--warn)";
+const GREEN = "var(--good)";
 
 /** Hex accent for a condition score (used for the badge and the card's left border). */
 export function conditionScoreColor(score: UrgencyScore | null): string {
-  if (score === null) return "#3d7872"; // muted teal — not assessed
+  if (score === null) return "var(--text-muted)"; // muted teal — not assessed
   if (score >= 7) return GREEN;
   if (score >= 4) return ORANGE;
   return RED;

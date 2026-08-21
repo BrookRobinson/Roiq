@@ -16,7 +16,7 @@ import { ChevronRight, Info, Home, Check, AlertTriangle } from "lucide-react";
 
 const fmtNZD = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 
-const DEV_TIER_COLOR: Record<string, string> = { none: "var(--text-muted)", minor_dwelling: "var(--brand)", second_dwelling: "#00e676", subdivision: "#fbbf24" };
+const DEV_TIER_COLOR: Record<string, string> = { none: "var(--text-muted)", minor_dwelling: "var(--brand)", second_dwelling: "var(--good)", subdivision: "var(--warn)" };
 
 // Headline "can you add a dwelling?" card — a positive opportunity on the Land tab.
 function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential; persona: Persona }) {
@@ -37,7 +37,7 @@ function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential;
       <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
         <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{meta.label}{has ? ` · ${dev.confidence}` : ""}</span>
         {has && dev.valueUpliftHigh > 0 && (
-          <span className="text-sm mono" style={{ color: "#00b894" }}>+{fmtNZD(dev.valueUpliftLow)}–{fmtNZD(dev.valueUpliftHigh)} potential value</span>
+          <span className="text-sm mono" style={{ color: "var(--good)" }}>+{fmtNZD(dev.valueUpliftLow)}–{fmtNZD(dev.valueUpliftHigh)} potential value</span>
         )}
         {bonus > 0 && <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>+{bonus} to your {persona === "investor" ? "investor" : "buyer"} score</span>}
       </div>
@@ -48,12 +48,12 @@ function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential;
         <div className="mt-3 space-y-1.5">
           {dev.enablers.map((e, i) => (
             <div key={`e${i}`} className="flex items-start gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-              <Check size={13} className="mt-0.5 flex-shrink-0" style={{ color: "#00e676" }} />{e}
+              <Check size={13} className="mt-0.5 flex-shrink-0" style={{ color: "var(--good)" }} />{e}
             </div>
           ))}
           {dev.blockers.map((b, i) => (
             <div key={`b${i}`} className="flex items-start gap-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-              <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" style={{ color: "#fbbf24" }} />{b}
+              <AlertTriangle size={13} className="mt-0.5 flex-shrink-0" style={{ color: "var(--warn)" }} />{b}
             </div>
           ))}
         </div>
@@ -70,7 +70,7 @@ function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential;
 const ADDRESS_SECTIONS: Inspection[] = ["land", "legal"];
 const TOWN_SECTIONS: Inspection[] = ["location"];
 
-const barColor = (pct: number) => (pct >= 80 ? "#00e676" : pct >= 55 ? "#fbbf24" : "#ff5f5f");
+const barColor = (pct: number) => (pct >= 80 ? "var(--good)" : pct >= 55 ? "var(--warn)" : "var(--bad)");
 
 export function PropertyInspections({
   scored,
@@ -182,7 +182,7 @@ function Section({
           <div className="font-bold text-base" style={{ color: "var(--text-primary)" }}>{meta.label}</div>
           <div className="flex items-center gap-3 flex-wrap mt-0.5">
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>{items.length} items</span>
-            {issues > 0 && <span className="text-xs font-semibold" style={{ color: "#ff5f5f" }}>{issues} concern{issues > 1 ? "s" : ""}</span>}
+            {issues > 0 && <span className="text-xs font-semibold" style={{ color: "var(--bad)" }}>{issues} concern{issues > 1 ? "s" : ""}</span>}
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>{meta.blurb}</span>
           </div>
         </div>

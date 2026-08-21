@@ -180,7 +180,7 @@ export function MaterialStudio({
                     return (
                       <button key={m} onClick={() => setPaySomeone(m === "pay")}
                         className="text-xs px-2.5 py-2 cursor-pointer"
-                        style={{ background: active ? "var(--brand)" : "transparent", color: active ? "#04110f" : "var(--text-secondary)" }}>
+                        style={{ background: active ? "var(--brand)" : "transparent", color: active ? "var(--on-accent)" : "var(--text-secondary)" }}>
                         {m === "diy" ? "DIY" : "Pay someone"}
                       </button>
                     );
@@ -219,7 +219,7 @@ export function MaterialStudio({
                 )}
               </div>
 
-              {error && <div className="text-xs" style={{ color: "#ff5f5f" }}>{error}</div>}
+              {error && <div className="text-xs" style={{ color: "var(--bad)" }}>{error}</div>}
               {!imageGenAvailable && <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>Add OPENAI_API_KEY to enable AI previews — the estimate and shopping links work without it.</div>}
             </div>
           </div>
