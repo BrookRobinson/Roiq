@@ -5,6 +5,7 @@ import { QuestionHero } from "@/components/landing/QuestionHero";
 import { DemoReportSection } from "@/components/landing/DemoReportSection";
 import { LiveMapSection } from "@/components/landing/LiveMapSection";
 import { WhatsInside } from "@/components/landing/WhatsInside";
+import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
 
@@ -36,6 +37,7 @@ export default function LandingPage() {
       <Navbar />
       <QuestionHero />
       <DemoReportSection />
+      <HowItWorks />
       <Position />
       <WhatsInside />
       <Scoring />
