@@ -123,3 +123,87 @@ export function formatAmount(cents: number | null, currency = "nzd"): string {
     currency: currency.toUpperCase(),
   }).format(cents / 100);
 }
+
+// ── Report allowances ────────────────────────────────────────────────────────
+//
+// A full report costs real money to produce (measured at roughly NZ$1.45 from
+// September 2026 — the Claude vision pass plus the market lookups), so an
+// allowance isn't a growth lever, it's the thing standing between a curious
+// visitor and an unbounded bill. "Unlimited" on the pricing page was written
+// before anyone had measured that.
+
+export interface Allowance {
+  /** How many reports the plan includes. */
+  reports: number;
+  /**
+   * "lifetime" never resets. The free report is a taster, not a monthly
+   * handout: a monthly reset turns every account into a renewable cost and
+   * gives someone farming accounts a reason to keep each one.
+   */
+  period: "lifetime" | "month";
+}
+
+export const PLAN_ALLOWANCE: Record<Plan, Allowance> = {
+  free:    { reports: 1,  period: "lifetime" },
+  starter: { reports: 10, period: "month" },
+  pro:     { reports: 20, period: "month" },
+};
+
+/** "1 report" / "10 reports a month" — one phrasing everywhere. */
+export function describeAllowance(plan: Plan): string {
+  const { reports, period } = PLAN_ALLOWANCE[plan];
+  const noun = reports === 1 ? "report" : "reports";
+  return period === "month" ? `${reports} ${noun} a month` : `${reports} ${noun}`;
+}
+
+/** Start of the window the allowance is counted over. Null = count everything. */
+export function allowanceWindowStart(plan: Plan, now: Date = new Date()): Date | null {
+  if (PLAN_ALLOWANCE[plan].period === "lifetime") return null;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+/** When the allowance next refills, or null if it never does. */
+export function allowanceResetsAt(plan: Plan, now: Date = new Date()): Date | null {
+  if (PLAN_ALLOWANCE[plan].period === "lifetime") return null;
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+}
+
+export interface QuotaState {
+  plan: Plan;
+  used: number;
+  limit: number;
+  remaining: number;
+  period: Allowance["period"];
+  /** ISO date the count resets, or null for a lifetime allowance. */
+  resetsAt: string | null;
+}
+
+export function quotaFrom(plan: Plan, used: number, now: Date = new Date()): QuotaState {
+  const { reports, period } = PLAN_ALLOWANCE[plan];
+  const reset = allowanceResetsAt(plan, now);
+  return {
+    plan,
+    used,
+    limit: reports,
+    remaining: Math.max(0, reports - used),
+    period,
+    resetsAt: reset ? reset.toISOString() : null,
+  };
+}
+
+/**
+ * What to tell someone who has run out.
+ *
+ * Names the number they've used and the way out, because "quota exceeded" tells
+ * a person nothing they can act on.
+ */
+export function quotaExhaustedMessage(q: QuotaState): string {
+  if (q.plan === "free") {
+    return "You've used your free report. Upgrade to Starter for 10 reports a month, including the score and valuation.";
+  }
+  const when = q.resetsAt
+    ? new Date(q.resetsAt).toLocaleDateString("en-NZ", { day: "numeric", month: "long" })
+    : "next month";
+  const upgrade = q.plan === "starter" ? " Pro doubles it to 20." : "";
+  return `You've used all ${q.limit} reports for this month. Your allowance refills on ${when}.${upgrade}`;
+}

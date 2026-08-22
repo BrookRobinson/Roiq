@@ -4,6 +4,10 @@ import { type ScrapedListing } from "@/lib/scraper";
 import { resolveListing, resolveListingByAddress, ListingNotFoundError } from "@/lib/listing-resolver";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
 import { findReusableReport, REUSE_MAX_AGE_DAYS } from "@/lib/reports/reuse";
+import { getQuota } from "@/lib/reports/quota";
+import { effectivePlan, quotaExhaustedMessage } from "@/lib/billing/plans";
+import { getUser } from "@/lib/supabase/auth";
+import { readOwnerKey } from "@/lib/reports/owner";
 import { fetchMarketData, type MarketResult } from "@/lib/ai/market";
 import { fetchSuburbValue } from "@/lib/ai/comparables";
 import { isAnalysisConfigured } from "@/lib/ai/client";
@@ -49,6 +53,32 @@ export async function POST(req: NextRequest) {
   }
   // `only` scopes a run to a subset of inspections (improvements|location|land|legal).
   const inspections = Array.isArray(body.only) && body.only.length > 0 ? body.only : undefined;
+
+  // ── Allowance ──────────────────────────────────────────────────────────────
+  // Checked here, before any scraping or analysis, and before the reuse lookup:
+  // a report served from cache still costs the reader one of theirs. That is
+  // the point of the cache — the saving is ours, not a way to run more reports
+  // than the plan includes.
+  //
+  // The prefetch branch above is deliberately upstream of this: it only resolves
+  // an address so the upload form can show suburb data, and refusing it would
+  // break the form for someone who still has allowance left.
+  const { authUser, profile } = await getUser().catch(() => ({ authUser: null, profile: null }));
+  const plan = effectivePlan(profile?.plan, profile?.plan_expires_at);
+  const quota = await getQuota(authUser?.id ?? null, readOwnerKey(), plan);
+
+  if (quota.remaining <= 0) {
+    // 402, matching the map's upsell: this isn't a malformed request or a
+    // forbidden one, it's one that needs paying for.
+    return NextResponse.json(
+      {
+        error: "quota_exhausted",
+        message: quotaExhaustedMessage(quota),
+        quota,
+      },
+      { status: 402 }
+    );
+  }
 
   // Background prefetch (manual-upload flow): resolve the address + suburb $/m² +
   // market data while the user is still picking photos, so it's ready at Analyse.
@@ -147,6 +177,7 @@ export async function POST(req: NextRequest) {
           reused: true,
           analysedAt: reused.analysedAt,
           reuseMaxAgeDays: REUSE_MAX_AGE_DAYS,
+          quota: { ...quota, used: quota.used + 1, remaining: quota.remaining - 1 },
         });
       }
     }
@@ -164,7 +195,13 @@ export async function POST(req: NextRequest) {
         ? await analyseProperty(listing, { inspections, photoLabels, prefetched })
         : await analysePropertyFast(listing);
     const photoCoverage = photos.length > 0 ? coverageFor(photos.map((p) => p.category)) : undefined;
-    return NextResponse.json({ ok: true, listing, ...result, photoCoverage });
+    return NextResponse.json({
+      ok: true,
+      listing,
+      ...result,
+      photoCoverage,
+      quota: { ...quota, used: quota.used + 1, remaining: quota.remaining - 1 },
+    });
   } catch (err) {
     if (err instanceof ListingNotFoundError) {
       return NextResponse.json(

@@ -48,8 +48,13 @@ import {
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, Shield, MapPin, Handshake,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
-  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send, History,
+  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send, History, Lock,
 } from "lucide-react";
+
+import Link from "next/link";
+
+import { useSession } from "@/lib/auth/session";
+import { BlurredValue, UpgradeNote, LockedTab } from "@/components/report/Locked";
 
 type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "negotiation" | "methodology";
 
@@ -62,6 +67,47 @@ const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?
   { id: "negotiation", label: "For the agent", icon: Handshake },
   { id: "methodology", label: "How we score", icon: Info },
 ];
+
+/**
+ * Tabs a free report doesn't open.
+ *
+ * The free report runs the full analysis and shows every photo finding —
+ * that's what proves the product works on your own listing. What it holds back
+ * is the conclusion: what the property is worth, what it costs to fix, and what
+ * to say to the agent.
+ */
+const LOCKED_TABS: Record<string, { title: string; blurb: string; includes: string[] }> = {
+  financial: {
+    title: "Financial",
+    blurb: "The valuation and the numbers behind it, worked from the condition findings you can already see.",
+    includes: [
+      "BDR Value Verdict — is the asking price fair once repairs are counted",
+      "Land and improvement value, with the working shown",
+      "Yield, cash flow and the 10-year equity timeline",
+      "Your own deposit, rate and hold period applied throughout",
+    ],
+  },
+  renovations: {
+    title: "Renovations",
+    blurb: "Every flagged item costed at New Zealand rates, and what fixing it does to the property's value.",
+    includes: [
+      "Line-by-line costs for each defect found",
+      "Toggle items in and out to see the effect",
+      "Budget and premium options per item",
+      "What the work adds back in value",
+    ],
+  },
+  negotiation: {
+    title: "For the agent",
+    blurb: "A document you can send the vendor's agent, built only from the critical and urgent findings in this report.",
+    includes: [
+      "Every claim traced to a photo in your report",
+      "Costs stated with their confidence tier",
+      "Nothing about your budget or walk-away price",
+      "Emailed or shared as a private link",
+    ],
+  },
+};
 
 const fmt = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 const inspOf = (id: string): Inspection | undefined => ITEM_BY_ID[id]?.inspection;
@@ -187,6 +233,22 @@ export function RealReportView({
 }) {
   const [tab, setTab] = useState<Tab>("overview");
   const [persona, setPersona] = useState<Persona>("buyer");
+
+  // A free report shows the whole analysis and withholds the conclusion.
+  //
+  // Gated on the CURRENT plan, not the plan at the time of the report: upgrading
+  // opens everything already run, which is the honest deal and the reason the
+  // locked panels say the analysis is done and waiting.
+  //
+  // Never locked for: a shared link (the sender paid), the embedded landing
+  // demo, or the bundled samples — those exist to show the full product to
+  // people who haven't paid for anything yet, so locking them would gate the
+  // shop window. Sample ids aren't uuids.
+  const { plan, loading: planLoading } = useSession();
+  const isSample = !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(report.id);
+  // While the session is loading, assume unlocked — a moment of visible content
+  // is a smaller wrong than showing a paying customer an upgrade wall.
+  const locked = !shared && !embedded && !isSample && !planLoading && plan === "free";
   const [showSend, setShowSend] = useState(false);
   const [askingPrice, setAskingPrice] = useState<number | null>(
     report.listing.askingPrice ?? parseOverPrice(report.listing.priceText)
@@ -491,6 +553,9 @@ export function RealReportView({
                   className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap cursor-pointer border-b-2 transition-colors"
                   style={{ color: tab === t.id ? "var(--brand)" : "var(--text-secondary)", borderBottomColor: tab === t.id ? "var(--brand)" : "transparent" }}>
                   <t.icon size={14} />{t.label}
+                  {locked && LOCKED_TABS[t.id] && (
+                    <Lock size={11} style={{ color: "var(--text-muted)" }} aria-label="needs a paid plan" />
+                  )}
                 </button>
               ))}
             </div>
@@ -499,6 +564,33 @@ export function RealReportView({
 
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Say it plainly and once, at the top. Someone who scrolls into a
+              blurred number without warning feels tricked; someone told up front
+              what they're getting for free doesn't. */}
+          {locked && (
+            <div
+              className="card p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-4"
+              style={{ border: "1px solid var(--brand)", background: "var(--accent-wash)" }}
+            >
+              <Lock size={20} style={{ color: "var(--brand)", flexShrink: 0 }} />
+              <div className="flex-1">
+                <div className="font-semibold text-base mb-1" style={{ color: "var(--text-primary)" }}>
+                  This is your free report — the analysis is complete
+                </div>
+                <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                  Every photo has been read and every finding below is real. To see
+                  the <strong style={{ color: "var(--text-primary)" }}>score out of 1,000</strong> and
+                  the <strong style={{ color: "var(--text-primary)" }}>valuation</strong> — plus the Financial,
+                  Renovations and agent tabs — you&apos;ll need a paid plan. Nothing is re-run when you upgrade;
+                  this report opens as it is.
+                </p>
+              </div>
+              <Link href="/pricing?plan=starter" className="btn-primary text-sm px-5 py-2.5 whitespace-nowrap self-start sm:self-auto">
+                See plans <ArrowRight size={15} />
+              </Link>
+            </div>
+          )}
+
           {noPhotos && !continuedWithoutPhotos && (
             <div className="card p-5 mb-6" style={{ border: "1px solid var(--brand)", background: "var(--accent-wash)" }}>
               <div className="flex items-center gap-2 font-semibold text-base mb-1" style={{ color: "var(--text-primary)" }}>📷 No listing photos found</div>
@@ -521,7 +613,7 @@ export function RealReportView({
               <a href="/report/upload" className="text-xs mt-1.5 inline-block hover:underline" style={{ color: "var(--brand)" }}>Upload additional photos →</a>
             </div>
           )}
-          {tab === "overview" && <OverviewReal report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} dwellingValue={dwellingValue} />}
+          {tab === "overview" && <OverviewReal locked={locked} report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} dwellingValue={dwellingValue} />}
           {tab === "improvements" && (
             <div className="space-y-4">
               <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={listing.region ?? listing.city ?? undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
@@ -534,15 +626,16 @@ export function RealReportView({
               <LocationFactCard subItems={subItems} ids={["loc_noise", "loc_views"]} title="Noise & outlook" />
             </div>
           )}
-          {tab === "renovations" && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
-          {tab === "financial" && (
+          {locked && LOCKED_TABS[tab] && <LockedTab {...LOCKED_TABS[tab]} />}
+          {tab === "renovations" && !locked && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
+          {tab === "financial" && !locked && (
             <>
               <PurchasePriceBar value={askingPrice} priceText={listing.priceText} onChange={setAskingPrice} />
               <FinanceTab key={askingPrice ?? "none"} listing={{ ...listing, askingPrice }} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} improvementValuation={improvementValuation} dwellingAdded={dwellingValue.addedValue} />
               <div className="mt-4"><LocationFactCard subItems={effectiveSubItems} ids={["loc_growth"]} title="Suburb growth & demand" /></div>
             </>
           )}
-          {tab === "negotiation" && <NegotiationTab report={report} />}
+          {tab === "negotiation" && !locked && <NegotiationTab report={report} />}
           {tab === "methodology" && <MethodologyTab />}
         </div>
 
@@ -746,7 +839,7 @@ function CategoryBars({ scored }: { scored: ScoreResult }) {
 }
 
 // ── Condition & Quality Score breakdown (base − penalties + bonuses) ──────────
-function ScoreBreakdown({ scored }: { scored: ScoreResult }) {
+function ScoreBreakdown({ scored, locked = false }: { scored: ScoreResult; locked?: boolean }) {
   const penaltySum = scored.penalties.reduce((s, a) => s - a.points, 0); // points are negative
   const bonusSum = scored.bonuses.reduce((s, a) => s + a.points, 0);
   const penaltyCapped = penaltySum > scored.penaltyTotal;
@@ -764,7 +857,12 @@ function ScoreBreakdown({ scored }: { scored: ScoreResult }) {
         </div>
         <div className="text-right flex-shrink-0">
           <div className="text-3xl font-bold mono" style={{ color: "var(--text-primary)" }}>
-            {scored.total}<span className="text-sm" style={{ color: "var(--text-muted)" }}>/1000</span>
+            {locked ? (
+              <BlurredValue label="Your score needs a paid plan">{scored.total}</BlurredValue>
+            ) : (
+              scored.total
+            )}
+            <span className="text-sm" style={{ color: "var(--text-muted)" }}>/1000</span>
           </div>
         </div>
       </div>
@@ -772,7 +870,9 @@ function ScoreBreakdown({ scored }: { scored: ScoreResult }) {
       <div className="mt-4 space-y-1.5 text-sm">
         <div className="flex items-center justify-between">
           <span style={{ color: "var(--text-secondary)" }}>Building &amp; land quality</span>
-          <span className="mono" style={{ color: "var(--text-primary)" }}>{scored.base}</span>
+          <span className="mono" style={{ color: "var(--text-primary)" }}>
+            {locked ? <BlurredValue amount={6} label="Your score needs a paid plan">{scored.base}</BlurredValue> : scored.base}
+          </span>
         </div>
 
         {scored.penalties.map((p) => (
@@ -804,9 +904,17 @@ function ScoreBreakdown({ scored }: { scored: ScoreResult }) {
 
         <div className="flex items-center justify-between pt-2 mt-1" style={{ borderTop: "1px solid var(--border)" }}>
           <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Total</span>
-          <span className="mono font-bold" style={{ color: "var(--text-primary)" }}>{scored.total}</span>
+          <span className="mono font-bold" style={{ color: "var(--text-primary)" }}>
+            {locked ? <BlurredValue amount={6} label="Your score needs a paid plan">{scored.total}</BlurredValue> : scored.total}
+          </span>
         </div>
       </div>
+
+      {locked && (
+        <div className="mt-4">
+          <UpgradeNote what="Your score out of 1,000" />
+        </div>
+      )}
     </div>
   );
 }
@@ -987,7 +1095,8 @@ function LocationFactCard({ subItems, ids, title }: { subItems: SubItem[]; ids: 
 }
 
 // ── Overview ─────────────────────────────────────────────────────────────────
-function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation, dwellingValue }: {
+function OverviewReal({ locked, report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation, dwellingValue }: {
+  locked: boolean;
   report: StoredReport; subItems: SubItem[]; scored: ScoreResult; persona: Persona;
   renoLines: RenoLine[]; renoToggles: Record<string, RenoToggle>; askingPrice: number | null;
   improvementValuation: ImprovementValueResult;
@@ -1012,19 +1121,31 @@ function OverviewReal({ report, subItems, scored, persona, renoLines, renoToggle
   return (
     <div className="space-y-6">
       {/* Condition & Quality Score — base − location penalties + on-site value-adds */}
-      <ScoreBreakdown scored={scored} />
+      <ScoreBreakdown scored={scored} locked={locked} />
 
-      {/* Improvement (building) value — spec × condition (valuation slice 1) */}
-      {improvementValuation && <ImprovementValueCard iv={improvementValuation} />}
+      {/* Improvement (building) value — spec × condition (valuation slice 1).
+          Withheld on a free report: it IS the valuation. */}
+      {improvementValuation && !locked && <ImprovementValueCard iv={improvementValuation} />}
 
       {/* Predicted value + condition breakdown */}
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="card p-5 flex flex-col justify-center">
           <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Predicted sale value</div>
-          <FutureSalePrice askingPrice={askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="left" />
-          <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
-            See the <strong style={{ color: "var(--brand)" }}>Financial</strong> tab for the BDR Value Verdict — whether the asking price is fair once renovations are factored in.
-          </div>
+          {locked ? (
+            <div className="mt-2">
+              <div className="text-2xl font-bold mono mb-3" style={{ color: "var(--text-primary)" }}>
+                <BlurredValue label="The predicted sale value needs a paid plan">$000,000</BlurredValue>
+              </div>
+              <UpgradeNote what="The valuation" compact />
+            </div>
+          ) : (
+            <>
+              <FutureSalePrice askingPrice={askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="left" />
+              <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
+                See the <strong style={{ color: "var(--brand)" }}>Financial</strong> tab for the BDR Value Verdict — whether the asking price is fair once renovations are factored in.
+              </div>
+            </>
+          )}
         </div>
         <div className="card p-5 lg:col-span-2">
           <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-secondary)" }}>Condition by inspection area</h3>

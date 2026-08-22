@@ -21,11 +21,12 @@ const FEATURES = [
   {
     category: "Reports",
     rows: [
-      { label: "Reports for the month", free: "3", starter: "Unlimited", pro: "Unlimited" },
+      { label: "Reports", free: "1 (once)", starter: "10 / month", pro: "20 / month" },
       { label: "Watermark-free reports", free: false, starter: true, pro: true },
-      { label: "Photo analysis (AI vision)", free: false, starter: true, pro: true },
-      { label: "Full 6-category score breakdown", free: false, starter: true, pro: true },
-      { label: "VFM grade with working shown", free: false, starter: true, pro: true },
+      { label: "Photo analysis (AI vision)", free: true, starter: true, pro: true },
+      { label: "Every defect and finding", free: true, starter: true, pro: true },
+      { label: "Score out of 1,000", free: false, starter: true, pro: true },
+      { label: "Valuation, with the working shown", free: false, starter: true, pro: true },
     ],
   },
   {
@@ -33,7 +34,7 @@ const FEATURES = [
     rows: [
       { label: "Renovation planner", free: false, starter: true, pro: true },
       { label: "Healthy Homes compliance check", free: false, starter: true, pro: true },
-      { label: "Financial calculator (buyer + investor)", free: false, starter: true, pro: true },
+      { label: "Financial tab (buyer + investor)", free: false, starter: true, pro: true },
       { label: "Equity timeline", free: false, starter: true, pro: true },
       { label: "Hazard report", free: true, starter: true, pro: true },
       { label: "Market comparables", free: "Basic", starter: "Full", pro: "Full" },
@@ -56,7 +57,7 @@ const FEATURES = [
       { label: "10-year profit on every listing", free: false, starter: false, pro: true },
       { label: "Alert system (new listings)", free: false, starter: false, pro: true },
       { label: "Saved searches + watchlist", free: false, starter: false, pro: true },
-      { label: "Batch reports (10 at once)", free: false, starter: false, pro: true },
+      
       { label: "Compare mode (3 properties)", free: false, starter: false, pro: true },
       { label: "Priority report generation", free: false, starter: false, pro: true },
     ],
@@ -104,11 +105,16 @@ export default function PricingPage() {
             {
               name: "Free",
               price: "$0",
-              desc: "Try before you commit",
+              desc: "One real report on your own listing",
               plan: null,
               cta: "Start free",
               highlight: false,
-              features: ["3 reports", "Market value estimate", "Quality score preview", "Basic equity calculator"],
+              features: [
+                "1 full report — not a sample",
+                "Every photo analysed",
+                "Every defect and finding shown",
+                "Score and valuation stay locked",
+              ],
             },
             {
               name: "Starter",
@@ -117,7 +123,7 @@ export default function PricingPage() {
               plan: "starter" as const,
               cta: "Get Starter",
               highlight: false,
-              features: ["Unlimited reports", "Full photo analysis", "Renovation planner", "Healthy Homes check", "PDF + email", "Shareable links"],
+              features: ["10 reports a month", "Score out of 1,000", "Full valuation", "Renovation planner", "Healthy Homes check", "PDF, email and share links"],
             },
             {
               name: "Pro",
@@ -126,7 +132,7 @@ export default function PricingPage() {
               plan: "pro" as const,
               cta: "Get Pro",
               highlight: true,
-              features: ["Everything in Starter", "NZ investment map", "Map filters + alerts", "Batch reports", "Compare mode", "CSV export"],
+              features: ["20 reports a month", "Everything in Starter", "NZ investment map", "Map filters + alerts", "Compare mode", "CSV export"],
             },
           ].map((p) => (
             <div
@@ -239,6 +245,10 @@ export default function PricingPage() {
               {
                 q: "Is this a subscription?",
                 a: `No. You buy ${ACCESS_DAYS} days of access and it ends there. Nothing auto-renews, so there is no recurring charge, no saved mandate and nothing to cancel. Buy another month whenever you need one — buying early adds to the days you have left rather than replacing them.`,
+              },
+              {
+                q: "What do I actually get for free?",
+                a: "One complete analysis of a real listing you paste in — every photo read, every defect and finding shown. What stays locked is the conclusion: the score out of 1,000, the valuation, and the Financial, Renovations and agent tabs. It's one report, not one a month, and upgrading opens the report you already ran rather than making you run it again.",
               },
               {
                 q: "Is this a registered property valuation?",

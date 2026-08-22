@@ -8,6 +8,10 @@ import { ArrowRight, Upload, Link2, Loader2, CheckCircle2 } from "lucide-react";
 import { saveReport, saveReportPersona } from "@/lib/report-store";
 import type { Persona } from "@/lib/scoring/model";
 import { PersonaChoice, PersonaRequiredDialog } from "@/components/report/PersonaChoice";
+import { useSession } from "@/lib/auth/session";
+import { describeAllowance, PLAN_LABEL } from "@/lib/billing/plans";
+import Link from "next/link";
+import { Lock } from "lucide-react";
 import { contributeToMap } from "@/lib/map/contribution";
 import { persistReport } from "@/lib/reports/client";
 import { useRequireAuth } from "@/lib/auth/useRequireAuth";
@@ -56,14 +60,17 @@ function NewReportInner() {
   // not remembered from last time, or the choice stops being a choice.
   const [persona, setPersona] = useState<Persona | null>(null);
   const [askPersona, setAskPersona] = useState(false);
+  const { plan, loading: planLoading } = useSession();
   const [step, setStep] = useState<Step>("input");
   const [pipelineStep, setPipelineStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [outOfReports, setOutOfReports] = useState(false);
 
   async function runAnalysis(payload: { url?: string; address?: string }, forPersona: Persona) {
     const label = (payload.url ?? payload.address ?? "").trim();
     if (!label) return;
     setError(null);
+    setOutOfReports(false);
     setTarget(label);
     setStep("analysing");
     setPipelineStep(0);
@@ -99,6 +106,9 @@ function NewReportInner() {
             ? "Claude isn't configured — add a funded ANTHROPIC_API_KEY to .env.local and restart the server."
             : data.message ?? data.error ?? `Analysis failed (HTTP ${res.status}).`
         );
+        // 402 means they're out of reports, not that anything broke — show the
+        // way forward rather than a red error box.
+        setOutOfReports(res.status === 402);
         setStep("input");
         return;
       }
@@ -214,9 +224,26 @@ function NewReportInner() {
             </div>
 
             {/* Error */}
-            {error && (
+            {error && !outOfReports && (
               <div className="rounded-xl p-4 mb-4 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)", border: "1px solid rgba(255,95,95,0.2)" }}>
                 {error}
+              </div>
+            )}
+
+            {outOfReports && (
+              <div className="card p-5 mb-4" style={{ border: "1px solid var(--brand)", background: "var(--accent-wash)" }}>
+                <div className="flex items-start gap-3">
+                  <Lock size={18} style={{ color: "var(--brand)", flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <div className="font-semibold text-sm mb-1" style={{ color: "var(--text-primary)" }}>
+                      You&apos;re out of reports
+                    </div>
+                    <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>{error}</p>
+                    <Link href="/pricing?plan=starter" className="btn-primary text-sm px-4 py-2">
+                      See plans <ArrowRight size={15} />
+                    </Link>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -275,6 +302,23 @@ function NewReportInner() {
               <div className="mb-5">
                 <PersonaChoice value={persona} onChange={setPersona} />
               </div>
+
+              {/* What a free report includes, said before it's used rather than
+                  discovered afterwards. There is only one, and it doesn't come back. */}
+              {!planLoading && plan === "free" && (
+                <div
+                  className="rounded-xl px-4 py-3 mb-5 text-xs"
+                  style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)", lineHeight: 1.6 }}
+                >
+                  <strong style={{ color: "var(--text-primary)" }}>This uses your free report</strong> — you get{" "}
+                  {describeAllowance("free")}, and it doesn&apos;t reset. Every photo is analysed and every finding
+                  shown, but the <strong style={{ color: "var(--text-primary)" }}>score</strong> and{" "}
+                  <strong style={{ color: "var(--text-primary)" }}>valuation</strong> stay locked until you upgrade.{" "}
+                  <Link href="/pricing" className="hover:underline" style={{ color: "var(--brand)" }}>
+                    {PLAN_LABEL.starter} is {describeAllowance("starter")} →
+                  </Link>
+                </div>
+              )}
 
               <button
                 onClick={() => startAnalysis()}

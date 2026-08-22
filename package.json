@@ -9,7 +9,8 @@
     "lint": "next lint",
     "db:setup-sql": "node scripts/build-setup-sql.mjs",
     "verify:billing": "node --no-warnings scripts/verify-billing.mjs",
-    "verify:listing-key": "node --no-warnings scripts/verify-listing-key.mjs"
+    "verify:listing-key": "node --no-warnings scripts/verify-listing-key.mjs",
+    "verify:allowance": "node --no-warnings scripts/verify-allowance.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",
