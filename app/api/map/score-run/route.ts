@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRealListings } from "@/lib/map/store";
 import { persistMapListing } from "@/lib/map/persist";
-import { fetchActiveListings, fetchSuburbRentDetail, fetchSuburbGrowth } from "@/lib/map/sources";
+import { fetchSuburbRentDetail, fetchSuburbGrowth } from "@/lib/map/sources";
+import { discoverListings } from "@/lib/map/discovery";
+import { persistDiscoveredListings } from "@/lib/map/discovery-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -22,22 +24,43 @@ function authorized(req: NextRequest): boolean {
  *    lodged-bond data, and fills in any missing capital-growth rate. Both are
  *    real feeds, so the map's investor maths stays current without re-running
  *    the AI analysis (the 1000-pt score is a property fact, not a market one).
- * 2. INTAKE (still mock) — fetchActiveListings() has no live portal feed behind
- *    it yet, so there are no new listings to diff and score. Once a feed lands,
- *    diff against map_listings for NEW / PRICE-CHANGED, run those through the
- *    score-now pipeline, and mark the ones that disappeared as sold.
+ * 2. DISCOVERY (live) — reads OneRoof's published for-sale sitemap and records
+ *    what exists: address, region, and the portal's own last-modified date.
+ *    Nothing is analysed. Discovery costs a couple of dozen static file reads;
+ *    an analysis costs about NZ$1.45, and roughly 260 listings appear daily —
+ *    analysing them all would be ~$13,000 a month spent on properties nobody
+ *    may ever open. Users analyse the pins they care about, from their own
+ *    allowance.
+ *
+ *    OneRoof only. realestate.co.nz's robots.txt prohibits automated access and
+ *    names this business model specifically; Trade Me blocks it outright. See
+ *    lib/map/discovery.ts.
  */
 async function handle(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "unauthorized", message: "Invalid cron secret." }, { status: 401 });
   }
 
-  const raw = await fetchActiveListings(); // mock until a listings feed exists
   let scored = 0;
   let failed = 0;
   let rentRefreshed = 0;
   let growthRefreshed = 0;
 
+  // ── 2. Discovery ─────────────────────────────────────────────────────────
+  // Only what the portal touched since yesterday — the whole index is ~30,000
+  // listings and re-reading all of it nightly would be pointless traffic.
+  const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+  const found = await discoverListings({ since });
+  const discovery = await persistDiscoveredListings(found.listings);
+
+  if (discovery.changed.length) {
+    // A portal edit on a property we already hold means a cached report may now
+    // describe a price or a set of photos that are gone. The reuse check
+    // catches that on the next paste anyway — this is the early warning.
+    console.warn(`[discovery] ${discovery.changed.length} indexed listing(s) changed on the portal`);
+  }
+
+  // ── 1. Refresh ───────────────────────────────────────────────────────────
   // Refresh the market figures on each listing before persisting. Rent is a free
   // MBIE lookup so it always runs; growth costs a web search, so it only runs when
   // the listing has none. Either failing leaves the existing figure alone.
@@ -87,14 +110,25 @@ async function handle(req: NextRequest) {
 
   const run = {
     at: new Date().toISOString(),
-    fetched: raw.length,
+    discovery: {
+      since,
+      shardsRead: found.shardsRead,
+      shardsFailed: found.shardsFailed,
+      seen: found.listings.length,
+      added: discovery.added,
+      updated: discovery.updated,
+      skippedAnalysed: discovery.skippedAnalysed,
+      changedOnPortal: discovery.changed.length,
+      failed: discovery.failed,
+      reason: discovery.reason ?? null,
+    },
     refreshing: targets.length,
     rentRefreshed,
     growthRefreshed,
     scored,
     failed,
     persistReason,
-    // new / changed / sold counts arrive with the listings feed.
+    // Nothing here analyses a listing — see the header comment for why.
   };
   console.log("[map/score-run]", run);
   return NextResponse.json({ ok: true, run });

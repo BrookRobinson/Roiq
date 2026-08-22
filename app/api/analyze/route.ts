@@ -167,7 +167,13 @@ export async function POST(req: NextRequest) {
     // above everything expensive. A cached report from SOMEONE ELSE still costs
     // the reader one of theirs — the saving from reuse is ours, not a way to
     // run more reports than the plan includes.
-    const quota = await getQuota(authUser?.id ?? null, ownerKey, plan);
+    const quota = await getQuota(
+      authUser?.id ?? null,
+      ownerKey,
+      plan,
+      new Date(),
+      authUser?.email ?? profile?.email ?? null
+    );
     if (quota.remaining <= 0) {
       // 402, matching the map's upsell: not malformed, not forbidden — it needs
       // paying for.

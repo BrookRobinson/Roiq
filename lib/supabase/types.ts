@@ -18,6 +18,7 @@ export interface Database {
         Row: {
           id: string;
           email: string;
+          email_key: string | null;
           created_at: string;
           plan: Plan;
           plan_expires_at: string | null;
@@ -49,6 +50,7 @@ export interface Database {
         Insert: {
           id?: string;
           email: string;
+          email_key?: string | null;
           created_at?: string;
           plan?: Plan;
           plan_expires_at?: string | null;
@@ -204,6 +206,8 @@ export interface Database {
       };
       map_listings: {
         Row: {
+          portal_last_modified: string | null;
+          discovered_at: string | null;
           id: string;
           listing_url: string;
           address: string | null;
@@ -251,7 +255,14 @@ export interface Database {
           last_scored_at: string | null;
           last_checked_at: string | null;
         };
-        Insert: Omit<Database["public"]["Tables"]["map_listings"]["Row"], "id">;
+        Insert: Omit<
+          Database["public"]["Tables"]["map_listings"]["Row"],
+          "id" | "portal_last_modified" | "discovered_at"
+        > &
+          Partial<Pick<
+            Database["public"]["Tables"]["map_listings"]["Row"],
+            "portal_last_modified" | "discovered_at"
+          >>;
         Update: Partial<Database["public"]["Tables"]["map_listings"]["Insert"]>;
         Relationships: [];
       };

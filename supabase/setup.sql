@@ -7,7 +7,7 @@
 -- Paste the whole file into the Supabase SQL editor of a new project and run it.
 -- Every statement is idempotent, so running it twice is safe.
 --
--- Migrations included (7):
+-- Migrations included (9):
 --   20260605_base_schema.sql
 --   20260606_v3_schema.sql
 --   20260708_map_feature.sql
@@ -15,6 +15,8 @@
 --   20260821_map_listing_writes.sql
 --   20260821_reports_persistence.sql
 --   20260822_billing.sql
+--   20260822_email_key.sql
+--   20260822_listing_discovery.sql
 -- ==========================================================================
 
 
@@ -791,6 +793,109 @@ DROP POLICY IF EXISTS "Users can read their own purchases" ON public.purchases;
 CREATE POLICY "Users can read their own purchases"
   ON public.purchases FOR SELECT
   USING (user_id = auth.uid());
+
+-- ============================================================
+-- Done. Run this migration once in Supabase SQL Editor.
+-- ============================================================
+
+
+-- ==========================================================================
+-- 20260822_email_key.sql
+-- ==========================================================================
+
+-- ============================================================
+-- RoiQ — Inbox identity for the free-report allowance
+-- Run in Supabase SQL Editor: Dashboard → SQL Editor → New Query
+-- ============================================================
+--
+-- The free report is one per person. A browser cookie can't tell two people
+-- apart on a shared laptop — a couple looking at houses together is the normal
+-- case for this product, and counting per browser refused the second one a
+-- report they never used.
+--
+-- An inbox can. But an inbox has many spellings: Gmail ignores dots, and most
+-- providers treat "+tag" as a tag on the same mailbox. `email_key` holds the
+-- one spelling they all resolve to, so aliases of one inbox count as one
+-- person while genuinely different addresses stay separate.
+--
+-- Deliberately NOT unique and NOT enforced here: it's an allowance-counting
+-- aid, not an identity constraint. Two people who really do share a mailbox
+-- should still be able to hold two accounts.
+--
+-- Populated by the app on the first authenticated request (see
+-- app/api/auth/me/route.ts) rather than by a trigger — the normalisation rules
+-- live in lib/auth/email-key.ts, and a second copy of them in PL/pgSQL would
+-- drift from the first.
+--
+-- Run AFTER: 20260605_base_schema.sql
+-- Idempotent — safe to re-run.
+
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS email_key text;
+
+COMMENT ON COLUMN public.users.email_key IS
+  'The mailbox this account''s email resolves to, aliases collapsed. Groups accounts for the free-report allowance. Set by the app, see lib/auth/email-key.ts.';
+
+CREATE INDEX IF NOT EXISTS users_email_key ON public.users(email_key);
+
+-- Lowercase existing rows so the common case groups straight away. The full
+-- rules (Gmail dots, plus-tags) are applied by the app the next time each
+-- person signs in; until then an unmatched account simply gets its own
+-- allowance, which errs toward letting someone through rather than refusing
+-- them.
+UPDATE public.users
+   SET email_key = lower(trim(email))
+ WHERE email_key IS NULL
+   AND email IS NOT NULL;
+
+-- ============================================================
+-- Done. Run this migration once in Supabase SQL Editor.
+-- ============================================================
+
+
+-- ==========================================================================
+-- 20260822_listing_discovery.sql
+-- ==========================================================================
+
+-- ============================================================
+-- RoiQ — Nightly listing discovery
+-- Run in Supabase SQL Editor: Dashboard → SQL Editor → New Query
+-- ============================================================
+--
+-- The map only knew about properties someone had paid to analyse, so it was
+-- empty everywhere nobody had looked. The nightly job now reads OneRoof's
+-- published for-sale sitemap and records what EXISTS — address, region, and
+-- when the portal last touched the page. Nothing is analysed: discovery is
+-- nearly free, and the analysis is the part that costs real money.
+--
+-- A discovered pin is one with `source_key` like 'oneroof-%' and no
+-- `full_report_ref`. It carries no score, no valuation and no yield, because
+-- none have been worked out — the map must never show an invented number
+-- beside a real address.
+--
+-- Run AFTER: 20260821_map_listing_writes.sql
+-- Idempotent — safe to re-run.
+
+ALTER TABLE public.map_listings
+  -- <lastmod> from the portal's sitemap. Lets the next run ask "what changed
+  -- since?" without fetching a single listing page, and tells us when a
+  -- property we hold a report for has been edited — a signal the cached
+  -- analysis may have gone stale.
+  ADD COLUMN IF NOT EXISTS portal_last_modified date,
+  -- When our crawler last saw it in the index. A listing that stops appearing
+  -- has sold or been withdrawn.
+  ADD COLUMN IF NOT EXISTS discovered_at timestamptz;
+
+COMMENT ON COLUMN public.map_listings.portal_last_modified IS
+  'The <lastmod> the source portal published for this listing. Drives "what is new since last night" and stale-report detection.';
+COMMENT ON COLUMN public.map_listings.discovered_at IS
+  'When the nightly discovery job first indexed this listing.';
+
+-- The nightly diff reads by portal date; the reconciler reads by URL.
+CREATE INDEX IF NOT EXISTS map_listings_portal_last_modified
+  ON public.map_listings(portal_last_modified DESC);
+CREATE INDEX IF NOT EXISTS map_listings_listing_url
+  ON public.map_listings(listing_url);
 
 -- ============================================================
 -- Done. Run this migration once in Supabase SQL Editor.

@@ -7,6 +7,7 @@
 // ============================================================
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emailKey } from "@/lib/auth/email-key";
 import {
   allowanceWindowStart,
   quotaFrom,
@@ -29,26 +30,36 @@ export async function getQuota(
   userId: string | null,
   ownerKey: string | null,
   plan: Plan,
-  now: Date = new Date()
+  now: Date = new Date(),
+  email: string | null = null
 ): Promise<QuotaState> {
   const supabase = createAdminClient();
   if (!supabase || (!userId && !ownerKey)) return quotaFrom(plan, 0, now);
 
   try {
+    // Signed in → count the person, by inbox. Signed out → count the browser,
+    // which is the only handle there is.
+    //
+    // A signed-in person is NOT counted by browser, deliberately. Two people
+    // looking at houses on one laptop is the normal case for this product, and
+    // the cookie can't tell a partner from a second account — it refused the
+    // second person a report they had never used. The report they ran before
+    // signing up still counts, because claimReports() attaches it to them.
+    const ids = userId ? await accountsSharingInbox(supabase, userId, email) : [];
+
+    const keys = userId
+      ? ids.map((id) => `user_id.eq.${id}`)
+      : [`owner_key.eq.${ownerKey}`];
+    if (keys.length === 0) return quotaFrom(plan, 0, now);
+
     let query = supabase
       .from("reports")
       .select("id", { count: "exact", head: true })
-      .eq("report_status", "complete");
+      .eq("report_status", "complete")
+      .or(keys.join(","));
 
     const since = allowanceWindowStart(plan, now);
     if (since) query = query.gte("created_at", since.toISOString());
-
-    // Either identifier marks the report as this person's.
-    const keys = [
-      userId ? `user_id.eq.${userId}` : null,
-      ownerKey ? `owner_key.eq.${ownerKey}` : null,
-    ].filter(Boolean);
-    query = query.or(keys.join(","));
 
     const { count, error } = await query;
     if (error) throw new Error(error.message);
@@ -63,4 +74,30 @@ export async function getQuota(
     console.warn("[quota] count failed, assuming one used:", (err as Error)?.message);
     return quotaFrom(plan, 1, now);
   }
+}
+
+/**
+ * Every account that reaches the same inbox, including this one.
+ *
+ * you+1@gmail.com and y.o.u@gmail.com are one person collecting free reports;
+ * two partners on one laptop are two inboxes and stay separate. An account
+ * whose key can't be worked out is treated as its own person — erring toward
+ * letting someone through rather than refusing them.
+ */
+async function accountsSharingInbox(
+  supabase: NonNullable<ReturnType<typeof createAdminClient>>,
+  userId: string,
+  email: string | null
+): Promise<string[]> {
+  let key = emailKey(email);
+
+  if (!key) {
+    const { data } = await supabase.from("users").select("email, email_key").eq("id", userId).single();
+    key = emailKey(data?.email) ?? data?.email_key ?? null;
+  }
+  if (!key) return [userId];
+
+  const { data } = await supabase.from("users").select("id").eq("email_key", key).limit(50);
+  const ids = (data ?? []).map((r) => r.id);
+  return ids.includes(userId) ? ids : [...ids, userId];
 }

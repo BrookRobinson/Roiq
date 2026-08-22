@@ -18,6 +18,8 @@ npm run db:setup-sql         # regenerate supabase/setup.sql from the migrations
 npm run verify:billing       # the plan/expiry maths
 npm run verify:listing-key   # the "same house?" rules behind report reuse
 npm run verify:allowance     # who gets how many reports, and what the wall says
+npm run verify:email-key     # which accounts count as one inbox
+npm run verify:discovery     # the sitemap/URL parsers behind nightly discovery
 ```
 
 **There are almost no tests.** Verification is `tsc`, the health endpoints, and
@@ -162,6 +164,35 @@ It is a paywall, not a vault: the report is the reader's own and is scored in
 their browser, so the numbers are in the DOM. Never lock a shared link, the
 embedded landing demo, or a sample id — those are the shop window. The lock
 reads the **current** plan, so upgrading opens a report already run.
+
+**Discovery crawls OneRoof and nothing else.** OneRoof's robots.txt is
+`Allow: /` and they publish a for-sale sitemap built for indexing.
+**realestate.co.nz's robots.txt prohibits automated access and names this
+business model** — "websites that specifically aggregate property listings…
+as part of their business" — so it is never crawled; a user pasting one link
+is a different act from harvesting the index nightly. Trade Me blocks
+automation outright. Before adding a portal, read its robots.txt.
+
+**Discovery never analyses.** ~260 listings appear daily; at NZ$1.45 each that
+is ~$13,000/month spent on properties nobody may open. The nightly job records
+that a listing *exists* — address, region, portal `lastmod` — and leaves every
+scoring column null. A pin with a real address and an invented number is the
+same failure the seed-listings rule guards against. Users analyse what they
+care about, from their own allowance.
+
+**A discovered pin must never duplicate an analysed one.** `persistDiscoveredListings`
+reads existing `listing_url`s and matches them with the same normalisation the
+reuse check uses; a property already on the map under `report-<id>` is left
+alone. `source_key` is `oneroof-<portalId>` for discovered rows.
+
+**The free tier's allowance is counted per inbox, not per browser.** A shared
+laptop can't tell a partner from a second account, and counting per cookie
+refused the second person a report they never ran — for a product couples use
+together that is the normal case, not an edge case. `lib/auth/email-key.ts`
+collapses aliases (Gmail dots, `+tags`) so one mailbox is one person; dots are
+stripped for Gmail ONLY, and `+` only for providers known to treat it as a tag.
+Merging two real people is the worse mistake, so anything unrecognised stays
+separate. Signed-out callers are still counted by cookie.
 
 **Valuations are estimates until a licensed sold-sales feed lands.** Land value
 and suburb $/m² are inferred, and everything downstream inherits that. Don't
