@@ -186,14 +186,14 @@ export async function geocodeMissingPins(
     .select("source_key, address, suburb, region")
     .is("lat", null)
     .like("source_key", "oneroof-%")
-    .limit(limit + 1);
+    .limit(limit);
 
   if (error || !data?.length) return { geocoded: 0, failed: 0, remaining: 0, stopped: "done" };
 
-  const queue = data.slice(0, limit).filter((r) => r.source_key);
+  const queue = data.filter((r) => r.source_key);
   let geocoded = 0;
   let failed = 0;
-  let stopped: "done" | "limit" | "time" = data.length > limit ? "limit" : "done";
+  let stopped: "done" | "limit" | "time" = "done";
   let next = 0;
 
   // A few at a time. LINZ is a public service and this is never urgent, so the
@@ -226,5 +226,19 @@ export async function geocodeMissingPins(
 
   await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
 
-  return { geocoded, failed, remaining: Math.max(0, queue.length - (geocoded + failed)), stopped };
+  // Count what's left rather than inferring it from the page we fetched.
+  // PostgREST caps a response at its own max-rows setting (1,000 by default),
+  // so a `limit` above that comes back short and a full page looks exactly
+  // like the end of the queue — which had this reporting "remaining: 0" with
+  // 888 addresses still to do.
+  const { count } = await supabase
+    .from("map_listings")
+    .select("source_key", { count: "exact", head: true })
+    .is("lat", null)
+    .like("source_key", "oneroof-%");
+
+  const remaining = count ?? 0;
+  if (remaining > 0 && stopped === "done") stopped = "limit";
+
+  return { geocoded, failed, remaining, stopped };
 }
