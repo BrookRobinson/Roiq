@@ -54,3 +54,57 @@ export function priceUnchanged(fresh: number | null | undefined, saved: number |
   if (a === null || b === null) return true;
   return a === b;
 }
+
+/**
+ * Photo URLs carry resize and cache-busting noise (`?width=800`, `&v=3`) that
+ * changes without the photograph changing. The path is what identifies the
+ * actual file on the CDN.
+ */
+export function normalisePhotoUrl(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.startsWith("data:")) return null;
+  try {
+    const u = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+    return `${u.hostname.toLowerCase().replace(/^www\./, "")}${u.pathname.toLowerCase()}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Only the first 30 are ever analysed (MAX_IMAGES in lib/ai/images.ts). */
+const COMPARED_PHOTOS = 30;
+
+/**
+ * Are these the same photographs, in the same order?
+ *
+ * Order matters as much as content: the report says things like "Photo 3 shows
+ * water staining", so a reshuffle points that sentence at a different room. Any
+ * difference at all — an added photo, a replaced one, a reorder after restyling
+ * — means the saved report's photo references no longer describe this listing,
+ * and it has to be analysed again.
+ *
+ * A saved report that claims photos but has no list to compare can't be
+ * verified, so it isn't reused. That fails toward spending money rather than
+ * toward describing the wrong house.
+ */
+export function photosUnchanged(
+  fresh: readonly (string | null | undefined)[] | null | undefined,
+  saved: readonly (string | null | undefined)[] | null | undefined,
+  savedPhotosAnalysed: number | null | undefined
+): boolean {
+  const clean = (list: readonly (string | null | undefined)[] | null | undefined) =>
+    (list ?? [])
+      .map(normalisePhotoUrl)
+      .filter((u): u is string => !!u)
+      .slice(0, COMPARED_PHOTOS);
+
+  const a = clean(fresh);
+  const b = clean(saved);
+
+  // The old report was written about photos we can no longer see. Don't trust it.
+  if (b.length === 0) return (savedPhotosAnalysed ?? 0) === 0 && a.length === 0;
+
+  if (a.length !== b.length) return false;
+  return a.every((url, i) => url === b[i]);
+}

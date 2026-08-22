@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
         url: listing.url ?? body.url ?? null,
         address: listing.address ?? body.address ?? null,
         askingPrice: listing.askingPrice ?? null,
+        photoUrls: listing.photoUrls ?? [],
       });
 
       if (reused) {

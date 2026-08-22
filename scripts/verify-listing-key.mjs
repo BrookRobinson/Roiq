@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const { normaliseListingUrl, normaliseAddress, priceUnchanged } = await import(
+const { normaliseListingUrl, normaliseAddress, priceUnchanged, normalisePhotoUrl, photosUnchanged } = await import(
   join(root, "lib/reports/listing-key.ts")
 );
 
@@ -60,6 +60,21 @@ check("no price today (auction)", priceUnchanged(null, 750_000), true);
 check("no price saved", priceUnchanged(750_000, null), true);
 check("no price either side", priceUnchanged(null, null), true);
 check("zero counts as no price", priceUnchanged(0, 750_000), true);
+
+console.log("\nphotosUnchanged — the report cites photos by number");
+const P = (n) => `https://cdn.example.co.nz/listing/9876/photo-${n}.jpg`;
+const THREE = [P(1), P(2), P(3)];
+check("identical sets reuse", photosUnchanged(THREE, THREE, 3), true);
+check("resize params are ignored", photosUnchanged(THREE.map((u) => u + "?width=1200&v=7"), THREE, 3), true);
+check("a new photo added re-analyses", photosUnchanged([...THREE, P(4)], THREE, 3), false);
+check("a photo removed re-analyses", photosUnchanged([P(1), P(2)], THREE, 3), false);
+check("a photo swapped re-analyses", photosUnchanged([P(1), P(9), P(3)], THREE, 3), false);
+check("a REORDER re-analyses (Photo 3 would move)", photosUnchanged([P(3), P(2), P(1)], THREE, 3), false);
+check("no photos either side reuses", photosUnchanged([], [], 0), true);
+check("saved claims photos but lists none", photosUnchanged(THREE, [], 12), false);
+check("listing gained photos since (none saved)", photosUnchanged(THREE, [], 0), false);
+check("data: urls are ignored", photosUnchanged(["data:image/jpeg;base64,AAAA", ...THREE], THREE, 3), true);
+check("junk entries are ignored", photosUnchanged([null, "", ...THREE], THREE, 3), true);
 
 console.log(failures ? `\n${failures} check(s) failed.\n` : "\nAll listing-match checks passed.\n");
 process.exit(failures ? 1 : 0);

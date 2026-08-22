@@ -13,7 +13,12 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StoredReport } from "@/lib/report-store";
-import { normaliseAddress, normaliseListingUrl, priceUnchanged } from "@/lib/reports/listing-key";
+import {
+  normaliseAddress,
+  normaliseListingUrl,
+  photosUnchanged,
+  priceUnchanged,
+} from "@/lib/reports/listing-key";
 
 /** How long a saved analysis stays good for. */
 export const REUSE_MAX_AGE_DAYS = 30;
@@ -39,6 +44,8 @@ export async function findReusableReport(opts: {
   address?: string | null;
   /** Today's asking price, freshly scraped. */
   askingPrice?: number | null;
+  /** Today's photos, freshly scraped — the report cites them by number. */
+  photoUrls?: readonly string[] | null;
 }): Promise<ReusedReport | null> {
   const supabase = createAdminClient();
   if (!supabase) return null;
@@ -70,8 +77,18 @@ export async function findReusableReport(opts: {
         (urlKey && normaliseListingUrl(row.listing_url) === urlKey) ||
         (addressKey && normaliseAddress(row.address) === addressKey);
       if (!sameListing) return false;
+      if (!priceUnchanged(opts.askingPrice ?? null, row.asking_price ?? null)) return false;
 
-      return priceUnchanged(opts.askingPrice ?? null, row.asking_price ?? null);
+      // The photos are the other half of staleness, and the sneakier half: an
+      // agent can reshoot or restyle a place without touching the price. The
+      // report quotes photos by number, so a changed set makes every one of
+      // those references wrong while the price check happily waves it through.
+      const saved = row.report as unknown as StoredReport | null;
+      return photosUnchanged(
+        opts.photoUrls ?? [],
+        saved?.listing?.photoUrls ?? [],
+        saved?.photosAnalysed ?? null
+      );
     });
 
     if (!match?.report) return null;

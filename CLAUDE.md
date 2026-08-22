@@ -115,12 +115,19 @@ just paid.
 in `reports.report`, so a listing that's been done before is served from there
 (`lib/reports/reuse.ts`) instead of costing another few minutes and another
 Claude bill. Three things make that safe: the check runs **after** the scrape,
-because today's asking price is the signal that the old verdict has gone stale;
+because the scrape is what reveals a changed price **or a changed photo set**;
 the reuse is capped at `REUSE_MAX_AGE_DAYS`; and the report carries
 `reusedFrom`, which the view renders — a saved read is worth having instantly,
 but presenting it as a live one would be a lie. The matching rules are pure and
 tested in `lib/reports/listing-key.ts`: a miss only wastes money, a false match
 shows someone a different house, so they err toward missing.
+
+**Photos are a staleness signal, not just the price.** An agent can reshoot or
+restyle a listing without touching the price, and the report cites photos by
+number — "Photo 3 shows water staining" — so a changed or merely *reordered*
+set makes every one of those sentences point somewhere else. `photosUnchanged()`
+compares the ordered list with query strings stripped (CDN resize params churn
+without the photograph changing). Any difference re-analyses.
 
 **A reused report is still the reader's own report.** The route returns the
 analysis and the caller saves it under a fresh id in their own name, so it lands
