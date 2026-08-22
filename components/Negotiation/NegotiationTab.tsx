@@ -16,6 +16,8 @@ import { buildNegotiationCase } from "@/lib/negotiation/build";
 import { NegotiationLetter } from "./NegotiationLetter";
 import type { StoredReport } from "@/lib/report-store";
 
+const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
+
 export function NegotiationTab({ report }: { report: StoredReport }) {
   const data = useMemo(() => buildNegotiationCase(report), [report]);
 
@@ -29,6 +31,7 @@ export function NegotiationTab({ report }: { report: StoredReport }) {
   const [copied, setCopied] = useState(false);
 
   const items = data.critical.length + data.urgent.length + data.remedies.length;
+  const price = data.price;
 
   async function send() {
     setStatus("sending");
@@ -90,6 +93,46 @@ export function NegotiationTab({ report }: { report: StoredReport }) {
           never included.
         </p>
       </div>
+
+      {/* The check that has to happen before you ask for money off. The assessed
+          value is condition-adjusted, so on a property already priced below it,
+          the repair total is money the vendor has arguably discounted once
+          already — and an agent who spots that dismisses the whole letter. */}
+      {price && price.position !== "above" && items > 0 && (
+        <div className="card p-5" style={{ borderLeft: "3px solid var(--warn)" }}>
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            {price.position === "below"
+              ? "This property is already priced below its assessed value"
+              : "The price is broadly in line with the assessed value"}
+          </h3>
+          <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Asking {money(price.askingPrice)} against an assessed{" "}
+            {money(price.bdrValue)} in its current condition. That assessment already accounts for the
+            state of these items, so the two figures aren&rsquo;t additive —{" "}
+            {price.position === "below"
+              ? "asking for the repair total on top would be asking twice for the same money."
+              : "the work is already reflected in the price to a degree."}
+          </p>
+          <p className="mt-2.5 text-[13px]" style={{ color: "var(--text-muted)" }}>
+            The document says so plainly rather than pressing for a reduction. That&rsquo;s
+            deliberate: a letter an agent can pick apart on the first line doesn&rsquo;t get read to
+            the end.
+          </p>
+        </div>
+      )}
+
+      {price?.position === "above" && items > 0 && (
+        <div className="card p-5" style={{ borderLeft: "3px solid var(--good)" }}>
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            There&rsquo;s a case here
+          </h3>
+          <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Asking {money(price.askingPrice)} against an assessed {money(price.bdrValue)} in its
+            current condition. The document leads with that gap and uses these findings as the
+            evidence for it.
+          </p>
+        </div>
+      )}
 
       {items === 0 ? (
         <div className="card p-5">

@@ -15,6 +15,7 @@
 
 import { costThreeTier } from "@/lib/reno-costing/three-tier";
 import { valueImprovementItems } from "@/lib/scoring/improvement-values";
+import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { StoredReport } from "@/lib/report-store";
@@ -53,6 +54,35 @@ export interface NegotiationRemedy {
   costHigh: number;
 }
 
+/**
+ * Where the advertised price sits against what the property is worth IN ITS
+ * CURRENT CONDITION.
+ *
+ * This has to be established before any reduction is argued for, because the BDR
+ * valuation already has condition baked into it — improvement value is
+ * replacement cost × spec tier × condition. A property that photographs badly
+ * already values lower. So if the asking price is BELOW that figure, the vendor
+ * has effectively priced the condition in, and claiming the repair total on top
+ * is asking twice for the same money. An agent will see that immediately, and
+ * the whole letter goes in the bin with it.
+ */
+export type PricePosition =
+  | "above" // asking exceeds the valuation range — the repairs are the gap
+  | "fair" // asking sits within it — condition is broadly priced in
+  | "below" // asking is under it — already discounted for condition
+  | "unknown"; // no land area or suburb comparables, so no valuation
+
+export interface PriceCheck {
+  position: PricePosition;
+  bdrValue: number;
+  low: number;
+  high: number;
+  askingPrice: number;
+  /** Asking minus BDR value. Positive = advertised above what it's worth as it stands. */
+  aboveValueBy: number;
+  isEstimate: boolean;
+}
+
 export interface NegotiationCase {
   address: string;
   suburb: string | null;
@@ -68,6 +98,9 @@ export interface NegotiationCase {
   reportDate: string;
   score: number;
   photosAnalysed: number;
+
+  /** Null when the report lacks the land area or comparables to value it. */
+  price: PriceCheck | null;
 
   critical: NegotiationItem[];
   urgent: NegotiationItem[];
@@ -176,6 +209,25 @@ export function buildNegotiationCase(report: StoredReport): NegotiationCase {
     }
   }
 
+  // Price position FIRST — it decides whether a reduction can honestly be argued
+  // for at all, and the valuation's own confidence band is the threshold rather
+  // than an arbitrary percentage.
+  let price: PriceCheck | null = null;
+  const asking = listing.askingPrice ?? 0;
+  const land = valueLand({ landAreaSqm: listing.landAreaSqm, suburbValue: report.suburbValue });
+  if (asking > 0 && land) {
+    const v = roiqValuation(valuation.buildingValue, land);
+    price = {
+      position: asking > v.high ? "above" : asking < v.low ? "below" : "fair",
+      bdrValue: v.total,
+      low: v.low,
+      high: v.high,
+      askingPrice: asking,
+      aboveValueBy: Math.round(asking - v.total),
+      isEstimate: v.isEstimate,
+    };
+  }
+
   // Worst first — that's the order the case is strongest in.
   const bySeverity = (a: NegotiationItem, b: NegotiationItem) => a.score - b.score || b.costHigh - a.costHigh;
   critical.sort(bySeverity);
@@ -201,6 +253,7 @@ export function buildNegotiationCase(report: StoredReport): NegotiationCase {
     score: Math.round(report.scores?.buyer?.base ?? 0),
     photosAnalysed: report.photosAnalysed ?? 0,
 
+    price,
     critical,
     urgent,
     remedies,

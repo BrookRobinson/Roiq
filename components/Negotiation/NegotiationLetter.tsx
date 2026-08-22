@@ -12,7 +12,7 @@
 // Renders identically in the app and on the shared link the agent opens.
 // ============================================================
 
-import type { NegotiationCase, NegotiationItem } from "@/lib/negotiation/build";
+import type { NegotiationCase, NegotiationItem, PriceCheck } from "@/lib/negotiation/build";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 const range = (lo: number, hi: number) => (lo === hi ? money(lo) : `${money(lo)} – ${money(hi)}`);
@@ -93,6 +93,10 @@ export function NegotiationLetter({
         {hasCase ? (
           <>
             <p className="mt-4 text-[14px]" style={{ color: "var(--text-primary)", lineHeight: 1.65 }}>
+              {priceOpening(data.price)}
+            </p>
+
+            <p className="mt-4 text-[14px]" style={{ color: "var(--text-primary)", lineHeight: 1.65 }}>
               The items below were graded as requiring action. They are set out with the evidence each
               finding rests on, so they can be checked against the listing photographs and confirmed at
               inspection. Indicative costs to remedy total{" "}
@@ -106,13 +110,33 @@ export function NegotiationLetter({
               <Figure label="Indicative cost to remedy" value={range(data.repairsLow, data.repairsHigh)} />
             </div>
 
-            {data.askingPrice ? (
-              <p className="mt-4 text-[13px]" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                Against the advertised price of {money(data.askingPrice)}, the documented remedial work
-                represents {((data.repairsHigh / data.askingPrice) * 100).toFixed(1)}% of the asking price at
-                the upper estimate.
-              </p>
-            ) : null}
+            {data.price && (
+              <div
+                className="mt-4 px-5 py-4"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--rule)" }}
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                  <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>
+                    Advertised price
+                  </span>
+                  <span className="mono text-[13px]" style={{ color: "var(--text-primary)" }}>
+                    {money(data.price.askingPrice)}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                  <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>
+                    Assessed value in current condition
+                  </span>
+                  <span className="mono text-[13px]" style={{ color: "var(--text-primary)" }}>
+                    {money(data.price.bdrValue)}
+                  </span>
+                </div>
+                <p className="mt-3 text-[12px]" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>
+                  The assessed value is condition-adjusted: the state of the items below is already
+                  reflected in it, so the two figures are not additive.
+                </p>
+              </div>
+            )}
 
             {data.critical.length > 0 && (
               <Section
@@ -227,6 +251,13 @@ export function NegotiationLetter({
                 above.
               </li>
             )}
+            {data.price && (
+              <li>
+                The assessed value is a desktop estimate from suburb comparables and the condition
+                read above; it is not a registered valuation, and it already accounts for the state
+                of the items listed.
+              </li>
+            )}
             <li>
               This document does not constitute a building report, a valuation, or legal or financial
               advice.
@@ -241,6 +272,33 @@ export function NegotiationLetter({
       </div>
     </article>
   );
+}
+
+/**
+ * The opening paragraph, decided by where the price sits.
+ *
+ * A reduction can only honestly be argued for when the advertised price exceeds
+ * what the property is worth AS IT STANDS. The assessed value is already
+ * condition-adjusted, so on a property priced below it the vendor has discounted
+ * for the condition and asking for the repair total on top is asking twice for
+ * the same money. Saying so costs one sentence and is what makes the letter
+ * credible on the properties where the case IS there.
+ */
+function priceOpening(price: PriceCheck | null): string {
+  if (!price) {
+    return "The items below were graded as requiring action. They are set out so the scope can be agreed and verified at inspection.";
+  }
+
+  const asking = money(price.askingPrice);
+  const value = money(price.bdrValue);
+
+  if (price.position === "above") {
+    return `The advertised price of ${asking} sits above our assessment of the property in its current condition (${value}). The items below are the substance of that difference, and we would like to discuss the price in light of them.`;
+  }
+  if (price.position === "below") {
+    return `The advertised price of ${asking} already sits below our assessment of the property in its current condition (${value}). On that basis we are not seeking a reduction for the work set out below — we raise it so the scope is understood and can be verified at inspection.`;
+  }
+  return `The advertised price of ${asking} is broadly in line with our assessment of the property in its current condition (${value}), so the work below is already reflected in the price to a degree. We raise it to agree the scope, and to discuss the more urgent items.`;
 }
 
 function Figure({ label, value, tone }: { label: string; value: string; tone?: "bad" | "warn" }) {
