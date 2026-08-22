@@ -108,3 +108,33 @@ export function photosUnchanged(
   if (a.length !== b.length) return false;
   return a.every((url, i) => url === b[i]);
 }
+
+/**
+ * A house, identified by where it is rather than by which page it's on.
+ *
+ * The map holds pins from two sources — a nightly sitemap crawl, which has the
+ * listing URL, and finished reports, which historically stored a reference
+ * instead of one. Without a second way to recognise the same property, the two
+ * sit side by side as different houses.
+ *
+ * Suburb is required, not optional: "1 High Street" exists in dozens of New
+ * Zealand towns, and matching on the street alone would merge them.
+ */
+export function propertyKey(
+  address: string | null | undefined,
+  suburb: string | null | undefined
+): string | null {
+  const a = normaliseAddress(address);
+  const s = normaliseAddress(suburb) ?? (suburb ?? "").toLowerCase().trim();
+  if (!a || !s) return null;
+
+  // A scraped address often already carries the suburb ("12 High St, Hokitika").
+  // Strip it before joining, so the two spellings land on the same key.
+  const street = a.endsWith(` ${s}`) ? a.slice(0, -(s.length + 1)).replace(/[\s,]+$/, "") : a;
+
+  // Nothing left but the suburb — a listing whose address never resolved past
+  // the town. Two of those aren't the same house, so refuse to key them.
+  if (!street || street === s) return null;
+
+  return `${street}|${s}`;
+}

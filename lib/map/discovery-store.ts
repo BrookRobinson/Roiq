@@ -12,7 +12,7 @@
 // ============================================================
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normaliseListingUrl } from "@/lib/reports/listing-key";
+import { normaliseListingUrl, propertyKey } from "@/lib/reports/listing-key";
 import type { DiscoveredListing } from "@/lib/map/discovery";
 
 export interface DiscoveryPersistResult {
@@ -22,6 +22,8 @@ export interface DiscoveryPersistResult {
   skippedAnalysed: number;
   /** Listings whose portal page changed since we last saw it. */
   changed: DiscoveredListing[];
+  /** Bare pins removed because a real analysed pin now covers the property. */
+  supersededByReport?: number;
   failed: number;
   reason?: string;
 }
@@ -50,33 +52,58 @@ export async function persistDiscoveredListings(
     // Everything already on the map, by URL and by key.
     const { data: existing, error } = await supabase
       .from("map_listings")
-      .select("source_key, listing_url, portal_last_modified, full_report_ref");
+      .select("source_key, listing_url, address, suburb, portal_last_modified, full_report_ref");
     if (error) throw new Error(error.message);
 
-    const byUrl = new Map<string, (typeof existing)[number]>();
-    const byKey = new Map<string, (typeof existing)[number]>();
+    // Several rows can point at one property — a pin from a report and a pin
+    // from a previous night's discovery. Keyed by URL, they must be considered
+    // together, or whichever one happens to match first decides the outcome.
+    // Two indexes, because the two pin sources don't share an identifier.
+    // Discovery has the listing URL. Report pins written before that was stored
+    // have only the address — hence the second key.
+    const byUrl = new Map<string, typeof existing>();
+    const byProperty = new Map<string, typeof existing>();
+    const add = (m: Map<string, typeof existing>, k: string | null, row: (typeof existing)[number]) => {
+      if (!k) return;
+      const bucket = m.get(k) ?? [];
+      bucket.push(row);
+      m.set(k, bucket);
+    };
     for (const row of existing ?? []) {
-      const u = normaliseListingUrl(row.listing_url);
-      if (u) byUrl.set(u, row);
-      if (row.source_key) byKey.set(row.source_key, row);
+      add(byUrl, normaliseListingUrl(row.listing_url), row);
+      add(byProperty, propertyKey(row.address, row.suburb), row);
     }
 
     const result: DiscoveryPersistResult = { ...empty, changed: [] };
     const rows: Record<string, unknown>[] = [];
+    const redundant: string[] = [];
     const now = new Date().toISOString();
 
     for (const l of listings) {
       const key = sourceKeyFor(l);
       const urlKey = normaliseListingUrl(l.url);
-      const priorByUrl = urlKey ? byUrl.get(urlKey) : undefined;
-      const prior = byKey.get(key) ?? priorByUrl;
+      const propKey = propertyKey(l.address, l.town);
+      const siblings = [
+        ...((urlKey ? byUrl.get(urlKey) : undefined) ?? []),
+        ...((propKey ? byProperty.get(propKey) : undefined) ?? []),
+      ].filter((row, i, all) => all.findIndex((r) => r.source_key === row.source_key) === i);
 
-      // Already a real, analysed pin for this property under a different key.
-      // Leave it entirely alone — it has a score and this row wouldn't.
-      if (prior && prior.source_key !== key && prior.full_report_ref) {
+      // Someone has analysed this property. That pin has a real score and this
+      // row would not, so it wins outright — and any bare pin we left here on
+      // an earlier night is now redundant and gets removed rather than sitting
+      // alongside it as a second copy of the same house.
+      const analysed = siblings.find((r) => r.full_report_ref);
+      if (analysed) {
         result.skippedAnalysed++;
+        for (const s of siblings) {
+          if (s.source_key && s.source_key !== analysed.source_key && s.source_key.startsWith("oneroof-")) {
+            redundant.push(s.source_key);
+          }
+        }
         continue;
       }
+
+      const prior = siblings.find((r) => r.source_key === key) ?? siblings[0];
 
       // The portal edited a page we already hold. Worth surfacing: if a report
       // exists for it, that analysis may now describe a price or photos that
@@ -100,6 +127,11 @@ export async function persistDiscoveredListings(
 
       if (prior) result.updated++;
       else result.added++;
+    }
+
+    if (redundant.length) {
+      await supabase.from("map_listings").delete().in("source_key", redundant);
+      result.supersededByReport = redundant.length;
     }
 
     // Chunked so one oversized request can't fail the whole night's run.

@@ -51,7 +51,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Supabase is the real home for these; the local copy carries them until it's back.
-    const db = await persistMapListing(built.listing, `report:${c.reportId}`);
+    // The real listing URL, not a report reference: it's how the nightly
+    // discovery job recognises that this property is already on the map and
+    // doesn't add a bare second pin beside it. `full_report_ref` already
+    // carries the report id, so nothing is lost.
+    const db = await persistMapListing(built.listing, c.listing?.url ?? "");
 
     return NextResponse.json({
       ok: true,

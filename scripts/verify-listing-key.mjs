@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const { normaliseListingUrl, normaliseAddress, priceUnchanged, normalisePhotoUrl, photosUnchanged } = await import(
+const { normaliseListingUrl, normaliseAddress, priceUnchanged, normalisePhotoUrl, photosUnchanged, propertyKey } = await import(
   join(root, "lib/reports/listing-key.ts")
 );
 
@@ -75,6 +75,18 @@ check("saved claims photos but lists none", photosUnchanged(THREE, [], 12), fals
 check("listing gained photos since (none saved)", photosUnchanged(THREE, [], 0), false);
 check("data: urls are ignored", photosUnchanged(["data:image/jpeg;base64,AAAA", ...THREE], THREE, 3), true);
 check("junk entries are ignored", photosUnchanged([null, "", ...THREE], THREE, 3), true);
+
+console.log("\npropertyKey — recognising one house across two pin sources");
+check("street + suburb group", propertyKey("12 High Street", "Hokitika"), propertyKey("12 high street", "hokitika"));
+check("a scraped address carrying its suburb still matches",
+  propertyKey("12 High Street, Hokitika", "Hokitika"), propertyKey("12 High Street", "Hokitika"));
+check("same street, different town must NOT match",
+  propertyKey("1 High Street", "Hokitika") === propertyKey("1 High Street", "Greymouth"), false);
+check("different number must NOT match",
+  propertyKey("12 High Street", "Hokitika") === propertyKey("14 High Street", "Hokitika"), false);
+check("no suburb is unusable", propertyKey("12 High Street", null), null);
+check("no address is unusable", propertyKey(null, "Hokitika"), null);
+check("a suburb-only address is unusable", propertyKey("Hokitika", "Hokitika"), null);
 
 console.log(failures ? `\n${failures} check(s) failed.\n` : "\nAll listing-match checks passed.\n");
 process.exit(failures ? 1 : 0);
