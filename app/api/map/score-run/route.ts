@@ -73,7 +73,12 @@ async function handle(req: NextRequest) {
   // Sequential on purpose: tenancy.govt.nz is a public service we don't want to
   // fan 20 concurrent requests at, and going one at a time lets the per-suburb
   // cache actually hit when several listings share a suburb.
-  const targets = await getRealListings();
+  // Only the analysed pins. A discovered listing has no rent, no growth rate
+  // and no score, so there is nothing on it to refresh — and now that the map
+  // holds the national index rather than a handful of reports, walking all of
+  // them would spend the whole run doing lookups against empty rows and blow
+  // the route's budget before reaching the ones that matter.
+  const targets = (await getRealListings()).filter((l) => l.analysed);
   const listings: typeof targets = [];
   for (const l of targets) {
     if (!l.suburb) {

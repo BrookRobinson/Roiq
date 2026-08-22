@@ -85,6 +85,16 @@ export function PropertyMap({
   const onLockedRef = useRef(onLocked);
   onLockedRef.current = onLocked;
 
+  // The last data we fetched. Held because a response can arrive before the
+  // style has finished loading, and setData on a source that isn't there yet
+  // is a silent no-op — the pins simply never appear, and nothing retries
+  // until the user happens to pan. Stashing it means the flush below can
+  // apply it the moment the source exists.
+  const pendingRef = useRef<GeoJSON.FeatureCollection | null>(null);
+  /** Whether the one-shot post-idle refresh has already run. */
+  const hasDataRef = useRef(false);
+
+
   async function refresh() {
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
@@ -113,11 +123,21 @@ export function PropertyMap({
           },
         })),
       };
-      const src = map.getSource("listings") as mapboxgl.GeoJSONSource | undefined;
-      if (src) src.setData(fc);
+      pendingRef.current = fc;
+      flushPending(map);
     } catch {
-      /* transient — next moveend retries */
+      /* transient — the next move, or the next flush, retries */
     }
+  }
+
+  /** Apply the stashed data if the source is ready; keep it if not. */
+  function flushPending(map: mapboxgl.Map) {
+    const fc = pendingRef.current;
+    if (!fc) return;
+    const src = map.getSource("listings") as mapboxgl.GeoJSONSource | undefined;
+    if (!src) return;
+    src.setData(fc);
+    pendingRef.current = null;
   }
 
   // Init the map once.
@@ -243,6 +263,19 @@ export function PropertyMap({
       loadedRef.current = true;
       refresh();
       map.on("moveend", refresh);
+
+      // Belt and braces for the two ways pins can fail to appear on first
+      // paint: data that landed before the source existed, and a container
+      // that was the wrong size when the map initialised (a hidden tab, a
+      // layout that settles late). `idle` fires once the map has finished
+      // rendering, which is after both.
+      map.on("idle", () => {
+        flushPending(map);
+        if (!pendingRef.current && !hasDataRef.current) {
+          hasDataRef.current = true;
+          refresh();
+        }
+      });
     });
 
     return () => {

@@ -82,15 +82,43 @@ function rowToMapListing(r: MapListingRow): MapListing {
  * mixing invented listings in with real ones, on a product whose whole promise
  * is sourced numbers, would be the wrong trade.
  */
+/**
+ * Read every matching row, not just the first page.
+ *
+ * PostgREST caps a response at its own max-rows setting — 1,000 by default —
+ * and does it silently: `.limit(2000)` returns 1,000 rows and no error, so a
+ * full page is indistinguishable from the end of the table. With fewer than a
+ * thousand listings nobody noticed; with the national index it meant the map
+ * quietly showed the first 1,000 of 1,906.
+ */
+const PAGE = 1000;
+const MAX_ROWS = 50_000; // a backstop, not a limit anyone should reach
+
+async function readAllPages<T>(
+  build: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }> }
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let from = 0; from < MAX_ROWS; from += PAGE) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error) throw error;
+    if (!data?.length) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return all;
+}
+
 export async function getActiveListings(bbox: BBox | null): Promise<MapListing[]> {
   try {
     const supabase = createClient();
-    let q = supabase.from("map_listings").select("*").eq("listing_status", "active");
-    if (bbox) {
-      q = q.gte("lat", bbox.minLat).lte("lat", bbox.maxLat).gte("lng", bbox.minLng).lte("lng", bbox.maxLng);
-    }
-    const { data, error } = await q.limit(2000);
-    if (!error && data && data.length > 0) return data.map(rowToMapListing);
+    const rows = await readAllPages(() => {
+      let q = supabase.from("map_listings").select("*").eq("listing_status", "active");
+      if (bbox) {
+        q = q.gte("lat", bbox.minLat).lte("lat", bbox.maxLat).gte("lng", bbox.minLng).lte("lng", bbox.maxLng);
+      }
+      return q;
+    });
+    if (rows.length > 0) return rows.map(rowToMapListing);
   } catch {
     /* DB unavailable — fall through to the local pins */
   }
@@ -112,12 +140,10 @@ export async function getActiveListings(bbox: BBox | null): Promise<MapListing[]
 export async function getRealListings(): Promise<MapListing[]> {
   try {
     const supabase = createClient();
-    const { data, error } = await supabase
-      .from("map_listings")
-      .select("*")
-      .eq("listing_status", "active")
-      .limit(2000);
-    if (!error && data && data.length > 0) return data.map(rowToMapListing);
+    const rows = await readAllPages(() =>
+      supabase.from("map_listings").select("*").eq("listing_status", "active")
+    );
+    if (rows.length > 0) return rows.map(rowToMapListing);
   } catch {
     /* DB unavailable — fall through to the local pins */
   }
