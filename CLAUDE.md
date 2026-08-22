@@ -17,6 +17,7 @@ npm run lint
 npm run db:setup-sql         # regenerate supabase/setup.sql from the migrations
 npm run verify:billing       # the plan/expiry maths
 npm run verify:listing-key   # the "same house?" rules behind report reuse
+npm run verify:allowance     # who gets how many reports, and what the wall says
 ```
 
 **There are almost no tests.** Verification is `tsc`, the health endpoints, and
@@ -135,6 +136,25 @@ on their dashboard and counts against their quota exactly like a fresh one. The
 only party who saves anything is us. `verifiedDocs` is stripped on the way
 through — a LIM someone uploaded and paid to have read is their work, not a fact
 about the house.
+
+**A report costs about NZ$1.45 to produce, so allowances are enforced, not
+advertised.** `PLAN_ALLOWANCE` in `lib/billing/plans.ts`: free 1 (lifetime,
+never resets), starter 10/month, pro 20/month. Counted from the `reports` table
+by `lib/reports/quota.ts` — user id **and** the pre-signin owner cookie, or the
+report someone runs before creating their account goes uncounted. The gate sits
+before the scrape *and* before the reuse lookup: a cached report still costs the
+reader one of theirs, because the saving from reuse was always ours, not a way
+to run more reports than the plan includes.
+
+**The free report runs in full and withholds only the conclusion.** Every photo
+is analysed and every finding shown — that is what sells the product — while the
+score out of 1,000, anything valuing the property, and the Financial /
+Renovations / agent tabs are locked. Blurred rather than removed, and the base
+score is blurred alongside the total or the total is recoverable by addition.
+It is a paywall, not a vault: the report is the reader's own and is scored in
+their browser, so the numbers are in the DOM. Never lock a shared link, the
+embedded landing demo, or a sample id — those are the shop window. The lock
+reads the **current** plan, so upgrading opens a report already run.
 
 **Valuations are estimates until a licensed sold-sales feed lands.** Land value
 and suburb $/m² are inferred, and everything downstream inherits that. Don't
