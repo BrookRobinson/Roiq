@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { type ScrapedListing } from "@/lib/scraper";
 import { resolveListing, resolveListingByAddress, ListingNotFoundError } from "@/lib/listing-resolver";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
-import { findReusableReport, REUSE_MAX_AGE_DAYS } from "@/lib/reports/reuse";
+import { findReusableReport, isOwnReport, REUSE_MAX_AGE_DAYS } from "@/lib/reports/reuse";
 import { getQuota } from "@/lib/reports/quota";
 import { effectivePlan, quotaExhaustedMessage } from "@/lib/billing/plans";
 import { getUser } from "@/lib/supabase/auth";
@@ -54,31 +54,11 @@ export async function POST(req: NextRequest) {
   // `only` scopes a run to a subset of inspections (improvements|location|land|legal).
   const inspections = Array.isArray(body.only) && body.only.length > 0 ? body.only : undefined;
 
-  // ── Allowance ──────────────────────────────────────────────────────────────
-  // Checked here, before any scraping or analysis, and before the reuse lookup:
-  // a report served from cache still costs the reader one of theirs. That is
-  // the point of the cache — the saving is ours, not a way to run more reports
-  // than the plan includes.
-  //
-  // The prefetch branch above is deliberately upstream of this: it only resolves
-  // an address so the upload form can show suburb data, and refusing it would
-  // break the form for someone who still has allowance left.
+  // Who's asking. Needed twice below — to tell their own saved report from
+  // someone else's, and to size their allowance.
   const { authUser, profile } = await getUser().catch(() => ({ authUser: null, profile: null }));
   const plan = effectivePlan(profile?.plan, profile?.plan_expires_at);
-  const quota = await getQuota(authUser?.id ?? null, readOwnerKey(), plan);
-
-  if (quota.remaining <= 0) {
-    // 402, matching the map's upsell: this isn't a malformed request or a
-    // forbidden one, it's one that needs paying for.
-    return NextResponse.json(
-      {
-        error: "quota_exhausted",
-        message: quotaExhaustedMessage(quota),
-        quota,
-      },
-      { status: 402 }
-    );
-  }
+  const ownerKey = readOwnerKey();
 
   // Background prefetch (manual-upload flow): resolve the address + suburb $/m² +
   // market data while the user is still picking photos, so it's ready at Analyse.
@@ -151,35 +131,66 @@ export async function POST(req: NextRequest) {
     // saved analysis and skip minutes of work and the whole Claude bill.
     //
     // Deliberately AFTER the scrape: the scrape is a couple of seconds and cents,
-    // and it's the only way to know today's asking price. Checking before it
-    // would mean serving a stale verdict through a price drop, which is exactly
-    // when the old numbers are most wrong.
+    // and it's the only way to know today's asking price OR whether the photos
+    // have changed. Checking before it would mean serving a stale verdict
+    // through a price drop, which is when the old numbers are most wrong.
     //
     // Uploads are excluded — those photos are the user's own and were never a
     // public listing, so there is nothing shared to reuse.
-    if (photos.length === 0) {
-      const reused = await findReusableReport({
-        url: listing.url ?? body.url ?? null,
-        address: listing.address ?? body.address ?? null,
-        askingPrice: listing.askingPrice ?? null,
-        photoUrls: listing.photoUrls ?? [],
-      });
+    const reused =
+      photos.length === 0
+        ? await findReusableReport({
+            url: listing.url ?? body.url ?? null,
+            address: listing.address ?? body.address ?? null,
+            askingPrice: listing.askingPrice ?? null,
+            photoUrls: listing.photoUrls ?? [],
+            caller: { userId: authUser?.id ?? null, ownerKey },
+          })
+        : null;
 
-      if (reused) {
-        const { id: _priorId, createdAt: _priorCreatedAt, listing: _priorListing, ...analysis } = reused.report;
-        // The caller saves this under a fresh id in their own name, so it lands on
-        // their dashboard and counts against their quota like any other report.
-        // `listing` is the one we just scraped, so today's price and photos win.
-        return NextResponse.json({
-          ok: true,
-          listing,
-          ...analysis,
-          reused: true,
-          analysedAt: reused.analysedAt,
-          reuseMaxAgeDays: REUSE_MAX_AGE_DAYS,
-          quota: { ...quota, used: quota.used + 1, remaining: quota.remaining - 1 },
-        });
-      }
+    // Their OWN unchanged report. They already paid for this one — send them
+    // back to it rather than charging a second time for the same thing and
+    // leaving two identical rows on their dashboard. This is also why there's
+    // no "re-analyse anyway" button: nothing has changed, so there'd be
+    // nothing new to find.
+    if (reused && isOwnReport(reused, authUser?.id ?? null, ownerKey)) {
+      return NextResponse.json({
+        ok: true,
+        existingReportId: reused.id,
+        analysedAt: reused.analysedAt,
+        listing,
+      });
+    }
+
+    // ── Allowance ────────────────────────────────────────────────────────────
+    // Below the scrape so the caller's own report can be recognised first, and
+    // above everything expensive. A cached report from SOMEONE ELSE still costs
+    // the reader one of theirs — the saving from reuse is ours, not a way to
+    // run more reports than the plan includes.
+    const quota = await getQuota(authUser?.id ?? null, ownerKey, plan);
+    if (quota.remaining <= 0) {
+      // 402, matching the map's upsell: not malformed, not forbidden — it needs
+      // paying for.
+      return NextResponse.json(
+        { error: "quota_exhausted", message: quotaExhaustedMessage(quota), quota },
+        { status: 402 }
+      );
+    }
+
+    if (reused) {
+      const { id: _priorId, createdAt: _priorCreatedAt, listing: _priorListing, ...analysis } = reused.report;
+      // The caller saves this under a fresh id in their own name, so it lands on
+      // their dashboard and counts against their quota like any other report.
+      // `listing` is the one we just scraped, so today's price and photos win.
+      return NextResponse.json({
+        ok: true,
+        listing,
+        ...analysis,
+        reused: true,
+        analysedAt: reused.analysedAt,
+        reuseMaxAgeDays: REUSE_MAX_AGE_DAYS,
+        quota: { ...quota, used: quota.used + 1, remaining: quota.remaining - 1 },
+      });
     }
 
     const prefetched = body.prefetched

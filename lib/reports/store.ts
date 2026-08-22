@@ -14,6 +14,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StoredReport } from "@/lib/report-store";
+import { normaliseAddress, normaliseListingUrl } from "@/lib/reports/listing-key";
 
 /** One row as the dashboard list needs it — no report blob. */
 export interface ReportSummary {
@@ -94,6 +95,14 @@ export async function saveReport(
     // updates it rather than colliding on the primary key.
     const { error } = await supabase.from("reports").upsert(row as never, { onConflict: "id" });
     if (error) return { saved: false, reason: "db_error", detail: error.message };
+
+    // A re-run of a property you already had replaces the old one. It only
+    // happens when the listing actually moved — an unchanged one is handed back
+    // rather than re-analysed — so the older report describes a price or a set
+    // of photos that no longer exist, and two rows for one house on the
+    // dashboard is just confusing. Best-effort: a report that saved is saved.
+    await supersedeOlderReports(row.id, ownerKey, userId, l.url ?? null, l.address ?? null);
+
     return { saved: true };
   } catch (err) {
     return { saved: false, reason: "db_error", detail: (err as Error).message };
@@ -228,5 +237,55 @@ export async function loadReportForPro(id: string): Promise<StoredReport | null>
     return data.report as unknown as StoredReport;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Remove the caller's earlier reports of the same property.
+ *
+ * Scoped hard to the caller. Someone ELSE analysing the same house must never
+ * delete your report — they paid for theirs and you paid for yours, and the
+ * fact that the price has since moved is not a reason to take yours away.
+ * That's the whole reason this matches on owner and not just on the listing.
+ */
+async function supersedeOlderReports(
+  keepId: string,
+  ownerKey: string,
+  userId: string | null,
+  url: string | null,
+  address: string | null
+): Promise<void> {
+  const supabase = createAdminClient();
+  if (!supabase) return;
+
+  const urlKey = normaliseListingUrl(url);
+  const addressKey = normaliseAddress(address);
+  if (!urlKey && !addressKey) return;
+
+  try {
+    // Stored URLs aren't normalised, so match in code — the same listing arrives
+    // with and without tracking tails (see lib/reports/listing-key.ts).
+    const owner = ownerFilter(ownerKey, userId);
+    if (!owner) return; // no way to tell whose report this is — delete nothing
+
+    const { data } = await supabase
+      .from("reports")
+      .select("id, listing_url, address")
+      .or(owner)
+      .neq("id", keepId)
+      .limit(200);
+
+    const stale = (data ?? [])
+      .filter(
+        (r) =>
+          (urlKey && normaliseListingUrl(r.listing_url) === urlKey) ||
+          (addressKey && normaliseAddress(r.address) === addressKey)
+      )
+      .map((r) => r.id);
+
+    if (stale.length) await supabase.from("reports").delete().in("id", stale);
+  } catch (err) {
+    // The new report is saved either way; a leftover duplicate is untidy, not broken.
+    console.warn("[reports] superseding older copies failed:", (err as Error)?.message);
   }
 }

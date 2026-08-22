@@ -113,6 +113,14 @@ function NewReportInner() {
         return;
       }
 
+      // Already in their account, unchanged since. Open it rather than making a
+      // second identical row — and no allowance was spent finding that out.
+      if (data.existingReportId) {
+        setStep("done");
+        router.push(`/report/${data.existingReportId}`);
+        return;
+      }
+
       const id = crypto.randomUUID();
       const report = {
         id,

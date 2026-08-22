@@ -27,6 +27,11 @@ export interface ReusedReport {
   report: StoredReport;
   /** When the original analysis was run — the UI says so rather than implying it's live. */
   analysedAt: string;
+  /** The stored report's own id, so a caller can be sent to one they already own. */
+  id: string;
+  /** Whose it is. Used to tell "your own report" from "someone else's". */
+  userId: string | null;
+  ownerKey: string | null;
 }
 
 /**
@@ -46,6 +51,12 @@ export async function findReusableReport(opts: {
   askingPrice?: number | null;
   /** Today's photos, freshly scraped — the report cites them by number. */
   photoUrls?: readonly string[] | null;
+  /**
+   * Who's asking. When several saved reports match, the caller's own wins —
+   * they already paid for it, and handing them a stranger's copy would charge
+   * them again for something sitting on their own dashboard.
+   */
+  caller?: { userId: string | null; ownerKey: string | null };
 }): Promise<ReusedReport | null> {
   const supabase = createAdminClient();
   if (!supabase) return null;
@@ -62,7 +73,7 @@ export async function findReusableReport(opts: {
     // with a `?utm_source` tail — which is most of them.
     const { data, error } = await supabase
       .from("reports")
-      .select("id, report, listing_url, address, asking_price, created_at")
+      .select("id, report, listing_url, address, asking_price, created_at, user_id, owner_key")
       .eq("report_status", "complete")
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false })
@@ -70,7 +81,7 @@ export async function findReusableReport(opts: {
 
     if (error || !data?.length) return null;
 
-    const match = data.find((row) => {
+    const usable = data.filter((row) => {
       // A URL match is the strong one. An address match catches the same house
       // pasted from a different portal, which is common and worth having.
       const sameListing =
@@ -91,11 +102,21 @@ export async function findReusableReport(opts: {
       );
     });
 
+    // Own first, then newest — the query already ordered by date, so a stable
+    // partition is all that's needed.
+    const { userId: callerId = null, ownerKey: callerKey = null } = opts.caller ?? {};
+    const ownedByCaller = (row: { user_id?: string | null; owner_key?: string | null }) =>
+      (!!callerId && row.user_id === callerId) || (!!callerKey && row.owner_key === callerKey);
+
+    const match = usable.find(ownedByCaller) ?? usable[0];
     if (!match?.report) return null;
 
     return {
       report: stripPersonalWork(match.report as unknown as StoredReport),
       analysedAt: match.created_at,
+      id: match.id,
+      userId: match.user_id ?? null,
+      ownerKey: match.owner_key ?? null,
     };
   } catch {
     // A failed lookup must never block a report — fall through to a real analysis.
@@ -114,4 +135,22 @@ export async function findReusableReport(opts: {
 function stripPersonalWork(report: StoredReport): StoredReport {
   const { verifiedDocs: _discarded, ...rest } = report;
   return rest as StoredReport;
+}
+
+/**
+ * Is this saved report the caller's own?
+ *
+ * Matters because the two cases want opposite things. Someone else's report is
+ * a saving for us and still costs the reader one of their allowance. Their OWN
+ * unchanged report is just the thing they already paid for — charging a second
+ * time for it would be a bug, so the caller is sent back to it instead.
+ */
+export function isOwnReport(
+  reused: ReusedReport,
+  userId: string | null,
+  ownerKey: string | null
+): boolean {
+  if (userId && reused.userId === userId) return true;
+  if (ownerKey && reused.ownerKey === ownerKey) return true;
+  return false;
 }
