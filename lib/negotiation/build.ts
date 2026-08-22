@@ -83,6 +83,30 @@ export interface PriceCheck {
   isEstimate: boolean;
 }
 
+/**
+ * The reduction being asked for — on every property, without exception.
+ *
+ * Every critical and urgent finding, plus the flagged compliance remedies, is
+ * something the buyer would have to pay to put right, so every one of them
+ * justifies money off. The headline is the UPPER end of the estimates: it's a
+ * documented figure rather than an invented one, the schedule discloses the full
+ * range beneath it, and it leaves somewhere to settle.
+ *
+ * The price position deliberately does NOT shrink this. Where a property is
+ * already good value that is the BUYER'S information, shown to them in the app
+ * and kept out of the letter — telling a vendor's agent "we think you're
+ * under-priced" gives away the buyer's position for nothing.
+ */
+export interface ReductionAsk {
+  /** Headline figure — the upper end of the documented estimates. */
+  amount: number;
+  low: number;
+  high: number;
+  itemCount: number;
+  /** Share of the advertised price, so the ask can be seen for how modest it is. */
+  pctOfAsking: number | null;
+}
+
 export interface NegotiationCase {
   address: string;
   suburb: string | null;
@@ -101,6 +125,8 @@ export interface NegotiationCase {
 
   /** Null when the report lacks the land area or comparables to value it. */
   price: PriceCheck | null;
+  /** Null only when there is nothing to ask for. */
+  ask: ReductionAsk | null;
 
   critical: NegotiationItem[];
   urgent: NegotiationItem[];
@@ -237,6 +263,21 @@ export function buildNegotiationCase(report: StoredReport): NegotiationCase {
   const repairsLow = all.reduce((n, i) => n + i.costLow, 0) + remedies.reduce((n, r) => n + r.costLow, 0);
   const repairsHigh = all.reduce((n, i) => n + i.costHigh, 0) + remedies.reduce((n, r) => n + r.costHigh, 0);
 
+  // Every critical and urgent item, plus the compliance remedies — all of it is
+  // work the buyer would be paying for.
+  const askLow = repairsLow;
+  const askHigh = repairsHigh;
+  const ask: ReductionAsk | null =
+    askHigh > 0
+      ? {
+          amount: askHigh,
+          low: askLow,
+          high: askHigh,
+          itemCount: critical.length + urgent.length + remedies.length,
+          pctOfAsking: asking > 0 ? Math.round((askHigh / asking) * 1000) / 10 : null,
+        }
+      : null;
+
   return {
     address: listing.address ?? "",
     suburb: listing.suburb,
@@ -254,6 +295,7 @@ export function buildNegotiationCase(report: StoredReport): NegotiationCase {
     photosAnalysed: report.photosAnalysed ?? 0,
 
     price,
+    ask,
     critical,
     urgent,
     remedies,

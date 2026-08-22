@@ -98,38 +98,43 @@ export function NegotiationTab({ report }: { report: StoredReport }) {
           value is condition-adjusted, so on a property already priced below it,
           the repair total is money the vendor has arguably discounted once
           already — and an agent who spots that dismisses the whole letter. */}
-      {price && price.position !== "above" && items > 0 && (
-        <div className="card p-5" style={{ borderLeft: "3px solid var(--warn)" }}>
-          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            {price.position === "below"
-              ? "This property is already priced below its assessed value"
-              : "The price is broadly in line with the assessed value"}
-          </h3>
-          <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Asking {money(price.askingPrice)} against an assessed{" "}
-            {money(price.bdrValue)} in its current condition. That assessment already accounts for the
-            state of these items, so the two figures aren&rsquo;t additive —{" "}
-            {price.position === "below"
-              ? "asking for the repair total on top would be asking twice for the same money."
-              : "the work is already reflected in the price to a degree."}
-          </p>
-          <p className="mt-2.5 text-[13px]" style={{ color: "var(--text-muted)" }}>
-            The document says so plainly rather than pressing for a reduction. That&rsquo;s
-            deliberate: a letter an agent can pick apart on the first line doesn&rsquo;t get read to
-            the end.
-          </p>
-        </div>
-      )}
+      {/* BUYER'S EYES ONLY. The valuation is the buyer's read on the property —
+          it is not in the letter and must not be, because telling a vendor's
+          agent the place looks under-priced invites the price up, not down. */}
+      {price && items > 0 && (
+        <div
+          className="card p-5"
+          style={{ borderLeft: `3px solid ${price.position === "above" ? "var(--good)" : price.position === "below" ? "var(--brand)" : "var(--warn)"}` }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              {price.position === "above"
+                ? "Priced above what it's worth in this condition"
+                : price.position === "below"
+                  ? "This is already good value before any reduction"
+                  : "Priced in line with its condition"}
+            </h3>
+            <span
+              className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px]"
+              style={{ background: "var(--surface-2)", color: "var(--text-muted)", border: "1px solid var(--rule)" }}
+            >
+              Not in the letter
+            </span>
+          </div>
 
-      {price?.position === "above" && items > 0 && (
-        <div className="card p-5" style={{ borderLeft: "3px solid var(--good)" }}>
-          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            There&rsquo;s a case here
-          </h3>
           <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
             Asking {money(price.askingPrice)} against an assessed {money(price.bdrValue)} in its
-            current condition. The document leads with that gap and uses these findings as the
-            evidence for it.
+            current condition.{" "}
+            {price.position === "above"
+              ? "The findings back the ask and the price has room in it — the strongest position to negotiate from."
+              : price.position === "below"
+                ? "You're buying under value before a dollar comes off, so the vendor may hold firmer. Worth asking anyway — the findings are real either way."
+                : "Expect some resistance; the price broadly reflects the condition already."}
+          </p>
+
+          <p className="mt-2.5 text-[13px]" style={{ color: "var(--text-muted)" }}>
+            Your valuation stays yours. The agent sees the findings and the reduction sought —
+            never what you think the property is worth.
           </p>
         </div>
       )}
