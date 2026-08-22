@@ -196,8 +196,10 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
           </div>
         )}
 
-        {/* Outside hold period label */}
-        {!isWithinHold && item.score !== null && item.score <= 7 && (
+        {/* Outside hold period label — the fallback position. When the card has
+            an "Add to renovation plan" control the tag lives beside that instead,
+            which is where someone is actually deciding whether to include it. */}
+        {!isWithinHold && !canReno && item.score !== null && item.score <= 7 && (
           <div
             className="mt-2 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
             style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
@@ -240,6 +242,19 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               {inPlan ? "In your renovation plan" : "Add to renovation plan"}
             </span>
           </label>
+
+          {/* Work that falls due after the hold period is still worth adding —
+              it just isn't your bill if you sell first. A tag says that; fading
+              the card only made it look less important than it is. */}
+          {!isWithinHold && (
+            <span
+              className="text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0"
+              style={{ background: "var(--surface-2)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
+              title={`This work is due beyond the ${holdYears}-year hold period you've set`}
+            >
+              Outside your {holdYears}-yr hold
+            </span>
+          )}
           {inPlan && onOpenRenovations && (
             <button onClick={onOpenRenovations} className="inline-flex items-center gap-0.5 text-xs font-medium cursor-pointer hover:underline" style={{ color: "var(--brand)" }}>
               View <ArrowRight size={11} />
@@ -278,7 +293,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
             ) : (
               <div
                 className="rounded-lg p-3"
-                style={{ background: "var(--surface)", border: "1px solid var(--border)", opacity: isWithinHold ? 1 : 0.75 }}
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
               >
                 <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
                   Estimated replacement cost

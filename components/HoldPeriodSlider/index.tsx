@@ -52,7 +52,7 @@ export function HoldPeriodSlider() {
           Costs shown within your hold period
         </span>
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Items after {holdYears} yrs will be greyed out
+          Work due after {holdYears} yrs is tagged, not hidden
         </span>
       </div>
     </div>
