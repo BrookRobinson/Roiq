@@ -130,6 +130,13 @@ set makes every one of those sentences point somewhere else. `photosUnchanged()`
 compares the ordered list with query strings stripped (CDN resize params churn
 without the photograph changing). Any difference re-analyses.
 
+**Your own unchanged report opens; it never costs a second allowance.** The
+reuse lookup prefers the caller's own match over a stranger's, and hands back
+the report id rather than a copy. When the listing HAS moved, the fresh report
+supersedes the caller's older one — scoped to the owner, because someone else
+analysing the same house must never delete a report you paid for. This is why
+there is no "re-analyse anyway" button: unchanged means nothing new to find.
+
 **A reused report is still the reader's own report.** The route returns the
 analysis and the caller saves it under a fresh id in their own name, so it lands
 on their dashboard and counts against their quota exactly like a fresh one. The
