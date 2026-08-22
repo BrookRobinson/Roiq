@@ -216,7 +216,9 @@ while pointing our traffic at OneRoof under our name. Set it in the **Vercel
 project's** env — Vercel Cron sends it as a bearer token automatically. Local
 dev stays open so the job can be triggered by hand. The schedule is `0 14 * * *`
 — **14:00 UTC is 2am in New Zealand**, which is the only timezone that matters
-here; 02:00 UTC would run it at 2pm in Auckland.
+here; 02:00 UTC would run it at 2pm in Auckland. Don't add comments to
+`vercel.json` — Vercel validates it against a strict schema and rejects unknown
+keys, so a `$comment` fails the deploy rather than being ignored.
 
 **Valuations are estimates until a licensed sold-sales feed lands.** Land value
 and suburb $/m² are inferred, and everything downstream inherits that. Don't

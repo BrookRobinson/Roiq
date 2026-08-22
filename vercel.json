@@ -1,5 +1,4 @@
 {
-  "$comment": "Vercel Cron runs in UTC. 14:00 UTC is 2am NZST / 3am NZDT — overnight in the only country this product serves, which is when the portal is quietest and nobody is looking at the map. 02:00 UTC would have been 2pm in Auckland.",
   "crons": [
     { "path": "/api/map/score-run", "schedule": "0 14 * * *" }
   ]
