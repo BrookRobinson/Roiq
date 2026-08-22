@@ -167,11 +167,19 @@ export async function persistDiscoveredListings(
  * pinned to the wrong street.
  */
 export async function geocodeMissingPins(
-  limit = 300,
-  delayMs = 120
-): Promise<{ geocoded: number; failed: number; remaining: number }> {
-  const supabase = createAdminClient();
-  if (!supabase) return { geocoded: 0, failed: 0, remaining: 0 };
+  opts: { limit?: number; concurrency?: number; timeBudgetMs?: number } = {}
+): Promise<{ geocoded: number; failed: number; remaining: number; stopped: "done" | "limit" | "time" }> {
+  // LINZ answers in roughly three seconds, sometimes ten. The nightly route has
+  // a 300s ceiling and shares it with discovery and the market refresh, so this
+  // works to a wall clock rather than a count: it stops when the budget is
+  // spent and picks the rest up tomorrow. A backlog draining over several
+  // nights is fine; a route that times out mid-write is not.
+  const { limit = 400, concurrency = 4, timeBudgetMs = 150_000 } = opts;
+  const startedAt = Date.now();
+
+  const db = createAdminClient();
+  if (!db) return { geocoded: 0, failed: 0, remaining: 0, stopped: "done" };
+  const supabase = db; // narrowed, so the closures below don't re-check
 
   const { data, error } = await supabase
     .from("map_listings")
@@ -180,31 +188,43 @@ export async function geocodeMissingPins(
     .like("source_key", "oneroof-%")
     .limit(limit + 1);
 
-  if (error || !data?.length) return { geocoded: 0, failed: 0, remaining: 0 };
+  if (error || !data?.length) return { geocoded: 0, failed: 0, remaining: 0, stopped: "done" };
 
-  const batch = data.slice(0, limit);
+  const queue = data.slice(0, limit).filter((r) => r.source_key);
   let geocoded = 0;
   let failed = 0;
+  let stopped: "done" | "limit" | "time" = data.length > limit ? "limit" : "done";
+  let next = 0;
 
-  for (const row of batch) {
-    if (!row.source_key) continue; // nothing to write back to
-    const query = [row.address, row.suburb, row.region, "New Zealand"].filter(Boolean).join(", ");
-    const point = await geocodeAddress(query);
+  // A few at a time. LINZ is a public service and this is never urgent, so the
+  // concurrency stays low — enough to hide the latency, not enough to lean on it.
+  async function worker(): Promise<void> {
+    while (true) {
+      if (Date.now() - startedAt > timeBudgetMs) {
+        stopped = "time";
+        return;
+      }
+      const row = queue[next++];
+      if (!row) return;
 
-    if (point) {
-      await supabase
-        .from("map_listings")
-        .update({ lat: point.lat, lng: point.lng } as never)
-        .eq("source_key", row.source_key);
-      geocoded++;
-    } else {
-      failed++;
+      // Region and country are dropped by the geocoder itself, but suburb helps
+      // it disambiguate a street name that repeats across the country.
+      const query = [row.address, row.suburb].filter(Boolean).join(", ");
+      const point = await geocodeAddress(query);
+
+      if (point) {
+        await supabase
+          .from("map_listings")
+          .update({ lat: point.lat, lng: point.lng } as never)
+          .eq("source_key", row.source_key as string);
+        geocoded++;
+      } else {
+        failed++;
+      }
     }
-
-    // One at a time with a pause — nothing here is urgent, and Mapbox's
-    // per-minute limit is a cliff rather than a slope.
-    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
   }
 
-  return { geocoded, failed, remaining: Math.max(0, data.length - batch.length) };
+  await Promise.all(Array.from({ length: Math.max(1, concurrency) }, worker));
+
+  return { geocoded, failed, remaining: Math.max(0, queue.length - (geocoded + failed)), stopped };
 }

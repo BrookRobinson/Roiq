@@ -38,10 +38,30 @@ export function MapLegend({ mode, seeded }: { mode: MapMode; seeded?: boolean })
           pins are a demo set. Say so — a sample property that reads as a real find
           is worse than an empty map. */}
       {seeded && (
-        <span className="text-xs ml-auto whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+        <span className="text-xs whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
           Sample properties — run a report to add a real one
         </span>
       )}
+
+      {/* LINZ's address data is free and openly licensed; attribution is the
+          condition attached to it, so it isn't optional. Mapbox carries its own
+          credit on the canvas. Pushed right, and dropped on narrow screens
+          where the legend itself needs the room. */}
+      <span
+        className="text-[10px] ml-auto pl-4 whitespace-nowrap hidden sm:inline"
+        style={{ color: "var(--text-muted)" }}
+      >
+        Addresses{" "}
+        <a
+          href="https://data.linz.govt.nz/layer/123113-nz-addresses/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          © LINZ
+        </a>{" "}
+        CC BY 4.0
+      </span>
     </div>
   );
 }
