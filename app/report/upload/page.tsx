@@ -4,7 +4,9 @@ import Navbar from "@/components/Navbar";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Loader2, CheckCircle2, ImagePlus, X, AlertTriangle, Plus } from "lucide-react";
-import { saveReport } from "@/lib/report-store";
+import { saveReport, saveReportPersona } from "@/lib/report-store";
+import type { Persona } from "@/lib/scoring/model";
+import { PersonaChoice, PersonaRequiredDialog } from "@/components/report/PersonaChoice";
 import { contributeToMap } from "@/lib/map/contribution";
 import { persistReport } from "@/lib/reports/client";
 import { MANDATORY_CATEGORIES, OPTIONAL_CATEGORIES, type PhotoCategory } from "@/lib/photo-categories";
@@ -77,6 +79,9 @@ export default function UploadReportPage() {
   const [scrapedPrice, setScrapedPrice] = useState<number | null>(null);
   const [photos, setPhotos] = useState<Record<string, Shot[]>>({});
   const [triedSubmit, setTriedSubmit] = useState(false);
+  // Same rule as /report/new: an explicit choice, never a default.
+  const [persona, setPersona] = useState<Persona | null>(null);
+  const [askPersona, setAskPersona] = useState(false);
   const [step, setStep] = useState<Step>("input");
   const [error, setError] = useState<string | null>(null);
   // Background data resolved from the address while the user picks photos.
@@ -161,11 +166,15 @@ export default function UploadReportPage() {
     }
   }, [address]);
 
-  async function analyse() {
+  async function analyse(withPersona: Persona | null = persona) {
     setTriedSubmit(true);
     setError(null);
     if (!addressOk || !priceOk) return; // inline address/price errors render below
     if (!mandatoryDone) return; // missing-photos block renders below
+    if (!withPersona) {
+      setAskPersona(true);
+      return;
+    }
 
     setStep("analysing");
     try {
@@ -206,6 +215,9 @@ export default function UploadReportPage() {
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
       };
+      // Open the report in the lens they chose, not the "buyer" default.
+      saveReportPersona(id, withPersona);
+
       const saved = saveReport(report);
       if (!saved) {
         // Don't navigate to /report/[id] — with nothing stored it would show the demo.
@@ -338,10 +350,14 @@ export default function UploadReportPage() {
             <span style={{ color: mandatoryDone ? "var(--success)" : "var(--text-secondary)" }}>{mandatoryDone ? "✅" : "📷"} {MANDATORY_CATEGORIES.length - missingMandatory.length} of {MANDATORY_CATEGORIES.length} required areas covered</span>
             <span style={{ color: "var(--text-muted)" }}>💡 {OPTIONAL_CATEGORIES.filter((c) => !photos[c.id]?.length).length} optional areas not photographed</span>
           </div>
+          <div className="mb-4">
+            <PersonaChoice value={persona} onChange={setPersona} />
+          </div>
+
           {/* Greyed until address + all required photos are in, but still clickable so
               a tap surfaces exactly what's missing (the address error / photo list). */}
           <button
-            onClick={analyse}
+            onClick={() => analyse()}
             aria-disabled={!canSubmit}
             className="btn-primary w-full justify-center py-3 text-base"
             style={{ opacity: canSubmit ? 1 : 0.5 }}
@@ -350,6 +366,17 @@ export default function UploadReportPage() {
           </button>
         </div>
       </div>
+
+      {askPersona && (
+        <PersonaRequiredDialog
+          onClose={() => setAskPersona(false)}
+          onChoose={(chosen) => {
+            setPersona(chosen);
+            setAskPersona(false);
+            analyse(chosen);
+          }}
+        />
+      )}
     </div>
   );
 }

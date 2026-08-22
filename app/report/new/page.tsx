@@ -5,7 +5,9 @@ import Navbar from "@/components/Navbar";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Upload, Link2, Loader2, CheckCircle2 } from "lucide-react";
-import { saveReport } from "@/lib/report-store";
+import { saveReport, saveReportPersona } from "@/lib/report-store";
+import type { Persona } from "@/lib/scoring/model";
+import { PersonaChoice, PersonaRequiredDialog } from "@/components/report/PersonaChoice";
 import { contributeToMap } from "@/lib/map/contribution";
 import { persistReport } from "@/lib/reports/client";
 import { useRequireAuth } from "@/lib/auth/useRequireAuth";
@@ -50,11 +52,15 @@ function NewReportInner() {
   const [needAddress, setNeedAddress] = useState(false);
   const [addressReason, setAddressReason] = useState<"trademe" | "failed">("failed");
   const [target, setTarget] = useState("");
+  // Null until they actually pick — deliberately not defaulted and deliberately
+  // not remembered from last time, or the choice stops being a choice.
+  const [persona, setPersona] = useState<Persona | null>(null);
+  const [askPersona, setAskPersona] = useState(false);
   const [step, setStep] = useState<Step>("input");
   const [pipelineStep, setPipelineStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  async function runAnalysis(payload: { url?: string; address?: string }) {
+  async function runAnalysis(payload: { url?: string; address?: string }, forPersona: Persona) {
     const label = (payload.url ?? payload.address ?? "").trim();
     if (!label) return;
     setError(null);
@@ -114,6 +120,10 @@ function NewReportInner() {
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
       };
+      // The report view reads this on mount, so the report opens in the lens they
+      // asked for instead of the "buyer" default.
+      saveReportPersona(id, forPersona);
+
       const saved = saveReport(report);
       if (!saved) {
         setError("Your report was generated but couldn't be saved in this browser. Please try again.");
@@ -140,21 +150,29 @@ function NewReportInner() {
     }
   }
 
-  const startAnalysis = () => {
+  const startAnalysis = (withPersona: Persona | null = persona) => {
     const u = url.trim();
     if (!u) return;
     // Trade Me data can't be scraped → the address prompt is already on screen
     // (shown automatically the moment a Trade Me link is detected). Don't hit the
     // API with the URL; the user finds the property by address instead.
     if (isTradeMeUrl(u)) return;
-    runAnalysis({ url: u });
+    if (!withPersona) {
+      setAskPersona(true);
+      return;
+    }
+    runAnalysis({ url: u }, withPersona);
   };
   // The fallback box accepts EITHER a link or an address. A link (no spaces, has a
   // domain) → scrape it directly (reliable — this is how a OneRoof/realestate link
   // gets every photo). Anything with spaces → treat as an address and search.
-  const findByInput = () => {
+  const findByInput = (withPersona: Persona | null = persona) => {
     const v = addressInput.trim();
     if (!v) return;
+    if (!withPersona) {
+      setAskPersona(true);
+      return;
+    }
     const looksLikeUrl = /^https?:\/\//i.test(v) || (!/\s/.test(v) && /[a-z0-9.-]+\.[a-z]{2,}/i.test(v));
     if (looksLikeUrl) {
       const u = /^https?:\/\//i.test(v) ? v : `https://${v}`;
@@ -162,9 +180,9 @@ function NewReportInner() {
         setError("That's another Trade Me link, which we can't scrape. Paste the OneRoof or realestate.co.nz link for this property, or type the address.");
         return;
       }
-      runAnalysis({ url: u });
+      runAnalysis({ url: u }, withPersona);
     } else {
-      runAnalysis({ address: v });
+      runAnalysis({ address: v }, withPersona);
     }
   };
 
@@ -223,7 +241,7 @@ function NewReportInner() {
                     onKeyDown={(e) => e.key === "Enter" && findByInput()}
                   />
                   <button
-                    onClick={findByInput}
+                    onClick={() => findByInput()}
                     disabled={!addressInput.trim()}
                     className="btn-primary px-5 flex-shrink-0"
                     style={{ opacity: addressInput.trim() ? 1 : 0.5 }}
@@ -244,17 +262,22 @@ function NewReportInner() {
                 Listing URL
               </label>
               <input
-                className="input text-base mb-4"
+                className="input text-base mb-5"
                 placeholder="Paste a OneRoof, realestate.co.nz or agency listing URL"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && startAnalysis()}
               />
+
+              <div className="mb-5">
+                <PersonaChoice value={persona} onChange={setPersona} />
+              </div>
+
               <button
-                onClick={startAnalysis}
+                onClick={() => startAnalysis()}
                 disabled={!url.trim()}
                 className="btn-primary w-full justify-center py-3 text-base"
-                style={{ opacity: url.trim() ? 1 : 0.5 }}
+                style={{ opacity: !url.trim() ? 0.5 : persona ? 1 : 0.75 }}
               >
                 Analyse property
                 <ArrowRight size={18} />
@@ -321,6 +344,20 @@ function NewReportInner() {
               </button>
             </div>
           </>
+        )}
+
+        {askPersona && (
+          <PersonaRequiredDialog
+            onClose={() => setAskPersona(false)}
+            onChoose={(chosen) => {
+              setPersona(chosen);
+              setAskPersona(false);
+              // Carry on with the run they already asked for, rather than making
+              // them find the button again.
+              if (showAddressPrompt && addressInput.trim()) findByInput(chosen);
+              else startAnalysis(chosen);
+            }}
+          />
         )}
 
         {(step === "scraping" || step === "analysing") && (
