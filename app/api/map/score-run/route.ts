@@ -8,10 +8,22 @@ import { persistDiscoveredListings, geocodeMissingPins } from "@/lib/map/discove
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-/** Guarded by CRON_SECRET when set (Vercel Cron sends it); open in local dev. */
+/**
+ * Only Vercel Cron may run this.
+ *
+ * The job crawls a portal, geocodes hundreds of addresses and hits a public
+ * bond-data service. Left open, anyone who found the URL could run it on a
+ * loop — burning the Mapbox and LINZ allowances and pointing our traffic at
+ * OneRoof, under our name.
+ *
+ * Missing secret is refused in production rather than waved through. Open by
+ * default is the wrong way round for a job with side effects: the failure is
+ * silent, and the only sign is a bill or a blocked crawler. Local development
+ * stays open so the job can be run by hand.
+ */
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  if (!secret) return process.env.NODE_ENV !== "production";
   const header = req.headers.get("authorization") ?? req.headers.get("x-cron-secret") ?? "";
   return header === `Bearer ${secret}` || header === secret;
 }
@@ -38,7 +50,15 @@ function authorized(req: NextRequest): boolean {
  */
 async function handle(req: NextRequest) {
   if (!authorized(req)) {
-    return NextResponse.json({ error: "unauthorized", message: "Invalid cron secret." }, { status: 401 });
+    return NextResponse.json(
+      {
+        error: "unauthorized",
+        message: process.env.CRON_SECRET
+          ? "Invalid cron secret."
+          : "CRON_SECRET isn't set. Add it to the Vercel project's environment variables — Vercel Cron sends it automatically as a bearer token.",
+      },
+      { status: 401 }
+    );
   }
 
   let scored = 0;
