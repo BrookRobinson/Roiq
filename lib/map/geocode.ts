@@ -2,7 +2,27 @@
 // with the token already in the project (NEXT_PUBLIC_MAPBOX_TOKEN). Best-effort:
 // returns null on any failure so scoring a property never hard-fails on geocode.
 
+import { geocodeWithLinz, hasLinzKey } from "./geocode-linz";
+
+/**
+ * Coordinates for an address.
+ *
+ * LINZ first: it's free, it's the New Zealand authority, and its licence lets
+ * us store the result — which matters, because every coordinate here ends up in
+ * map_listings. Mapbox is the fallback for when no LINZ key is configured;
+ * note that Mapbox's free geocoder does NOT permit storing results, so running
+ * on the fallback long-term means moving to their paid permanent endpoint.
+ */
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  if (hasLinzKey()) {
+    const linz = await geocodeWithLinz(address);
+    if (linz) return linz;
+    // Fall through: LINZ can miss an address a portal spells differently.
+  }
+  return geocodeWithMapbox(address);
+}
+
+async function geocodeWithMapbox(address: string): Promise<{ lat: number; lng: number } | null> {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   if (!token || !address.trim()) return null;
   try {
