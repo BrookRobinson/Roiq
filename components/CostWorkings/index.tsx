@@ -45,7 +45,7 @@ export function CostWorkings({ item, onQuoteEntered, withinHoldPeriod = true }: 
             className="text-xs px-2 py-0.5 rounded-full"
             style={{ background: "var(--surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
           >
-            Outside your hold period — monitor only
+            Major work outside your hold period — monitor and maintain
           </span>
         </div>
       </div>

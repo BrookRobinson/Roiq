@@ -81,7 +81,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
         borderLeft: `3px solid ${color}`,
         // Deliberately NOT faded when the work falls outside the hold period. The
         // findings are the same findings either way, and dimming them made the AI
-        // assessment hard to read — the "monitor only" badge below says it in
+        // assessment hard to read — the "major work outside your hold" tag says it in
         // words, and the COST is where the hold period actually changes anything.
       }}
     >
@@ -204,7 +204,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
             className="mt-2 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
             style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
           >
-            Outside your {holdYears}-year hold period — monitor only
+            Major work outside your {holdYears}-year hold — monitor and maintain
           </div>
         )}
 
@@ -228,7 +228,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
 
       {/* Add-to-renovation-plan control — only for items we can cost (renovate) */}
       {canReno && (
-        <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "var(--accent-wash)" : "transparent" }}>
+        <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "var(--accent-wash)" : "transparent" }}>
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -243,16 +243,19 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
             </span>
           </label>
 
-          {/* Work that falls due after the hold period is still worth adding —
-              it just isn't your bill if you sell first. A tag says that; fading
-              the card only made it look less important than it is. */}
+          {/* "Major work" specifically: what falls outside the hold is the
+              REPLACEMENT, not every hand laid on the thing. A 25-year roof at
+              year 12 still wants patching and clearing in the meantime, and a
+              tag reading plain "outside your hold" reads as "ignore this",
+              which is how a leak becomes a rebuild. Fading the card said the
+              same wrong thing more quietly. */}
           {!isWithinHold && (
             <span
-              className="text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0"
+              className="text-[11px] px-2 py-0.5 rounded-full"
               style={{ background: "var(--surface-2)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-              title={`This work is due beyond the ${holdYears}-year hold period you've set`}
+              title={`Replacing this falls beyond the ${holdYears}-year hold you've set. Patching and maintenance may still be needed before then.`}
             >
-              Outside your {holdYears}-yr hold
+              Major work outside your {holdYears}-yr hold
             </span>
           )}
           {inPlan && onOpenRenovations && (
@@ -299,7 +302,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                   Estimated replacement cost
                   {!isWithinHold && (
                     <span className="ml-2 font-normal" style={{ color: "var(--text-muted)" }}>
-                      (outside your {holdYears}-yr hold)
+                      (major work outside your {holdYears}-yr hold)
                     </span>
                   )}
                 </div>
