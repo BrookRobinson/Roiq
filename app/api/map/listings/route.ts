@@ -34,6 +34,13 @@ export async function GET(req: NextRequest) {
   const listings = vars.budget > 0 ? all.filter((l) => l.askingPrice <= vars.budget) : all;
 
   const points = listings.map((l) => {
+    // A discovered-but-unanalysed listing has no score, no valuation and no
+    // rent. Running computeListing over those placeholder zeros would paint a
+    // real address as the worst deal on the map, so it gets its own state and
+    // no percentage at all.
+    if (!l.analysed) {
+      return { id: l.id, lat: l.lat, lng: l.lng, colour: "unanalysed" as const, pct: null };
+    }
     const c = computeListing(l, vars, mode);
     return { id: l.id, lat: l.lat, lng: l.lng, colour: c.colour, pct: Math.round(c.pct) };
   });

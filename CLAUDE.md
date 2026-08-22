@@ -180,6 +180,21 @@ scoring column null. A pin with a real address and an invented number is the
 same failure the seed-listings rule guards against. Users analyse what they
 care about, from their own allowance.
 
+**`MapListing.analysed` is the gate on every displayed number.** A discovered
+pin has no score, valuation or rent, and `rowToMapListing` fills those with
+placeholder zeros — so anything that DISPLAYS or FILTERS on them must check the
+flag first, or a real address gets a $0 valuation against it. The listings API
+returns `colour: "unanalysed"` and `pct: null` rather than running
+`computeListing` over the zeros, which would paint the property as the worst
+deal on the map. Cluster colour counts unanalysed too and lets it win ties: a
+cluster of 17 unknowns and one good deal is not a green cluster.
+
+**Discovered pins are geocoded separately, and capped.** Sitemap URLs give an
+address but no coordinates, and a pin without them lands at 0,0 rather than
+failing visibly. `geocodeMissingPins()` runs in the nightly job with a per-run
+limit — Mapbox's free allowance is generous but finite. A listing that won't
+geocode stays off the map, which is the right failure.
+
 **A discovered pin must never duplicate an analysed one.** `persistDiscoveredListings`
 reads existing `listing_url`s and matches them with the same normalisation the
 reuse check uses; a property already on the map under `report-<id>` is left

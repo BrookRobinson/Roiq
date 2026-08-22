@@ -2,17 +2,21 @@
 
 import type { MapMode } from "@/lib/map/types";
 
-// One line, three items — no paragraph text (per spec).
+// One line — the three deal colours, plus grey for listings the nightly crawl
+// found but nobody has analysed. Grey carries no percentage because there is no
+// verdict behind it; the legend has to say so or a grey dot reads as a bad one.
 const ITEMS: Record<MapMode, Array<[string, string, string]>> = {
   homebuyer: [
     ["#00e676", "+15%", "Underpriced"],
     ["#fbbf24", "±15%", "Fair price"],
     ["#ff5f5f", "−15%", "Overpriced"],
+    ["#8b93a1", "", "Not analysed"],
   ],
   investor: [
     ["#00e676", "+15%", "Strong return"],
     ["#fbbf24", "±15%", "Moderate"],
     ["#ff5f5f", "−15%", "Poor return"],
+    ["#8b93a1", "", "Not analysed"],
   ],
 };
 
@@ -25,7 +29,7 @@ export function MapLegend({ mode, seeded }: { mode: MapMode; seeded?: boolean })
       {ITEMS[mode].map(([c, pct, label]) => (
         <div key={label} className="flex items-center gap-1.5 whitespace-nowrap">
           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: c, boxShadow: `0 0 8px ${c}88` }} />
-          <span className="text-xs font-bold mono" style={{ color: c }}>{pct}</span>
+          {pct && <span className="text-xs font-bold mono" style={{ color: c }}>{pct}</span>}
           <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{label}</span>
         </div>
       ))}

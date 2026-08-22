@@ -8,14 +8,32 @@ import type { MapMode, UserVariables } from "@/lib/map/types";
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
 // Dominant-colour expression for a cluster from the g/o/r counts (green > orange > red on ties).
+// Dominant colour for a cluster. Unanalysed pins are counted too and win ties:
+// a cluster of 17 undiscovered listings and one good deal is not a green
+// cluster, and colouring it green claims 18 verdicts we haven't got.
 const CLUSTER_COLOUR: mapboxgl.Expression = [
   "case",
+  [">=", ["get", "u"], ["max", ["get", "g"], ["max", ["get", "o"], ["get", "r"]]]], "#8b93a1",
   [">=", ["get", "g"], ["max", ["get", "o"], ["get", "r"]]], "#00e676",
   [">=", ["get", "o"], ["get", "r"]], "#fbbf24",
   "#ff5f5f",
 ];
+// Grey means "we know this house is for sale and nothing else". Deliberately
+// outside the green/orange/red deal scale rather than a dull green — those three
+// are a verdict, and there isn't one yet.
+const UNANALYSED = "#8b93a1";
 const POINT_COLOUR: mapboxgl.Expression = [
-  "match", ["get", "colour"], "green", "#00e676", "orange", "#fbbf24", "red", "#ff5f5f", "#fbbf24",
+  "match", ["get", "colour"],
+  "green", "#00e676", "orange", "#fbbf24", "red", "#ff5f5f",
+  "unanalysed", UNANALYSED,
+  "#fbbf24",
+];
+/** Smaller and dimmer than a scored pin: present, but not competing with a verdict. */
+const POINT_RADIUS: mapboxgl.Expression = [
+  "case", ["==", ["get", "colour"], "unanalysed"], 5, 9,
+];
+const POINT_OPACITY: mapboxgl.Expression = [
+  "case", ["==", ["get", "colour"], "unanalysed"], 0.55, 1,
 ];
 
 export function PropertyMap({
@@ -83,10 +101,16 @@ export function PropertyMap({
       onSeeded?.(!!data.seeded);
       const fc = {
         type: "FeatureCollection" as const,
-        features: data.listings.map((l: { id: string; lat: number; lng: number; colour: string; pct: number }) => ({
+        features: data.listings.map((l: { id: string; lat: number; lng: number; colour: string; pct: number | null }) => ({
           type: "Feature" as const,
           geometry: { type: "Point" as const, coordinates: [l.lng, l.lat] },
-          properties: { id: l.id, colour: l.colour, label: `${l.pct >= 0 ? "+" : "−"}${Math.abs(l.pct)}%` },
+          properties: {
+            id: l.id,
+            colour: l.colour,
+            // No percentage for an unanalysed pin — there is no number to show,
+            // and "+0%" would be a claim.
+            label: l.pct == null ? "" : `${l.pct >= 0 ? "+" : "−"}${Math.abs(l.pct)}%`,
+          },
         })),
       };
       const src = map.getSource("listings") as mapboxgl.GeoJSONSource | undefined;
@@ -127,6 +151,7 @@ export function PropertyMap({
           g: ["+", ["case", ["==", ["get", "colour"], "green"], 1, 0]],
           o: ["+", ["case", ["==", ["get", "colour"], "orange"], 1, 0]],
           r: ["+", ["case", ["==", ["get", "colour"], "red"], 1, 0]],
+          u: ["+", ["case", ["==", ["get", "colour"], "unanalysed"], 1, 0]],
         },
       });
 
@@ -158,7 +183,8 @@ export function PropertyMap({
         });
       }
 
-      // Unclustered marker — coloured dot with its %.
+      // Unclustered marker — coloured dot with its %. An unanalysed listing gets
+      // a small grey dot instead: it's there to be found, not to be ranked.
       map.addLayer({
         id: "point",
         type: "circle",
@@ -166,7 +192,8 @@ export function PropertyMap({
         filter: ["!", ["has", "point_count"]],
         paint: {
           "circle-color": POINT_COLOUR,
-          "circle-radius": 15,
+          "circle-radius": teaser ? 15 : POINT_RADIUS,
+          "circle-opacity": teaser ? 1 : POINT_OPACITY,
           ...(teaser ? { "circle-blur": 0.55 } : {}),
           "circle-stroke-width": teaser ? 0 : 1.5,
           "circle-stroke-color": "#050d0d",

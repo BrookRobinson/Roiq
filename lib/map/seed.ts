@@ -19,7 +19,7 @@ const PHOTOS = [
 ];
 const pics = (i: number): string[] => [PHOTOS[i % PHOTOS.length], PHOTOS[(i + 2) % PHOTOS.length]];
 
-type Seed = Omit<MapListing, "photos" | "status" | "fullReportId"> & { listingType: MapListing["listingType"] };
+type Seed = Omit<MapListing, "photos" | "status" | "fullReportId" | "analysed" | "listingUrl"> & { listingType: MapListing["listingType"] };
 
 const RAW: Seed[] = [
   // ── Auckland ──────────────────────────────────────────────────────────────
@@ -67,6 +67,10 @@ export const SEED_LISTINGS: MapListing[] = RAW.map((r, i) => ({
   photos: pics(i),
   status: "active",
   fullReportId: null,
+  // Demo data — there is no real listing page to open.
+  listingUrl: null,
+  // Seeds ship with scores so the demo map behaves like the real one.
+  analysed: true,
 }));
 
 export function seedById(id: string): MapListing | undefined {

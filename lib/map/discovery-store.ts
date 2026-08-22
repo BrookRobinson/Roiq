@@ -14,6 +14,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normaliseListingUrl, propertyKey } from "@/lib/reports/listing-key";
 import type { DiscoveredListing } from "@/lib/map/discovery";
+import { geocodeAddress } from "@/lib/map/geocode";
 
 export interface DiscoveryPersistResult {
   added: number;
@@ -150,4 +151,60 @@ export async function persistDiscoveredListings(
   } catch (err) {
     return { ...empty, reason: (err as Error).message };
   }
+}
+
+/**
+ * Put coordinates on the pins that don't have any.
+ *
+ * Discovery reads addresses out of sitemap URLs, which is free but gives no
+ * location — and a pin without one silently lands at 0,0 in the Atlantic
+ * rather than failing visibly. So it runs as its own step, capped per night:
+ * Mapbox's free geocoding allowance is generous but finite, and a runaway loop
+ * over 30,000 listings would eat a month of it in one run.
+ *
+ * A listing whose address won't geocode is left without coordinates and simply
+ * doesn't appear on the map. That's the right failure — better absent than
+ * pinned to the wrong street.
+ */
+export async function geocodeMissingPins(
+  limit = 300,
+  delayMs = 120
+): Promise<{ geocoded: number; failed: number; remaining: number }> {
+  const supabase = createAdminClient();
+  if (!supabase) return { geocoded: 0, failed: 0, remaining: 0 };
+
+  const { data, error } = await supabase
+    .from("map_listings")
+    .select("source_key, address, suburb, region")
+    .is("lat", null)
+    .like("source_key", "oneroof-%")
+    .limit(limit + 1);
+
+  if (error || !data?.length) return { geocoded: 0, failed: 0, remaining: 0 };
+
+  const batch = data.slice(0, limit);
+  let geocoded = 0;
+  let failed = 0;
+
+  for (const row of batch) {
+    if (!row.source_key) continue; // nothing to write back to
+    const query = [row.address, row.suburb, row.region, "New Zealand"].filter(Boolean).join(", ");
+    const point = await geocodeAddress(query);
+
+    if (point) {
+      await supabase
+        .from("map_listings")
+        .update({ lat: point.lat, lng: point.lng } as never)
+        .eq("source_key", row.source_key);
+      geocoded++;
+    } else {
+      failed++;
+    }
+
+    // One at a time with a pause — nothing here is urgent, and Mapbox's
+    // per-minute limit is a cliff rather than a slope.
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+  }
+
+  return { geocoded, failed, remaining: Math.max(0, data.length - batch.length) };
 }

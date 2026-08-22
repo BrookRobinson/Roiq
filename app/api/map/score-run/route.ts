@@ -3,7 +3,7 @@ import { getRealListings } from "@/lib/map/store";
 import { persistMapListing } from "@/lib/map/persist";
 import { fetchSuburbRentDetail, fetchSuburbGrowth } from "@/lib/map/sources";
 import { discoverListings } from "@/lib/map/discovery";
-import { persistDiscoveredListings } from "@/lib/map/discovery-store";
+import { persistDiscoveredListings, geocodeMissingPins } from "@/lib/map/discovery-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -52,6 +52,11 @@ async function handle(req: NextRequest) {
   const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
   const found = await discoverListings({ since });
   const discovery = await persistDiscoveredListings(found.listings);
+
+  // Sitemap URLs carry an address but no coordinates, and a pin without them
+  // lands at 0,0 rather than on the map. Capped per night so a backlog drains
+  // over several runs instead of eating a month of Mapbox allowance in one.
+  const geo = await geocodeMissingPins();
 
   if (discovery.changed.length) {
     // A portal edit on a property we already hold means a cached report may now
@@ -122,6 +127,7 @@ async function handle(req: NextRequest) {
       failed: discovery.failed,
       reason: discovery.reason ?? null,
     },
+    geocoding: geo,
     refreshing: targets.length,
     rentRefreshed,
     growthRefreshed,

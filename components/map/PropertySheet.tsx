@@ -96,9 +96,15 @@ export function PropertySheet({
               <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style={{ background: "rgba(0,0,0,0.55)", color: "#fff" }} aria-label="Close">
                 <X size={16} />
               </button>
-              <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-sm font-bold mono" style={{ background: hex, color: "#050d0d", boxShadow: `0 2px 12px ${hex}99` }}>
-                {pctLabel(c.pct)}
-              </div>
+              {l.analysed ? (
+                <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-sm font-bold mono" style={{ background: hex, color: "#050d0d", boxShadow: `0 2px 12px ${hex}99` }}>
+                  {pctLabel(c.pct)}
+                </div>
+              ) : (
+                <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-[11px] font-semibold" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>
+                  Not analysed yet
+                </div>
+              )}
             </div>
 
             <div className="p-5">
@@ -112,15 +118,32 @@ export function PropertySheet({
                     {l.bathrooms != null && <span className="flex items-center gap-1"><Bath size={11} />{l.bathrooms}</span>}
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-lg font-bold mono" style={{ color: "var(--text-primary)" }}>{money(l.askingPrice)}</div>
-                  <div className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Asking</div>
-                </div>
+                {l.analysed || l.askingPrice > 0 ? (
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-lg font-bold mono" style={{ color: "var(--text-primary)" }}>{money(l.askingPrice)}</div>
+                    <div className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Asking</div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="my-4 h-px" style={{ background: "var(--border)" }} />
 
-              {mode === "homebuyer" ? (
+              {!l.analysed ? (
+                /* Everything below the address is a scoring output, and this
+                   property has none — it was found on the portal's index, not
+                   analysed. Showing the placeholder zeros would put an invented
+                   $0 valuation against a real address. */
+                <div>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                    We know this property is for sale, but nobody has analysed it yet — so there&apos;s
+                    no score, valuation or yield to show.
+                  </p>
+                  <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+                    Running it reads every listing photo and scores the property out of 1,000. It uses
+                    one of your reports, and once it&apos;s done everyone sees the result here.
+                  </p>
+                </div>
+              ) : mode === "homebuyer" ? (
                 <div className="space-y-2.5">
                   <Row label="BDR Score" value={`${l.roiqScore}/1000`} />
                   <Row label="BDR Valuation" value={money(c.roiqValuation)} />
@@ -174,7 +197,9 @@ export function PropertySheet({
                         ? `/report/${l.fullReportId}`
                         : l.fullReportId
                           ? "/pricing?plan=pro"
-                          : "/report/new"
+                          : l.listingUrl
+                            ? `/report/new?url=${encodeURIComponent(l.listingUrl)}`
+                            : "/report/new"
                   }
                   className="btn-primary flex-1 justify-center py-2 text-sm"
                 >
@@ -184,7 +209,7 @@ export function PropertySheet({
                       ? "View full report"
                       : l.fullReportId
                         ? "Unlock with Pro"
-                        : "Run this report"}{" "}
+                        : "Analyse this property"}{" "}
                   <ChevronRight size={14} />
                 </a>
                 <button onClick={save} className="btn-secondary py-2 px-3 text-sm gap-1.5" style={saved ? { color: "var(--green)", borderColor: "var(--good-wash)" } : undefined}>

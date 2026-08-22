@@ -36,8 +36,22 @@ export interface MapListing {
   estimatedWeeklyRent: number;              // NZD/week (suburb + bedrooms)
   suburbGrowthRatePct: number;              // annual capital-growth %, e.g. 4.5
 
+  /** The portal page this pin came from — what "Analyse this property" opens. */
+  listingUrl: string | null;
   fullReportId: string | null;              // link to an existing BDR Report, if any
   status: "active" | "sold";
+
+  /**
+   * Has this property actually been analysed?
+   *
+   * False for a pin the nightly discovery job found on OneRoof's sitemap: we
+   * know the house is for sale and roughly where, and nothing else. Every
+   * scoring field above is a placeholder zero for these, so anything that
+   * DISPLAYS or FILTERS on a number must check this first — a $0 valuation
+   * shown against a real address is an invented figure, which is the one thing
+   * this product can't do.
+   */
+  analysed: boolean;
 }
 
 /**

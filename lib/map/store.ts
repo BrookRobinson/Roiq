@@ -63,8 +63,13 @@ function rowToMapListing(r: MapListingRow): MapListing {
     repairBreakdown: breakdown,
     estimatedWeeklyRent: r.estimated_weekly_rent ?? 0,
     suburbGrowthRatePct: r.suburb_growth_rate_pct ?? 0,
+    // Older report pins stored "report:<id>" here before the real URL was kept;
+    // that's a reference, not somewhere to send anyone.
+    listingUrl: r.listing_url && /^https?:\/\//i.test(r.listing_url) ? r.listing_url : null,
     fullReportId: r.full_report_ref ?? r.full_report_id,
     status: r.listing_status === "sold" ? "sold" : "active",
+    // Only a real analysis ever writes a score, so its presence is the test.
+    analysed: r.quick_quality_score != null,
   };
 }
 

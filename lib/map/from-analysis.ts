@@ -85,6 +85,9 @@ export async function buildMapListing(c: ReportContribution, id: string): Promis
       suburbGrowthRatePct,
       fullReportId: c.reportId || null,
       status: "active",
+    listingUrl: listing.url ?? null,
+    // This one came from a real report, by definition.
+    analysed: true,
     },
     geocoded: !!geo,
     sources: {
