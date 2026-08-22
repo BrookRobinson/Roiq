@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getUser } from "@/lib/supabase/auth";
+import { daysRemaining, effectivePlan } from "@/lib/billing/plans";
 import { claimReports } from "@/lib/reports/store";
 import { readOwnerKey } from "@/lib/reports/owner";
 
@@ -18,7 +19,14 @@ export async function GET() {
   const { authUser, profile } = await getUser().catch(() => ({ authUser: null, profile: null }));
 
   if (!authUser) {
-    return NextResponse.json({ ok: true, user: null, plan: "free", claimed: 0 });
+    return NextResponse.json({
+      ok: true,
+      user: null,
+      plan: "free",
+      planExpiresAt: null,
+      daysLeft: 0,
+      claimed: 0,
+    });
   }
 
   // Reports made before signing in are owned by this browser's cookie. Now that
@@ -26,10 +34,16 @@ export async function GET() {
   // first act after signing up is watching their own reports disappear.
   const claimed = await claimReports(readOwnerKey(), authUser.id);
 
+  // The effective plan, not the stored one: a month that has run out reads as
+  // free everywhere, and the client must not be the place that forgets to check.
+  const expiresAt = profile?.plan_expires_at ?? null;
+
   return NextResponse.json({
     ok: true,
     user: { id: authUser.id, email: authUser.email ?? profile?.email ?? "" },
-    plan: (profile?.plan as "free" | "starter" | "pro") ?? "free",
+    plan: effectivePlan(profile?.plan, expiresAt),
+    planExpiresAt: expiresAt,
+    daysLeft: daysRemaining(expiresAt),
     claimed,
   });
 }

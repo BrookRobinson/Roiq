@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { UserRow } from "@/lib/supabase/types";
+import { effectivePlan, planMeets, type Plan } from "@/lib/billing/plans";
 
 /**
  * Returns the authenticated Supabase user and their profile row.
@@ -27,21 +28,22 @@ export async function getUser(): Promise<{
 }
 
 /**
- * Returns the user's plan, defaulting to "free".
+ * The plan the user actually has right now.
+ *
+ * `users.plan` alone is not the answer: it records what was last bought and
+ * stays there after the month runs out. Access is the plan paired with an
+ * expiry still in the future, which is what effectivePlan checks. Reading the
+ * column directly is the bug that hands someone Pro forever.
  */
-export async function getUserPlan(): Promise<"free" | "starter" | "pro"> {
+export async function getUserPlan(): Promise<Plan> {
   const { profile } = await getUser();
-  return (profile?.plan as "free" | "starter" | "pro") ?? "free";
+  return effectivePlan(profile?.plan, profile?.plan_expires_at);
 }
 
 /**
  * Checks whether the current user has access to a given plan level.
  * Pro ⊃ Starter ⊃ Free.
  */
-export async function requirePlan(
-  minimum: "free" | "starter" | "pro"
-): Promise<boolean> {
-  const plan = await getUserPlan();
-  const rank: Record<string, number> = { free: 0, starter: 1, pro: 2 };
-  return rank[plan] >= rank[minimum];
+export async function requirePlan(minimum: Plan): Promise<boolean> {
+  return planMeets(await getUserPlan(), minimum);
 }

@@ -20,6 +20,7 @@ export interface Database {
           email: string;
           created_at: string;
           plan: Plan;
+          plan_expires_at: string | null;
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
           subscription_status: string | null;
@@ -50,6 +51,7 @@ export interface Database {
           email: string;
           created_at?: string;
           plan?: Plan;
+          plan_expires_at?: string | null;
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
           subscription_status?: string | null;
@@ -274,6 +276,40 @@ export interface Database {
         };
         Insert: Omit<Database["public"]["Tables"]["alerts"]["Row"], "id">;
         Update: Partial<Database["public"]["Tables"]["alerts"]["Insert"]>;
+        Relationships: [];
+      };
+      purchases: {
+        Row: {
+          id: string;
+          user_id: string;
+          stripe_session_id: string;
+          stripe_payment_intent_id: string | null;
+          stripe_customer_id: string | null;
+          plan: string;
+          amount_cents: number | null;
+          currency: string;
+          status: string;
+          receipt_url: string | null;
+          access_from: string;
+          access_until: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          stripe_session_id: string;
+          stripe_payment_intent_id?: string | null;
+          stripe_customer_id?: string | null;
+          plan: string;
+          amount_cents?: number | null;
+          currency?: string;
+          status?: string;
+          receipt_url?: string | null;
+          access_from?: string;
+          access_until: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["purchases"]["Insert"]>;
         Relationships: [];
       };
       shared_reports: {

@@ -9,6 +9,9 @@ import { createClient } from "@/lib/supabase/client";
 function SignupForm() {
   const searchParams = useSearchParams();
   const plan = searchParams.get("plan") || "free";
+  // Where to land afterwards. Someone who came here from a plan CTA is midway
+  // through buying — dumping them on the dashboard loses the purchase.
+  const next = searchParams.get("next") || "/dashboard";
 
   const [show, setShow] = useState(false);
   const [email, setEmail] = useState("");
@@ -49,7 +52,7 @@ function SignupForm() {
     // none when it's on. Handle both: send them straight in if they're already
     // signed in, otherwise tell them to go and check their email.
     if (data.session) {
-      window.location.href = "/dashboard";
+      window.location.href = next;
       return;
     }
 
@@ -74,7 +77,7 @@ function SignupForm() {
             We sent a confirmation link to <strong>{email}</strong>.
             Click it to activate your account and get started.
           </p>
-          <Link href="/login" className="btn-secondary">
+          <Link href={`/login?next=${encodeURIComponent(next)}`} className="btn-secondary">
             Back to sign in
           </Link>
         </div>
@@ -206,7 +209,7 @@ function SignupForm() {
           <p className="text-center text-sm mt-4" style={{ color: "var(--text-secondary)" }}>
             Already have an account?{" "}
             <Link
-              href="/login"
+              href={`/login?next=${encodeURIComponent(next)}`}
               className="font-semibold cursor-pointer hover:underline"
               style={{ color: "var(--brand)" }}
             >

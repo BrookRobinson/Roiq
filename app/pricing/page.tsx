@@ -1,8 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import Navbar from "@/components/Navbar";
-import { CheckCircle2, XCircle, ArrowRight } from "lucide-react";
+import { CheckCircle2, XCircle, ArrowRight, Info } from "lucide-react";
+
+import BuyPlanButton from "@/components/billing/BuyPlanButton";
+import { useSession } from "@/lib/auth/session";
+import {
+  ACCESS_DAYS,
+  formatAccessDate,
+  PLAN_LABEL,
+  PLAN_PRICE_NZD,
+  PLAN_RANK,
+  type PaidPlan,
+} from "@/lib/billing/plans";
 
 const FEATURES = [
   {
@@ -73,6 +86,9 @@ export default function PricingPage() {
           <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>
             Prices in NZD. Access lasts a month and nothing auto-renews.
           </p>
+          <Suspense fallback={null}>
+            <CheckoutNotice />
+          </Suspense>
           <Link
             href="/report/rpt_001"
             className="inline-flex items-center gap-1.5 text-sm mt-3 cursor-pointer hover:underline"
@@ -89,25 +105,25 @@ export default function PricingPage() {
               name: "Free",
               price: "$0",
               desc: "Try before you commit",
-              href: "/signup",
+              plan: null,
               cta: "Start free",
               highlight: false,
               features: ["3 reports", "Market value estimate", "Quality score preview", "Basic equity calculator"],
             },
             {
               name: "Starter",
-              price: "$49",
+              price: `$${PLAN_PRICE_NZD.starter}`,
               desc: "Full reports, unlimited",
-              href: "/signup?plan=starter",
+              plan: "starter" as const,
               cta: "Get Starter",
               highlight: false,
               features: ["Unlimited reports", "Full photo analysis", "Renovation planner", "Healthy Homes check", "PDF + email", "Shareable links"],
             },
             {
               name: "Pro",
-              price: "$99",
+              price: `$${PLAN_PRICE_NZD.pro}`,
               desc: "For serious investors",
-              href: "/signup?plan=pro",
+              plan: "pro" as const,
               cta: "Get Pro",
               highlight: true,
               features: ["Everything in Starter", "NZ investment map", "Map filters + alerts", "Batch reports", "Compare mode", "CSV export"],
@@ -149,17 +165,18 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Link
-                href={p.href}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm cursor-pointer transition-all"
-                style={{
-                  background: p.highlight ? "white" : "var(--brand)",
-                  color: p.highlight ? "var(--brand)" : "white",
-                }}
-              >
-                {p.cta}
-                <ArrowRight size={15} />
-              </Link>
+              {p.plan ? (
+                <PlanCta plan={p.plan} fallbackLabel={p.cta} highlight={p.highlight} />
+              ) : (
+                <Link
+                  href="/signup"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm cursor-pointer transition-all"
+                  style={{ background: "var(--brand)", color: "white" }}
+                >
+                  {p.cta}
+                  <ArrowRight size={15} />
+                </Link>
+              )}
             </div>
           ))}
         </div>
@@ -221,7 +238,7 @@ export default function PricingPage() {
             {[
               {
                 q: "Is this a subscription?",
-                a: "No. You buy a month of access and it ends there. Nothing auto-renews, so there is no recurring charge and nothing to cancel. Buy another month whenever you need one.",
+                a: `No. You buy ${ACCESS_DAYS} days of access and it ends there. Nothing auto-renews, so there is no recurring charge, no saved mandate and nothing to cancel. Buy another month whenever you need one — buying early adds to the days you have left rather than replacing them.`,
               },
               {
                 q: "Is this a registered property valuation?",
@@ -248,6 +265,83 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The buy button, aware of what the visitor already has.
+ *
+ * A plan they're already on says "another month" rather than "Get Pro", and a
+ * lower tier than the one running says so instead of offering a purchase the
+ * checkout route would refuse with a 409.
+ */
+function PlanCta({
+  plan,
+  fallbackLabel,
+  highlight,
+}: {
+  plan: PaidPlan;
+  fallbackLabel: string;
+  highlight: boolean;
+}) {
+  const { plan: current, planExpiresAt } = useSession();
+
+  const buttonClass =
+    "flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm cursor-pointer transition-all";
+  const buttonStyle = {
+    background: highlight ? "white" : "var(--brand)",
+    color: highlight ? "var(--brand)" : "white",
+  };
+
+  if (PLAN_RANK[current] > PLAN_RANK[plan]) {
+    return (
+      <div
+        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm"
+        style={{
+          background: highlight ? "rgba(255,255,255,0.15)" : "var(--surface-2)",
+          color: highlight ? "rgba(255,255,255,0.85)" : "var(--text-secondary)",
+        }}
+      >
+        <CheckCircle2 size={15} />
+        Included in {PLAN_LABEL[current]}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <BuyPlanButton
+        plan={plan}
+        label={current === plan ? "Add another month" : fallbackLabel}
+        className={buttonClass}
+        style={buttonStyle}
+      />
+      {current === plan && planExpiresAt && (
+        <p
+          className="text-xs mt-2 text-center"
+          style={{ color: highlight ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}
+        >
+          Yours until {formatAccessDate(planExpiresAt)}
+        </p>
+      )}
+    </>
+  );
+}
+
+/** Someone who backed out of Stripe lands back here — acknowledge it. */
+function CheckoutNotice() {
+  const params = useSearchParams();
+  if (params.get("purchase") !== "cancelled") return null;
+
+  return (
+    <div
+      className="inline-flex items-center gap-2 text-sm mt-4 px-4 py-2 rounded-xl"
+      style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+      role="status"
+    >
+      <Info size={15} />
+      Checkout cancelled — you haven&apos;t been charged.
     </div>
   );
 }

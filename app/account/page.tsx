@@ -2,10 +2,20 @@
 
 import { blurOnWheel } from "@/lib/ui/number-input";
 import Navbar from "@/components/Navbar";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, AlertTriangle, ExternalLink, CreditCard, User, Bell, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/lib/theme/context";
 import { useSession } from "@/lib/auth/session";
+import BuyPlanButton from "@/components/billing/BuyPlanButton";
+import PurchaseRow from "@/components/billing/PurchaseRow";
+import {
+  ACCESS_DAYS,
+  formatAccessDate,
+  PLAN_LABEL,
+  PLAN_PRICE_NZD,
+  type PurchaseSummary,
+} from "@/lib/billing/plans";
 
 export default function AccountPage() {
   const { theme, toggle } = useTheme();
@@ -114,82 +124,173 @@ function ProfileTab({ theme, onToggleTheme }: { theme: string; onToggleTheme: ()
 
 function PlanTab() {
   return (
+    <Suspense fallback={null}>
+      <PlanTabInner />
+    </Suspense>
+  );
+}
+
+/**
+ * Plan and receipts, read from the account rather than mocked.
+ *
+ * There is no subscription and no billing portal: a purchase buys a fixed
+ * window and stops. So this answers the two questions someone actually has —
+ * when does my access run out, and what have I paid — instead of a next
+ * billing date that will never arrive.
+ */
+function PlanTabInner() {
+  const { plan, planExpiresAt, daysLeft, user, loading: sessionLoading, refresh } = useSession();
+  const params = useSearchParams();
+  const justPurchased = params.get("purchase") === "success";
+
+  const [purchases, setPurchases] = useState<PurchaseSummary[] | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let live = true;
+    fetch("/api/billing/history")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!live) return;
+        setPurchases((d?.purchases as PurchaseSummary[]) ?? []);
+        setSetupError((d?.setupError as string | null) ?? null);
+      })
+      .catch(() => live && setPurchases([]));
+    return () => {
+      live = false;
+    };
+  }, [user]);
+
+  // Stripe redirects back the moment the payment is taken, which can beat the
+  // webhook that grants the plan by a second or two. Re-ask a couple of times
+  // rather than showing someone who just paid that they're still on Free.
+  useEffect(() => {
+    if (!justPurchased || plan !== "free") return;
+    const timers = [1500, 4000].map((ms) => setTimeout(refresh, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [justPurchased, plan, refresh]);
+
+  const expiringSoon = plan !== "free" && daysLeft <= 5;
+
+  return (
     <div className="space-y-5 max-w-lg">
+      {justPurchased && (
+        <div
+          className="card p-4 flex items-start gap-3"
+          style={{ borderColor: "var(--success)" }}
+          role="status"
+        >
+          <CheckCircle2 size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 1 }} />
+          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            {plan === "free"
+              ? "Payment received — confirming with Stripe. This page will update in a moment."
+              : `Payment received. ${PLAN_LABEL[plan]} is active until ${formatAccessDate(planExpiresAt)}.`}
+          </div>
+        </div>
+      )}
+
       {/* Current plan */}
       <div className="card p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <h2 className="font-semibold mb-1" style={{ color: "var(--text-primary)" }}>Current plan</h2>
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold" style={{ color: "var(--brand)" }}>Starter</span>
-              <span className="badge badge-blue">$49 / month</span>
+              <span className="text-2xl font-bold" style={{ color: "var(--brand)" }}>
+                {sessionLoading ? "…" : PLAN_LABEL[plan]}
+              </span>
+              {plan !== "free" && (
+                <span className="badge badge-blue">${PLAN_PRICE_NZD[plan]} / month</span>
+              )}
             </div>
           </div>
-          <CheckCircle2 size={24} style={{ color: "var(--success)" }} />
+          {plan === "free" ? (
+            <AlertTriangle size={24} style={{ color: "var(--text-muted)" }} />
+          ) : (
+            <CheckCircle2 size={24} style={{ color: "var(--success)" }} />
+          )}
         </div>
-        <div className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
-          Next billing date: <strong>4 July 2026</strong>
+
+        <div className="text-sm mb-4" style={{ color: expiringSoon ? "var(--danger)" : "var(--text-secondary)" }}>
+          {sessionLoading ? (
+            "Checking your plan…"
+          ) : plan === "free" ? (
+            `You're on the free plan. A paid month lasts ${ACCESS_DAYS} days and nothing auto-renews.`
+          ) : (
+            <>
+              Access until <strong>{formatAccessDate(planExpiresAt)}</strong>
+              {daysLeft > 0 ? ` — ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.` : "."}
+              {" "}Nothing auto-renews, so it simply stops on that date.
+            </>
+          )}
         </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/account/billing"
+
+        {plan !== "free" && (
+          <BuyPlanButton
+            plan={plan}
+            label={`Add another month of ${PLAN_LABEL[plan]}`}
             className="btn-secondary text-sm gap-1.5"
-          >
-            <ExternalLink size={13} />
-            Manage billing (Stripe)
+            returnTo="/account"
+          />
+        )}
+      </div>
+
+      {/* Upgrade prompt — only when there's something to upgrade to. */}
+      {plan !== "pro" && (
+        <div
+          className="rounded-2xl p-6"
+          style={{
+            background: "linear-gradient(160deg, #091e1e 0%, #0a2420 100%)",
+          }}
+        >
+          <div className="font-bold text-lg mb-1">Upgrade to Pro</div>
+          <div className="text-[var(--text-secondary)] text-sm mb-4">Get the NZ investment map + batch reports</div>
+          <ul className="space-y-2 mb-5">
+            {[
+              "NZ-wide investment map",
+              "10-year profit on every listing",
+              "Filters, alerts, watchlist",
+              "Batch reports & compare mode",
+            ].map((f) => (
+              <li key={f} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <CheckCircle2 size={14} style={{ color: "var(--green)" }} />
+                {f}
+              </li>
+            ))}
+          </ul>
+          <BuyPlanButton
+            plan="pro"
+            label={`Get Pro, $${PLAN_PRICE_NZD.pro} for ${ACCESS_DAYS} days`}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[var(--brand)] font-semibold text-sm cursor-pointer hover:bg-[var(--brand-light)] transition-colors"
+            returnTo="/account"
+          />
+        </div>
+      )}
+
+      {/* Purchase history */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold" style={{ color: "var(--text-primary)" }}>Purchases</h2>
+          <a href="/account/billing" className="text-xs cursor-pointer hover:underline" style={{ color: "var(--brand)" }}>
+            See all
           </a>
         </div>
-      </div>
 
-      {/* Upgrade prompt */}
-      <div
-        className="rounded-2xl p-6"
-        style={{
-          background: "linear-gradient(160deg, #091e1e 0%, #0a2420 100%)",
-        }}
-      >
-        <div className="font-bold text-lg mb-1">Upgrade to Pro</div>
-        <div className="text-[var(--text-secondary)] text-sm mb-4">Get the NZ investment map + batch reports</div>
-        <ul className="space-y-2 mb-5">
-          {[
-            "NZ-wide investment map",
-            "10-year profit on every listing",
-            "Filters, alerts, watchlist",
-            "Batch reports & compare mode",
-          ].map((f) => (
-            <li key={f} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-              <CheckCircle2 size={14} style={{ color: "var(--green)" }} />
-              {f}
-            </li>
-          ))}
-        </ul>
-        <a
-          href="/pricing"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[var(--brand)] font-semibold text-sm cursor-pointer hover:bg-[var(--brand-light)] transition-colors"
-        >
-          Upgrade to Pro, $99 / month
-        </a>
-      </div>
-
-      {/* Invoice history */}
-      <div className="card p-6">
-        <h2 className="font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Invoice history</h2>
-        <div className="space-y-2">
-          {[
-            { date: "4 Jun 2026", amount: "$49.00", status: "Paid" },
-            { date: "4 May 2026", amount: "$49.00", status: "Paid" },
-            { date: "4 Apr 2026", amount: "$49.00", status: "Paid" },
-          ].map((inv) => (
-            <div key={inv.date} className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid var(--border)" }}>
-              <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{inv.date}</div>
-              <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{inv.amount}</div>
-              <span className="badge badge-green text-xs">{inv.status}</span>
-              <a href="/account/billing" className="text-xs cursor-pointer hover:underline" style={{ color: "var(--brand)" }}>
-                View
-              </a>
-            </div>
-          ))}
-        </div>
+        {setupError ? (
+          <p className="text-sm" style={{ color: "var(--danger)" }}>{setupError}</p>
+        ) : purchases === null ? (
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Loading…</p>
+        ) : purchases.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            Nothing yet. Anything you buy shows up here with its Stripe receipt.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {purchases.slice(0, 5).map((inv) => (
+              <PurchaseRow key={inv.id} purchase={inv} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

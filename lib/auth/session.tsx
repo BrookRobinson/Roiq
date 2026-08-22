@@ -10,7 +10,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-export type Plan = "free" | "starter" | "pro";
+import { daysRemaining, type Plan } from "@/lib/billing/plans";
+
+export type { Plan };
 
 export interface SessionUser {
   id: string;
@@ -19,24 +21,34 @@ export interface SessionUser {
 
 interface SessionValue {
   user: SessionUser | null;
+  /** The plan in force right now — already expiry-checked by /api/auth/me. */
   plan: Plan;
+  /** ISO date the purchased month runs out, or null on the free plan. */
+  planExpiresAt: string | null;
+  /** Whole days left on the current month, 0 when there isn't one. */
+  daysLeft: number;
   /** Still fetching — render neither a signed-in nor a signed-out state yet. */
   loading: boolean;
   isPro: boolean;
+  isPaid: boolean;
   refresh: () => void;
 }
 
 const SessionContext = createContext<SessionValue>({
   user: null,
   plan: "free",
+  planExpiresAt: null,
+  daysLeft: 0,
   loading: true,
   isPro: false,
+  isPaid: false,
   refresh: () => {},
 });
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [plan, setPlan] = useState<Plan>("free");
+  const [planExpiresAt, setPlanExpiresAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
 
@@ -50,6 +62,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (!live) return;
         setUser(d?.user ?? null);
         setPlan((d?.plan as Plan) ?? "free");
+        setPlanExpiresAt((d?.planExpiresAt as string | null) ?? null);
       })
       .catch(() => {
         /* signed out is the safe assumption */
@@ -61,8 +74,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [nonce]);
 
   const value = useMemo<SessionValue>(
-    () => ({ user, plan, loading, isPro: plan === "pro", refresh }),
-    [user, plan, loading, refresh]
+    () => ({
+      user,
+      plan,
+      planExpiresAt,
+      daysLeft: daysRemaining(planExpiresAt),
+      loading,
+      isPro: plan === "pro",
+      isPaid: plan !== "free",
+      refresh,
+    }),
+    [user, plan, planExpiresAt, loading, refresh]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

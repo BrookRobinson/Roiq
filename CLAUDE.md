@@ -15,12 +15,15 @@ npm run dev                  # port 3000
 ./node_modules/.bin/tsc --noEmit   # type check — see the trap below
 npm run lint
 npm run db:setup-sql         # regenerate supabase/setup.sql from the migrations
+npm run verify:billing       # the plan/expiry maths — the one thing with checks
 ```
 
-**There are no tests.** Verification is `tsc`, the health endpoints, and driving
-the app. If you add anything to `lib/scoring`, `lib/negotiation` or
-`lib/reno-costing`, consider that the strongest argument for finally adding some:
-it's pure, deterministic, and a wrong number there ends up in a letter to a
+**There are almost no tests.** Verification is `tsc`, the health endpoints, and
+driving the app. The one exception is `scripts/verify-billing.mjs`, because a
+wrong date in `lib/billing/plans.ts` either gives away a plan or takes away a
+paid month, and neither throws. If you add anything to `lib/scoring`,
+`lib/negotiation` or `lib/reno-costing`, they deserve the same for the same
+reason: pure, deterministic, and a wrong number there ends up in a letter to a
 vendor's agent.
 
 ## Traps that have actually bitten
@@ -53,6 +56,7 @@ vendor's agent.
 | `components/landing/` | Landing page sections. **Check here before adding anything to the landing page** — a duplicate map got shipped by grepping for `PropertyMap` and missing `LiveMapSection`. |
 | `components/map/` | `MapExperience.tsx` is the whole map; `/map` and `/map/demo` are thin wrappers around it with a `demo` flag. Don't fork it. |
 | `components/Negotiation/` | The agent document. |
+| `lib/billing/` | `plans.ts` is pure and safe to import anywhere; `stripe.ts` is server-only. |
 | `lib/scoring/` | The 1,000-point engine. `model.ts` is the rubric, `engine.ts` scores, `catalog.ts` is the item list. |
 | `lib/map/`, `lib/reports/`, `lib/negotiation/`, `lib/email/`, `lib/auth/` | Feature libs. Server-only modules say so at the top. |
 | `supabase/migrations/` | Source of truth for schema. Regenerate `setup.sql` after adding one. |
@@ -81,6 +85,31 @@ claim**, and the share link carries **only the document**, never the report: the
 Financial tab holds the buyer's walk-away price and the recipient is the vendor's
 agent.
 
+**Nothing auto-renews, and the site says so three times.** Purchases are one-off
+(`mode: "payment"`) buying `ACCESS_DAYS` of access — the landing page, the
+pricing page and the FAQ all promise it, so a recurring Stripe price would make
+the copy a lie. `/api/health/billing` fails if a configured price is recurring.
+`users.stripe_subscription_id` and `subscription_status` predate that decision
+and stay unused.
+
+**`users.plan` is not access.** It records what was last bought and stays there
+after the month ends. Access is the plan paired with `plan_expires_at` still in
+the future — `effectivePlan()`, behind `getUserPlan()` and `/api/auth/me`. Read
+the column directly and you hand someone Pro forever. It fails closed: a missing
+or unparseable expiry is free.
+
+**Only the webhook grants a plan.** `/api/webhooks/stripe` — not the checkout
+route, and never the success redirect, which anyone can type. Stripe delivers at
+least once, so the grant is idempotent through the unique constraint on
+`purchases.stripe_session_id`. The root middleware matcher deliberately skips
+`api/webhooks`: the raw body must arrive untouched for the signature to verify.
+
+**Buying again extends, never resets.** `accessUntil()` adds to whatever time is
+left, so paying early doesn't throw away days already paid for. Buying a *lower*
+tier while a higher one runs is refused at checkout with a 409 — one plan column
+can't hold two tiers, and the alternative is silently downgrading someone who
+just paid.
+
 **Valuations are estimates until a licensed sold-sales feed lands.** Land value
 and suburb $/m² are inferred, and everything downstream inherits that. Don't
 write copy that presents them as settled fact.
@@ -97,6 +126,13 @@ are built once, so a Pro user rendering early gets stuck with the blurred versio
 ```bash
 curl -s localhost:3000/api/health/db    | python3 -m json.tool
 curl -s localhost:3000/api/health/email | python3 -m json.tool
+curl -s localhost:3000/api/health/billing | python3 -m json.tool
+```
+
+Billing end to end needs Stripe's CLI forwarding real events at the dev server:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
 ```
 
 `/report/rpt_001` is the demo report — real engine, seeded data, no API spend.
