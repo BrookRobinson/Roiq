@@ -15,7 +15,8 @@ npm run dev                  # port 3000
 ./node_modules/.bin/tsc --noEmit   # type check — see the trap below
 npm run lint
 npm run db:setup-sql         # regenerate supabase/setup.sql from the migrations
-npm run verify:billing       # the plan/expiry maths — the one thing with checks
+npm run verify:billing       # the plan/expiry maths
+npm run verify:listing-key   # the "same house?" rules behind report reuse
 ```
 
 **There are almost no tests.** Verification is `tsc`, the health endpoints, and
@@ -109,6 +110,24 @@ left, so paying early doesn't throw away days already paid for. Buying a *lower*
 tier while a higher one runs is refused at checkout with a 409 — one plan column
 can't hold two tiers, and the alternative is silently downgrading someone who
 just paid.
+
+**The same property is only analysed once.** A finished report is stored whole
+in `reports.report`, so a listing that's been done before is served from there
+(`lib/reports/reuse.ts`) instead of costing another few minutes and another
+Claude bill. Three things make that safe: the check runs **after** the scrape,
+because today's asking price is the signal that the old verdict has gone stale;
+the reuse is capped at `REUSE_MAX_AGE_DAYS`; and the report carries
+`reusedFrom`, which the view renders — a saved read is worth having instantly,
+but presenting it as a live one would be a lie. The matching rules are pure and
+tested in `lib/reports/listing-key.ts`: a miss only wastes money, a false match
+shows someone a different house, so they err toward missing.
+
+**A reused report is still the reader's own report.** The route returns the
+analysis and the caller saves it under a fresh id in their own name, so it lands
+on their dashboard and counts against their quota exactly like a fresh one. The
+only party who saves anything is us. `verifiedDocs` is stripped on the way
+through — a LIM someone uploaded and paid to have read is their work, not a fact
+about the house.
 
 **Valuations are estimates until a licensed sold-sales feed lands.** Land value
 and suburb $/m² are inferred, and everything downstream inherits that. Don't

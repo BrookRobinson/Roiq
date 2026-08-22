@@ -119,6 +119,9 @@ function NewReportInner() {
         suburbValue: data.suburbValue,
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
+        // This property had already been analysed — the report says so rather than
+        // passing a month-old read off as fresh.
+        reusedFrom: data.reused ? { analysedAt: data.analysedAt as string } : undefined,
       };
       // The report view reads this on mount, so the report opens in the lens they
       // asked for instead of the "buyer" default.

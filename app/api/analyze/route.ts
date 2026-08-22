@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { type ScrapedListing } from "@/lib/scraper";
 import { resolveListing, resolveListingByAddress, ListingNotFoundError } from "@/lib/listing-resolver";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
+import { findReusableReport, REUSE_MAX_AGE_DAYS } from "@/lib/reports/reuse";
 import { fetchMarketData, type MarketResult } from "@/lib/ai/market";
 import { fetchSuburbValue } from "@/lib/ai/comparables";
 import { isAnalysisConfigured } from "@/lib/ai/client";
@@ -113,6 +114,40 @@ export async function POST(req: NextRequest) {
         { error: "missing_input", message: "Provide a `url`, `address`, `listing`, or `photos`." },
         { status: 400 }
       );
+    }
+
+    // Someone may already have paid to have this exact property read. If the
+    // listing hasn't moved since, there is nothing to generate — hand back the
+    // saved analysis and skip minutes of work and the whole Claude bill.
+    //
+    // Deliberately AFTER the scrape: the scrape is a couple of seconds and cents,
+    // and it's the only way to know today's asking price. Checking before it
+    // would mean serving a stale verdict through a price drop, which is exactly
+    // when the old numbers are most wrong.
+    //
+    // Uploads are excluded — those photos are the user's own and were never a
+    // public listing, so there is nothing shared to reuse.
+    if (photos.length === 0) {
+      const reused = await findReusableReport({
+        url: listing.url ?? body.url ?? null,
+        address: listing.address ?? body.address ?? null,
+        askingPrice: listing.askingPrice ?? null,
+      });
+
+      if (reused) {
+        const { id: _priorId, createdAt: _priorCreatedAt, listing: _priorListing, ...analysis } = reused.report;
+        // The caller saves this under a fresh id in their own name, so it lands on
+        // their dashboard and counts against their quota like any other report.
+        // `listing` is the one we just scraped, so today's price and photos win.
+        return NextResponse.json({
+          ok: true,
+          listing,
+          ...analysis,
+          reused: true,
+          analysedAt: reused.analysedAt,
+          reuseMaxAgeDays: REUSE_MAX_AGE_DAYS,
+        });
+      }
     }
 
     const prefetched = body.prefetched

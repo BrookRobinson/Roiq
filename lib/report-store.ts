@@ -59,6 +59,9 @@ export interface StoredReport {
   suburbValue?: SuburbValue;
   /** Which photo areas were provided in a manual upload (coverage indicator). */
   photoCoverage?: PhotoCoverage;
+  /** Set when this report reuses an earlier analysis of the same listing rather
+   *  than running a new one. The report must say so — it is not a live read. */
+  reusedFrom?: { analysedAt: string };
 }
 
 const key = (id: string) => `roiq:report:${id}`;

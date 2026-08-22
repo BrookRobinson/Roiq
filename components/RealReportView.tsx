@@ -48,7 +48,7 @@ import {
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, Shield, MapPin, Handshake,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
-  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send,
+  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send, History,
 } from "lucide-react";
 
 type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "negotiation" | "methodology";
@@ -445,6 +445,25 @@ export function RealReportView({
                 </button>
               )}
             </div>
+
+            {/* Reused analysis — say so. A saved read of the same listing is worth
+                having instantly, but presenting it as a live one would be a lie. */}
+            {report.reusedFrom && (
+              <div
+                className="flex items-start gap-2 rounded-xl px-3.5 py-2.5 mb-4 text-xs"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+              >
+                <History size={14} style={{ color: "var(--text-muted)", flexShrink: 0, marginTop: 1 }} />
+                <span>
+                  This property was analysed on{" "}
+                  <strong style={{ color: "var(--text-primary)" }}>
+                    {new Date(report.reusedFrom.analysedAt).toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric" })}
+                  </strong>
+                  {" "}and the asking price hasn&apos;t changed since, so we&apos;ve reused that read
+                  rather than running it again. The photos and condition are as they were on that date.
+                </span>
+              </div>
+            )}
 
             {/* Persona toggle */}
             <div className="flex items-center gap-3 mb-4">
