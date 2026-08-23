@@ -1,4 +1,4 @@
-# RoiQ — How the Score Out of 1000 Is Calculated
+# Tectara — How the Score Out of 1000 Is Calculated
 
 *Plain-English guide to the scoring engine (v3.1). Source of truth: `lib/scoring/model.ts` and `lib/scoring/engine.ts`.*
 
@@ -6,7 +6,7 @@
 
 ## The short version
 
-1. RoiQ inspects a property across **4 areas**: Improvements, Location, Land, Legal.
+1. Tectara inspects a property across **4 areas**: Improvements, Location, Land, Legal.
 2. Each area is made of many small **line items** (78 in total — e.g. Roof, Kitchen cabinetry, Flood risk, Title type).
 3. Every line item is given a **1–10 score** by the AI from the photos and listing facts.
 4. Each item is worth a fixed number of **max points**. Your item score is `(score ÷ 10) × max points`.
@@ -178,7 +178,7 @@ Each item shows its **max points** for Buyer / Investor. **Score 10/10 earns the
 
 ## Step 3 — The important twist: "town-context" items don't count toward the score
 
-Some Location and Land items describe the **whole town/suburb**, not the specific address — flood risk, school zones, growth trend, transport, etc. These are the same for *any* house in that area, so RoiQ shows them in the **City/Town tab** but **leaves them out of the 1000-point score** for the individual property.
+Some Location and Land items describe the **whole town/suburb**, not the specific address — flood risk, school zones, growth trend, transport, etc. These are the same for *any* house in that area, so Tectara shows them in the **City/Town tab** but **leaves them out of the 1000-point score** for the individual property.
 
 The 13 excluded items are:
 
@@ -284,7 +284,7 @@ The 1000-point score is also used (unchanged) to estimate fair value — a highe
 | 600–799 | Good | 1.20× |
 | 800+ | Excellent | 1.45× |
 
-`RoiQ Fair Value = suburb median $/m² × multiplier × floor area (m²)`
+`Tectara Fair Value = suburb median $/m² × multiplier × floor area (m²)`
 
 ---
 

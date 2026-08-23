@@ -38,7 +38,7 @@ export interface MapListing {
 
   /** The portal page this pin came from — what "Analyse this property" opens. */
   listingUrl: string | null;
-  fullReportId: string | null;              // link to an existing BDR Report, if any
+  fullReportId: string | null;              // link to an existing Tectara, if any
   status: "active" | "sold";
 
   /**

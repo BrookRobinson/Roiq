@@ -1,4 +1,4 @@
-# RoiQ Scoring — Revised Model (proposed)
+# Tectara Scoring — Revised Model (proposed)
 
 > **Status:** ✅ **Built (Phase 1).** Implemented in the code as the v4 model — `SCORING_EXPLAINED.md` now describes the superseded v3.1 model. Location penalties + facts currently come from the AI's inference; **Phase 2** (wiring the paid API for real geocoded distances) is still to do.
 >
@@ -8,7 +8,7 @@
 
 ## The philosophy
 
-**The RoiQ Condition & Quality Score measures whether a property is sound and free of value-destroying defects — the objective quality of the property itself. It does NOT measure how desirable the location is.**
+**The Tectara Condition & Quality Score measures whether a property is sound and free of value-destroying defects — the objective quality of the property itself. It does NOT measure how desirable the location is.**
 
 Why: building condition is *objective* (a rotten roof is bad for everyone), but location desirability is *subjective* (waterfront thrills one buyer, a quiet cul-de-sac thrills another). Baking location into one number forces the model to pick a preference on the buyer's behalf and produces a "false" score for anyone who disagrees.
 

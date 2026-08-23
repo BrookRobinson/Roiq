@@ -1,5 +1,5 @@
 // ============================================================
-// BDR Report investment math (v3.4) — yield, capital growth, predicted sale price.
+// Tectara investment math (v3.4) — yield, capital growth, predicted sale price.
 // Pure functions; the 1,000-pt quality score is untouched (panels approach).
 // ============================================================
 
@@ -43,7 +43,7 @@ export function qualityMultiplier(score: number): number {
   return 1.45;
 }
 
-/** BDR fair value = suburb median $/m² × quality multiplier × floor area. */
+/** Tectara fair value = suburb median $/m² × quality multiplier × floor area. */
 export function roiqFairValue(medianPerSqm: number, score: number, floorAreaSqm: number): number {
   return Math.round(medianPerSqm * qualityMultiplier(score) * floorAreaSqm);
 }

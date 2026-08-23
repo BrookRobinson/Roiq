@@ -11,7 +11,7 @@ import { PRODUCT_NAME } from "@/lib/brand";
  * Inter has no separate italic face exposed through next/font, and for solid
  * uppercase display type the synthetic slant is visually equivalent. JetBrains Mono
  * carries every figure, with tabular numerals so columns of scores and prices
- * line up: a departure from the reference, kept because BDR Report is a scoring and
+ * line up: a departure from the reference, kept because Tectara is a scoring and
  * money product.
  *
  * Self-hosted via next/font, so there is no render-blocking request to

@@ -33,13 +33,13 @@ export const TAGLINE = "Know before you buy.";
  */
 export function displayDomain(): string {
   const url = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (!url) return "roiq.co.nz";
+  if (!url) return "tectara.co.nz";
   try {
     const host = new URL(url).hostname.replace(/^www\./, "");
     // localhost in a document sent to an estate agent helps nobody.
-    return host === "localhost" || host === "127.0.0.1" ? "roiq.co.nz" : host;
+    return host === "localhost" || host === "127.0.0.1" ? "tectara.co.nz" : host;
   } catch {
-    return "roiq.co.nz";
+    return "tectara.co.nz";
   }
 }
 
@@ -55,5 +55,5 @@ export function absoluteUrl(path: string): string {
 /** "Tectara — Know before you buy." */
 export const titleWithTagline = (): string => `${PRODUCT_NAME} — ${TAGLINE}`;
 
-/** "Tectara · roiq.co.nz" — the footer line on printed documents. */
+/** "Tectara · tectara.co.nz" — the footer line on printed documents. */
 export const printFooter = (): string => `${PRODUCT_NAME} · ${displayDomain()}`;

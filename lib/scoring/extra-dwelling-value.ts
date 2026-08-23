@@ -1,5 +1,5 @@
 // ============================================================
-// BDR Report — EXTRA DWELLING VALUE (no points, value only)
+// Tectara — EXTRA DWELLING VALUE (no points, value only)
 //
 // A second dwelling is NOT scored. Whether you want a cabin in the back yard is
 // subjective, and ~99% of properties don't have one — folding it into the score

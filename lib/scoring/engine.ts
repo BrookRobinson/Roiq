@@ -1,5 +1,5 @@
 // ============================================================
-// BDR SCORING ENGINE (v4)
+// Tectara SCORING ENGINE (v4)
 // Condition & Quality Score = BASE (0–1000, the property itself)
 //                             − location penalties (capped)
 //                             + on-site value-add bonuses (capped)

@@ -32,8 +32,8 @@ export const ONEROOF_SITEMAP_INDEX =
 // Built from the env var directly rather than importing lib/brand: the parsers
 // below are deliberately dependency-free so scripts/verify-discovery.mjs can
 // load this module with plain node, and one `@/` import would end that.
-const CONTACT_URL = process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://roiq.co.nz";
-const USER_AGENT = `RoiQBot/1.0 (+${CONTACT_URL}; NZ property analysis)`;
+const CONTACT_URL = process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://tectara.co.nz";
+const USER_AGENT = `TectaraBot/1.0 (+${CONTACT_URL}; NZ property analysis)`;
 
 export interface DiscoveredListing {
   /** The listing page, canonical form. */

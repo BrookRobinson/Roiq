@@ -1,5 +1,5 @@
 // ============================================================
-// BDR Report — three-tier renovation visualiser model (v3.7)
+// Tectara — three-tier renovation visualiser model (v3.7)
 // Maps a reno item to a visual area and, for each tier (Patch Up / Replace
 // Budget / Replace High End), the gpt-image-1 prompt describing the materials.
 // Patch Up keeps the EXISTING material (cleaned/painted); Budget shows budget

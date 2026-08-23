@@ -1801,9 +1801,9 @@ function FinSection({ title, children }: { title: string; children: React.ReactN
   );
 }
 
-// ── BDR Value Verdict (Change 1) — the headline number, top of the Finance tab.
+// ── Tectara Value Verdict (Change 1) — the headline number, top of the Finance tab.
 // Suburb median $/m² (scraped) × condition multiplier (the hidden quality score)
-// × floor area = BDR fair value; compared against asking + selected renovations.
+// × floor area = Tectara fair value; compared against asking + selected renovations.
 function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, dwellingAdded = 0 }: {
   asking: number; improvementValuation: ImprovementValueResult; landAreaSqm: number | null; suburbValue?: SuburbValue; dwellingAdded?: number;
 }) {
@@ -1945,7 +1945,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 
   return (
     <div className="space-y-4">
-      {/* BDR Value Verdict — the most important thing a buyer needs to know. */}
+      {/* Tectara Value Verdict — the most important thing a buyer needs to know. */}
       <ValueVerdict asking={price} improvementValuation={improvementValuation} landAreaSqm={listing.landAreaSqm} suburbValue={suburbValue} dwellingAdded={dwellingAdded} />
 
       {/* Section 9 — THE FINAL ANSWER */}

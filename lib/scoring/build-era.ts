@@ -1,4 +1,4 @@
-// Deterministic build-year risk flags — the ONLY things BDR Report may infer without
+// Deterministic build-year risk flags — the ONLY things Tectara may infer without
 // photos. These are era-based likelihoods (not condition scores) and must always
 // be labelled "Inferred from build year — not visually confirmed".
 

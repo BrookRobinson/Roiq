@@ -14,7 +14,7 @@ export const maxDuration = 300; // Claude vision can take a while
  * POST /api/map/score-now { url } | { address }
  *
  * Score ONE property onto the map from scratch (dev/admin): resolve → Claude
- * Vision analysis → 1000-pt score → repair allowance → BDR valuation → live
+ * Vision analysis → 1000-pt score → repair allowance → Tectara valuation → live
  * rent → geocode → store.
  *
  * The normal way properties reach the map is /api/map/from-report, which reuses

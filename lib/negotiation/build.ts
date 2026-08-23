@@ -58,7 +58,7 @@ export interface NegotiationRemedy {
  * Where the advertised price sits against what the property is worth IN ITS
  * CURRENT CONDITION.
  *
- * This has to be established before any reduction is argued for, because the BDR
+ * This has to be established before any reduction is argued for, because the Tectara
  * valuation already has condition baked into it — improvement value is
  * replacement cost × spec tier × condition. A property that photographs badly
  * already values lower. So if the asking price is BELOW that figure, the vendor
@@ -78,7 +78,7 @@ export interface PriceCheck {
   low: number;
   high: number;
   askingPrice: number;
-  /** Asking minus BDR value. Positive = advertised above what it's worth as it stands. */
+  /** Asking minus Tectara value. Positive = advertised above what it's worth as it stands. */
   aboveValueBy: number;
   isEstimate: boolean;
 }

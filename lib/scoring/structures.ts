@@ -1,5 +1,5 @@
 // ============================================================
-// BDR Report — STANDALONE STRUCTURE CATALOGUE (value, never points)
+// Tectara — STANDALONE STRUCTURE CATALOGUE (value, never points)
 //
 // Every standalone structure — minor dwelling, tiny home, games room, garage,
 // closed shed, open pole shed, carport, pool, spa — is valued, not scored.

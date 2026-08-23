@@ -1,5 +1,5 @@
 // ============================================================
-// BDR SCORING MODEL — single source of truth (v4)
+// Tectara SCORING MODEL — single source of truth (v4)
 //
 // The Condition & Quality Score measures the property itself, not lifestyle
 // desirability. Three arms:

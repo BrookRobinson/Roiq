@@ -1,4 +1,4 @@
-# RoiQ — Itemised Improvement Valuation (v5)
+# Tectara — Itemised Improvement Valuation (v5)
 
 Turns the Improvements **scores** into a **dollar value**, one line per component.
 Engine: [`lib/scoring/improvement-values.ts`](lib/scoring/improvement-values.ts).

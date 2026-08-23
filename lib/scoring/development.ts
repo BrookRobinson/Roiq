@@ -1,5 +1,5 @@
 // ============================================================
-// BDR Report — Development potential (can you add a tiny home / dwelling?)
+// Tectara — Development potential (can you add a tiny home / dwelling?)
 //
 // A positive OPPORTUNITY on the Land tab: whether the section could take a minor
 // dwelling (granny flat), a second dwelling, or a subdivision. Scored as a

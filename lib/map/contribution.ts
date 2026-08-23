@@ -2,7 +2,7 @@
 // Property Map — how a finished report becomes a map pin.
 //
 // The map has no listings feed (no NZ portal publishes an API), so it fills up
-// from properties users actually run through BDR Report. This is the payload
+// from properties users actually run through Tectara. This is the payload
 // that carries a completed report to /api/map/from-report: just the fields the
 // map needs, rather than the whole StoredReport, which is mostly per-item prose
 // the map never reads.

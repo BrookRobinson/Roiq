@@ -15,7 +15,7 @@ import { fetchMarketRent, type SuburbRent } from "./market-rent";
 import { fetchMarketData } from "@/lib/ai/market";
 import { emptyListing } from "@/lib/scraper/types";
 
-/** A raw listing as the portal APIs return it (before BDR scoring). */
+/** A raw listing as the portal APIs return it (before Tectara scoring). */
 export interface RawListing {
   listingId: string;
   source: "oneroof" | "realestate";

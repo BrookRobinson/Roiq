@@ -1,5 +1,5 @@
 // ============================================================
-// BDR Report — Land / site-quality bands
+// Tectara — Land / site-quality bands
 //
 // Gives each Land item a plain descriptive band (Flat / Gentle / Steep …) shown
 // alongside its score, so the Land tab reads like the banded Improvements tab.
