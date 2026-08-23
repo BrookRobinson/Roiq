@@ -4,7 +4,7 @@ import { CopyUrlHelp } from "@/components/CopyUrlHelp";
 import Navbar from "@/components/Navbar";
 import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Upload, Link2, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Upload, Link2, Loader2, CheckCircle2, Trees } from "lucide-react";
 import { saveReport, saveReportPersona } from "@/lib/report-store";
 import type { Persona } from "@/lib/scoring/model";
 import { PersonaChoice, PersonaRequiredDialog } from "@/components/report/PersonaChoice";
@@ -68,6 +68,9 @@ function NewReportInner() {
   const [pipelineStep, setPipelineStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [outOfReports, setOutOfReports] = useState(false);
+  // A bare section. Not an error — the listing is fine, there is just no
+  // building to score — so it gets an explanation rather than a red box.
+  const [noDwelling, setNoDwelling] = useState<string | null>(null);
   // An address picked from the search, parked while the persona dialog is up so
   // the choice survives it and they don't have to find the property again.
   const [pendingMatch, setPendingMatch] = useState<AnalysedMatch | null>(null);
@@ -83,6 +86,7 @@ function NewReportInner() {
     if (!label) return;
     setError(null);
     setOutOfReports(false);
+    setNoDwelling(null);
     setTarget(label);
     setStep("analysing");
     setPipelineStep(0);
@@ -107,6 +111,13 @@ function NewReportInner() {
 
       if (!res.ok) {
         // URL couldn't be scraped or recovered → offer manual address entry.
+        // Bare land. Nothing is broken and nothing was charged — say what the
+        // listing is and stop, rather than scoring a house that isn't there.
+        if (res.status === 422 && data.error === "no_dwelling") {
+          setNoDwelling(data.message ?? "This listing has no building on it.");
+          setStep("input");
+          return;
+        }
         if (res.status === 422 && data.error === "listing_not_found") {
           setAddressReason("failed");
           setNeedAddress(true);
@@ -291,6 +302,23 @@ function NewReportInner() {
                     <Link href="/pricing?plan=starter" className="btn-primary text-sm px-4 py-2">
                       See plans <ArrowRight size={15} />
                     </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {noDwelling && (
+              <div className="card p-5 mb-4" style={{ border: "1px solid var(--brand)", background: "var(--accent-wash)" }}>
+                <div className="flex items-start gap-3">
+                  <Trees size={18} style={{ color: "var(--brand)", flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <div className="font-semibold text-sm mb-1" style={{ color: "var(--text-primary)" }}>
+                      That&apos;s bare land, not a house
+                    </div>
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{noDwelling}</p>
+                    <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+                      None of your reports were used. Paste a listing with a house on it to run one.
+                    </p>
                   </div>
                 </div>
               </div>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { type ScrapedListing } from "@/lib/scraper";
 import { resolveListing, resolveListingByAddress, ListingNotFoundError } from "@/lib/listing-resolver";
+import { assessDwelling } from "@/lib/property/dwelling";
+import { PRODUCT_NAME } from "@/lib/brand";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
 import { findReusableReport, isOwnReport, REUSE_MAX_AGE_DAYS } from "@/lib/reports/reuse";
 import { getQuota } from "@/lib/reports/quota";
@@ -123,6 +125,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "missing_input", message: "Provide a `url`, `address`, `listing`, or `photos`." },
         { status: 400 }
+      );
+    }
+
+    // ── Is there a building to score? ────────────────────────────────────────
+    // Every one of the 1,000 points describes a dwelling — its roof, kitchen,
+    // bathroom, joinery. Run that against a bare section and the model scores
+    // all of it from photographs of an empty paddock, and the result reads as
+    // confidently as a true report. Refusing is the only honest answer we have
+    // until there is a land report to send them to.
+    //
+    // Sits above the reuse lookup and the allowance: nobody should spend a
+    // report, or wait for one, to be told we can't analyse their property.
+    const dwelling = assessDwelling(listing);
+    if (!dwelling.hasDwelling) {
+      return NextResponse.json(
+        {
+          error: "no_dwelling",
+          message: `This listing is bare land — ${dwelling.reason}. ${PRODUCT_NAME} scores the condition of a house: its roof, kitchen, bathroom and joinery. Scoring a section would mean describing a house that isn't there, so we won't produce a report for it.`,
+          address: listing.address ?? null,
+        },
+        { status: 422 }
       );
     }
 

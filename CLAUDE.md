@@ -20,6 +20,7 @@ npm run verify:listing-key   # the "same house?" rules behind report reuse
 npm run verify:allowance     # who gets how many reports, and what the wall says
 npm run verify:email-key     # which accounts count as one inbox
 npm run verify:discovery     # the sitemap/URL parsers behind nightly discovery
+npm run verify:dwelling      # is there a building to score, and does the address name one property
 ```
 
 **There are almost no tests.** Verification is `tsc`, the health endpoints, and
@@ -245,6 +246,27 @@ along. Comments naming the product are left alone too.
 `lib/map/discovery.ts` deliberately does NOT import from `lib/brand` — its
 parsers are dependency-free so `verify:discovery` can load the module with
 plain node, and a single `@/` import ends that.
+
+**Never score a property that has no building on it.** The 1,000 points all
+describe a dwelling, so a bare section is scored from photographs of an empty
+paddock and the output reads exactly as confidently as a true report. `/api/analyze`
+refuses with a 422 `no_dwelling` **above the reuse lookup and the allowance** — no
+Claude spend, no report used. `lib/property/dwelling.ts` decides, on evidence only:
+a published floor area of **exactly 0** (which is a portal answering the question,
+not failing to), then a `section` type. It deliberately does NOT read the description
+("large section" is in half the country's listings) and does NOT treat a bedroom
+count as proof of a building — the section that exposed this had a stray "1 bedroom"
+scraped out of page furniture. A stated zero outranks the property type because
+**OneRoof marks up every property page as `SingleFamilyResidence`, sections included**,
+and trusting that schema was the original bug.
+
+**Never look up a property by a street name alone.** `ensureAreas()` backfills a
+missing floor area or price by web search, and it is only safe with an address that
+names ONE title. "Golf Links Road, Westland" returned a neighbouring house's 195m²
+floor area and $795,000 asking price, which were merged into a section's report and
+presented as its own — the wrong-house failure, but silent. `identifiesOneProperty()`
+requires a street number leading the first component, and the lookup is skipped
+entirely when the listing has no dwelling.
 
 **Valuations are estimates until a licensed sold-sales feed lands.** Land value
 and suburb $/m² are inferred, and everything downstream inherits that. Don't

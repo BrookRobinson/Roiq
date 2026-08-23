@@ -9,6 +9,14 @@ import { ScrapedListing, emptyListing, SupportedPortal, PriceMethod } from "../t
 import { scrapeFetch, extractJsonLd, stripHtml, parsePrice, parseArea, parseQuantitativeArea, extractAreaFromJson, parseYear } from "../fetch";
 import { detectPropertyType, detectTitleType, extractFeatures } from "./shared";
 
+/**
+ * A floor area published as exactly 0, in any of the escaped JSON shapes the
+ * portals embed (`floorAreaString\":\"0m²`, `"floor_area": 0`). Anchored on a
+ * zero that is immediately followed by a unit or a delimiter so that a real
+ * "0" never comes from the middle of "1,097m²".
+ */
+const STATED_ZERO_FLOOR_AREA = /\bfloor_?area(?:string|sqm|_sqm)?\\?"?\s*:\s*\\?"?\s*0\s*(?:m|"|\\|,|})/i;
+
 export function detectPortal(url: string): SupportedPortal {
   if (/harcourts\.net|harcourts\.co\.nz/.test(url))      return "harcourts";
   if (/bayleys\.co\.nz/.test(url))                        return "bayleys";
@@ -178,6 +186,21 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   if (!listing.landAreaSqm) {
     const m = html.match(/(?:land|section|site)\s*(?:area)?[^0-9]*([0-9,]+)\s*m/i);
     if (m) listing.landAreaSqm = parseArea(m[0]);
+  }
+
+  // A portal that publishes `floorAreaString:"0m²"` is not failing to give us a
+  // floor area — it is saying there is no building. The area parsers above drop
+  // it as falsy, which is right for a measurement and wrong as an answer, so it
+  // is read separately here.
+  //
+  // It also overrules the schema.org type, which is why this runs after it:
+  // OneRoof marks up EVERY property page as `SingleFamilyResidence`, sections
+  // included, and trusting that scored a bare paddock as a house.
+  if (listing.floorAreaSqm == null && STATED_ZERO_FLOOR_AREA.test(html)) {
+    listing.noBuildingStated = true;
+    if (listing.propertyType === "house" || listing.propertyType === "unknown") {
+      listing.propertyType = "section";
+    }
   }
 
   // Build year

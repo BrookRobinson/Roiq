@@ -7,6 +7,7 @@ import { scrapeListingUrl, detectPortalFromUrl, type ScrapedListing } from "@/li
 import { emptyListing } from "@/lib/scraper/types";
 import { searchListing } from "@/lib/ai/listing-search";
 import { lookupPropertyAreas } from "@/lib/ai/property-areas";
+import { assessDwelling, identifiesOneProperty } from "@/lib/property/dwelling";
 
 export class ListingNotFoundError extends Error {
   constructor() {
@@ -60,6 +61,9 @@ function merge(base: ScrapedListing, f: Partial<ScrapedListing>): ScrapedListing
     agencyName: f.agencyName ?? base.agencyName,
     agentName: f.agentName ?? base.agentName,
     daysOnMarket: f.daysOnMarket ?? base.daysOnMarket,
+    // Sticky. A recovered source describing the neighbouring HOUSE must never
+    // overturn the subject listing's own statement that it has no building.
+    noBuildingStated: base.noBuildingStated || f.noBuildingStated,
   };
 }
 
@@ -78,11 +82,22 @@ async function ensureAreas(listing: ScrapedListing, opts: { recoverPrice?: boole
   // price found"; a real "By Negotiation" is left alone. recoverPrice is false on the
   // known-not-for-sale path, where a current asking price must never be introduced.
   const recoverPrice = opts.recoverPrice !== false;
-  const needAreas = listing.floorAreaSqm == null || listing.landAreaSqm == null;
+  // A section has no floor area to find, and no building for one to belong to.
+  // Looking one up is how a different property's house size and asking price
+  // were merged into a bare-land listing.
+  const noDwelling = !assessDwelling(listing).hasDwelling;
+  const needAreas = !noDwelling && (listing.floorAreaSqm == null || listing.landAreaSqm == null);
   const needPrice = recoverPrice && listing.askingPrice == null && listing.priceText == null;
   if (!needAreas && !needPrice) return listing;
   const query = [listing.address, listing.suburb, listing.city].filter(Boolean).join(", ").trim();
   if (!query) return listing;
+
+  // "Golf Links Road, Westland" is a STREET. A web search for it comes back
+  // with whichever property on that road is currently advertised, and merging
+  // that in attributes a stranger's floor area and asking price to the property
+  // being analysed — the same failure as showing someone the wrong house, but
+  // silent. Without a street number there is nothing safe to look up.
+  if (!identifiesOneProperty(listing.address)) return listing;
 
   const facts = await lookupPropertyAreas(query).catch(() => null);
   if (!facts) return listing;

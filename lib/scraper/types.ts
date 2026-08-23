@@ -70,6 +70,15 @@ export interface ScrapedListing {
   errorMessage: string | null;
   /** Set when data was recovered from a fallback source (web search), e.g. "Data sourced from OneRoof …". */
   dataSource?: string | null;
+  /**
+   * The portal published a floor area of exactly 0 — it is telling us there is
+   * no building, not failing to tell us how big one is.
+   *
+   * Kept apart from `floorAreaSqm: null` because the two lead opposite ways: a
+   * missing figure sends us looking one up, a stated zero means there is
+   * nothing to look up and nothing to score.
+   */
+  noBuildingStated?: boolean;
 }
 
 export type SupportedPortal =
