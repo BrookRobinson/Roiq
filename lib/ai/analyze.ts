@@ -338,7 +338,12 @@ function placeholderSubItem(item: ScoringSubItem, hadPhotos: boolean, ctx: SubIt
     confidenceTier: 3,
     evidenceSource: hadPhotos ? "Not visible in listing photos" : "No photos available",
     aiSummary:
-      "This item could not be assessed from the available listing information and is flagged as a Tier 3 inspection item. Confirm its condition with a registered building inspector before making an offer.",
+      // Reached only when the model omits an item entirely, which it should not
+      // do — every item is meant to come back, with score null where it could
+      // not be assessed, so its explanation survives. Deliberately does not talk
+      // about "condition" or building inspectors: this same placeholder lands on
+      // title and LIM items, where that advice is nonsense.
+      "The analysis didn't return a finding for this item, so nothing here is assessed either way.",
     estimatedReplacementCost: null,
     replacementCostWeight: 0,
     renovationLink: false,
