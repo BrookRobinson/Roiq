@@ -8,7 +8,7 @@ export function HoldPeriodSlider() {
 
   return (
     <div
-      className="flex items-center gap-4 px-5 py-3 rounded-2xl"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 rounded-2xl"
       style={{
         background: "var(--surface)",
         border: "1px solid var(--border)",
@@ -32,7 +32,9 @@ export function HoldPeriodSlider() {
         </span>
       </div>
 
-      <div className="flex-1 min-w-0 flex items-center gap-3">
+      {/* basis + min-w keep the slider usable; without a floor it is squeezed to a
+          few pixels long before the caption ever gives up any width. */}
+      <div className="flex-1 basis-56 min-w-[200px] flex items-center gap-3">
         <span className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>1</span>
         <input
           type="range"
@@ -40,14 +42,18 @@ export function HoldPeriodSlider() {
           max={15}
           value={holdYears}
           onChange={(e) => setHoldYears(Number(e.target.value))}
-          className="flex-1 cursor-pointer"
+          // min-w-0: a range input's automatic minimum size is its intrinsic width
+          // (~129px), so without this it refuses to shrink, overflows this row and
+          // renders on top of the caption.
+          className="flex-1 min-w-0 cursor-pointer"
           style={{ accentColor: "var(--brand)" }}
           aria-label="Hold period in years"
         />
         <span className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>15</span>
       </div>
 
-      <div className="hidden sm:flex flex-col items-end flex-shrink-0">
+      {/* ml-auto keeps it hard right when the row wraps and it drops to its own line. */}
+      <div className="hidden sm:flex flex-col items-end flex-shrink-0 ml-auto text-right">
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
           Costs shown within your hold period
         </span>
