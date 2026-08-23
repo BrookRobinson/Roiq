@@ -9,6 +9,7 @@ import { WhatsInside } from "@/components/landing/WhatsInside";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 /**
  * Landing page, "Survey Report" language.
@@ -27,7 +28,7 @@ import { ArrowRight, Check, Minus } from "lucide-react";
  */
 
 export const metadata = {
-  title: "BDR Report — Know before you buy.",
+  title: `${PRODUCT_NAME} — Know before you buy.`,
   description:
     "Property analysis for New Zealand buyers and investors. Every photo assessed, every score sourced, scored out of 1,000.",
 };
@@ -73,7 +74,7 @@ function Position() {
             the location is sought after. It does not tell you the roof has
             around eight years left, that the cladding era carries weathertight
             risk, or what the deferred maintenance will cost you in year three.
-            BDR Report reads the same photos an agent published and reports what they
+            {PRODUCT_NAME} reads the same photos an agent published and reports what they
             show, including the parts nobody wrote down.
           </p>
         </Reveal>
@@ -505,7 +506,7 @@ function Footer() {
           className="mt-14 border-t pt-6 text-[12px] font-semibold uppercase tracking-[0.07em]"
           style={{ borderColor: "var(--rule)", color: "var(--text-muted)" }}
         >
-          BDR Report, Aotearoa New Zealand
+          {PRODUCT_NAME}, Aotearoa New Zealand
         </div>
       </div>
     </footer>

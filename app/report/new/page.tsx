@@ -15,6 +15,7 @@ import { Lock } from "lucide-react";
 import { contributeToMap } from "@/lib/map/contribution";
 import { persistReport } from "@/lib/reports/client";
 import { useRequireAuth } from "@/lib/auth/useRequireAuth";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 type Step = "input" | "scraping" | "analysing" | "done";
 
@@ -388,7 +389,7 @@ function NewReportInner() {
                 Upload property photos
               </p>
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                For a property you can&apos;t link to. Enter the address and upload a photo of each area — BDR Report runs the full analysis.
+                For a property you can&apos;t link to. Enter the address and upload a photo of each area — {PRODUCT_NAME} runs the full analysis.
               </p>
               <button
                 className="btn-secondary mt-4 text-sm"

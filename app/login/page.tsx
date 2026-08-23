@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Eye, EyeOff, ArrowRight, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -47,7 +48,7 @@ function LoginForm() {
             style={{ color: "var(--brand)" }}
           >
             <LogoIcon />
-            BDR Report
+            {PRODUCT_NAME}
           </Link>
           <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
             Know before you buy.
@@ -62,7 +63,7 @@ function LoginForm() {
             Welcome back
           </h1>
           <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-            Log in to your BDR Report account
+            Log in to your {PRODUCT_NAME} account
           </p>
 
           {error && (

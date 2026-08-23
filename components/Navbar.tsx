@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useTheme } from "@/lib/theme/context";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { Sun, Moon, Menu, X } from "lucide-react";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 /**
  * Navigation IA is unchanged from the previous build: same routes, same
@@ -72,7 +73,7 @@ export default function Navbar({
             href="/"
             className="cursor-pointer"
             style={{ color: "var(--text-primary)" }}
-            aria-label="BDR Report home"
+            aria-label={`${PRODUCT_NAME} home`}
           >
             <Wordmark />
           </Link>

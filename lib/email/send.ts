@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 // ============================================================
 // Sending email, in one place.
 //
@@ -18,7 +19,7 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
  * for emailing an agent. A verified domain in RESEND_FROM is what makes sending
  * to anyone else work.
  */
-export const DEFAULT_FROM = "BDR Report <onboarding@resend.dev>";
+export const DEFAULT_FROM = `${PRODUCT_NAME} <onboarding@resend.dev>`;
 
 export const isEmailConfigured = (): boolean => !!process.env.RESEND_API_KEY;
 

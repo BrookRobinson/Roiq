@@ -55,6 +55,7 @@ import Link from "next/link";
 
 import { useSession } from "@/lib/auth/session";
 import { BlurredValue, UpgradeNote, LockedTab } from "@/components/report/Locked";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "negotiation" | "methodology";
 
@@ -595,7 +596,7 @@ export function RealReportView({
             <div className="card p-5 mb-6" style={{ border: "1px solid var(--brand)", background: "var(--accent-wash)" }}>
               <div className="flex items-center gap-2 font-semibold text-base mb-1" style={{ color: "var(--text-primary)" }}>📷 No listing photos found</div>
               <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                We couldn&apos;t retrieve photos from this listing. TradeMe and some other portals block photo access. Without photos we can&apos;t give condition scores — only build-year risk flags. To get a full BDR Report you have two options:
+                We couldn&apos;t retrieve photos from this listing. TradeMe and some other portals block photo access. Without photos we can&apos;t give condition scores — only build-year risk flags. To get a full {PRODUCT_NAME} you have two options:
               </p>
               <div className="flex flex-wrap gap-2 mt-3">
                 <a href={`/report/upload?address=${encodeURIComponent(listing.address ?? "")}${listing.askingPrice ? `&price=${listing.askingPrice}` : ""}`}
@@ -965,7 +966,7 @@ function MethodologyTab() {
       <div className="card p-5">
         <div className="text-[11px] uppercase tracking-widest mb-2" style={{ color: "var(--brand)" }}>How we score</div>
         <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.75 }}>
-          BDR Report isn&apos;t a generic out-of-ten. The <strong style={bold}>Condition &amp; Quality Score</strong> measures the property itself, and every number that feeds it is shown to you. Here&apos;s exactly how it works.
+          {PRODUCT_NAME} isn&apos;t a generic out-of-ten. The <strong style={bold}>Condition &amp; Quality Score</strong> measures the property itself, and every number that feeds it is shown to you. Here&apos;s exactly how it works.
         </p>
       </div>
 
@@ -1062,7 +1063,7 @@ function MethodologyTab() {
       <div className="card p-5">
         <h3 className="text-base font-semibold" style={bold}>Honest limits</h3>
         <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          BDR Report reads photos and public listing data — it can&apos;t see behind walls (wiring, plumbing, framing) or under the floor. Scores are an informed starting point and valuations are estimates. Always confirm with a registered building inspection and valuation before you buy.
+          {PRODUCT_NAME} reads photos and public listing data — it can&apos;t see behind walls (wiring, plumbing, framing) or under the floor. Scores are an informed starting point and valuations are estimates. Always confirm with a registered building inspection and valuation before you buy.
         </p>
       </div>
     </div>
@@ -1850,9 +1851,9 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
         {verdict === "under" && <div className="font-bold text-sm" style={{ color: VC }}>✅ UNDERVALUED by ~{fmt(diff)}</div>}
         {verdict === "fair" && <div className="font-bold text-sm" style={{ color: VC }}>⚖️ FAIRLY PRICED — within the estimate range</div>}
         <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
-          {verdict === "over" && "The asking price is above BDR Report's land + improvements estimate for this property."}
-          {verdict === "under" && "The asking price is below BDR Report's land + improvements estimate — a potential opportunity."}
-          {verdict === "fair" && "The asking price sits inside BDR Report's estimated value range for this property."}
+          {verdict === "over" && `The asking price is above ${PRODUCT_NAME}'s land + improvements estimate for this property.`}
+          {verdict === "under" && `The asking price is below ${PRODUCT_NAME}'s land + improvements estimate — a potential opportunity.`}
+          {verdict === "fair" && `The asking price sits inside ${PRODUCT_NAME}'s estimated value range for this property.`}
         </p>
       </div>
 

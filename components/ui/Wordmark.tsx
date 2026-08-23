@@ -1,5 +1,7 @@
+import { PRODUCT_NAME } from "@/lib/brand";
+
 /**
- * BDR Report wordmark.
+ * The product wordmark.
  *
  * A single geometric mark: a square plan outline with a corner survey tick,
  * which is the one drawing convention this whole design language is built on.
@@ -41,7 +43,7 @@ export function Wordmark({
           className="text-[19px] font-semibold"
           style={{ letterSpacing: "-0.03em" }}
         >
-          BDR Report
+          {PRODUCT_NAME}
         </span>
       )}
     </span>

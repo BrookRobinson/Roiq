@@ -5,6 +5,7 @@ import { useState, Suspense } from "react";
 import { Eye, EyeOff, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 function SignupForm() {
   const searchParams = useSearchParams();
@@ -98,7 +99,7 @@ function SignupForm() {
             style={{ color: "var(--brand)" }}
           >
             <LogoIcon />
-            BDR Report
+            {PRODUCT_NAME}
           </Link>
         </div>
 

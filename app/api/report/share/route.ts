@@ -5,6 +5,7 @@ import { SHARE_TTL_DAYS, newShareToken, isShareToken } from "@/lib/share";
 import type { StoredReport } from "@/lib/report-store";
 import { sendEmail } from "@/lib/email/send";
 import type { Json } from "@/lib/supabase/types";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 export const runtime = "nodejs";
 
@@ -158,7 +159,7 @@ async function sendShareEmail(args: {
 
   return sendEmail({
     to: args.to,
-    subject: `BDR Report shared with you — ${address}`,
+    subject: `${PRODUCT_NAME} shared with you — ${address}`,
     html,
   });
 }

@@ -1,7 +1,8 @@
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
+import { PRODUCT_NAME } from "@/lib/brand";
 
-export const metadata = { title: "Privacy Policy — BDR Report" };
+export const metadata = { title: `Privacy Policy — ${PRODUCT_NAME}` };
 
 const SECTIONS: { h: string; p: string[] }[] = [
   {
@@ -28,7 +29,7 @@ const SECTIONS: { h: string; p: string[] }[] = [
   {
     h: "4. Sharing",
     p: [
-      "We share data with the service providers needed to run BDR Report (hosting, database, payments, email, AI). We do not sell your personal information.",
+      `We share data with the service providers needed to run ${PRODUCT_NAME} (hosting, database, payments, email, AI). We do not sell your personal information.`,
       "If you share a report via a private link, anyone with that link can view it until you disable sharing.",
     ],
   },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { DEFAULT_FROM, fromAddress, hasVerifiedSender, isEmailConfigured, sendEmail } from "@/lib/email/send";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest) {
 
   const result = await sendEmail({
     to,
-    subject: "BDR Report — email test",
+    subject: `${PRODUCT_NAME} — email test`,
     html: `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.6">
       <p style="font-size:15px">Email sending is working.</p>
       <p style="font-size:13px;color:#666">Sent from <strong>${fromAddress()}</strong>. If you received this at an address other than your own Resend account, a verified domain is live and report links can go to anyone.</p>

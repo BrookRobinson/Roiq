@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Home, TrendingUp, ArrowRight } from "lucide-react";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 type Role = "buyer" | "investor" | "both";
 
@@ -28,7 +29,7 @@ export default function SimpleOnboardingPage() {
     >
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="font-bold text-2xl mb-1" style={{ color: "var(--brand)" }}>BDR Report</div>
+          <div className="font-bold text-2xl mb-1" style={{ color: "var(--brand)" }}>{PRODUCT_NAME}</div>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>Quick setup — 30 seconds</p>
         </div>
 

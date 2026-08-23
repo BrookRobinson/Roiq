@@ -11,6 +11,7 @@ import { contributeToMap } from "@/lib/map/contribution";
 import { persistReport } from "@/lib/reports/client";
 import { MANDATORY_CATEGORIES, OPTIONAL_CATEGORIES, type PhotoCategory } from "@/lib/photo-categories";
 import { useRequireAuth } from "@/lib/auth/useRequireAuth";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 type Step = "input" | "analysing" | "done";
 interface Shot { dataUrl: string; name: string }
@@ -264,7 +265,7 @@ export default function UploadReportPage() {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>Upload property photos</h1>
-          <p className="text-base" style={{ color: "var(--text-secondary)" }}>For a property you can&apos;t link to — enter the address and upload photos of each area, and BDR Report runs the full analysis.</p>
+          <p className="text-base" style={{ color: "var(--text-secondary)" }}>For a property you can&apos;t link to — enter the address and upload photos of each area, and {PRODUCT_NAME} runs the full analysis.</p>
         </div>
 
         {error && <div className="rounded-xl p-4 mb-4 text-sm" style={{ background: "var(--danger-bg)", color: "var(--danger)", border: "1px solid rgba(255,95,95,0.2)" }}>{error}</div>}
@@ -324,7 +325,7 @@ export default function UploadReportPage() {
         {triedSubmit && addressOk && !mandatoryDone && (
           <div className="rounded-2xl p-5 mb-4" style={{ background: "rgba(255,95,95,0.06)", border: "1px solid rgba(255,95,95,0.3)" }}>
             <div className="flex items-center gap-2 font-semibold text-sm mb-2" style={{ color: "var(--danger)" }}><AlertTriangle size={15} /> Missing required photos</div>
-            <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>BDR Report needs photos of these areas to run an accurate report:</p>
+            <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>{PRODUCT_NAME} needs photos of these areas to run an accurate report:</p>
             <div className="space-y-1">
               {missingMandatory.map((c) => (
                 <div key={c.id} className="text-sm flex items-center gap-2" style={{ color: "var(--text-primary)" }}>📷 {c.label} — <span style={{ color: "var(--text-muted)" }}>not uploaded</span></div>

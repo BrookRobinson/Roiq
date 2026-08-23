@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/lib/theme/context";
 import { SessionProvider } from "@/lib/auth/session";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 /**
  * Inter, matching the LMCT+ reference, loaded through weight 900 for the heavy
@@ -31,7 +32,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BDR Report — Know before you buy.",
+  title: `${PRODUCT_NAME} — Know before you buy.`,
   description:
     "Property analysis for New Zealand buyers and investors. Every photo assessed, every score sourced, scored out of 1,000.",
 };

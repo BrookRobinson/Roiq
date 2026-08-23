@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type Anthropic from "@anthropic-ai/sdk";
 
 import { getAnthropic, ANALYSIS_MODEL, isAnalysisConfigured } from "@/lib/ai/client";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -81,7 +82,7 @@ function docTool(kind: { label: string; scoreGuide: string }): Anthropic.Tool {
   };
 }
 
-const SYSTEM = `You are BDR Report's document verifier. You read a single uploaded New Zealand property document and return a verified, plain-English assessment for a non-expert buyer.
+const SYSTEM = `You are ${PRODUCT_NAME}'s document verifier. You read a single uploaded New Zealand property document and return a verified, plain-English assessment for a non-expert buyer.
 Rules:
 - Base everything ONLY on what the document actually says. Never invent facts, dates, consent numbers, or notices.
 - If the PDF is not the expected document type, or is unreadable, set doc_type_confirmed=false, score=null, and say so plainly in the summary.

@@ -8,6 +8,7 @@ import { improvementsCategories } from "@/lib/scoring/report";
 import type { PropertyContext, ScoreResult } from "@/lib/scoring/engine";
 import type { SubItem, ExtraDwelling, PropertyTabData } from "@/lib/property-tab/types";
 import { Sparkles, AlertTriangle, ExternalLink, Loader2, ImageIcon } from "lucide-react";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 interface GapFinding {
   gapType: string;
@@ -117,7 +118,7 @@ export default function AnalyzePage() {
           </span>
         </div>
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-          Paste a NZ listing URL. BDR Report scrapes it, sends the photos to Claude vision, and returns a real
+          Paste a NZ listing URL. {PRODUCT_NAME} scrapes it, sends the photos to Claude vision, and returns a real
           condition report and 1,000-point score. This is the actual pipeline — not the demo.
         </p>
 

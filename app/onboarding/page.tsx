@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowLeft, Home, TrendingUp, CheckCircle2, MapPin } from "lucide-react";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 type Role = "buyer" | "investor" | "both";
 type RentalType = "longterm" | "shortterm" | "both" | "undecided";
@@ -60,7 +61,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="font-bold text-2xl mb-1" style={{ color: "var(--brand)" }}>BDR Report</div>
+          <div className="font-bold text-2xl mb-1" style={{ color: "var(--brand)" }}>{PRODUCT_NAME}</div>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             Set up your profile — takes 2 minutes
           </p>
@@ -86,7 +87,7 @@ export default function OnboardingPage() {
           {/* Step 1 — Role */}
           {step === 1 && (
             <div>
-              <h2 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>What brings you to BDR Report?</h2>
+              <h2 className="text-xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>What brings you to {PRODUCT_NAME}?</h2>
               <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>This personalises your reports and map view.</p>
               <div className="space-y-3 mb-6">
                 {([

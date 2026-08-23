@@ -6,6 +6,7 @@ import type { MapListing, ComputedListing, MapMode, UserVariables } from "@/lib/
 import { DEAL_HEX, pctLabel } from "@/lib/map/calc";
 import { loadReport } from "@/lib/report-store";
 import { useSession } from "@/lib/auth/session";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 interface Detail {
   listing: MapListing;
@@ -240,5 +241,5 @@ function homebuyerNote(gap: number): string {
   const g = Math.round(gap);
   if (g > 15) return `Great deal — BDR values it ${g}% above the asking price.`;
   if (g < -15) return `Overpriced — BDR values it ${Math.abs(g)}% below the asking price.`;
-  return "Fair price — close to BDR Report's estimated value.";
+  return `Fair price — close to ${PRODUCT_NAME}'s estimated value.`;
 }

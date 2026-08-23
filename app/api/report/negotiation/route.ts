@@ -7,6 +7,7 @@ import type { NegotiationCase } from "@/lib/negotiation/build";
 import { NEGOTIATION_KIND, type NegotiationPayload } from "@/lib/negotiation/payload";
 import { sendEmail } from "@/lib/email/send";
 import type { Json } from "@/lib/supabase/types";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 export const runtime = "nodejs";
 
@@ -150,7 +151,7 @@ async function sendToAgent(args: {
       in full.
     </p>
     <p style="font-size:12px;color:#999;border-top:1px solid #eee;padding-top:12px;margin-top:24px">
-      Sent via BDR Report. This link expires in ${SHARE_TTL_DAYS} days.
+      Sent via ${PRODUCT_NAME}. This link expires in ${SHARE_TTL_DAYS} days.
     </p>
   </div>`;
 

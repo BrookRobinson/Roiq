@@ -220,6 +220,19 @@ here; 02:00 UTC would run it at 2pm in Auckland. Don't add comments to
 `vercel.json` — Vercel validates it against a strict schema and rejects unknown
 keys, so a `$comment` fails the deploy rather than being ignored.
 
+**The product's name lives in `lib/brand.ts`, nowhere else.** It was spread
+across 44 files and the name isn't settled, so changing it meant an audit
+including AI prompts and the PDF sent to a vendor's agent. Customer-facing copy
+now reads `PRODUCT_NAME`; the domain comes from `displayDomain()`, derived from
+`NEXT_PUBLIC_APP_URL` so it can't disagree with where links actually point.
+Internal identifiers — `roiqScore`, `bdr_owner`, the Supabase project, the repo
+— stay as they are: no customer reads them and renaming them drags a migration
+along. Comments naming the product are left alone too.
+
+`lib/map/discovery.ts` deliberately does NOT import from `lib/brand` — its
+parsers are dependency-free so `verify:discovery` can load the module with
+plain node, and a single `@/` import ends that.
+
 **Valuations are estimates until a licensed sold-sales feed lands.** Land value
 and suburb $/m² are inferred, and everything downstream inherits that. Don't
 write copy that presents them as settled fact.

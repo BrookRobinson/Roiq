@@ -24,8 +24,16 @@
 export const ONEROOF_SITEMAP_INDEX =
   "https://www.oneroof.co.nz/sitemap/index/residential-for-sale-listings.xml";
 
-/** Identifies us honestly, so OneRoof can see who's asking and block us if they'd rather. */
-const USER_AGENT = "RoiQBot/1.0 (+https://roiq.co.nz; NZ property analysis)";
+/**
+ * Identifies us honestly, so OneRoof can see who's asking and block us if they'd
+ * rather. The URL has to be one that actually resolves — a contact address
+ * nobody can reach is the same as not leaving one.
+ */
+// Built from the env var directly rather than importing lib/brand: the parsers
+// below are deliberately dependency-free so scripts/verify-discovery.mjs can
+// load this module with plain node, and one `@/` import would end that.
+const CONTACT_URL = process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://roiq.co.nz";
+const USER_AGENT = `RoiQBot/1.0 (+${CONTACT_URL}; NZ property analysis)`;
 
 export interface DiscoveredListing {
   /** The listing page, canonical form. */

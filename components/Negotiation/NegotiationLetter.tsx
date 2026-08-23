@@ -13,6 +13,7 @@
 // ============================================================
 
 import type { NegotiationCase, NegotiationItem, ReductionAsk } from "@/lib/negotiation/build";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 const range = (lo: number, hi: number) => (lo === hi ? money(lo) : `${money(lo)} – ${money(hi)}`);
@@ -49,7 +50,7 @@ export function NegotiationLetter({
         <div className="flex items-start justify-between gap-6">
           <div>
             <div className="text-lg font-bold" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-              BDR Report
+              {PRODUCT_NAME}
             </div>
             <div className="mt-0.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
               Independent property condition analysis
@@ -234,7 +235,7 @@ export function NegotiationLetter({
         </section>
 
         <footer className="mt-7 border-t pt-4 text-[11px]" style={{ borderColor: "var(--rule)", color: "var(--text-muted)" }}>
-          Prepared with BDR Report · Assessment dated {longDate(data.reportDate)}
+          Prepared with {PRODUCT_NAME} · Assessment dated {longDate(data.reportDate)}
           {data.listingUrl ? " · Listing details as advertised at the time of assessment" : ""}
         </footer>
       </div>
