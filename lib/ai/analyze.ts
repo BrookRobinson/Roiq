@@ -44,6 +44,11 @@ import type {
 import type { StructureType } from "@/lib/scoring/structures";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { compareFloorArea } from "@/lib/property/floor-area-check";
+import {
+  assessFoundation,
+  type FoundationSymptom,
+  type FoundationType,
+} from "@/lib/scoring/foundation";
 
 export interface GapFinding {
   gapType: string;
@@ -271,6 +276,34 @@ function ageBracket(raw: string | undefined, specTier: SpecTier | undefined, bui
   return specTier === "deteriorated" ? "30+ years (end of life, est.)" : "~25 years (est.)";
 }
 
+const FOUNDATION_TYPES: readonly FoundationType[] = [
+  "concrete_slab",
+  "concrete_piles",
+  "timber_piles",
+  "mixed",
+  "unknown",
+];
+const FOUNDATION_SYMPTOMS: readonly FoundationSymptom[] = [
+  "sloping_floor",
+  "door_gaps",
+  "out_of_square",
+  "lining_cracks",
+  "exterior_cracking",
+  "pile_damage",
+];
+
+const normFoundationType = (v: unknown): FoundationType =>
+  typeof v === "string" && (FOUNDATION_TYPES as readonly string[]).includes(v)
+    ? (v as FoundationType)
+    : "unknown";
+
+const normFoundationSymptoms = (v: unknown): FoundationSymptom[] =>
+  Array.isArray(v)
+    ? (v.filter(
+        (s) => typeof s === "string" && (FOUNDATION_SYMPTOMS as readonly string[]).includes(s)
+      ) as FoundationSymptom[])
+    : [];
+
 /** Estimated area for a size item; apportions the total floor area when the AI omits it. */
 function sizeSqm(raw: number | undefined, id: string, floorAreaSqm: number | null, bedrooms: number | null): number | undefined {
   if (raw != null && Number.isFinite(raw) && raw > 0) return Math.round(raw);
@@ -285,7 +318,21 @@ function sizeSqm(raw: number | undefined, id: string, floorAreaSqm: number | nul
 }
 
 function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext): SubItem {
-  const score = clampScore(raw.score);
+  // The foundation score is RECALCULATED from the facts the model reports —
+  // type, build era and the movement visible inside — rather than taken as a
+  // number. Almost no listing shows under the floor, so a number offered on top
+  // of that would be a guess; type + era + symptoms are all genuinely readable.
+  // Same arrangement as land_topography.
+  const foundation =
+    item.id === "ext_foundation"
+      ? assessFoundation({
+          type: normFoundationType(raw.foundation_type),
+          buildYear: ctx.buildYear,
+          symptoms: normFoundationSymptoms(raw.foundation_symptoms),
+          subfloorVisible: Boolean(raw.subfloor_visible),
+        })
+      : null;
+  const score = foundation ? (foundation.score as UrgencyScore) : clampScore(raw.score);
   const specTier = usesSpecTier(item) ? normSpecTier(raw.spec_tier) : undefined;
   return {
     id: item.id,
@@ -295,10 +342,14 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
     condition: raw.condition?.trim() || "See assessment",
     score,
     urgencyLabel: urgencyLabel(score),
-    confidenceTier: clampTier(raw.confidence_tier),
+    confidenceTier: foundation ? foundation.confidenceTier : clampTier(raw.confidence_tier),
     evidenceSource:
       raw.evidence_source?.trim() || (score === null ? "Build-era inference" : "Listing photos"),
-    aiSummary: raw.ai_summary?.trim() || "",
+    // The computed rationale leads, because it is what the score is actually
+    // built from; the model's own reading follows it.
+    aiSummary: foundation
+      ? [foundation.rationale, raw.ai_summary?.trim()].filter(Boolean).join(" ")
+      : raw.ai_summary?.trim() || "",
     // Only cost-bearing items carry a replacement cost into the Renovations tab.
     estimatedReplacementCost: item.costBearing ? normCost(raw.replacement_cost) : null,
     replacementCostWeight: 0, // v3.1 engine weights by persona points, not this field

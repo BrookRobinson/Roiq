@@ -67,14 +67,26 @@ You can often identify a foundation TYPE from a photo — perimeter base trim an
 height gap mean piles, a continuous vent-free concrete base means a slab — and
 that identification is a fair Tier 1-2 call. You cannot see the CONDITION of piles
 you have never looked at: rot, borer, settlement and subfloor moisture are under
-the floor. The SCORE on ext_foundation is a
-CONDITION score, so it follows the subfloor, not the type: score it only when a
-photo actually shows under the floor — piles, bearers, subfloor framing or the
-inside of a basement. If the photos only show the outside of the house, set
-confidence_tier 3 and score null, and put the type identification and the
-subfloor-inspection advice in ai_summary where it belongs. "Timber piles,
-condition unknown" is a finding worth having; "piles: 5/10" is a guess about
-timber nobody has looked at. The same holds for waterproofing behind tiling, insulation inside a
+the floor. The foundation is the exception to the
+"can't see it, don't score it" rule, because three things you CAN see decide it.
+
+DO NOT expect a photo of the subfloor — very few listings have one, and its
+absence is normal rather than a gap. Instead report the facts and let the report
+compute the score: foundation_type from the perimeter, the build year, and
+foundation_symptoms from INSIDE. A concrete floor rates above timber piles, and a
+slab under the post-2011 standard is the top of the range; pre-1970 timber piles
+are the bottom of it. Movement visible inside outranks the type either way: a
+floor that is visibly out of level, uneven gaps at the head or foot of a doorway,
+openings out of square, diagonal cracking from the corner of a door — that is
+what pile settlement looks like in a photograph of a living room, and an old
+house on piles showing it is the worst case there is. Look for it deliberately:
+check skirtings against floorboards, a benchtop against a window sill, furniture
+lines against the wall.
+
+Set confidence_tier and score on ext_foundation anyway if you wish — both are
+recalculated from foundation_type, the build era and foundation_symptoms. What
+matters is that those three are right, and that you never list a symptom you
+cannot point at in a photo. The same holds for waterproofing behind tiling, insulation inside a
 ceiling or wall, and wiring or plumbing inside a wall.
 
 SCORING RULES

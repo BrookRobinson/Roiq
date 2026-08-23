@@ -35,6 +35,9 @@ export interface RawSubItem {
   spec_tier?: string;
   observed_defect?: string;
   estimated_sqm?: number;
+  foundation_type?: string;
+  foundation_symptoms?: string[];
+  subfloor_visible?: boolean;
   slope_band?: string;
   usable_land_pct?: number;
   shape_type?: string;
@@ -319,6 +322,26 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               enum: ["deteriorated", "dated", "modern", "luxury"],
               description:
                 "IMPROVEMENTS only — REQUIRED for every improvements item. This is the PRIMARY score driver: the tier sets a capped points band and the condition score then positions the item within it. deteriorated = the item is absent, broken, or so worn it needs full replacement regardless of its original spec (band 0–30% of the item's points); dated = present and functional but old-fashioned / an older spec (30–60%); modern = updated / contemporary look — tiling, stone or stone-look benchtops, good flooring, integrated appliances, modern fittings (60–80%); luxury = clearly high-end — natural stone, designer/architectural, imported fittings (80–100%). Judge the SPEC/era of the materials from the brand, materials and style visible in the photo (and listing description), NOT how new it looks — a tiled bathroom and a vinyl one can both be 10/10 condition but sit at different tiers. If you can't tell from the photo, infer from the build era. Rough era guide (assume it is 2026): dated = fitted pre-2014 or never renovated; modern = fitted 2014 onward; luxury = high-end materials at any age; deteriorated = broken/absent/end-of-life.",
+            },
+            foundation_type: {
+              type: "string",
+              enum: ["concrete_slab", "concrete_piles", "timber_piles", "mixed", "unknown"],
+              description:
+                "ext_foundation ONLY — REQUIRED for it. What the house sits on, read from the PERIMETER: a base board / skirting with a height gap between the ground and where the cladding starts, or visible subfloor vents, means timber_piles. A continuous solid concrete base at ground level with no vents means concrete_slab. Round or square concrete stubs mean concrete_piles. Use \"unknown\" only when the perimeter genuinely isn't visible in any photo. Do NOT score the foundation yourself — this, the build year and the symptoms below determine the score.",
+            },
+            foundation_symptoms: {
+              type: "array",
+              items: {
+                type: "string",
+                enum: ["sloping_floor", "door_gaps", "out_of_square", "lining_cracks", "exterior_cracking", "pile_damage"],
+              },
+              description:
+                "ext_foundation ONLY. Signs of foundation MOVEMENT visible in the photos — these are what settlement looks like from inside, and they matter more than the foundation type. sloping_floor: a floor visibly out of level (check furniture lines, skirtings against floorboards, a benchtop against a window sill). door_gaps: uneven gap at the head or foot of a door. out_of_square: a door or window opening visibly out of square. lining_cracks: diagonal cracking from the corner of an opening. exterior_cracking: stepped cracking in brick, block or plaster. pile_damage: rot, borer or leaning piles — ONLY if a photo actually shows the subfloor. Omit the field entirely when the photos show none of these; do not list a symptom you cannot point at.",
+            },
+            subfloor_visible: {
+              type: "boolean",
+              description:
+                "ext_foundation ONLY. True only when a photo genuinely shows under the floor — piles, bearers, subfloor framing or the inside of a basement. Rare; most listings never show it.",
             },
             slope_band: {
               type: "string",

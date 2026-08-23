@@ -22,6 +22,7 @@ npm run verify:email-key     # which accounts count as one inbox
 npm run verify:discovery     # the sitemap/URL parsers behind nightly discovery
 npm run verify:dwelling      # is there a building to score, and does the address name one property
 npm run verify:floor-area    # advertised floor area vs the rating roll, and what that must never say
+npm run verify:foundation    # foundation scoring from type, era and visible movement
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
 
@@ -288,11 +289,28 @@ confidence_tier 3"). And `InspectionCard` must not print a score for a Tier 3
 item, or the same over-claim reappears in a smaller font attached to a number
 that counts for nothing.
 
-The nuance worth keeping: a foundation **type** is often readable from a photo —
-perimeter base trim and a height gap mean piles, a continuous vent-free base means
-a slab — and that is a fair Tier 1–2 call. The **condition** of piles nobody has
-looked at is not. Same for waterproofing behind tiling, insulation in a ceiling,
-wiring inside a wall.
+**The foundation is the deliberate exception**, and getting there took two wrong
+turns. It was scored from nothing; then it was made unscorable, which threw away
+the largest item in the model along with real evidence. Three things ARE readable
+without a subfloor photo, and `lib/scoring/foundation.ts` computes the score from
+them the way `land_topography` does — the model reports facts, the report does
+the arithmetic:
+
+1. **Type**, from the perimeter — base board plus a height gap, or subfloor
+   vents, means timber piles; a continuous vent-free concrete base means a slab.
+   **A concrete floor rates above timber piles.**
+2. **Era**, which sets the standard — a slab under the post-2011 NZS 3604
+   revision is the top of the range; pre-1970 timber piles the bottom.
+3. **Symptoms, seen INSIDE** — floors visibly out of level, uneven gaps at a
+   doorway, openings out of square, diagonal cracking from a corner. This is what
+   pile settlement looks like in a photo of a living room, and it **outranks the
+   type**: a modern slab showing movement drops below clean piles.
+
+**Do not expect a subfloor photo** — very few listings have one, and its absence
+is normal rather than a gap. Symptoms make it Tier 1 (the movement IS the
+evidence); a clean read of the type is Tier 2; only an unreadable perimeter is
+Tier 3. Waterproofing behind tiling, insulation in a ceiling and wiring inside a
+wall have no equivalent tell, so they stay Tier 3 and unscored.
 
 **The model is told what the app already knows.** `publicRecordFacts()` puts the
 LINZ title, the district-plan zone and the rating valuation into PROPERTY FACTS
