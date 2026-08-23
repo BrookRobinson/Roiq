@@ -23,6 +23,7 @@ npm run verify:discovery     # the sitemap/URL parsers behind nightly discovery
 npm run verify:dwelling      # is there a building to score, and does the address name one property
 npm run verify:floor-area    # advertised floor area vs the rating roll, and what that must never say
 npm run verify:foundation    # foundation scoring from type, era and visible movement
+npm run verify:viewing       # the gate on the agent letter, and what it may claim about each item
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
 
@@ -64,6 +65,7 @@ vendor's agent.
 | `components/landing/` | Landing page sections. **Check here before adding anything to the landing page** — a duplicate map got shipped by grepping for `PropertyMap` and missing `LiveMapSection`. |
 | `components/map/` | `MapExperience.tsx` is the whole map; `/map` and `/map/demo` are thin wrappers around it with a `demo` flag. Don't fork it. |
 | `components/Negotiation/` | The agent document. |
+| `components/Viewing/`, `lib/viewing/` | The viewing checklist and the gate on that document. `status.ts` is dependency-free on purpose. |
 | `lib/billing/` | `plans.ts` is pure and safe to import anywhere; `stripe.ts` is server-only. |
 | `lib/scoring/` | The 1,000-point engine. `model.ts` is the rubric, `engine.ts` scores, `catalog.ts` is the item list. |
 | `lib/map/`, `lib/reports/`, `lib/negotiation/`, `lib/email/`, `lib/auth/` | Feature libs. Server-only modules say so at the top. |
@@ -133,6 +135,39 @@ that plainly rather than manufacturing a case. It also carries **no valuation
 claim**, and the share link carries **only the document**, never the report: the
 Financial tab holds the buyer's walk-away price and the recipient is the vendor's
 agent.
+
+**And it is locked until somebody has been to the house.** The letter used to
+build itself the moment the report did: a costed schedule of defects, read off
+marketing photographs, ready to send to a vendor before anyone had walked
+through the property. `lib/viewing/checklist.ts` collects everything the analysis
+could NOT settle — items it refused to score, findings graded from a Tier 2/3
+read rather than a photograph, documents nobody has uploaded, and the gaps it
+flagged in its own words — and the "For the agent" tab stays shut until every
+line is answered **and** a viewing date is recorded. Both halves are required:
+answering the form at a desk is not a viewing, and the date is the one sentence
+in the letter that says a person stood in the house.
+
+**"Couldn't inspect" is an answer, not a skip.** A subfloor with no hatch and a
+LIM the vendor won't release before an offer are real, and a buyer who did
+everything they could must not be deadlocked. It unlocks the letter — and moves
+that item out of the costed schedule into "Not able to be inspected", where the
+vendor is asked to confirm it. Nothing anyone failed to inspect is ever costed,
+including its remediation: asking for the price of a Certificate of Acceptance
+on the same page that says the consent position could not be established is the
+contradiction an agent reads first.
+
+**An item checked and found sound is dropped, and the letter says how many.**
+That count is the strongest line in the document — it shows the remaining
+schedule survived a real inspection. A problem confirmed on something the
+analysis never scored goes in "Observed at the inspection", attributed to the
+purchaser in their own words, with the indicative cost shown but deliberately
+**not** added to the reduction sought: the analysis didn't grade it, so the
+buyer's own read must not set the headline figure.
+
+`lib/viewing/status.ts` holds both rules and imports nothing, so
+`verify:viewing` can assert them with plain node. The letter must also be built
+from the report's **effective** sub-items, not the raw ones, or it claims a
+score the report itself has withdrawn.
 
 **Nothing auto-renews, and the site says so three times.** Purchases are one-off
 (`mode: "payment"`) buying `ACCESS_DAYS` of access — the landing page, the

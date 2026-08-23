@@ -85,6 +85,10 @@ const DEFECTS: Record<string, string> = {
   out_driveway: "Concrete drive is sound but crazed across the turning area, with weeds through the joints near the street.",
 };
 
+/** Items no listing photograph can show. They are inferred, so they are Tier 3
+ *  and therefore not scored at all — they go on the viewing checklist instead. */
+const NOT_VISIBLE = new Set(["liv_insulation", "bath_waterproof"]);
+
 // Photo numbers backing each observation above.
 const PHOTOS: Record<string, number[]> = {
   ext_roof: [4, 5], bath_ventilation: [6, 11], bath_flooring: [11], bath_hotwater: [14],
@@ -224,7 +228,7 @@ const SUMMARIES: Record<string, string> = {
   ext_roof:
     "Photos 1 and 4 show a long-run iron roof with surface rust along the ridgeline and around the flashings, consistent with a c.1975 original. Plan for replacement within 1–2 years; budget a recoat only if a full replacement isn't viable this cycle. Confirm purlin condition and underlay when re-roofing.",
   liv_insulation:
-    "No ceiling insulation is visible in the roof-space photo (Photo 9), and the 1975 build era predates insulation requirements. Expect little to no ceiling or underfloor insulation. This is the single highest-impact, lowest-cost improvement — it lifts comfort, lowers running costs, and is required for Healthy Homes if rented.",
+    "No photograph shows the roof space, so the ceiling has not been seen. The 1975 build era predates insulation requirements, so expect little to no ceiling or underfloor insulation. This is the single highest-impact, lowest-cost improvement — it lifts comfort, lowers running costs, and is required for Healthy Homes if rented.",
   bath_ventilation:
     "The main bathroom (Photo 5) has an openable window but no visible ducted extractor fan. Inadequate extraction drives mould and fails the Healthy Homes ventilation standard. Install ducted fans vented to outside in both bathrooms.",
   bath_waterproof:
@@ -278,8 +282,13 @@ function buildSubItems(): SubItem[] {
       ?? (isImprovement
         ? ""
         : `Source: ${tax?.source ?? "listing facts"}. ${finding}. ${tax?.verifyAgainst ? `A ${tax.verifyAgainst} would settle this before you go unconditional.` : "Not established from the listing or the public record."}`);
+    // A bad score is not evidence. Insulation sits inside a ceiling and
+    // waterproofing sits behind tiling — no listing photograph shows either, and
+    // the demo's own wording for both says so. Printing "Confirmed from photo"
+    // beside "Not visible in any photo" is the exact over-claim the report is
+    // built to avoid, and it was reaching the agent letter.
     const tier: 1 | 2 | 3 = isImprovement
-      ? (score <= 4 ? 1 : 2)
+      ? (NOT_VISIBLE.has(item.id) ? 3 : score <= 4 ? 1 : 2)
       : (tax && ["title", "photo", "moe_zones", "linz"].includes(tax.sourceType) ? 1 : 3);
 
     out.push({

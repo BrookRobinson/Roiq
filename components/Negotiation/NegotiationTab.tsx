@@ -15,11 +15,30 @@ import { Check, Copy, Loader2, Mail, Printer, Send } from "lucide-react";
 import { buildNegotiationCase } from "@/lib/negotiation/build";
 import { NegotiationLetter } from "./NegotiationLetter";
 import type { StoredReport } from "@/lib/report-store";
+import type { ChecklistItem, ViewingState } from "@/lib/viewing/checklist";
+import type { SubItem } from "@/lib/property-tab/types";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 
-export function NegotiationTab({ report }: { report: StoredReport }) {
-  const data = useMemo(() => buildNegotiationCase(report), [report]);
+export function NegotiationTab({
+  report,
+  viewing,
+  checklist,
+  subItems,
+}: {
+  report: StoredReport;
+  /** What the buyer recorded at the property. The tab is only reachable once
+   *  this is complete — see components/Viewing/ViewingChecklist.tsx. */
+  viewing?: ViewingState;
+  checklist?: ChecklistItem[];
+  /** The report's effective sub-items, so the letter can't claim a score the
+   *  report has withdrawn. */
+  subItems?: SubItem[];
+}) {
+  const data = useMemo(
+    () => buildNegotiationCase(report, viewing, checklist, subItems),
+    [report, viewing, checklist, subItems]
+  );
 
   const [preparedBy, setPreparedBy] = useState("");
   const [email, setEmail] = useState("");

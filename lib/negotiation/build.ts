@@ -19,6 +19,9 @@ import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { StoredReport } from "@/lib/report-store";
+import { dispositionFor } from "@/lib/viewing/status";
+import type { ViewingState } from "@/lib/viewing/status";
+import type { ChecklistItem } from "@/lib/viewing/checklist";
 
 /** Same bands the report's own summary strip uses. */
 export type Band = "critical" | "urgent";
@@ -42,6 +45,10 @@ export interface NegotiationItem {
   evidenceSource: string;
   costLow: number;
   costHigh: number;
+  /** The buyer stood in front of it and confirmed the finding. */
+  confirmedOnSite?: boolean;
+  /** What they wrote down when they did. Quoted verbatim; never paraphrased. */
+  buyerNote?: string;
 }
 
 /** A specifically flagged remedy (consent, compliance, paperwork), kept separate from repairs. */
@@ -107,6 +114,42 @@ export interface ReductionAsk {
   pctOfAsking: number | null;
 }
 
+/**
+ * A line the buyer settled at the viewing rather than the analysis settling it
+ * from photographs. Two kinds, and the letter must not blur them: something they
+ * saw, and something they were unable to see.
+ */
+export interface ViewingFinding {
+  id: string;
+  name: string;
+  area: string;
+  /** The buyer's own words. Left empty when they ticked the box and wrote nothing. */
+  note?: string;
+  /**
+   * The report's own replacement-cost range, carried ONLY on items the buyer
+   * confirmed at the property. Never on something nobody could inspect, and
+   * never added into the reduction sought: the analysis did not grade these, so
+   * the buyer's own read must not set the headline figure.
+   */
+  costLow?: number;
+  costHigh?: number;
+}
+
+export interface ViewingOutcome {
+  /** ISO date the buyer says they walked through it. The letter states this. */
+  inspectedOn: string | null;
+  /** Found on site, in the buyer's words — not a photo read. */
+  confirmed: ViewingFinding[];
+  /** Couldn't be reached, or the vendor hasn't produced it. Never costed. */
+  notInspected: ViewingFinding[];
+  /**
+   * Items the report flagged that the buyer checked and found sound. They are
+   * dropped from the case, and saying how many were dropped is the strongest
+   * thing in the letter: it shows the remaining list survived a real inspection.
+   */
+  cleared: number;
+}
+
 export interface NegotiationCase {
   address: string;
   suburb: string | null;
@@ -139,11 +182,18 @@ export interface NegotiationCase {
   notAssessed: number;
   /** True if anything in the case is tier 2/3 rather than confirmed from a photo. */
   hasUnverified: boolean;
+
+  /**
+   * What the viewing settled. Null only on a case built without one, which the
+   * app no longer allows — the "For the agent" tab stays locked until the
+   * checklist is answered (components/Viewing/ViewingChecklist.tsx).
+   */
+  viewing: ViewingOutcome | null;
 }
 
-const bandFor = (score: number): Band | null => (score <= 2 ? "critical" : score <= 4 ? "urgent" : null);
+export const bandFor = (score: number): Band | null => (score <= 2 ? "critical" : score <= 4 ? "urgent" : null);
 
-const areaLabel = (id: string): string => {
+export const areaLabel = (id: string): string => {
   const inspection = ITEM_BY_ID[id]?.inspection;
   if (inspection === "improvements") return ITEM_BY_ID[id]?.category ?? "Building";
   if (inspection === "land") return "Land";
@@ -183,9 +233,21 @@ function costFor(
   };
 }
 
-export function buildNegotiationCase(report: StoredReport): NegotiationCase {
+export function buildNegotiationCase(
+  report: StoredReport,
+  /** What the buyer recorded at the property. See lib/viewing/checklist.ts. */
+  viewingState?: ViewingState,
+  checklist?: ChecklistItem[],
+  /**
+   * The EFFECTIVE sub-items the report is displaying — verified documents applied,
+   * and Tier 3 improvements stripped of their score. Pass them, or the letter
+   * claims a condition score the report itself has withdrawn: a foundation the
+   * analysis refused to grade would still reach the vendor as "4/10, $18,000".
+   */
+  effectiveSubItems?: SubItem[]
+): NegotiationCase {
   const listing = report.listing;
-  const subItems = report.subItems ?? [];
+  const subItems = effectiveSubItems ?? report.subItems ?? [];
   const ctx = { floorSqm: listing.floorAreaSqm ?? null, bedrooms: listing.bedrooms ?? null };
 
   const valuation = valueImprovementItems({
@@ -199,8 +261,72 @@ export function buildNegotiationCase(report: StoredReport): NegotiationCase {
   const urgent: NegotiationItem[] = [];
   const remedies: NegotiationRemedy[] = [];
 
+  const answers = viewingState?.answers ?? {};
+
+  // What the buyer settled on site. Ordered the same way the checklist was, so
+  // the letter reads in the order they walked the house.
+  const confirmed: ViewingFinding[] = [];
+  const notInspected: ViewingFinding[] = [];
+  let cleared = 0;
+
   for (const s of subItems) {
+    const answer = answers[s.id]?.answer;
+    const buyerNote = answers[s.id]?.note;
     const band = s.score !== null ? bandFor(s.score) : null;
+    const finding = (withCost = false): ViewingFinding => {
+      const base = {
+        id: s.id,
+        name: s.name || ITEM_BY_ID[s.id]?.label || s.id,
+        area: areaLabel(s.id),
+        note: buyerNote,
+      };
+      if (!withCost) return base;
+      const { low, high } = costFor(s, rcnById.get(s.id), ctx);
+      return high > 0 ? { ...base, costLow: low, costHigh: high } : base;
+    };
+
+    // Flagged remedies are a different kind of claim — a specific job someone
+    // identified, not a condition score — so they get their own section rather
+    // than being folded in with the repairs. Handled BEFORE the disposition
+    // switch, which returns early: an item the buyer couldn't reach still has
+    // whatever compliance work the public record showed against it.
+    //
+    // Two answers remove a remedy. "Found it sound" — the buyer looked and there
+    // is nothing to put right. And "couldn't inspect": asking a vendor for the
+    // cost of a Certificate of Acceptance, on the same page that says the consent
+    // position could not be established, is the contradiction an agent reads
+    // first and the reason the rest of the letter stops being believed.
+    if (s.remediation && answer !== "ok" && answer !== "no_access") {
+      remedies.push({
+        id: s.id,
+        name: s.remediation.renovationLineItem,
+        area: areaLabel(s.id),
+        description: s.remediation.description,
+        costLow: s.remediation.low,
+        costHigh: s.remediation.high,
+      });
+    }
+
+    // One rule, in lib/viewing/status.ts, so it can be verified in isolation.
+    switch (dispositionFor(answer, band !== null)) {
+      // Checked on site and found sound. The report's read is superseded by
+      // someone who was actually there, so it is dropped rather than argued.
+      case "drop":
+        if (band) cleared++;
+        continue;
+      // They couldn't get to it. Stated as unverified and never costed — a
+      // figure attached to something nobody could look at is the first thing an
+      // agent pulls, and it takes the honest items down with it.
+      case "unverified":
+        notInspected.push(finding());
+        continue;
+      // A problem the analysis had no score for, because it never saw it. The
+      // buyer's own observation, kept separate and labelled as theirs.
+      case "observe":
+        confirmed.push(finding(true));
+        continue;
+    }
+
     if (band) {
       const { low, high } = costFor(s, rcnById.get(s.id), ctx);
       const item: NegotiationItem = {
@@ -216,24 +342,28 @@ export function buildNegotiationCase(report: StoredReport): NegotiationCase {
         evidenceSource: s.evidenceSource,
         costLow: low,
         costHigh: high,
+        confirmedOnSite: answer === "problem" || undefined,
+        buyerNote: answer === "problem" ? buyerNote : undefined,
       };
       (band === "critical" ? critical : urgent).push(item);
     }
-
-    // Flagged remedies are a different kind of claim — a specific job someone
-    // identified, not a condition score — so they get their own section rather
-    // than being folded in with the repairs.
-    if (s.remediation) {
-      remedies.push({
-        id: s.id,
-        name: s.remediation.renovationLineItem,
-        area: areaLabel(s.id),
-        description: s.remediation.description,
-        costLow: s.remediation.low,
-        costHigh: s.remediation.high,
-      });
-    }
   }
+
+  // Checklist lines that aren't sub-items — the gaps the analysis flagged in its
+  // own words ("west elevation not photographed"). They carry no score, so they
+  // only ever reach the letter through what the buyer wrote about them.
+  for (const c of checklist ?? []) {
+    if (c.itemId) continue; // already handled with its sub-item above
+    const rec = answers[c.key];
+    if (!rec) continue;
+    const finding: ViewingFinding = { id: c.key, name: c.label, area: c.group, note: rec.note };
+    if (rec.answer === "problem") confirmed.push(finding);
+    else if (rec.answer === "no_access") notInspected.push(finding);
+  }
+
+  const viewing: ViewingOutcome | null = viewingState
+    ? { inspectedOn: viewingState.viewedOn, confirmed, notInspected, cleared }
+    : null;
 
   // Price position FIRST — it decides whether a reduction can honestly be argued
   // for at all, and the valuation's own confidence band is the threshold rather
@@ -303,6 +433,8 @@ export function buildNegotiationCase(report: StoredReport): NegotiationCase {
     repairsHigh,
 
     notAssessed: subItems.filter((s) => s.score === null).length,
-    hasUnverified: all.some((i) => i.confidenceTier > 1),
+    hasUnverified: all.some((i) => i.confidenceTier > 1 && !i.confirmedOnSite),
+
+    viewing,
   };
 }

@@ -35,6 +35,9 @@ import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costi
 import { buildBudgetPlan, PRIORITY_META } from "@/lib/reno-costing/budget-plan";
 import { MaterialStudio } from "@/components/MaterialStudio";
 import { NegotiationTab } from "@/components/Negotiation/NegotiationTab";
+import { ViewingChecklist, LetterLocked } from "@/components/Viewing/ViewingChecklist";
+import { buildViewingChecklist, checklistStatus, EMPTY_VIEWING, type ViewingState } from "@/lib/viewing/checklist";
+import { loadViewing, saveViewing, setAnswer, setNote, setViewedOn } from "@/lib/viewing/store";
 import { surfaceForKind, materialsFor } from "@/lib/materials-catalogue";
 import { summarise, defaultInputs, FINANCE_DEFAULTS, PURCHASE_COST_LABELS } from "@/lib/finance/calculator";
 import type { FinanceInputs, LoanType, PurchaseCostKey } from "@/lib/finance/calculator";
@@ -49,7 +52,7 @@ import {
   isVerifiedDocItem,
 } from "@/lib/scoring/catalog";
 import {
-  Home, Building2, Wrench, Calculator, ClipboardList, Shield, MapPin, Handshake,
+  Home, Building2, Wrench, Calculator, ClipboardList, ClipboardCheck, Shield, MapPin, Handshake,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
   TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send, History, Lock,
 } from "lucide-react";
@@ -60,7 +63,7 @@ import { useSession } from "@/lib/auth/session";
 import { BlurredValue, UpgradeNote, LockedTab } from "@/components/report/Locked";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 
-type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "negotiation" | "methodology";
+type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "viewing" | "negotiation" | "methodology";
 
 const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?: boolean }[] = [
   { id: "overview", label: "Overview", icon: Home },
@@ -68,6 +71,7 @@ const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?
   { id: "address", label: "Land", icon: ClipboardList },
   { id: "renovations", label: "Renovations", icon: Wrench },
   { id: "financial", label: "Financial", icon: Calculator },
+  { id: "viewing", label: "Before you view", icon: ClipboardCheck },
   { id: "negotiation", label: "For the agent", icon: Handshake },
   { id: "methodology", label: "How we score", icon: Info },
 ];
@@ -378,6 +382,25 @@ export function RealReportView({
     [effectiveSubItems, report.listing.floorAreaSqm, report.listing.bathrooms]
   );
 
+  // ── The viewing checklist ──────────────────────────────────────────────────
+  // Everything the analysis could NOT settle from photographs, and the gate on
+  // the agent letter. The letter makes claims a vendor will be asked to pay for,
+  // so it stays shut until someone has actually walked through the house and
+  // said what they found. See lib/viewing/checklist.ts.
+  const [viewing, setViewing] = useState<ViewingState>(EMPTY_VIEWING);
+  useEffect(() => { setViewing(loadViewing(report.id)); }, [report.id]);
+
+  function updateViewing(next: ViewingState) {
+    setViewing(next);
+    saveViewing(report.id, next);
+  }
+
+  const checklist = useMemo(
+    () => buildViewingChecklist(report, effectiveSubItems, verifiedDocs),
+    [report, effectiveSubItems, verifiedDocs]
+  );
+  const viewingStatus = useMemo(() => checklistStatus(checklist, viewing), [checklist, viewing]);
+
   function onPersonaToggle(next: Persona) {
     setPersona(next);
     saveReportPersona(report.id, next);
@@ -578,6 +601,16 @@ export function RealReportView({
                   {locked && LOCKED_TABS[t.id] && (
                     <Lock size={11} style={{ color: "var(--text-muted)" }} aria-label="needs a paid plan" />
                   )}
+                  {t.id === "viewing" && viewingStatus.outstanding > 0 && (
+                    <span className="rounded-full px-1.5 text-[10px] font-bold"
+                      style={{ background: "var(--accent-wash)", color: "var(--brand)" }}
+                      aria-label={`${viewingStatus.outstanding} still to check`}>
+                      {viewingStatus.outstanding}
+                    </span>
+                  )}
+                  {t.id === "negotiation" && !locked && !viewingStatus.complete && (
+                    <Lock size={11} style={{ color: "var(--text-muted)" }} aria-label="locked until the property is viewed" />
+                  )}
                 </button>
               ))}
             </div>
@@ -657,7 +690,32 @@ export function RealReportView({
               <div className="mt-4"><LocationFactCard subItems={effectiveSubItems} ids={["loc_growth"]} title="Suburb growth & demand" /></div>
             </>
           )}
-          {tab === "negotiation" && !locked && <NegotiationTab report={report} />}
+          {tab === "viewing" && (
+            <ViewingChecklist
+              items={checklist}
+              state={viewing}
+              address={listing.address ?? ""}
+              onAnswer={(k, a) => updateViewing(setAnswer(viewing, k, a))}
+              onNote={(k, n) => updateViewing(setNote(viewing, k, n))}
+              onViewedOn={(iso) => updateViewing(setViewedOn(viewing, iso))}
+              onOpenLetter={() => setTab("negotiation")}
+              onOpenLand={() => setTab("address")}
+            />
+          )}
+          {/* The letter is the one place the report speaks to somebody else, so
+              it is the one place an unverified finding does real damage. */}
+          {tab === "negotiation" && !locked && (
+            viewingStatus.complete ? (
+              <NegotiationTab report={report} viewing={viewing} checklist={checklist} subItems={effectiveSubItems} />
+            ) : (
+              <LetterLocked
+                outstanding={viewingStatus.outstanding}
+                total={viewingStatus.total}
+                missingViewingDate={viewingStatus.missingViewingDate}
+                onOpenChecklist={() => setTab("viewing")}
+              />
+            )
+          )}
           {tab === "methodology" && <MethodologyTab />}
         </div>
 

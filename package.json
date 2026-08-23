@@ -15,6 +15,7 @@
     "verify:discovery": "node --no-warnings scripts/verify-discovery.mjs",
     "verify:dwelling": "node --no-warnings scripts/verify-dwelling.mjs",
     "verify:foundation": "node --no-warnings scripts/verify-foundation.mjs",
+    "verify:viewing": "node --no-warnings scripts/verify-viewing.mjs",
     "verify:floor-area": "node --no-warnings scripts/verify-floor-area.mjs",
     "build:zoning": "node --no-warnings scripts/build-zoning-registry.mjs"
   },

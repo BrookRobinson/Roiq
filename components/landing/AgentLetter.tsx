@@ -43,8 +43,9 @@ export function AgentLetter() {
             </p>
 
             <p className="mt-5 text-[15px]" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-              Every report builds one automatically. Type the agent&rsquo;s email address and it goes
-              — a plain, professional document setting out what needs doing and what it costs.
+              Every report builds one — but it stays shut until you&rsquo;ve been to the house. The
+              report tells you exactly what to go and look at, you tick it off at the viewing, and then
+              the letter opens. Type the agent&rsquo;s email address and it goes.
             </p>
 
             <p className="mt-5 text-[15px] font-semibold" style={{ color: "var(--accent-text)" }}>
@@ -53,7 +54,8 @@ export function AgentLetter() {
 
             <ul className="mt-6 space-y-2.5 text-[14px]" style={{ color: "var(--text-secondary)" }}>
               <li>Every finding carries the listing photo it was read from.</li>
-              <li>Each one says whether it&rsquo;s confirmed or still to be verified at inspection.</li>
+              <li>It states the date you inspected the property, and what you found when you did.</li>
+              <li>Anything you checked and found sound is dropped — and the letter says how many.</li>
               <li>Costs are trade rates, and the letter says plainly that they&rsquo;re estimates.</li>
               <li>Your budget and your walk-away price are never part of it.</li>
             </ul>

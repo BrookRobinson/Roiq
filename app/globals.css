@@ -628,3 +628,85 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
 }
+
+/* ── Print ────────────────────────────────────────────────────────────────────
+   The viewing checklist is meant to leave the screen: printed, folded, and
+   carried round a house. Adding `printing` to <body> narrows the page to the
+   single .print-root subtree — the navbar, the tab strip and the rest of the
+   report don't belong on a clipboard.
+
+   `visibility` rather than `display` because hiding ancestors with display:none
+   would take .print-root down with them. */
+@media print {
+  body.printing {
+    background: #fff;
+  }
+
+  body.printing > * {
+    visibility: hidden;
+  }
+
+  body.printing .print-root,
+  body.printing .print-root * {
+    visibility: visible;
+  }
+
+  body.printing .print-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 0;
+    background: #fff;
+  }
+
+  /* The app's palette is a set of CSS variables that may currently be the dark
+     theme. On paper that's a page of grey text on white, so the whole subtree is
+     flattened to black-on-white and the rules below re-draw the few borders that
+     carry meaning. */
+  body.printing .print-root,
+  body.printing .print-root * {
+    color: #000 !important;
+    background: transparent !important;
+    border-color: #999 !important;
+    box-shadow: none !important;
+  }
+
+  body.printing .no-print {
+    display: none !important;
+  }
+
+  body.printing .print-only {
+    display: block !important;
+  }
+
+  /* Inline paper elements — tick boxes sit beside their label, not above it. */
+  body.printing span.print-only {
+    display: inline-block !important;
+  }
+
+  /* One item should never be split across a page break mid-instruction. */
+  body.printing .print-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-top: 1px solid #ddd;
+    padding: 8px 0;
+  }
+
+  body.printing .print-root .card {
+    border: none !important;
+    padding: 0;
+  }
+
+  /* Group heading — the only heavy rule on the page, so the eye finds it. */
+  body.printing .print-root h3 {
+    border-bottom: 1px solid #000 !important;
+    padding: 10px 0 4px !important;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}
