@@ -340,8 +340,12 @@ export function RealReportView({
         landAreaSqm: report.listing.landAreaSqm,
         floorAreaSqm: report.listing.floorAreaSqm,
         suburbMedianPerSqm: report.suburbValue?.medianPerSqm ?? null,
+        // Fetched from the council's own district-plan service when the report
+        // was run, so the finding states the zone instead of asking the reader
+        // to go and look it up.
+        zone: report.listing.zoning ?? null,
       }),
-    [report.listing.landAreaSqm, report.listing.floorAreaSqm, report.suburbValue]
+    [report.listing.landAreaSqm, report.listing.floorAreaSqm, report.listing.zoning, report.suburbValue]
   );
 
   const scored: ScoreResult = useMemo(

@@ -9,6 +9,7 @@ import { searchListing } from "@/lib/ai/listing-search";
 import { lookupPropertyAreas } from "@/lib/ai/property-areas";
 import { assessDwelling, identifiesOneProperty } from "@/lib/property/dwelling";
 import { lookupLinzPropertyRecord } from "@/lib/linz/property-records";
+import { lookupZone } from "@/lib/zoning/district-plan";
 import type { TitleType } from "@/lib/scraper/types";
 
 export class ListingNotFoundError extends Error {
@@ -160,6 +161,14 @@ async function enrichFromLinz(listing: ScrapedListing): Promise<ScrapedListing> 
   const record = await lookupLinzPropertyRecord(query).catch(() => null);
   listing.linz = record;
   if (!record) return listing;
+
+  // The address point and the territorial authority both came back with the
+  // record, so the zone costs one more request and no second geocode.
+  if (record.lat != null && record.lng != null) {
+    listing.zoning = await lookupZone(record.lat, record.lng, record.territorialAuthority).catch(
+      () => null
+    );
+  }
 
   const linzType = record.title?.type?.trim().toLowerCase();
   const mapped = linzType ? LINZ_TITLE_TYPES[linzType] : undefined;

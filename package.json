@@ -13,7 +13,8 @@
     "verify:allowance": "node --no-warnings scripts/verify-allowance.mjs",
     "verify:email-key": "node --no-warnings scripts/verify-email-key.mjs",
     "verify:discovery": "node --no-warnings scripts/verify-discovery.mjs",
-    "verify:dwelling": "node --no-warnings scripts/verify-dwelling.mjs"
+    "verify:dwelling": "node --no-warnings scripts/verify-dwelling.mjs",
+    "build:zoning": "node --no-warnings scripts/build-zoning-registry.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",

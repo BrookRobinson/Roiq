@@ -88,11 +88,30 @@ export interface LinzValuation {
 
 export interface LinzPropertyRecord {
   address: string;
+  /** The address point, so the caller can ask a council what it's zoned. */
+  lat: number | null;
+  lng: number | null;
+  /** LINZ's own territorial-authority name — the key into the zoning registry. */
+  territorialAuthority: string | null;
   title: LinzTitle | null;
   valuation: LinzValuation | null;
 }
 
 export const hasLinzKey = (): boolean => !!process.env.LINZ_API_KEY?.trim();
+
+interface AddressRow {
+  address_id?: number;
+  full_address?: string;
+  territorial_authority?: string;
+}
+
+interface AddressHit {
+  id: number;
+  full: string;
+  ta: string | null;
+  lat: number | null;
+  lng: number | null;
+}
 
 /** CQL string literals escape a quote by doubling it. */
 const q = (v: string): string => `'${v.replace(/'/g, "''")}'`;
@@ -119,6 +138,44 @@ async function wfs<T>(typeName: string, cql: string, count = 5, signal?: AbortSi
   }
 }
 
+/**
+ * Same query, keeping the geometry.
+ *
+ * `wfs` throws the geometry away because the tables it reads have none. The
+ * address layer's point is the reason zoning can be looked up without a second
+ * geocode, so that one query keeps it.
+ */
+async function wfsFeatures<T>(
+  typeName: string,
+  cql: string,
+  count = 5,
+  signal?: AbortSignal
+): Promise<{ properties: T; geometry?: { coordinates?: number[] } | null }[]> {
+  const key = process.env.LINZ_API_KEY?.trim();
+  if (!key) return [];
+  const url =
+    `https://data.linz.govt.nz/services;key=${key}/wfs` +
+    `?service=WFS&version=2.0.0&request=GetFeature` +
+    `&typeNames=${typeName}&outputFormat=json&count=${count}` +
+    `&cql_filter=${encodeURIComponent(cql)}`;
+  try {
+    const res = await fetch(url, { cache: "no-store", signal });
+    if (!res.ok) {
+      console.warn(`[linz] ${typeName} responded ${res.status}`);
+      return [];
+    }
+    const body = (await res.json()) as {
+      features?: { properties?: T; geometry?: { coordinates?: number[] } | null }[];
+    };
+    return (body.features ?? [])
+      .filter((f) => f.properties)
+      .map((f) => ({ properties: f.properties as T, geometry: f.geometry ?? null }));
+  } catch (err) {
+    console.warn(`[linz] ${typeName} failed:`, (err as Error)?.message);
+    return [];
+  }
+}
+
 /** 0 in the roll means "not valued", not "worth nothing". */
 const money = (v: unknown): number | null => {
   const n = typeof v === "number" ? v : Number(v);
@@ -137,7 +194,7 @@ const positive = (v: unknown): number | null => {
  * locality to separate them is a decline — the same rule the geocoder uses, and
  * for the same reason: the cost of guessing is somebody else's property record.
  */
-async function findAddressId(address: string, signal?: AbortSignal): Promise<{ id: number; full: string } | null> {
+async function findAddressId(address: string, signal?: AbortSignal): Promise<AddressHit | null> {
   const parts = address
     .split(",")
     .map((p) => p.trim())
@@ -147,20 +204,32 @@ async function findAddressId(address: string, signal?: AbortSignal): Promise<{ i
   if (!street) return null;
   const locality = parts[1] ?? null;
 
-  type Row = { address_id?: number; full_address?: string };
-  const pick = (rows: Row[], expect: string | null): { id: number; full: string } | null => {
-    const usable = rows.filter((r) => typeof r.address_id === "number");
+  type Row = AddressRow;
+  const pick = (
+    features: { properties: Row; geometry?: { coordinates?: number[] } | null }[],
+    expect: string | null
+  ): AddressHit | null => {
+    const usable = features.filter((f) => typeof f.properties?.address_id === "number");
     if (usable.length === 0) return null;
     const chosen =
       usable.length === 1
         ? usable[0]
         : expect
-          ? usable.find((r) => (r.full_address ?? "").toLowerCase().includes(expect.toLowerCase()))
+          ? usable.find((f) =>
+              (f.properties.full_address ?? "").toLowerCase().includes(expect.toLowerCase())
+            )
           : undefined;
     // Several candidates and nothing to tell them apart — decline.
-    return chosen?.address_id != null
-      ? { id: chosen.address_id, full: chosen.full_address ?? address }
-      : null;
+    const p = chosen?.properties;
+    if (p?.address_id == null) return null;
+    const coords = chosen?.geometry?.coordinates;
+    return {
+      id: p.address_id,
+      full: p.full_address ?? address,
+      ta: p.territorial_authority ?? null,
+      lat: Array.isArray(coords) && coords.length >= 2 ? coords[1] : null,
+      lng: Array.isArray(coords) && coords.length >= 2 ? coords[0] : null,
+    };
   };
 
   // Exact match on the indexed number and road-name columns first. A wildcard
@@ -172,14 +241,14 @@ async function findAddressId(address: string, signal?: AbortSignal): Promise<{ i
     const exact =
       `full_address_number = ${q(number)} AND full_road_name = ${q(roadName)}` +
       (locality ? ` AND suburb_locality = ${q(locality)}` : "");
-    const rows = await wfs<Row>(`layer-${ADDRESS_LAYER}`, exact, 10, signal);
+    const rows = await wfsFeatures<Row>(`layer-${ADDRESS_LAYER}`, exact, 10, signal);
     const hit = pick(rows, locality);
     if (hit) return hit;
 
     // Same street, no suburb filter — the listing's suburb wording and LINZ's
     // don't always agree ("Remuera" vs "Auckland Central").
     if (locality) {
-      const wider = await wfs<Row>(
+      const wider = await wfsFeatures<Row>(
         `layer-${ADDRESS_LAYER}`,
         `full_address_number = ${q(number)} AND full_road_name = ${q(roadName)}`,
         10,
@@ -193,7 +262,7 @@ async function findAddressId(address: string, signal?: AbortSignal): Promise<{ i
   // Fallback: the prefix scan. Slower, but it catches the addresses that don't
   // split cleanly into a number and a road name.
   if (locality) {
-    const rows = await wfs<Row>(
+    const rows = await wfsFeatures<Row>(
       `layer-${ADDRESS_LAYER}`,
       `full_address ILIKE ${q(`${street}, ${locality}%`)}`,
       10,
@@ -203,7 +272,12 @@ async function findAddressId(address: string, signal?: AbortSignal): Promise<{ i
     if (hit) return hit;
   }
 
-  const rows = await wfs<Row>(`layer-${ADDRESS_LAYER}`, `full_address ILIKE ${q(`${street}%`)}`, 10, signal);
+  const rows = await wfsFeatures<Row>(
+    `layer-${ADDRESS_LAYER}`,
+    `full_address ILIKE ${q(`${street}%`)}`,
+    10,
+    signal
+  );
   return pick(rows, locality);
 }
 
@@ -338,5 +412,12 @@ async function resolveRecord(
   ]);
   if (!valuation && !title) return null;
 
-  return { address: hit.full, title, valuation };
+  return {
+    address: hit.full,
+    lat: hit.lat,
+    lng: hit.lng,
+    territorialAuthority: hit.ta,
+    title,
+    valuation,
+  };
 }

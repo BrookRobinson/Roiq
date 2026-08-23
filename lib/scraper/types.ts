@@ -86,6 +86,15 @@ export interface ScrapedListing {
    * pinned to exactly one property.
    */
   linz?: import("@/lib/linz/property-records").LinzPropertyRecord | null;
+  /**
+   * The district-plan zone, fetched from the council's own service.
+   *
+   * `null` means it genuinely could not be retrieved — 17 of the 67 councils
+   * publish zones only as static maps. The report must SAY that; it must never
+   * tell the reader to go and look the zoning up, which is the job they came
+   * here to avoid.
+   */
+  zoning?: import("@/lib/zoning/district-plan").ZoneLookup | null;
 }
 
 export type SupportedPortal =

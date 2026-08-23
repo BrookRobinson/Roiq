@@ -21,6 +21,7 @@ npm run verify:allowance     # who gets how many reports, and what the wall says
 npm run verify:email-key     # which accounts count as one inbox
 npm run verify:discovery     # the sitemap/URL parsers behind nightly discovery
 npm run verify:dwelling      # is there a building to score, and does the address name one property
+npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
 
 **There are almost no tests.** Verification is `tsc`, the health endpoints, and
@@ -247,6 +248,35 @@ along. Comments naming the product are left alone too.
 parsers are dependency-free so `verify:discovery` can load the module with
 plain node, and a single `@/` import ends that.
 
+**Never tell the reader to go and look something up.** The development-potential
+finding used to end "confirm zoning and coverage before you rely on it", which
+hands back the job they came here to avoid. The rule: fetch it, or say plainly
+that we couldn't — never assign homework. Zoning is now fetched from the
+council's own district-plan service (`lib/zoning/district-plan.ts`).
+
+New Zealand has **no national district-plan service**; zoning is published per
+territorial authority. **50 of the 67** expose a queryable ArcGIS REST layer, and
+`lib/zoning/councils.ts` is GENERATED from district-plans.nz by
+`npm run build:zoning` — not hand-maintained, because 67 councils re-publish
+endpoints often enough that a hand-written list rots silently. The registry is
+checked in rather than fetched at runtime: a report must not depend on a
+third-party catalogue being up.
+
+**There is no convention for the zone field, so it is scored, not mapped.**
+Auckland returns a coded `ZONE: 18` needing the layer's coded-value domain;
+Wellington a plain `DPZone` string; Christchurch calls it `Type` with `TypeGroup`
+beside it — no "zone" in the name at all; Dunedin has `Zone` plus a more useful
+`Sub_Zone`. Fifty hand-written field mappings would rot, so `readZone()` scores
+candidates on field name, alias and what the VALUE reads like. A value that
+won't decode to text is discarded — printing "Zone 18" to a buyer is worse than
+admitting we don't know.
+
+A missing zone deliberately does NOT claim why. It can mean no queryable layer,
+a service that didn't answer, or a point outside every polygon, and naming the
+wrong one is a small confident lie in place of an honest gap. What genuinely
+stays out of reach is the rule TABLE behind the zone — site coverage, setbacks
+and density live in the plan text, not the map layer — and the report says so.
+
 **LINZ is the register; the listing is a sales document.** `lib/linz/property-records.ts`
 resolves an address to its Record of Title and, where published, its district
 valuation roll — free and openly licensed, attribution being the only condition.
@@ -328,6 +358,7 @@ curl -s localhost:3000/api/health/db    | python3 -m json.tool
 curl -s localhost:3000/api/health/email | python3 -m json.tool
 curl -s localhost:3000/api/health/billing | python3 -m json.tool
 curl -s localhost:3000/api/health/linz  | python3 -m json.tool   # title + rating valuation
+curl -s localhost:3000/api/health/zoning | python3 -m json.tool  # 4 councils, 4 field conventions
 ```
 
 Billing end to end needs Stripe's CLI forwarding real events at the dev server:
