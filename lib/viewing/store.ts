@@ -9,6 +9,7 @@
 // id, silently non-fatal, never blocks a render.
 
 import { EMPTY_VIEWING, type ViewingAnswer, type ViewingState } from "./status";
+import type { ItemPhotoAnalysis } from "./photo-types";
 
 const key = (reportId: string) => `roiq:report:${reportId}:viewing`;
 
@@ -20,6 +21,7 @@ export function loadViewing(reportId: string): ViewingState {
     return {
       viewedOn: typeof parsed.viewedOn === "string" ? parsed.viewedOn : null,
       answers: parsed.answers && typeof parsed.answers === "object" ? parsed.answers : {},
+      photos: parsed.photos && typeof parsed.photos === "object" ? parsed.photos : {},
     };
   } catch {
     return EMPTY_VIEWING;
@@ -65,4 +67,30 @@ export function setNote(state: ViewingState, itemKey: string, note: string): Vie
 
 export function setViewedOn(state: ViewingState, iso: string | null): ViewingState {
   return { ...state, viewedOn: iso };
+}
+
+/**
+ * File an analysed photograph against an item — and drop any answer that item
+ * had.
+ *
+ * The answer is superseded, not merged. Somebody who ticked "couldn't inspect"
+ * on the subfloor and then got under the house with a torch has settled it; if
+ * the stale answer survived, the letter would still report the item as one
+ * nobody could reach while the report shows a photo-confirmed score for it.
+ */
+export function setItemPhoto(
+  state: ViewingState,
+  itemId: string,
+  analysis: ItemPhotoAnalysis
+): ViewingState {
+  const answers = { ...state.answers };
+  delete answers[itemId];
+  return { ...state, answers, photos: { ...(state.photos ?? {}), [itemId]: analysis } };
+}
+
+/** Remove a photo assessment — the item goes back to being an open question. */
+export function clearItemPhoto(state: ViewingState, itemId: string): ViewingState {
+  const photos = { ...(state.photos ?? {}) };
+  delete photos[itemId];
+  return { ...state, photos };
 }

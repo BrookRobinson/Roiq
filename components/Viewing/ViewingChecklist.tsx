@@ -20,8 +20,15 @@ import {
   type ViewingAnswer,
   type ViewingState,
 } from "@/lib/viewing/checklist";
+import type { ItemPhotoAnalysis } from "@/lib/viewing/photo-types";
+import { ItemPhotoUpload, type PhotoContext } from "./ItemPhotoUpload";
+import { itemLabel } from "@/lib/scoring/catalog";
 
 const ANSWER_ORDER: ViewingAnswer[] = ["ok", "problem", "no_access"];
+
+/** Same bands the rest of the report scores against. */
+const scoreColour = (score: number) =>
+  score >= 8 ? "var(--good)" : score >= 5 ? "var(--warn)" : "var(--bad)";
 
 const ANSWER_COLOR: Record<ViewingAnswer, string> = {
   ok: "var(--good)",
@@ -53,18 +60,25 @@ export function ViewingChecklist({
   items,
   state,
   address,
+  photoContext,
   onAnswer,
   onNote,
   onViewedOn,
+  onItemPhoto,
+  onClearItemPhoto,
   onOpenLetter,
   onOpenLand,
 }: {
   items: ChecklistItem[];
   state: ViewingState;
   address: string;
+  /** Property facts handed to the model alongside the buyer's photographs. */
+  photoContext: PhotoContext;
   onAnswer: (key: string, answer: ViewingAnswer | null) => void;
   onNote: (key: string, note: string) => void;
   onViewedOn: (iso: string | null) => void;
+  onItemPhoto: (itemId: string, analysis: ItemPhotoAnalysis) => void;
+  onClearItemPhoto: (itemId: string) => void;
   onOpenLetter: () => void;
   /** Paperwork lines are settled by uploading a document on the Land tab. */
   onOpenLand: () => void;
@@ -82,6 +96,13 @@ export function ViewingChecklist({
   }, [items]);
 
   const pct = items.length ? Math.round((status.answered / items.length) * 100) : 100;
+
+  // Photographed items that are no longer on the list, because photographing
+  // them is what took them off it.
+  const onList = new Set(items.map((i) => i.itemId).filter(Boolean));
+  const assessedElsewhere = Object.values(state.photos ?? {}).filter(
+    (a) => a.showsItem && !onList.has(a.itemId)
+  );
 
   return (
     <div className="space-y-6 print-root">
@@ -208,6 +229,53 @@ export function ViewingChecklist({
         </p>
       </div>
 
+      {/* Most photographed items leave the list — a clear shot makes them scored
+          and Tier 1, so they stop being unknowns. Without this they'd vanish
+          with no acknowledgement that the buyer did the work. */}
+      {assessedElsewhere.length > 0 && (
+        <div className="card p-5 no-print">
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            Assessed from your photos ({assessedElsewhere.length})
+          </h3>
+          <p className="mt-1 text-[13px]" style={{ color: "var(--text-muted)" }}>
+            These are off the list — they&rsquo;re scored in the report now, on your photographs
+            rather than the listing&rsquo;s.
+          </p>
+          <div className="mt-3 space-y-2">
+            {assessedElsewhere.map((a) => (
+              <div
+                key={a.itemId}
+                className="flex items-start justify-between gap-3 rounded-xl px-3.5 py-2.5"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--rule)" }}
+              >
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
+                    {itemLabel(a.itemId)}
+                  </div>
+                  <p className="mt-0.5 text-[12.5px]" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                    {a.observedDefect || a.summary}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5 whitespace-nowrap">
+                  {a.score != null && (
+                    <span className="mono text-[13px] font-bold" style={{ color: scoreColour(a.score) }}>
+                      {a.score}/10
+                    </span>
+                  )}
+                  <button
+                    onClick={() => onClearItemPhoto(a.itemId)}
+                    className="text-[12px]"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    Undo
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {items.length === 0 && (
         <div className="card p-5 no-print">
           <p className="text-sm" style={{ color: "var(--text-primary)" }}>
@@ -234,9 +302,13 @@ export function ViewingChecklist({
                 key={it.key}
                 item={it}
                 record={state.answers[it.key]}
+                photo={it.itemId ? state.photos?.[it.itemId] : undefined}
+                photoContext={photoContext}
                 first={i === 0}
                 onAnswer={onAnswer}
                 onNote={onNote}
+                onItemPhoto={onItemPhoto}
+                onClearItemPhoto={onClearItemPhoto}
                 onOpenLand={onOpenLand}
               />
             ))}
@@ -250,16 +322,24 @@ export function ViewingChecklist({
 function Row({
   item,
   record,
+  photo,
+  photoContext,
   first,
   onAnswer,
   onNote,
+  onItemPhoto,
+  onClearItemPhoto,
   onOpenLand,
 }: {
   item: ChecklistItem;
   record?: ViewingState["answers"][string];
+  photo?: ItemPhotoAnalysis;
+  photoContext: PhotoContext;
   first: boolean;
   onAnswer: (key: string, answer: ViewingAnswer | null) => void;
   onNote: (key: string, note: string) => void;
+  onItemPhoto: (itemId: string, analysis: ItemPhotoAnalysis) => void;
+  onClearItemPhoto: (itemId: string) => void;
   onOpenLand: () => void;
 }) {
   const [note, setNoteLocal] = useState(record?.note ?? "");
@@ -323,6 +403,22 @@ function Row({
               Upload it on the Land tab
             </button>
           )}
+
+          {/* Offered before the three answers, and deliberately so: a photograph
+              gets the item ASSESSED, where an answer only records what the buyer
+              reckoned. The report was never missing an opinion — it was missing
+              a picture. */}
+          {item.canPhotograph && item.itemId && (
+            <ItemPhotoUpload
+              itemId={item.itemId}
+              label={item.label}
+              priorSummary={item.priorSummary}
+              context={photoContext}
+              analysis={photo}
+              onAnalysed={(a) => onItemPhoto(item.itemId as string, a)}
+              onCleared={() => onClearItemPhoto(item.itemId as string)}
+            />
+          )}
         </div>
 
         {answered && (
@@ -336,7 +432,10 @@ function Row({
         )}
       </div>
 
-      {/* On screen: the three answers. */}
+      {/* On screen: the three answers. Hidden once a photograph has settled the
+          item — the report has assessed it, and asking the buyer to also tick a
+          box invites an opinion to contradict the evidence. */}
+      {!photo && (
       <div className="mt-3 flex flex-wrap gap-2 no-print">
         {ANSWER_ORDER.map((a) => {
           const on = answered === a;
@@ -356,10 +455,11 @@ function Row({
           );
         })}
       </div>
+      )}
 
       {/* A confirmed problem and a no-access both end up in the letter, in their
           own words, so the note is where it's worth typing something. */}
-      {(answered === "problem" || answered === "no_access") && (
+      {!photo && (answered === "problem" || answered === "no_access") && (
         <div className="mt-3 no-print">
           <textarea
             className="input"

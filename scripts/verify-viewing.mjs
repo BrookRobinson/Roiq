@@ -35,10 +35,16 @@ const check = (label, got, want) => {
 };
 
 const items = (...keys) => keys.map((key) => ({ key }));
-const answered = (viewedOn, map) => ({
+const answered = (viewedOn, map, photos = {}) => ({
   viewedOn,
   answers: Object.fromEntries(
     Object.entries(map).map(([k, answer]) => [k, { answer, answeredAt: "2026-08-24T00:00:00.000Z" }])
+  ),
+  photos: Object.fromEntries(
+    Object.entries(photos).map(([k, score]) => [
+      k,
+      { itemId: k, showsItem: true, score, confidenceTier: 1, photoCount: 2 },
+    ])
   ),
 });
 
@@ -88,6 +94,33 @@ check(
   "missingViewingDate is true once they aren't",
   checklistStatus(THREE, answered(null, { ext_foundation: "ok", leg_lim: "ok", liv_insulation: "ok" })).missingViewingDate,
   true
+);
+
+console.log("\nA photograph the buyer took is an answer in itself");
+check(
+  "a photographed item needs no tick",
+  checklistStatus(THREE, answered("2026-08-24", { leg_lim: "ok", liv_insulation: "ok" }, { ext_foundation: 3 })).complete,
+  true
+);
+check(
+  "and it still needs the viewing date",
+  checklistStatus(THREE, answered(null, { leg_lim: "ok", liv_insulation: "ok" }, { ext_foundation: 3 })).complete,
+  false
+);
+check(
+  "a bad photo score counts as a problem found",
+  checklistStatus(THREE, answered("2026-08-24", {}, { ext_foundation: 3 })).problems,
+  1
+);
+check(
+  "a good photo score does not",
+  checklistStatus(THREE, answered("2026-08-24", {}, { ext_foundation: 8 })).problems,
+  0
+);
+check(
+  "a photo on an unrelated item doesn't answer this list",
+  checklistStatus(THREE, answered("2026-08-24", {}, { ext_roof: 4 })).complete,
+  false
 );
 
 console.log("\nWhat the letter may do with each item");

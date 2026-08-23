@@ -25,6 +25,7 @@
 // ============================================================
 
 import { ITEM_BY_ID, isVerifiedDocItem } from "@/lib/scoring/catalog";
+import { isPhotoAssessable } from "@/lib/viewing/photo-assessable";
 import { bandFor, areaLabel, type Band } from "@/lib/negotiation/build";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
@@ -62,6 +63,14 @@ export interface ChecklistItem {
   source: CheckSource;
   /** Set when the letter already treats this as a critical/urgent claim. */
   band?: Band;
+  /**
+   * True when a photograph would actually settle this. The buyer can then upload
+   * one and have the item assessed properly, rather than only recording their own
+   * opinion of it — see components/Viewing/ItemPhotoUpload.tsx.
+   */
+  canPhotograph: boolean;
+  /** What the desktop analysis said, handed to the model alongside the photos. */
+  priorSummary?: string;
 }
 
 // ── What to actually check, per item ─────────────────────────────────────────
@@ -129,10 +138,10 @@ const WHAT_TO_CHECK: Record<string, string> = {
   land_trees: "Large trees near the house or the drains, and whether any are protected or notable (the council schedule will say).",
 
   leg_lim:
-    "Ask the agent for the LIM. If there isn't one, order it from the council — it's the single document that shows consents, drainage, hazards and any notices on the property. Upload it on the Land tab and we'll read it.",
+    "A LIM comes from the council — only they can issue one. Ask the agent first: vendors often order one before marketing and hand copies out, and if it exists it costs you nothing. Check the date on the front, though — a LIM is a snapshot, and one pulled months ago won't show anything registered since. No copy, or an old one? Order your own from the council; anyone can, on any property, for a few hundred dollars and usually about ten working days. Upload it on the Land tab and we'll read it.",
   leg_consents:
-    "Ask for the council property file and the code compliance certificates for every structure — house, garage, deck, sleepout. Upload what you get on the Land tab.",
-  leg_eqc: "Ask the vendor for the EQC/NHC claim history and any scope of works or settlement documents. Upload them on the Land tab.",
+    "Ask the council for the property file — it holds the consents and code compliance certificates for every structure, house, garage, deck and sleepout. The agent may already have a copy. Upload what you get on the Land tab.",
+  leg_eqc: "Ask the agent or the vendor for the EQC (Toka Tū Ake) claim history and any scope of works or settlement documents — only the owner can request their own claim file, so this one has to come from them. Upload it on the Land tab.",
   leg_title: "Read the record of title: ownership type, easements, covenants and anything registered against it. Your solicitor should see it before you sign.",
   leg_weathertight: "Ask directly whether the house has monolithic cladding and when it was built or reclad. A 1994–2004 plaster house needs a specialist weathertightness inspection, not your eyes.",
   leg_unconsented: "Compare what you can see on site against the council property file — an extra room, a deck, a sleepout or a bathroom that isn't on the plans is unconsented work.",
@@ -187,6 +196,7 @@ export function buildViewingChecklist(
         why: "No document has been uploaded, so this is unscored — the report has not seen it.",
         whatToCheck: WHAT_TO_CHECK[s.id] ?? fallbackCheck(s),
         source: "document",
+        canPhotograph: false,
       });
       seen.add(s.id);
       continue;
@@ -206,6 +216,8 @@ export function buildViewingChecklist(
             : "Not assessed from the listing.",
         whatToCheck: WHAT_TO_CHECK[s.id] ?? fallbackCheck(s),
         source: "ungraded",
+        canPhotograph: isPhotoAssessable(s.id),
+        priorSummary: s.aiSummary || undefined,
       });
       seen.add(s.id);
       continue;
@@ -228,6 +240,8 @@ export function buildViewingChecklist(
         whatToCheck: WHAT_TO_CHECK[s.id] ?? fallbackCheck(s),
         source: "probable",
         band,
+        canPhotograph: isPhotoAssessable(s.id),
+        priorSummary: s.observedDefect || s.aiSummary || undefined,
       });
       seen.add(s.id);
     }
@@ -251,6 +265,7 @@ export function buildViewingChecklist(
         ? "Ask the agent to send a photo of this, or look at it yourself at the viewing, and note what you find."
         : "Ask the agent to confirm this, and write down what they tell you.",
       source: "gap",
+      canPhotograph: false,
     });
   }
 

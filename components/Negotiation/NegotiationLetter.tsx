@@ -426,9 +426,11 @@ function Section({
                   <span>Condition {i.score}/10</span>
                   <span>·</span>
                   <span>
-                    {i.confirmedOnSite
-                      ? "Confirmed at inspection"
-                      : (TIER_LABEL[i.confidenceTier] ?? i.evidenceSource)}
+                    {i.photoEvidence
+                      ? "Photographed at the property by the purchaser"
+                      : i.confirmedOnSite
+                        ? "Confirmed at inspection"
+                        : (TIER_LABEL[i.confidenceTier] ?? i.evidenceSource)}
                   </span>
                   {i.photoRefs.length > 0 && (
                     <>

@@ -47,6 +47,12 @@ export interface NegotiationItem {
   costHigh: number;
   /** The buyer stood in front of it and confirmed the finding. */
   confirmedOnSite?: boolean;
+  /**
+   * The score came from a photograph the buyer took at the property, not from
+   * the listing — so the tier label must say whose photograph it was. The agent
+   * can ask to see it; they cannot go and look it up in the advertisement.
+   */
+  photoEvidence?: boolean;
   /** What they wrote down when they did. Quoted verbatim; never paraphrased. */
   buyerNote?: string;
 }
@@ -193,6 +199,15 @@ export interface NegotiationCase {
 
 export const bandFor = (score: number): Band | null => (score <= 2 ? "critical" : score <= 4 ? "urgent" : null);
 
+export /**
+ * The catalog's labels carry parentheticals aimed at the scoring model —
+ * "Waterproofing (inferred)", "Insulation (visible / inferred)". In a document
+ * sent to a vendor they say nothing useful, and once the buyer has photographed
+ * the item they actively contradict the line underneath saying so. The basis for
+ * each finding is stated properly by its confidence tier.
+ */
+const plainName = (name: string) => name.replace(/\s*\((?:visible\s*\/\s*)?inferred\)\s*$/i, "").trim();
+
 export const areaLabel = (id: string): string => {
   const inspection = ITEM_BY_ID[id]?.inspection;
   if (inspection === "improvements") return ITEM_BY_ID[id]?.category ?? "Building";
@@ -276,7 +291,7 @@ export function buildNegotiationCase(
     const finding = (withCost = false): ViewingFinding => {
       const base = {
         id: s.id,
-        name: s.name || ITEM_BY_ID[s.id]?.label || s.id,
+        name: plainName(s.name || ITEM_BY_ID[s.id]?.label || s.id),
         area: areaLabel(s.id),
         note: buyerNote,
       };
@@ -331,7 +346,7 @@ export function buildNegotiationCase(
       const { low, high } = costFor(s, rcnById.get(s.id), ctx);
       const item: NegotiationItem = {
         id: s.id,
-        name: s.name,
+        name: plainName(s.name),
         area: areaLabel(s.id),
         band,
         score: s.score as number,
@@ -344,6 +359,7 @@ export function buildNegotiationCase(
         costHigh: high,
         confirmedOnSite: answer === "problem" || undefined,
         buyerNote: answer === "problem" ? buyerNote : undefined,
+        photoEvidence: viewingState?.photos?.[s.id]?.showsItem || undefined,
       };
       (band === "critical" ? critical : urgent).push(item);
     }
@@ -433,7 +449,7 @@ export function buildNegotiationCase(
     repairsHigh,
 
     notAssessed: subItems.filter((s) => s.score === null).length,
-    hasUnverified: all.some((i) => i.confidenceTier > 1 && !i.confirmedOnSite),
+    hasUnverified: all.some((i) => i.confidenceTier > 1 && !i.confirmedOnSite && !i.photoEvidence),
 
     viewing,
   };

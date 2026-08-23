@@ -169,6 +169,37 @@ buyer's own read must not set the headline figure.
 from the report's **effective** sub-items, not the raw ones, or it claims a
 score the report itself has withdrawn.
 
+**The checklist's real answer is a photograph, not a tick.** The report was
+never short of an opinion about the subfloor — it was short of a picture. So any
+item a camera can settle offers "Take a photo of the …" ABOVE the three answers:
+the photos go to `/api/item-photos`, back through the same vision model, and the
+item is scored properly on the buyer's own photographs. It then leaves the
+checklist by itself (scored and Tier 1 is no longer an unknown), and the letter
+labels it *"Photographed at the property by the purchaser"* — a claim the agent
+can ask to see rather than one they'd have to take on trust.
+
+`shows_item` is the whole safety of it. When the photographs don't actually show
+the item — wrong subject, too dark, too far — the model says so, **nothing is
+stored or scored**, and the buyer is asked for another shot. A confident 6/10
+read off the wrong cupboard door would be worse than the gap it replaced,
+because the gap is honest and the 6/10 ends up in a letter. The refusal is not
+an error path; it is the feature working.
+
+Only **improvements** items offer it (`lib/viewing/photo-assessable.ts`). A
+photograph cannot tell you whether the studio was consented or what the title
+says, and offering an upload there would promise something the analysis can't
+deliver. A photograph also SUPERSEDES any answer that item had: somebody who
+ticked "couldn't inspect" and then got under the house with a torch has settled
+it, and a stale answer would have the letter still reporting it as unreachable.
+
+**A LIM comes from the council, never from the agent.** Only a territorial
+authority can issue one (s44A LGOIMA). The agent may hold a copy the vendor
+ordered before marketing — free and instant, so it's worth asking first — but
+that copy is a **snapshot of its issue date** and won't show anything registered
+since, which is why the copy tells the reader to check the date on the front.
+Otherwise anyone can order one on any property. Don't write copy that implies
+the agent is the source, or that a vendor-supplied LIM is current.
+
 **Nothing auto-renews, and the site says so three times.** Purchases are one-off
 (`mode: "payment"`) buying `ACCESS_DAYS` of access — the landing page, the
 pricing page and the FAQ all promise it, so a recurring Stripe price would make

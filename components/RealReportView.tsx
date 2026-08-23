@@ -8,7 +8,7 @@ import { HoldPeriodProvider, useHoldPeriod, urgencyScoreToYears } from "@/lib/ho
 import { HoldPeriodSlider } from "@/components/HoldPeriodSlider";
 import { ReportGapBanner } from "@/components/ReportGapBanner";
 import type { ReportGap } from "@/lib/property-tab/gaps";
-import { urgencyColor, type RenoControls } from "@/lib/property-tab/types";
+import { urgencyColor, urgencyLabel, type RenoControls } from "@/lib/property-tab/types";
 import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
@@ -37,7 +37,8 @@ import { MaterialStudio } from "@/components/MaterialStudio";
 import { NegotiationTab } from "@/components/Negotiation/NegotiationTab";
 import { ViewingChecklist, LetterLocked } from "@/components/Viewing/ViewingChecklist";
 import { buildViewingChecklist, checklistStatus, EMPTY_VIEWING, type ViewingState } from "@/lib/viewing/checklist";
-import { loadViewing, saveViewing, setAnswer, setNote, setViewedOn } from "@/lib/viewing/store";
+import { loadViewing, saveViewing, setAnswer, setNote, setViewedOn, setItemPhoto, clearItemPhoto } from "@/lib/viewing/store";
+import type { ItemPhotoAnalysis } from "@/lib/viewing/photo-types";
 import { surfaceForKind, materialsFor } from "@/lib/materials-catalogue";
 import { summarise, defaultInputs, FINANCE_DEFAULTS, PURCHASE_COST_LABELS } from "@/lib/finance/calculator";
 import type { FinanceInputs, LoanType, PurchaseCostKey } from "@/lib/finance/calculator";
@@ -280,6 +281,20 @@ export function RealReportView({
   const [verifiedDocs, setVerifiedDocs] = useState<Record<string, DocAnalysis>>(report.verifiedDocs ?? {});
   useEffect(() => { setVerifiedDocs(report.verifiedDocs ?? {}); }, [report.id, report.verifiedDocs]);
 
+  // ── The viewing ────────────────────────────────────────────────────────────
+  // What the buyer settled at the property: the checklist answers, the date they
+  // went, and any item they photographed and had assessed. Declared here because
+  // those photographs feed the effective sub-items below — an item somebody has
+  // now photographed is no longer an item nobody has seen.
+  const [viewing, setViewing] = useState<ViewingState>(EMPTY_VIEWING);
+  useEffect(() => { setViewing(loadViewing(report.id)); }, [report.id]);
+  const itemPhotos = viewing.photos ?? {};
+
+  function updateViewing(next: ViewingState) {
+    setViewing(next);
+    saveViewing(report.id, next);
+  }
+
   // Effective scores: a verified document overrides the score for its item;
   // an unverified document item (LIM/consent/EQC) is excluded from the total
   // entirely until a document is uploaded.
@@ -291,6 +306,32 @@ export function RealReportView({
   const effectiveSubItems = useMemo(
     () =>
       report.subItems.map((s) => {
+        // The buyer photographed it at the property and it went back through the
+        // vision analysis. That outranks every rule below — including the Tier 3
+        // strip and the no-photos strip, both of which exist precisely because
+        // nobody had looked at this item. Somebody has now.
+        const shot = itemPhotos[s.id];
+        if (shot?.showsItem) {
+          return {
+            ...s,
+            score: shot.score as typeof s.score,
+            // The label travels with the score or the letter reads "Average"
+            // beside 2/10 — the original label described the desktop guess.
+            urgencyLabel: urgencyLabel(shot.score),
+            confidenceTier: shot.confidenceTier,
+            condition: shot.condition,
+            material: shot.material,
+            estimatedAge: shot.estimatedAge,
+            specTier: shot.specTier ?? s.specTier,
+            observedDefect: shot.observedDefect ?? s.observedDefect,
+            aiSummary: shot.summary || s.aiSummary,
+            evidenceSource: `Your own photo${shot.photoCount === 1 ? "" : "s"}, taken at the property`,
+            estimatedReplacementCost: shot.estimatedReplacementCost ?? s.estimatedReplacementCost,
+            noPhotoNotAssessed: false,
+            // The listing's photo numbers described a different set of pictures.
+            photoReferences: [],
+          };
+        }
         const v = verifiedDocs[s.id];
         if (v && v.docTypeConfirmed && v.score != null) return { ...s, score: v.score as typeof s.score };
         if (isVerifiedDocItem(s.id)) return { ...s, score: null as typeof s.score };
@@ -332,7 +373,7 @@ export function RealReportView({
         }
         return s;
       }),
-    [report.subItems, verifiedDocs, noPhotos, report.listing.landAreaSqm]
+    [report.subItems, verifiedDocs, itemPhotos, noPhotos, report.listing.landAreaSqm]
   );
 
   // THE SCORE: re-runs scoreProperty() for the chosen persona + verified docs.
@@ -381,19 +422,6 @@ export function RealReportView({
       }),
     [effectiveSubItems, report.listing.floorAreaSqm, report.listing.bathrooms]
   );
-
-  // ── The viewing checklist ──────────────────────────────────────────────────
-  // Everything the analysis could NOT settle from photographs, and the gate on
-  // the agent letter. The letter makes claims a vendor will be asked to pay for,
-  // so it stays shut until someone has actually walked through the house and
-  // said what they found. See lib/viewing/checklist.ts.
-  const [viewing, setViewing] = useState<ViewingState>(EMPTY_VIEWING);
-  useEffect(() => { setViewing(loadViewing(report.id)); }, [report.id]);
-
-  function updateViewing(next: ViewingState) {
-    setViewing(next);
-    saveViewing(report.id, next);
-  }
 
   const checklist = useMemo(
     () => buildViewingChecklist(report, effectiveSubItems, verifiedDocs),
@@ -698,6 +726,9 @@ export function RealReportView({
               onAnswer={(k, a) => updateViewing(setAnswer(viewing, k, a))}
               onNote={(k, n) => updateViewing(setNote(viewing, k, n))}
               onViewedOn={(iso) => updateViewing(setViewedOn(viewing, iso))}
+              photoContext={{ buildYear: listing.buildYear, floorAreaSqm: listing.floorAreaSqm, propertyType: listing.propertyType }}
+              onItemPhoto={(id, a: ItemPhotoAnalysis) => updateViewing(setItemPhoto(viewing, id, a))}
+              onClearItemPhoto={(id) => updateViewing(clearItemPhoto(viewing, id))}
               onOpenLetter={() => setTab("negotiation")}
               onOpenLand={() => setTab("address")}
             />

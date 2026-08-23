@@ -8,6 +8,8 @@
 // dollar figure against something nobody could look at. Neither throws.
 // ============================================================
 
+import type { ItemPhotoAnalysis } from "./photo-types";
+
 /** What the buyer found. There is no "skip" — "no_access" IS the answer when
  *  the thing genuinely couldn't be reached, and the letter then says so. */
 export type ViewingAnswer = "ok" | "problem" | "no_access";
@@ -23,9 +25,16 @@ export interface ViewingState {
   /** ISO date the property was actually walked through. The letter states it. */
   viewedOn: string | null;
   answers: Record<string, ViewingRecord>;
+  /**
+   * Photographs the buyer took at the property, already analysed, keyed by
+   * scoring item id. These are not answers — they are evidence, and they
+   * outrank an answer: an item somebody has photographed and had assessed no
+   * longer needs anyone's opinion about whether it was checked.
+   */
+  photos?: Record<string, ItemPhotoAnalysis>;
 }
 
-export const EMPTY_VIEWING: ViewingState = { viewedOn: null, answers: {} };
+export const EMPTY_VIEWING: ViewingState = { viewedOn: null, answers: {}, photos: {} };
 
 export const ANSWER_LABEL: Record<ViewingAnswer, string> = {
   ok: "No issue",
@@ -51,6 +60,12 @@ export interface ChecklistStatus {
  * Both halves are required. Answering every line without recording a date would
  * let someone fill the form in at their desk, and the date is the one sentence
  * in the letter that says a person stood in the house.
+ *
+ * A photograph counts as an answer on its own. Most photographed items drop off
+ * the list entirely — a clear shot makes the item Tier 1 and scored, so it is no
+ * longer an unknown — but a photo that only gets to "probable" leaves the line
+ * standing, and without this the buyer would be holding evidence the gate
+ * refused to accept.
  */
 export function checklistStatus(items: { key: string }[], state: ViewingState): ChecklistStatus {
   let answered = 0;
@@ -58,10 +73,11 @@ export function checklistStatus(items: { key: string }[], state: ViewingState): 
   let noAccess = 0;
   for (const it of items) {
     const rec = state.answers[it.key];
-    if (!rec) continue;
+    const photo = state.photos?.[it.key];
+    if (!rec && !photo) continue;
     answered++;
-    if (rec.answer === "problem") problems++;
-    if (rec.answer === "no_access") noAccess++;
+    if (rec?.answer === "problem" || (!rec && photo?.score != null && photo.score <= 4)) problems++;
+    if (rec?.answer === "no_access") noAccess++;
   }
   const allAnswered = answered === items.length;
   return {
