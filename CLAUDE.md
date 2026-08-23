@@ -139,6 +139,19 @@ supersedes the caller's older one — scoped to the owner, because someone else
 analysing the same house must never delete a report you paid for. This is why
 there is no "re-analyse anyway" button: unchanged means nothing new to find.
 
+**The address search tells you a house was analysed, never what the report said.**
+`/api/reports/search` powers the "Already analysed?" box above the listing URL.
+It returns an address, suburb, region and date — no score, no valuation, no
+asking price, no report body, because it runs before anyone has spent an
+allowance. It also returns the row id **only when the report is the caller's
+own**: their own opens directly and free, exactly as it does from the dashboard,
+while a stranger's goes back through `/api/analyze` with the stored listing URL.
+That is deliberate and load-bearing — the analyse flow re-scrapes first, which is
+the only thing that can catch a moved price or a changed photo set, and it
+charges an allowance. Linking straight to someone else's id would skip both.
+Only reports inside `REUSE_MAX_AGE_DAYS` are offered, since older ones would
+promise a saving that turns into a full-price re-analysis.
+
 **A reused report is still the reader's own report.** The route returns the
 analysis and the caller saves it under a fresh id in their own name, so it lands
 on their dashboard and counts against their quota exactly like a fresh one. The

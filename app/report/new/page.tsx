@@ -2,7 +2,7 @@
 import { CopyUrlHelp } from "@/components/CopyUrlHelp";
 
 import Navbar from "@/components/Navbar";
-import { useState, Suspense } from "react";
+import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Upload, Link2, Loader2, CheckCircle2 } from "lucide-react";
 import { saveReport, saveReportPersona } from "@/lib/report-store";
@@ -16,6 +16,8 @@ import { contributeToMap } from "@/lib/map/contribution";
 import { persistReport } from "@/lib/reports/client";
 import { useRequireAuth } from "@/lib/auth/useRequireAuth";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { AnalysedAddressSearch } from "@/components/report/AnalysedAddressSearch";
+import type { AnalysedMatch } from "@/lib/reports/search-shared";
 
 type Step = "input" | "scraping" | "analysing" | "done";
 
@@ -66,6 +68,15 @@ function NewReportInner() {
   const [pipelineStep, setPipelineStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [outOfReports, setOutOfReports] = useState(false);
+  // An address picked from the search, parked while the persona dialog is up so
+  // the choice survives it and they don't have to find the property again.
+  const [pendingMatch, setPendingMatch] = useState<AnalysedMatch | null>(null);
+  const urlInputRef = useRef<HTMLInputElement>(null);
+
+  const focusUrlInput = () => {
+    urlInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    urlInputRef.current?.focus({ preventScroll: true });
+  };
 
   async function runAnalysis(payload: { url?: string; address?: string }, forPersona: Persona) {
     const label = (payload.url ?? payload.address ?? "").trim();
@@ -171,6 +182,35 @@ function NewReportInner() {
       setStep("input");
     }
   }
+
+  /**
+   * Open a property picked from the address search.
+   *
+   * Their own report opens directly — it is already theirs and already paid
+   * for, exactly as it does from the dashboard. Anyone else's goes through the
+   * normal analyse flow instead of straight to the id, and that is deliberate:
+   * that flow re-scrapes first, which is the only thing that can tell whether
+   * the price or the photos have moved since, and it charges an allowance like
+   * any other report. Linking to a stranger's id would skip both.
+   */
+  const openAnalysed = (match: AnalysedMatch, withPersona: Persona | null = persona) => {
+    if (match.mine && match.id) {
+      setPendingMatch(null);
+      router.push(`/report/${match.id}`);
+      return;
+    }
+    if (!withPersona) {
+      setPendingMatch(match);
+      setAskPersona(true);
+      return;
+    }
+    setPendingMatch(null);
+    if (match.listingUrl) setUrl(match.listingUrl);
+    runAnalysis(
+      match.listingUrl ? { url: match.listingUrl } : { address: match.address },
+      withPersona
+    );
+  };
 
   const startAnalysis = (withPersona: Persona | null = persona) => {
     const u = url.trim();
@@ -291,6 +331,10 @@ function NewReportInner() {
               </div>
             )}
 
+            {/* Ask the cheap question first: this property may already have been
+                analysed, in which case there is nothing to generate. */}
+            <AnalysedAddressSearch onSelect={(m) => openAnalysed(m)} onPasteUrl={focusUrlInput} />
+
             {/* URL input */}
             <div
               className="rounded-2xl p-6 mb-4"
@@ -301,6 +345,7 @@ function NewReportInner() {
                 Listing URL
               </label>
               <input
+                ref={urlInputRef}
                 className="input text-base mb-5"
                 placeholder="Paste a OneRoof, realestate.co.nz or agency listing URL"
                 value={url}
@@ -404,13 +449,17 @@ function NewReportInner() {
 
         {askPersona && (
           <PersonaRequiredDialog
-            onClose={() => setAskPersona(false)}
+            onClose={() => {
+              setAskPersona(false);
+              setPendingMatch(null);
+            }}
             onChoose={(chosen) => {
               setPersona(chosen);
               setAskPersona(false);
               // Carry on with the run they already asked for, rather than making
               // them find the button again.
-              if (showAddressPrompt && addressInput.trim()) findByInput(chosen);
+              if (pendingMatch) openAnalysed(pendingMatch, chosen);
+              else if (showAddressPrompt && addressInput.trim()) findByInput(chosen);
               else startAnalysis(chosen);
             }}
           />
