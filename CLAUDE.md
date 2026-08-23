@@ -247,6 +247,29 @@ along. Comments naming the product are left alone too.
 parsers are dependency-free so `verify:discovery` can load the module with
 plain node, and a single `@/` import ends that.
 
+**LINZ is the register; the listing is a sales document.** `lib/linz/property-records.ts`
+resolves an address to its Record of Title and, where published, its district
+valuation roll — free and openly licensed, attribution being the only condition.
+**Title type now comes from the register and simply wins**, which is what retired
+the "Indicative" label: it used to be inferred from the word "freehold" appearing
+somewhere in the listing HTML.
+
+**The two halves have very different coverage, and this decides how each may be
+used.** Titles are national — 2.45m titles against 2.4m addresses. The valuation
+roll is **287k rows, roughly 12% of properties**, so "no valuation" is the normal
+answer and nothing may depend on one being there. Its figures therefore only ever
+FILL GAPS: a scraped floor area describes the property as it is being sold today
+and is never overwritten by a rating record that may predate a renovation — and a
+stated `noBuildingStated` is never overridden by a roll that can lag a demolition.
+
+Three traps worth knowing. The roll records **land area in hectares** (a 675m²
+section reads 0.0675). A value of **0 means "not valued", not "worth nothing"**.
+And the address lookup must use **exact matches on `full_address_number` and
+`full_road_name`** — the wildcard `ILIKE` scan over 2.4m addresses takes ~4.6s
+against ~1.0s, which was the difference between fitting the 15s budget and not.
+Like the geocoder, an address that could mean more than one property returns
+NOTHING: a wrong record is the wrong-house failure with an official stamp on it.
+
 **A property with no building gets a LAND report, not a condition report.** The
 1,000 points all describe a dwelling, so a bare section scored as a house is
 scored from photographs of an empty paddock — and the output reads exactly as
@@ -304,6 +327,7 @@ are built once, so a Pro user rendering early gets stuck with the blurred versio
 curl -s localhost:3000/api/health/db    | python3 -m json.tool
 curl -s localhost:3000/api/health/email | python3 -m json.tool
 curl -s localhost:3000/api/health/billing | python3 -m json.tool
+curl -s localhost:3000/api/health/linz  | python3 -m json.tool   # title + rating valuation
 ```
 
 Billing end to end needs Stripe's CLI forwarding real events at the dev server:

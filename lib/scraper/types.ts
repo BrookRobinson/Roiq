@@ -79,6 +79,13 @@ export interface ScrapedListing {
    * nothing to look up and nothing to score.
    */
   noBuildingStated?: boolean;
+  /**
+   * The public record for this address — Record of Title and, where the
+   * district's roll is published, the rating valuation. Populated by
+   * `enrichFromLinz()` in the resolver; null when the address couldn't be
+   * pinned to exactly one property.
+   */
+  linz?: import("@/lib/linz/property-records").LinzPropertyRecord | null;
 }
 
 export type SupportedPortal =

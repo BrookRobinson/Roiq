@@ -8,6 +8,8 @@ import { emptyListing } from "@/lib/scraper/types";
 import { searchListing } from "@/lib/ai/listing-search";
 import { lookupPropertyAreas } from "@/lib/ai/property-areas";
 import { assessDwelling, identifiesOneProperty } from "@/lib/property/dwelling";
+import { lookupLinzPropertyRecord } from "@/lib/linz/property-records";
+import type { TitleType } from "@/lib/scraper/types";
 
 export class ListingNotFoundError extends Error {
   constructor() {
@@ -121,6 +123,63 @@ async function ensureAreas(listing: ScrapedListing, opts: { recoverPrice?: boole
         ? `${listing.dataSource} Asking price via ${facts.source}.`
         : `Asking price via ${facts.source}.`;
     }
+  }
+  return listing;
+}
+
+/** LINZ's own wording for a title, mapped onto the app's enum. */
+const LINZ_TITLE_TYPES: Record<string, TitleType> = {
+  "freehold": "freehold",
+  "cross lease": "cross_lease",
+  "unit title": "unit_title",
+  "leasehold": "leasehold",
+};
+
+/**
+ * Fill in what the public record already knows.
+ *
+ * Title type was previously inferred from the word "freehold" appearing
+ * somewhere in the listing HTML — which is why the report labelled it
+ * "Indicative". LINZ publishes the actual Record of Title for every property in
+ * the country, so where it resolves, it simply wins.
+ *
+ * The rating valuation is treated differently, as enrichment rather than truth:
+ * LINZ publishes the roll for only about 12% of properties (287k rows against
+ * 2.4m addresses), so most lookups return a title and no valuation. Its figures
+ * therefore only ever FILL GAPS — a scraped floor area, which describes the
+ * property as it is being sold today, is never overwritten by a rating record
+ * that may predate a renovation.
+ *
+ * Never called without a street number: `identifiesOneProperty` gates it, for
+ * the same reason the web-search lookup is gated.
+ */
+async function enrichFromLinz(listing: ScrapedListing): Promise<ScrapedListing> {
+  if (!identifiesOneProperty(listing.address)) return listing;
+
+  const query = [listing.address, listing.suburb, listing.city].filter(Boolean).join(", ").trim();
+  const record = await lookupLinzPropertyRecord(query).catch(() => null);
+  listing.linz = record;
+  if (!record) return listing;
+
+  const linzType = record.title?.type?.trim().toLowerCase();
+  const mapped = linzType ? LINZ_TITLE_TYPES[linzType] : undefined;
+  if (mapped) listing.titleType = mapped;
+
+  // The title's own area is a survey figure and beats a scraped one.
+  if (listing.landAreaSqm == null && record.title?.areaSqm != null) {
+    listing.landAreaSqm = record.title.areaSqm;
+  }
+
+  const v = record.valuation;
+  if (v) {
+    if (listing.landAreaSqm == null && v.landAreaSqm != null) listing.landAreaSqm = v.landAreaSqm;
+    // Deliberately not when the listing states there is no building: a rating
+    // record can lag a demolition, and the listing is describing the property
+    // as it is being sold today.
+    if (listing.floorAreaSqm == null && !listing.noBuildingStated && v.floorAreaSqm != null) {
+      listing.floorAreaSqm = v.floorAreaSqm;
+    }
+    if (listing.bedrooms == null && v.bedrooms != null) listing.bedrooms = v.bedrooms;
   }
   return listing;
 }
@@ -281,7 +340,7 @@ export async function resolveListing(url: string): Promise<ScrapedListing> {
   }
   // Guarantee the floor + land area (records lookup by address) — even on an
   // otherwise-complete scrape, since the Value Verdict needs the floor area.
-  listing = await ensureAreas(listing);
+  listing = await ensureAreas(await enrichFromLinz(listing));
   return sanitizeCounts(listing);
 }
 
@@ -329,7 +388,7 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     merged.dataSource = rec.photoHost
       ? `Listing + ${merged.photoUrls.length} photos sourced from ${rec.photoHost} — retrieved ${retrievedStamp()}.`
       : `Listing data sourced from ${found.source} — retrieved ${retrievedStamp()}.`;
-    merged = await ensureAreas(merged);
+    merged = await ensureAreas(await enrichFromLinz(merged));
     return sanitizeCounts(merged);
   }
 
@@ -361,7 +420,7 @@ export async function resolveListingByAddress(address: string): Promise<ScrapedL
     const photoNote = rec.photoHost ? ` ${merged.photoUrls.length} photos sourced from ${rec.photoHost}.` : "";
     merged.dataSource = `No active listing found for this address.${src}${photoNote} ${publicDataNote}`;
     // Not for sale → recover areas only; never introduce a current asking price.
-    merged = await ensureAreas(merged, { recoverPrice: false });
+    merged = await ensureAreas(await enrichFromLinz(merged), { recoverPrice: false });
     return sanitizeCounts(merged);
   }
 

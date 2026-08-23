@@ -13,6 +13,7 @@ import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
+import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
@@ -1145,6 +1146,11 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
       {landOnly
         ? <LandScoreBreakdown scored={scored} locked={locked} />
         : <ScoreBreakdown scored={scored} locked={locked} />}
+
+      {/* What the register says — title type and, where published, the rating
+          valuation. Above the estimates, because it is the only part of the
+          report that isn't inferred. */}
+      <PublicRecordCard listing={report.listing} />
 
       {/* Improvement (building) value — spec × condition (valuation slice 1).
           Withheld on a free report: it IS the valuation. There is no building
@@ -2407,6 +2413,77 @@ function LandValueCard({ report }: { report: StoredReport }) {
       <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
         An estimate from recent comparable sales in the suburb, adjusted for section size. It is not a
         registered valuation, and it values the land only — nothing is built on it.
+      </p>
+    </div>
+  );
+}
+
+// ── The public record ────────────────────────────────────────────────────────
+// Title and rating valuation from Toitū Te Whenua LINZ. Shown as its own card
+// because its authority is different in kind from everything else in the
+// report: the rest is read from photographs and a listing, this is the register.
+//
+// The two halves are NOT equally available. Title covers the whole country;
+// the district valuation roll is published for roughly 12% of properties, so
+// the valuation block is absent far more often than it is present — which is
+// why nothing else in the report is allowed to depend on it.
+function RecordRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-sm flex-shrink-0" style={{ color: "var(--text-secondary)" }}>{label}</span>
+      <span
+        className={`text-sm text-right mono ${bold ? "font-bold" : "font-medium"}`}
+        style={{ color: "var(--text-primary)" }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function PublicRecordCard({ listing }: { listing: ScrapedListing }) {
+  const rec = listing.linz;
+  if (!rec || (!rec.title && !rec.valuation)) return null;
+  const t = rec.title;
+  const v = rec.valuation;
+  const money = (n: number | null) => (n == null ? "—" : `$${n.toLocaleString()}`);
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <div className="text-[11px] uppercase tracking-widest" style={{ color: "var(--brand)" }}>
+          The public record
+        </div>
+        <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>LINZ</div>
+      </div>
+
+      {t && (
+        <div className="space-y-1.5 text-sm">
+          <RecordRow label="Title type" value={t.type ?? "—"} bold />
+          <RecordRow label="Record of Title" value={t.titleNo} />
+          {t.estate && <RecordRow label="Estate" value={t.share ? `${t.estate} ${t.share}` : t.estate} />}
+          {t.legalDescription && <RecordRow label="Legal description" value={t.legalDescription} />}
+          {t.areaSqm != null && <RecordRow label="Title area" value={`${t.areaSqm.toLocaleString()} m²`} />}
+        </div>
+      )}
+
+      {v && (
+        <div className="mt-4 pt-3 space-y-1.5 text-sm" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>
+            Rating valuation{v.effectiveDate ? ` · ${v.effectiveDate.slice(0, 10)}` : ""}
+          </div>
+          <RecordRow label="Capital value" value={money(v.capitalValue)} bold />
+          <RecordRow label="Land value" value={money(v.landValue)} />
+          <RecordRow label="Improvements" value={money(v.improvementsValue)} />
+          {v.floorAreaSqm != null && <RecordRow label="Floor area" value={`${v.floorAreaSqm.toLocaleString()} m²`} />}
+          {v.landAreaSqm != null && <RecordRow label="Land area" value={`${v.landAreaSqm.toLocaleString()} m²`} />}
+          {v.zoning && <RecordRow label="Zoning" value={v.zoning} />}
+        </div>
+      )}
+
+      <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+        Sourced from Toitū Te Whenua LINZ under CC BY 4.0. A rating valuation is set for rates, not
+        for sale — it is not a market appraisal and is often years old.
       </p>
     </div>
   );
