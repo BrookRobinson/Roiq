@@ -42,8 +42,8 @@ export default function LandingPage() {
       <HowItWorks />
       <Position />
       <WhatsInside />
-      <AgentLetter />
       <Scoring />
+      <AgentLetter />
       <LiveMapSection />
       <Pricing />
       <Voices />
