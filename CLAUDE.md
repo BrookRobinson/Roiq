@@ -71,6 +71,32 @@ vendor's agent.
 
 ## Rules that aren't obvious from the code
 
+**Every demo map pin has its own sample report, and the addresses are fictional
+on purpose.** All thirty pins used to open 14 Ferndale Road, so clicking three
+properties read the same report three times — a poor advertisement for a product
+sold on per-property detail. `lib/scoring/sample-reports.ts` generates one report
+per pin through the REAL engine (so the persona toggle recomputes and the numbers
+stay consistent with the model) from a profile plus one of nine condition
+archetypes — renovated, tired 70s, new build, leaky era, ex-rental, villa,
+coastal, brick-and-tile, apartment. Coherence is what makes them read as real: a
+2019 build has no rusted roof, a 1908 villa is not on a slab, and the leaky-era
+story runs through cladding, windows, soffits and the legal items together.
+
+**The seed addresses were real, and that was a problem.** 24 Victoria Ave,
+Remuera is a real property with a real title (NA119C/47), and publishing an
+invented condition report against it — rusted roof, mould, possible unconsented
+works — is a false and damaging claim about somebody's home. Every street name in
+the seed table and the profiles was checked against the LINZ address layer and
+matches **zero** addresses nationally. Suburb, price, era and coordinates stay
+realistic; the front door belongs to nobody. Don't put a real address back.
+
+Costs are scaled to each property's floor area and regional rate, because every
+`tired70s` sample otherwise showed an identical $48,700 and a reader notices that
+before they notice anything else. `/api/health/samples` is the guard: it fails if
+any report stops building, if two share an address, if the scores flatten, or if
+a property ends up with no costed work at all — which is how the new builds were
+caught showing $0.
+
 **Never show the demo report as a real property.** `/report/[id]` falls back to
 the demo, so only non-uuid ids (`rpt_*`, `sample-*`) may do that. A real id that
 isn't found says so. Map pins publish report ids — rendering 14 Ferndale Rd under
@@ -438,6 +464,7 @@ curl -s localhost:3000/api/health/email | python3 -m json.tool
 curl -s localhost:3000/api/health/billing | python3 -m json.tool
 curl -s localhost:3000/api/health/linz  | python3 -m json.tool   # title + rating valuation
 curl -s localhost:3000/api/health/zoning | python3 -m json.tool  # 4 councils, 4 field conventions
+curl -s localhost:3000/api/health/samples | python3 -m json.tool # all 30 map-pin sample reports
 ```
 
 Billing end to end needs Stripe's CLI forwarding real events at the dev server:

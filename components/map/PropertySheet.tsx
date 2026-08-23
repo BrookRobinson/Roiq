@@ -7,6 +7,7 @@ import { DEAL_HEX, pctLabel } from "@/lib/map/calc";
 import { loadReport } from "@/lib/report-store";
 import { useSession } from "@/lib/auth/session";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
+import { SAMPLE_ID_PREFIX } from "@/lib/scoring/sample-reports";
 
 interface Detail {
   listing: MapListing;
@@ -184,8 +185,11 @@ export function PropertySheet({
 
               {/* Actions */}
               <div className="flex items-center gap-2 mt-5">
-                {/* The demo map is a showcase, so its pins open the sample report
-                    rather than dead-ending. Otherwise: it's yours or you're Pro
+                {/* The demo map is a showcase, so its pins open THEIR OWN sample
+                    report — every pin used to open 14 Ferndale Road, so clicking
+                    three properties read the same report three times, which is a
+                    poor advertisement for a product sold on per-property detail.
+                    Otherwise: it's yours or you're Pro
                     (open it), it exists but you're not Pro (sell the upgrade), or
                     there's no report behind this pin (offer to run one). Never link
                     to a report the viewer can't open — /report/[id] would fall
@@ -193,7 +197,7 @@ export function PropertySheet({
                 <a
                   href={
                     demo
-                      ? "/report/rpt_001"
+                      ? `/report/${SAMPLE_ID_PREFIX}${l.id}`
                       : hasReport
                         ? `/report/${l.fullReportId}`
                         : l.fullReportId

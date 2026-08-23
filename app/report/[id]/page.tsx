@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { loadReport, type StoredReport } from "@/lib/report-store";
 import { RealReportView } from "@/components/RealReportView";
 import { buildDemoReport } from "@/lib/scoring/demo";
+import { buildSampleReport } from "@/lib/scoring/sample-reports";
 import { SHARE_ID_PREFIX } from "@/lib/share";
 import { fetchSavedReport } from "@/lib/reports/client";
 import { NegotiationLetter } from "@/components/Negotiation/NegotiationLetter";
@@ -67,6 +68,15 @@ export default function ReportPage() {
     // photos, so the visualiser renders) can be opened at a stable URL for
     // testing/sharing — e.g. /report/sample-hokitika.
     if (id.startsWith("sample-")) {
+      // Map-pin samples are generated from a profile through the real engine, so
+      // they stay in step with the scoring model instead of going stale as
+      // committed JSON. Anything else falls through to the bundled files.
+      const generated = buildSampleReport(id);
+      if (generated) {
+        setReport(generated);
+        setReady(true);
+        return;
+      }
       fetch(`/${id}.json`)
         .then((r) => (r.ok ? r.json() : null))
         .then((j: StoredReport | null) => { setReport(j); setReady(true); })
