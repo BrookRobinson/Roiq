@@ -38,6 +38,25 @@ export async function GET() {
       notAssessed: buyer.unassessed.length,
       costedItems: costed.length,
       repairEstimate: Math.round(repairs),
+      photos: report.photosAnalysed,
+      // Every photo number cited in the prose must exist in this property's
+      // gallery, and nothing marked "not visible" may cite one at all.
+      citesBeyondGallery: report.subItems.filter((s) =>
+        [...(s.aiSummary || "").matchAll(/photos? (\d+)(?: and (\d+))?/gi)]
+          .flatMap((m) => [Number(m[1]), m[2] ? Number(m[2]) : 0])
+          .some((n) => n > report.photosAnalysed)
+      ).length,
+      tier3CitingPhotos: report.subItems.filter((s) => s.confidenceTier === 3 && s.photoReferences.length > 0).length,
+      itemsCitingPhotos: report.subItems.filter((s) => s.photoReferences.length > 0).length,
+      // The dearest finding, verbatim — this is the paragraph a visitor reads
+      // when deciding whether the product is worth paying for, so it should be
+      // readable here rather than only by clicking through thirty pins.
+      headline: costed
+        .slice()
+        .sort(
+          (a, b) =>
+            b.estimatedReplacementCost!.high - a.estimatedReplacementCost!.high
+        )[0]?.aiSummary ?? null,
     };
   });
 
@@ -54,6 +73,10 @@ export async function GET() {
   if (distinctScores < built.length * 0.6) problems.push(`only ${distinctScores} distinct scores across ${built.length} properties`);
   if (built.some((r) => (r as { costedItems: number }).costedItems === 0))
     problems.push("a property has no costed work at all");
+  const beyond = built.reduce((n, r) => n + ((r as { citesBeyondGallery: number }).citesBeyondGallery ?? 0), 0);
+  if (beyond > 0) problems.push(`${beyond} item(s) cite a photo number the gallery doesn't have`);
+  const t3 = built.reduce((n, r) => n + ((r as { tier3CitingPhotos: number }).tier3CitingPhotos ?? 0), 0);
+  if (t3 > 0) problems.push(`${t3} "not visible" item(s) cite a photo anyway`);
 
   return NextResponse.json({
     ok: problems.length === 0,

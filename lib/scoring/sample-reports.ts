@@ -87,7 +87,7 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       ext_paint: {
         score: 7, spec: "modern", age: "~3 years",
         summary:
-          "Exterior looks freshly done — clean cut lines at the joinery and no chalking on the north elevation. On the usual repaint cycle you have several years before this needs money.",
+          "Exterior looks freshly done in {photos} — clean cut lines at the joinery and no chalking on the north elevation. On the usual repaint cycle you have several years before this needs money.",
       },
     },
   },
@@ -101,7 +101,7 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       ext_roof: {
         score: 4, spec: "dated", age: "~50 years (original long-run iron)",
         summary:
-          "Rust is showing along the ridge and around the fixings on the north-facing pitch, and the coating has chalked off in patches. Original iron of this age is at replacement, not repair.",
+          "Rust is showing along the ridge and around the fixings on the north-facing pitch in {photos}, and the coating has chalked off in patches. Original iron of this age is at replacement, not repair.",
         cost: { low: 16000, high: 26000, notes: "Long-run iron re-roof including underlay" },
       },
       liv_insulation: {
@@ -113,13 +113,13 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       kit_cabinetry: {
         score: 4, spec: "dated", age: "~50 years",
         summary:
-          "Original melamine carcasses with timber-edged doors and the laminate benchtop lifting at the sink cut-out. It works, but it is the kitchen a buyer replaces in the first two years.",
+          "Original melamine carcasses with timber-edged doors in {photo}, and the laminate benchtop is lifting at the sink cut-out. It works, but it is the kitchen a buyer replaces in the first two years.",
         cost: { low: 14000, high: 24000, notes: "Mid-range kitchen replacement, same footprint" },
       },
       bath_ventilation: {
         score: 2, spec: "deteriorated",
         summary:
-          "No extractor visible in the bathroom photo — an openable window only — and there is dark staining on the ceiling above the shower. That is a Healthy Homes item as well as a mould one.",
+          "No extractor visible in {photo} — an openable window only — and there is dark staining on the ceiling above the shower. That is a Healthy Homes item as well as a mould one.",
         cost: { low: 700, high: 1400, notes: "Ducted extractor fan, vented outside" },
       },
       bath_waterproof: {
@@ -141,7 +141,7 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       out_landscaping: {
         score: 5, spec: "dated",
         summary:
-          "Grounds are still builder's-finish — lawn established but no planting, and the fence lines look temporary in photos 8 and 9. Not a fault, just money most buyers spend in the first year.",
+          "Grounds are still builder's-finish — lawn established but no planting, and the fence lines look temporary in {photos}. Not a fault, just money most buyers spend in the first year.",
         cost: { low: 6000, high: 18000, notes: "Planting, fencing and basic hard landscaping" },
       },
       land_trees: {
@@ -155,13 +155,13 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       out_fencing: {
         score: 4,
         summary:
-          "Boundaries are open on two sides in photos 9 and 10 — normal in a newer subdivision, where fencing is usually left to the owners. Worth pricing before you commit if you have a dog or small children.",
+          "Boundaries are open on two sides in {photos} — normal in a newer subdivision, where fencing is usually left to the owners. Worth pricing before you commit if you have a dog or small children.",
         cost: { low: 4000, high: 9000, notes: "Fencing to two open boundaries, half share where shared" },
       },
       bed_heating: {
         score: 5,
         summary:
-          "A single heat pump serves the living area and there is no fixed heating visible in any bedroom. Compliant and common in new builds, but the bedrooms will run cold on a still winter night.",
+          "A single heat pump serves the living area in {photo} and there is no fixed heating visible in any bedroom. Compliant and common in new builds, but the bedrooms will run cold on a still winter night.",
         cost: { low: 2200, high: 4500, notes: "Additional heat pump head or panel heaters to bedrooms" },
       },
     },
@@ -187,11 +187,11 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       ext_windows: {
         score: 5, spec: "dated",
         summary:
-          "Aluminium joinery of the era, face-fixed into the plaster with sealant rather than flashed. Serviceable, but the junctions are the usual entry point and want checking with the cladding.",
+          "Aluminium joinery of the era in {photo}, face-fixed into the plaster with sealant rather than flashed. Serviceable, but the junctions are the usual entry point and want checking with the cladding.",
       },
       ext_soffits: {
         score: 4, spec: "dated",
-        summary: "Eaves are barely 300mm, so the walls get the full weather. Characteristic of the era and not something you can change without re-roofing.",
+        summary: "Eaves are barely 300mm in {photo}, so the walls get the full weather. Characteristic of the era and not something you can change without re-roofing.",
       },
     },
   },
@@ -205,26 +205,26 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       liv_flooring: {
         score: 4, spec: "dated", age: "~12 years",
         summary:
-          "Carpet is flattened through the traffic lines in photos 5 and 6 and there is a patched section by the hallway door. Vinyl in the kitchen has lifted at the join. Cosmetic, but it is the whole floor.",
+          "Carpet is flattened through the traffic lines in {photos} and there is a patched section by the hallway door. Vinyl in the kitchen has lifted at the join. Cosmetic, but it is the whole floor.",
         cost: { low: 7000, high: 13000, notes: "Recarpet plus new vinyl to wet areas" },
       },
       liv_ceiling: {
         score: 5, spec: "dated",
-        summary: "Ceilings show nail-pops and a patched repair above the hallway. Cosmetic, and it points to a place that has been repaired rather than maintained.",
+        summary: "Ceilings show nail-pops and a patched repair above the hallway in {photo}. Cosmetic, and it points to a place that has been repaired rather than maintained.",
       },
       bath_vanity: {
         score: 3, spec: "deteriorated",
-        summary: "Vanity carcass is swollen at the base where water has sat, and the mixer is corroded. Replacement rather than repair.",
+        summary: "Vanity carcass is swollen at the base where water has sat in {photo}, and the mixer is corroded. Replacement rather than repair.",
         cost: { low: 1200, high: 2600, notes: "Vanity, mixer and waste replaced" },
       },
       bath_ventilation: {
         score: 3, spec: "deteriorated",
-        summary: "Wall-mounted fan that appears to vent into the ceiling space rather than outside — common in rentals and a Healthy Homes failure as well as a moisture one.",
+        summary: "Wall-mounted fan in {photo} that appears to vent into the ceiling space rather than outside — common in rentals and a Healthy Homes failure as well as a moisture one.",
         cost: { low: 600, high: 1200, notes: "Ducted extractor vented through the soffit" },
       },
       out_fencing: {
         score: 4,
-        summary: "Boundary fencing is leaning along the rear run in photo 10, with a couple of palings missing. Half-share cost if the neighbour agrees to replace.",
+        summary: "Boundary fencing is leaning along the rear run in {photo}, with a couple of palings missing. Half-share cost if the neighbour agrees to replace.",
         cost: { low: 2500, high: 6000, notes: "Rear boundary fence, half share" },
       },
     },
@@ -244,7 +244,7 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       ext_cladding: {
         score: 5, spec: "dated", age: "~110 years (original weatherboard)",
         summary:
-          "Original rusticated weatherboard, sound overall, but photo 3 shows splitting and paint failure on the south elevation where it gets least sun. Boards can be spot-replaced; the repaint is the real cost.",
+          "Original rusticated weatherboard, sound overall, but {photo} shows splitting and paint failure on the south elevation where it gets least sun. Boards can be spot-replaced; the repaint is the real cost.",
         cost: { low: 9000, high: 16000, notes: "Weatherboard repairs and full exterior repaint" },
       },
       liv_insulation: {
@@ -255,7 +255,7 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       },
       liv_fixtures: {
         score: 4, spec: "dated",
-        summary: "Older switch and socket plates throughout, and a mix of fitting styles suggesting piecemeal work. Worth an electrician's eye at inspection.",
+        summary: "Older switch and socket plates in {photo}, and a mix of fitting styles suggesting piecemeal work. Worth an electrician's eye at inspection.",
       },
     },
   },
@@ -270,21 +270,21 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       ext_roof: {
         score: 4, spec: "dated", age: "~22 years",
         summary:
-          "Corrosion is visible around the fixings and along the cut edges on the seaward side in photo 4. Salt air roughly halves the life of coated steel, so this is older than its years.",
+          "Corrosion is visible around the fixings and along the cut edges on the seaward side in {photo}. Salt air roughly halves the life of coated steel, so this is older than its years.",
         cost: { low: 15000, high: 25000, notes: "Re-roof in a coastal-grade coated steel" },
       },
       ext_gutters: {
         score: 4, spec: "dated",
-        summary: "Spouting shows staining and pinholing at the joints on the exposed elevation. Replace with the roof if you do that work.",
+        summary: "Spouting shows staining and pinholing at the joints on the exposed elevation in {photo}. Replace with the roof if you do that work.",
         cost: { low: 3000, high: 6000, notes: "Spouting and downpipes, coastal grade" },
       },
       ext_doors: {
         score: 5, spec: "dated",
-        summary: "Aluminium joinery is pitted on the seaward face and the sliding door track looks worn in photo 7. Servicing rather than replacement, for now.",
+        summary: "Aluminium joinery is pitted on the seaward face and the sliding door track looks worn in {photo}. Servicing rather than replacement, for now.",
       },
       ext_paint: {
         score: 4, spec: "dated",
-        summary: "Paint has chalked heavily on the exposed elevation while the sheltered side still looks fresh — the classic coastal pattern. Exterior repaints come round faster here.",
+        summary: "Paint has chalked heavily on the exposed elevation in {photo} while the sheltered side still looks fresh — the classic coastal pattern. Exterior repaints come round faster here.",
         cost: { low: 8000, high: 14000, notes: "Full exterior repaint, coastal system" },
       },
     },
@@ -299,12 +299,12 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
     defects: {
       kit_appliances: {
         score: 4, spec: "dated", age: "~20 years",
-        summary: "Original wall oven and separate cooktop, both well past their design life. Working, but the next failure is not worth repairing.",
+        summary: "Original wall oven and separate cooktop in {photo}, both well past their design life. Working, but the next failure is not worth repairing.",
         cost: { low: 3500, high: 7000, notes: "Oven, cooktop and rangehood replaced" },
       },
       bath_shower: {
         score: 4, spec: "dated", age: "~35 years",
-        summary: "Acrylic shower liner with a moulded base, yellowed and crazed at the corners. Serviceable, dated, and the first thing a buyer changes.",
+        summary: "Acrylic shower liner with a moulded base in {photo}, yellowed and crazed at the corners. Serviceable, dated, and the first thing a buyer changes.",
         cost: { low: 3500, high: 7500, notes: "Shower replacement including waterproofing" },
       },
       liv_insulation: {
@@ -314,7 +314,7 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       },
       liv_heating: {
         score: 5, spec: "dated",
-        summary: "A single heat pump in the living room and nothing else visible. Fine for the main space, cold at the far end of the house.",
+        summary: "A single heat pump in the living room in {photo} and nothing else visible. Fine for the main space, cold at the far end of the house.",
       },
     },
   },
@@ -333,23 +333,23 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
       },
       liv_size: {
         score: 5,
-        summary: "Compact open-plan living and dining. Efficient, and it will feel tight with more than two people in it.",
+        summary: "Compact open-plan living and dining in {photos}. Efficient, and it will feel tight with more than two people in it.",
       },
       bath_shower: {
         score: 5, spec: "dated", age: "~18 years",
         summary:
-          "Original shower with a moulded acrylic base and dated tapware. Working, and showing the wear of a rental-grade fit-out — the silicone at the base has discoloured in photo 6.",
+          "Original shower with a moulded acrylic base and dated tapware. Working, and showing the wear of a rental-grade fit-out — the silicone at the base has discoloured in {photo}.",
         cost: { low: 4000, high: 8000, notes: "Shower replacement including waterproofing to the wet area" },
       },
       liv_flooring: {
         score: 5, spec: "dated", age: "~18 years",
         summary:
-          "Original carpet through the living areas, flattened along the traffic line to the balcony door. Serviceable and clearly at the end of its cycle.",
+          "Original carpet through the living areas in {photo}, flattened along the traffic line to the balcony door. Serviceable and clearly at the end of its cycle.",
         cost: { low: 5000, high: 9000, notes: "Recarpet living and bedrooms, mid-range" },
       },
       kit_appliances: {
         score: 5, spec: "dated", age: "~18 years",
-        summary: "Original oven and cooktop, both near the end of their design life. Nothing wrong today; nothing worth repairing when it fails.",
+        summary: "Original oven and cooktop in {photo}, both near the end of their design life. Nothing wrong today; nothing worth repairing when it fails.",
         cost: { low: 3000, high: 6000, notes: "Oven, cooktop and rangehood replaced" },
       },
       bath_ventilation: {
@@ -381,6 +381,75 @@ function scaleCost(
   const f = areaFactor * regionFactor;
   const round = (n: number) => Math.round((n * f) / 100) * 100;
   return { low: round(cost.low), high: round(cost.high), notes: cost.notes };
+}
+
+/**
+ * Where each part of the house appears in the gallery.
+ *
+ * A real report earns its keep partly by citing evidence — "Photo 4 shows rust
+ * bleeding through the ridge flashing" is what separates an assessment from an
+ * opinion, and it is the thing a reader checks for themselves. The samples cite
+ * photos the same way, so a visitor sees the format they'd be paying for.
+ *
+ * Listings are shot in a conventional order: street and exterior first, then
+ * living, kitchen, bathroom, bedrooms, then garage, grounds and an aerial. Each
+ * category is given a slice of the gallery, and the slice is nudged per property
+ * so thirty reports don't all point at photo 4.
+ */
+const PHOTO_SECTIONS: { match: RegExp; start: number; span: number }[] = [
+  { match: /^(ext_|gar_type|out_driveway)/, start: 0.0, span: 0.28 },
+  { match: /^liv_/, start: 0.28, span: 0.18 },
+  { match: /^kit_/, start: 0.44, span: 0.16 },
+  { match: /^bath_/, start: 0.58, span: 0.16 },
+  { match: /^bed_/, start: 0.72, span: 0.14 },
+  { match: /^(gar_|out_)/, start: 0.84, span: 0.12 },
+  { match: /^land_/, start: 0.9, span: 0.1 },
+];
+
+interface PhotoPlan {
+  count: number;
+  /** Photo numbers for an item, or [] when it isn't something a camera sees. */
+  forItem: (id: string) => number[];
+}
+
+function photoPlan(profile: SampleProfile): PhotoPlan {
+  // A real listing runs 10–20 shots; bigger houses get more.
+  const count = 11 + seededInt(`${profile.seedId}:gallery`, 8) + (profile.floorAreaSqm > 180 ? 2 : 0);
+  return {
+    count,
+    forItem: (id: string) => {
+      const section = PHOTO_SECTIONS.find((s) => s.match.test(id));
+      if (!section) return [];
+      const from = Math.floor(section.start * count);
+      const width = Math.max(1, Math.floor(section.span * count));
+      const first = 1 + Math.min(count - 1, from + seededInt(`${profile.seedId}:${id}`, width));
+      // Roughly a third of items cite a second angle, as a real report does.
+      const pair = seededInt(`${profile.seedId}:${id}:pair`, 3) === 0 && first < count;
+      return pair ? [first, first + 1] : [first];
+    },
+  };
+}
+
+/**
+ * Put this property's photo numbers into archetype copy.
+ *
+ * The prose is written with {photo} / {photos} rather than fixed numbers so the
+ * same sentence cites photo 4 on one house and photo 9 on another — thirty
+ * reports all pointing at "photo 4" would give the game away immediately.
+ */
+function fillPhotos(text: string, refs: number[], plan: PhotoPlan): string {
+  const single = refs.length ? refs[0] : 1 + seededInt(text, plan.count);
+  const second = Math.min(plan.count, single + 1);
+  return text
+    .replace(/\{photos\}/g, `photos ${single} and ${second}`)
+    .replace(/\{photo\}/g, `photo ${single}`);
+}
+
+/** "photo 4" / "photos 4 and 5", or nothing when there is no photo to cite. */
+function citation(refs: number[], plural = false): string {
+  if (refs.length === 0) return "";
+  if (refs.length === 1) return `photo ${refs[0]}`;
+  return plural ? `photos ${refs[0]} and ${refs[1]}` : `photo ${refs[0]}`;
 }
 
 /** Small, stable pseudo-randomness so two properties never read identically. */
@@ -460,12 +529,14 @@ const BY_ID = new Map(SAMPLE_PROFILES.map((p) => [`${SAMPLE_ID_PREFIX}${p.seedId
 export const isSampleReportId = (id: string): boolean => BY_ID.has(id);
 
 /** Generic, band-appropriate copy for the long tail of items. */
-function bandSummary(label: string, score: number, era: number): string {
+function bandSummary(label: string, score: number, era: number, refs: number[]): string {
   const age = new Date().getFullYear() - era;
-  if (score >= 8) return `${label} presents well in the photos with no defects visible — consistent with a property of this age that has been kept up.`;
-  if (score >= 6) return `${label} looks serviceable. Nothing in the photos needs attention now, though at ${age} years it is closer to the back half of its life than the front.`;
-  if (score >= 5) return `${label} is showing its age in the photos — functional, dated, and a candidate for the improvement list rather than the repair list.`;
-  return `${label} is worn enough to need attention, and at ${age} years replacement is likely to be better value than repair.`;
+  const cite = refs.length ? `${citation(refs, true).replace(/^p/, "P")} ` : "";
+  const inPhoto = refs.length ? ` in ${citation(refs)}` : "";
+  if (score >= 8) return `${cite}${cite ? "shows" : `${label} presents`} ${cite ? `${label.toLowerCase()} in good order` : "well"} — no defects visible, consistent with a property of this age that has been kept up.`;
+  if (score >= 6) return `${label} looks serviceable${inPhoto}. Nothing needs attention now, though at ${age} years it is closer to the back half of its life than the front.`;
+  if (score >= 5) return `${label} is showing its age${inPhoto} — functional, dated, and a candidate for the improvement list rather than the repair list.`;
+  return `${label} is worn enough to need attention${inPhoto}, and at ${age} years replacement is likely to be better value than repair.`;
 }
 
 function foundationFor(profile: SampleProfile): { score: UrgencyScore; tier: 1 | 2 | 3; summary: string } {
@@ -486,6 +557,7 @@ function foundationFor(profile: SampleProfile): { score: UrgencyScore; tier: 1 |
 function buildSubItems(profile: SampleProfile): SubItem[] {
   const arch = ARCHETYPES[profile.archetype];
   const foundation = foundationFor(profile);
+  const plan = photoPlan(profile);
   const out: SubItem[] = [];
 
   for (const item of SCORING_MODEL) {
@@ -508,6 +580,11 @@ function buildSubItems(profile: SampleProfile): SubItem[] {
     let age: string | undefined;
     let cost: { low: number; high: number; notes: string } | null = null;
 
+    // What this item was read from. Items nobody can see carry no photo — the
+    // citation has to be true to the finding or it is decoration.
+    const unseeable = ["bath_waterproof", "liv_insulation", "leg_weathertight"].includes(item.id);
+    const refs = unseeable || !isImprovement ? [] : plan.forItem(item.id);
+
     if (item.id === "ext_foundation") {
       score = foundation.score;
       tier = foundation.tier;
@@ -516,7 +593,7 @@ function buildSubItems(profile: SampleProfile): SubItem[] {
     } else if (defect) {
       score = defect.score;
       tier = 1;
-      summary = defect.summary;
+      summary = fillPhotos(defect.summary, refs, plan);
       spec = defect.spec ?? (usesSpecTier(item) ? arch.fitOut : undefined);
       age = defect.age;
       cost = item.costBearing && defect.cost ? scaleCost(defect.cost, profile) : null;
@@ -528,11 +605,10 @@ function buildSubItems(profile: SampleProfile): SubItem[] {
       spec = usesSpecTier(item) ? arch.fitOut : undefined;
       // Items nobody can see stay Tier 3 and carry no score — the same rule the
       // live analysis follows. See lib/scoring/engine.ts.
-      const unseeable = ["bath_waterproof", "liv_insulation"].includes(item.id);
       tier = unseeable ? 3 : isImprovement ? 2 : tax && ["title", "photo", "linz", "moe_zones"].includes(tax.sourceType) ? 1 : 3;
       summary = isImprovement
-        ? bandSummary(item.label, score, profile.buildYear)
-        : `Source: ${tax?.source ?? "listing facts"}. ${bandSummary(item.label, score, profile.buildYear)}`;
+        ? bandSummary(item.label, score, profile.buildYear, refs)
+        : `Source: ${tax?.source ?? "listing facts"}. ${bandSummary(item.label, score, profile.buildYear, [])}`;
     }
 
     // A Tier 3 item does not carry a score — the engine drops it either way, and
@@ -558,7 +634,7 @@ function buildSubItems(profile: SampleProfile): SubItem[] {
         : {}),
       renovationLink: !!cost,
       healthyHomesLink: item.affectsHealthyHomes,
-      photoReferences: [],
+      photoReferences: refs,
     } as SubItem);
   }
   return out;
@@ -611,7 +687,7 @@ export function buildSampleReport(id: string): StoredReport | null {
     buildYear: profile.buildYear,
     description: profile.description,
     daysOnMarket: profile.daysOnMarket,
-    photoUrls: Array.from({ length: 12 }, (_, i) => `sample-photo-${i + 1}`),
+    photoUrls: Array.from({ length: photoPlan(profile).count }, (_, i) => `sample-photo-${i + 1}`),
     scrapedOk: true,
   };
 
@@ -625,7 +701,7 @@ export function buildSampleReport(id: string): StoredReport | null {
     penalties: [],
     scores,
     gaps: [],
-    photosAnalysed: 12,
+    photosAnalysed: photoPlan(profile).count,
     model: "claude-sonnet-5 (sample)",
   };
 }

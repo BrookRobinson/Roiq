@@ -90,6 +90,21 @@ the seed table and the profiles was checked against the LINZ address layer and
 matches **zero** addresses nationally. Suburb, price, era and coordinates stay
 realistic; the front door belongs to nobody. Don't put a real address back.
 
+**The samples cite photo numbers, and that is deliberate.** "Photo 4 shows rust
+bleeding through the ridge flashing" is what separates an assessment from an
+opinion, and it is the thing a reader checks for themselves — so the samples
+demonstrate the format they'd be paying for. This is safe ONLY because the
+properties are fictional: citing a photo of a house that doesn't exist claims
+nothing about anyone. Never do it on a real address.
+
+Each property gets its own gallery layout (11–20 shots, sectioned the way a
+listing is actually photographed — exterior, living, kitchen, bathroom, bedrooms,
+grounds), so thirty reports don't all point at photo 4. Archetype copy is written
+with `{photo}` / `{photos}` tokens rather than fixed numbers. `/api/health/samples`
+enforces two rules: no citation may exceed that property's photo count, and a
+Tier 3 "not visible" item may never cite a photo at all — a citation has to be
+true to the finding or it is decoration.
+
 Costs are scaled to each property's floor area and regional rate, because every
 `tired70s` sample otherwise showed an identical $48,700 and a reader notices that
 before they notice anything else. `/api/health/samples` is the guard: it fails if
