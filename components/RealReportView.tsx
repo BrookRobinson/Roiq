@@ -14,6 +14,7 @@ import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
+import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
@@ -77,6 +78,13 @@ const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?
  * is the conclusion: what the property is worth, what it costs to fix, and what
  * to say to the agent.
  */
+/**
+ * Tabs a bare-land report doesn't have. Improvements describes a building that
+ * isn't there, and Renovations prices work on it — showing either as an empty
+ * shell reads as a failure rather than a property without a house on it.
+ */
+const LAND_HIDDEN_TABS = new Set<Tab>(["improvements", "renovations"]);
+
 const LOCKED_TABS: Record<string, { title: string; blurb: string; includes: string[] }> = {
   financial: {
     title: "Financial",
@@ -407,7 +415,14 @@ export function RealReportView({
     };
   }, [renoLines, renoToggles]);
 
-  const tabs = TAB_DEFS.filter((t) => !t.investorOnly || persona === "investor");
+  // Bare land. There is no building, so the Improvements inspection was never
+  // run and the tab has nothing to show — and the headline number is a LAND
+  // score, not a condition score out of 1,000.
+  const landOnly = report.landOnly === true;
+
+  const tabs = TAB_DEFS
+    .filter((t) => !t.investorOnly || persona === "investor")
+    .filter((t) => !(landOnly && LAND_HIDDEN_TABS.has(t.id)));
 
   const { listing, subItems, gaps, photosAnalysed, model } = report;
 
@@ -1104,6 +1119,8 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
   dwellingValue: ExtraDwellingValueResult;
 }) {
   const subs = subItems;
+  // No building: the score is land + title, and there is no improvement value.
+  const landOnly = report.landOnly === true;
   const growthScore = subs.find((s) => s.id === "loc_growth")?.score ?? null;
   const tally = {
     critical: subs.filter((s) => s.score !== null && s.score <= 2).length,
@@ -1121,12 +1138,20 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
 
   return (
     <div className="space-y-6">
-      {/* Condition & Quality Score — base − location penalties + on-site value-adds */}
-      <ScoreBreakdown scored={scored} locked={locked} />
+      {/* Condition & Quality Score — base − location penalties + on-site value-adds.
+          On land there is no condition to score, so the land + title assessment
+          is shown against its OWN total instead of a 1,000-point score that
+          would look comparable to a house's and isn't. */}
+      {landOnly
+        ? <LandScoreBreakdown scored={scored} locked={locked} />
+        : <ScoreBreakdown scored={scored} locked={locked} />}
 
       {/* Improvement (building) value — spec × condition (valuation slice 1).
-          Withheld on a free report: it IS the valuation. */}
-      {improvementValuation && !locked && <ImprovementValueCard iv={improvementValuation} />}
+          Withheld on a free report: it IS the valuation. There is no building
+          to value on a section, so the land is valued on its own instead. */}
+      {landOnly
+        ? !locked && <LandValueCard report={report} />
+        : improvementValuation && !locked && <ImprovementValueCard iv={improvementValuation} />}
 
       {/* Predicted value + condition breakdown */}
       <div className="grid lg:grid-cols-3 gap-4">
@@ -1143,13 +1168,15 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
             <>
               <FutureSalePrice askingPrice={askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="left" />
               <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
-                See the <strong style={{ color: "var(--brand)" }}>Financial</strong> tab for the {PRODUCT_SHORT_NAME} Value Verdict — whether the asking price is fair once renovations are factored in.
+                {landOnly
+                  ? <>Growth is applied to the asking price. There is no building on this section, so nothing here assumes one gets built.</>
+                  : <>See the <strong style={{ color: "var(--brand)" }}>Financial</strong> tab for the {PRODUCT_SHORT_NAME} Value Verdict — whether the asking price is fair once renovations are factored in.</>}
               </div>
             </>
           )}
         </div>
         <div className="card p-5 lg:col-span-2">
-          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-secondary)" }}>Condition by inspection area</h3>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: "var(--text-secondary)" }}>{landOnly ? "Assessment by area" : "Condition by inspection area"}</h3>
           <InspectionBars scored={scored} />
         </div>
       </div>
@@ -2238,6 +2265,149 @@ function Disclaimer({ url }: { url: string }) {
     <div className="border-t px-4 py-4 text-center text-xs" style={{ borderColor: "var(--border)", color: "var(--text-muted)", background: "var(--surface)" }}>
       AI analysis of publicly available listing data and photos. Not a registered valuation or building inspection. Verify all material facts before making an offer.{" "}
       <a href={url} target="_blank" rel="noreferrer" style={{ color: "var(--brand)" }}>View original listing →</a>
+    </div>
+  );
+}
+
+// ── Land reports ─────────────────────────────────────────────────────────────
+// A section has no condition to score. What CAN be assessed is the site itself
+// — contour, shape, orientation, access, planting — and the title behind it, so
+// that is what the headline number is: those two inspections against their own
+// total.
+//
+// Deliberately NOT shown out of 1,000. The engine normalises whatever it scored
+// back to 1,000, so a land report would print a number that sits next to a
+// house's and invites a comparison that means nothing. A house scoring 805/1000
+// and a section scoring 805/1000 have almost no assessment in common.
+function LandScoreBreakdown({ scored, locked = false }: { scored: ScoreResult; locked?: boolean }) {
+  const land = scored.byInspection.land;
+  const legal = scored.byInspection.legal;
+  const earned = Math.round(land.earned + legal.earned);
+  const max = Math.round(land.max + legal.max);
+  const pct = max > 0 ? Math.round((earned / max) * 100) : 0;
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Land &amp; title score</div>
+          <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+            There is no building on this property, so there is no condition to score. This is the site itself —
+            contour, usable area, shape, orientation, access and planting — plus what the title carries. Scored
+            against its own total, not the 1,000 points a house is scored out of.
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="text-3xl font-bold mono" style={{ color: "var(--text-primary)" }}>
+            {locked ? (
+              <BlurredValue label="Your score needs a paid plan">{earned}</BlurredValue>
+            ) : (
+              earned
+            )}
+            <span className="text-sm" style={{ color: "var(--text-muted)" }}>/{max}</span>
+          </div>
+          <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>{locked ? "—" : `${pct}%`}</div>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-1.5 text-sm">
+        <div className="flex items-center justify-between">
+          <span style={{ color: "var(--text-secondary)" }}>Site &amp; land quality</span>
+          <span className="mono" style={{ color: "var(--text-primary)" }}>
+            {locked ? <BlurredValue amount={6} label="Your score needs a paid plan">{Math.round(land.earned)}</BlurredValue> : Math.round(land.earned)}
+            <span style={{ color: "var(--text-muted)" }}>/{Math.round(land.max)}</span>
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span style={{ color: "var(--text-secondary)" }}>Title &amp; compliance</span>
+          <span className="mono" style={{ color: "var(--text-primary)" }}>
+            {locked ? <BlurredValue amount={6} label="Your score needs a paid plan">{Math.round(legal.earned)}</BlurredValue> : Math.round(legal.earned)}
+            <span style={{ color: "var(--text-muted)" }}>/{Math.round(legal.max)}</span>
+          </span>
+        </div>
+
+        {scored.penalties.map((p) => (
+          <div key={p.id} className="flex items-start justify-between gap-3">
+            <span style={{ color: "var(--text-secondary)" }}>
+              {p.label}
+              {p.note && <span className="text-[11px] block" style={{ color: "var(--text-muted)" }}>{p.note}</span>}
+            </span>
+            <span className="mono flex-shrink-0" style={{ color: "var(--bad)" }}>{p.points}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** What the section itself is worth. No building, so this is the whole valuation. */
+function LandValueCard({ report }: { report: StoredReport }) {
+  const landAreaSqm = report.listing.landAreaSqm ?? null;
+  const land = valueLand({ landAreaSqm, suburbValue: report.suburbValue });
+  const asking = report.listing.askingPrice ?? null;
+  // On a section the land value IS the report, so an unbounded extrapolation
+  // from suburb house comps is the whole answer being wrong rather than a
+  // rounding error. Say we can't value it instead.
+  const publishable = land
+    ? landValuePublishable({ landAreaSqm, landValue: land.landValue, askingPrice: asking })
+    : { ok: false, reason: null };
+
+  if (!land || !publishable.ok) {
+    return (
+      <div className="card p-5">
+        <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--brand)" }}>Land value</div>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          {publishable.reason
+            ? `We can't put a figure on this section yet — ${publishable.reason}.`
+            : landAreaSqm
+            ? "No recent comparable sales were found for this suburb, so the land can't be valued yet."
+            : "The listing doesn't publish a land area, so the section can't be valued."}
+        </p>
+        <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+          Everything else in this report still stands — the site assessment, the title findings and the
+          location facts all come from the listing itself, not from a valuation.
+        </p>
+      </div>
+    );
+  }
+
+  const gap = asking && asking > 0 ? Math.round(((land.landValue - asking) / asking) * 100) : null;
+
+  return (
+    <div className="card p-5">
+      <div className="text-[11px] uppercase tracking-widest mb-3" style={{ color: "var(--brand)" }}>Land value</div>
+      <div className="space-y-1.5 text-sm">
+        <div className="flex items-center justify-between">
+          <span style={{ color: "var(--text-secondary)" }}>
+            Section <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· {land.landAreaSqm.toLocaleString()} m²</span>
+          </span>
+          <span className="mono" style={{ color: "var(--text-primary)" }}>${land.ratePerSqm.toLocaleString()}/m²</span>
+        </div>
+        <div className="flex items-center justify-between font-bold pt-1.5" style={{ borderTop: "1px solid var(--border)" }}>
+          <span style={{ color: "var(--text-primary)" }}>Estimated land value</span>
+          <span className="mono" style={{ color: "var(--text-primary)" }}>${land.landValue.toLocaleString()}</span>
+        </div>
+        {asking != null && (
+          <>
+            <div className="flex items-center justify-between pt-2">
+              <span style={{ color: "var(--text-secondary)" }}>Asking price</span>
+              <span className="mono" style={{ color: "var(--text-primary)" }}>${asking.toLocaleString()}</span>
+            </div>
+            {gap != null && (
+              <div className="flex items-center justify-between">
+                <span style={{ color: "var(--text-secondary)" }}>Against asking</span>
+                <span className="mono font-semibold" style={{ color: gap >= 0 ? "var(--good)" : "var(--bad)" }}>
+                  {gap >= 0 ? "+" : ""}{gap}%
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+        An estimate from recent comparable sales in the suburb, adjusted for section size. It is not a
+        registered valuation, and it values the land only — nothing is built on it.
+      </p>
     </div>
   );
 }

@@ -247,18 +247,37 @@ along. Comments naming the product are left alone too.
 parsers are dependency-free so `verify:discovery` can load the module with
 plain node, and a single `@/` import ends that.
 
-**Never score a property that has no building on it.** The 1,000 points all
-describe a dwelling, so a bare section is scored from photographs of an empty
-paddock and the output reads exactly as confidently as a true report. `/api/analyze`
-refuses with a 422 `no_dwelling` **above the reuse lookup and the allowance** — no
-Claude spend, no report used. `lib/property/dwelling.ts` decides, on evidence only:
-a published floor area of **exactly 0** (which is a portal answering the question,
-not failing to), then a `section` type. It deliberately does NOT read the description
-("large section" is in half the country's listings) and does NOT treat a bedroom
-count as proof of a building — the section that exposed this had a stray "1 bedroom"
-scraped out of page furniture. A stated zero outranks the property type because
-**OneRoof marks up every property page as `SingleFamilyResidence`, sections included**,
-and trusting that schema was the original bug.
+**A property with no building gets a LAND report, not a condition report.** The
+1,000 points all describe a dwelling, so a bare section scored as a house is
+scored from photographs of an empty paddock — and the output reads exactly as
+confidently as a true report. `lib/property/dwelling.ts` decides, on evidence
+only: a published floor area of **exactly 0** (a portal answering the question,
+not failing to), then a `section` type. It deliberately does NOT read the
+description ("large section" is in half the country's listings) and does NOT
+treat a bedroom count as proof of a building — the section that exposed this had
+a stray "1 bedroom" scraped from page furniture. A stated zero outranks the
+property type because **OneRoof marks up every property page as
+`SingleFamilyResidence`, sections included**, which was the original bug.
+
+When there is no dwelling, `analyseProperty` runs `inspections: ["land", "legal"]`
+— the model is never shown the improvements checklist and any improvements item
+it volunteers anyway is dropped when the result is assembled. The report carries
+`landOnly`, and the view MUST read it: Improvements and Renovations are hidden,
+and the headline is a **land + title score against its own total**, never out of
+1,000. The engine normalises whatever it scored back to 1,000, so a land report
+would otherwise print a number that sits next to a house's and invites a
+comparison that means nothing.
+
+**A land value we can't stand behind is not published.** `valueLand()` extracts a
+rate from ordinary suburb house sales and stretches it over the area with a 40%
+tail that has no ceiling — the reported 5,967m² section came out at $1.41m
+against a $195,000 asking price. Inside a house report that error is small and
+bounded; on a land report the valuation IS the report. `landValuePublishable()`
+withholds the figure past **3× a typical section** or when it diverges more than
+60% from the advertised price. That second rule is deliberately the opposite of
+the house behaviour: a wide gap on a house is a finding and the whole product,
+but on bare land, with no building to explain it and a rate already stretched, it
+means the estimate is wrong.
 
 **Never look up a property by a street name alone.** `ensureAreas()` backfills a
 missing floor area or price by web search, and it is only safe with an address that

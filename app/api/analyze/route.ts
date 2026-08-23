@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { type ScrapedListing } from "@/lib/scraper";
 import { resolveListing, resolveListingByAddress, ListingNotFoundError } from "@/lib/listing-resolver";
 import { assessDwelling } from "@/lib/property/dwelling";
-import { PRODUCT_NAME } from "@/lib/brand";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
 import { findReusableReport, isOwnReport, REUSE_MAX_AGE_DAYS } from "@/lib/reports/reuse";
 import { getQuota } from "@/lib/reports/quota";
@@ -128,26 +127,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Is there a building to score? ────────────────────────────────────────
-    // Every one of the 1,000 points describes a dwelling — its roof, kitchen,
-    // bathroom, joinery. Run that against a bare section and the model scores
-    // all of it from photographs of an empty paddock, and the result reads as
-    // confidently as a true report. Refusing is the only honest answer we have
-    // until there is a land report to send them to.
+    // ── Is there a building to score? ──────────────────────────────────────
+    // The 1,000-point model describes a DWELLING — roof, kitchen, bathroom,
+    // joinery. Run it against a bare section and every item is scored from
+    // photographs of an empty paddock, which is how a two-lot section came back
+    // as "house · 195m² floor · 805/1000".
     //
-    // Sits above the reuse lookup and the allowance: nobody should spend a
-    // report, or wait for one, to be told we can't analyse their property.
-    const dwelling = assessDwelling(listing);
-    if (!dwelling.hasDwelling) {
-      return NextResponse.json(
-        {
-          error: "no_dwelling",
-          message: `This listing is bare land — ${dwelling.reason}. ${PRODUCT_NAME} scores the condition of a house: its roof, kitchen, bathroom and joinery. Scoring a section would mean describing a house that isn't there, so we won't produce a report for it.`,
-          address: listing.address ?? null,
-        },
-        { status: 422 }
-      );
-    }
+    // So land gets a land report instead: the Land and Legal inspections only,
+    // scored out of their own total, with the section valued on its own terms.
+    // The improvements half is never asked for and never assembled — see
+    // `landOnly` in lib/ai/analyze.ts.
+    const landOnly = !assessDwelling(listing).hasDwelling;
 
     // Someone may already have paid to have this exact property read. If the
     // listing hasn't moved since, there is nothing to generate — hand back the
@@ -232,13 +222,16 @@ export async function POST(req: NextRequest) {
     const useFanout = process.env.ANALYZE_FANOUT === "true";
     const result =
       photos.length > 0 || inspections || !useFanout
-        ? await analyseProperty(listing, { inspections, photoLabels, prefetched })
+        ? await analyseProperty(listing, { inspections, photoLabels, prefetched, landOnly })
         : await analysePropertyFast(listing);
     const photoCoverage = photos.length > 0 ? coverageFor(photos.map((p) => p.category)) : undefined;
     return NextResponse.json({
       ok: true,
       listing,
       ...result,
+      // The report view needs this to lock the Improvements tab and show a land
+      // score rather than a condition score out of 1,000.
+      landOnly,
       photoCoverage,
       quota: { ...quota, used: quota.used + 1, remaining: quota.remaining - 1 },
     });

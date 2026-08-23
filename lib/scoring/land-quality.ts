@@ -634,3 +634,68 @@ export function frontageStat(
     note: `${f.meta.label}. ${f.meta.note} ${sharing} That contributes ${f.score}/10 to the Land score.`,
   };
 }
+
+/**
+ * Beyond this, the suburb comparables stop being comparable.
+ *
+ * valueLand() extracts a land rate from ordinary suburb house sales — serviced
+ * residential lots — and stretches it over the property's area with a 40% tail.
+ * That tail has no ceiling, so a 5,967m² block came out at $1.41m against a
+ * $195,000 asking price: land past the first few hundred square metres of a
+ * rural section is worth a fraction of serviced residential land, not 40% of it.
+ *
+ * Inside a house report the error is small and bounded, because most sections
+ * are 400–900m² and the building carries most of the value. On a LAND report
+ * the land value is the entire report, so an unbounded extrapolation is the
+ * whole answer being wrong.
+ */
+export const LAND_VALUE_MAX_SQM = TYPICAL_SECTION_SQM * 3;
+
+/** How far the estimate may sit from the advertised price before we distrust ourselves. */
+const LAND_VALUE_MAX_DIVERGENCE = 0.6;
+
+export interface LandValuePublishable {
+  ok: boolean;
+  /** Why we won't publish a figure — shown to the reader, so it must be a fact. */
+  reason: string | null;
+}
+
+/**
+ * Should this land valuation be shown at all?
+ *
+ * Two ways it can be untrustworthy, and both matter more on a section than on a
+ * house because here it IS the report:
+ *
+ * 1. The section is far larger than the residential lots the comparables are
+ *    built from, so the rate was never calibrated for it.
+ * 2. It lands a long way from what the property is actually advertised at.
+ *    For a HOUSE a wide gap is a finding — that is the product. For bare land,
+ *    with no building to explain the difference and a rate we already know is
+ *    stretched, a wide gap means the model is wrong, not that it is a bargain.
+ *
+ * Saying "we can't value this yet" is worth more than a confident wrong number.
+ */
+export function landValuePublishable(args: {
+  landAreaSqm: number | null;
+  landValue: number;
+  askingPrice: number | null;
+}): LandValuePublishable {
+  const area = args.landAreaSqm ?? 0;
+  if (area > LAND_VALUE_MAX_SQM) {
+    return {
+      ok: false,
+      reason: `this section is ${(area / TYPICAL_SECTION_SQM).toFixed(1)}× the size of a typical ${TYPICAL_SECTION_SQM}m² NZ section, and our land rate comes from ordinary suburb sales — stretching it this far would not mean anything`,
+    };
+  }
+  const asking = args.askingPrice;
+  if (asking != null && asking > 0) {
+    const divergence = Math.abs(args.landValue - asking) / asking;
+    if (divergence > LAND_VALUE_MAX_DIVERGENCE) {
+      return {
+        ok: false,
+        reason: "our estimate lands a long way from the advertised price, which on bare land means the estimate is unreliable rather than that the section is mispriced",
+      };
+    }
+  }
+  return { ok: true, reason: null };
+}

@@ -160,6 +160,8 @@ function NewReportInner() {
         suburbValue: data.suburbValue,
         photosAnalysed: data.photosAnalysed ?? 0,
         model: data.model,
+        // Bare land — the view locks Improvements and shows a land score.
+        landOnly: data.landOnly === true,
         // This property had already been analysed — the report says so rather than
         // passing a month-old read off as fresh.
         reusedFrom: data.reused ? { analysedAt: data.analysedAt as string } : undefined,

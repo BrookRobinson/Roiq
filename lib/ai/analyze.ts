@@ -502,7 +502,8 @@ function buildUserMessage(
   photoCount: number,
   inspections?: Inspection[],
   labelled?: boolean,
-  onlyIds?: Set<string>
+  onlyIds?: Set<string>,
+  landOnly?: boolean
 ): string {
   const facts = formatFacts(listing);
   const photoLine =
@@ -527,6 +528,8 @@ ${checklistText(inspections, onlyIds)}
 ${listing.description ? `LISTING DESCRIPTION\n${listing.description.slice(0, 2000)}\n\n` : ""}${
     onlyIds
       ? `This is the REMAINING part of an analysis that ran out of output room. Assess ONLY the ${onlyIds.size} sub-item id(s) listed above — do not repeat any others. Keep each ai_summary to two or three sentences so the whole set fits in one response. Still return property_context, extra_dwellings and information_gaps for the property as a whole.`
+      : landOnly
+      ? "THIS PROPERTY IS BARE LAND. There is no house on it and the photographs show an empty site — do NOT assess, score, describe or infer any building, roof, kitchen, bathroom, interior or fit-out, and do not return any sub-item outside the Land and Legal lists above. Assess the SITE from the photographs: contour and slope, how much of it is usable, shape, orientation and sun, road frontage and access, vegetation and existing planting, services at the boundary, and anything visible that would affect building on it. On the Legal side assess only what applies to a title with no dwelling — title type, easements and covenants, LIM flags and encumbrances — and leave weathertightness, body corporate and consents for structures alone unless a structure is genuinely visible. Return property_context, add any EXISTING structure (a shed, a barn) to extra_dwellings, and any unknowns to information_gaps."
       : "Assess every non-conditional sub-item across all four inspections. Include a conditional sub-item only if it is genuinely present. Return property_context, add any separate dwellings to extra_dwellings, and any unknowns to information_gaps."
   }`;
 }
@@ -598,11 +601,12 @@ async function callAnalysis(
   images: PreparedImage[],
   inspections?: Inspection[],
   photoLabels?: string[],
-  onlyIds?: Set<string>
+  onlyIds?: Set<string>,
+  landOnly?: boolean
 ): Promise<{ raw: RawAnalysis; truncated: boolean }> {
   const content: Anthropic.ContentBlockParam[] = [
     ...base64ImageContent(images, photoLabels),
-    { type: "text", text: buildUserMessage(listing, images.length, inspections, !!photoLabels?.length, onlyIds) },
+    { type: "text", text: buildUserMessage(listing, images.length, inspections, !!photoLabels?.length, onlyIds, landOnly) },
   ];
 
   // Stream and assemble the final message. A full report at this max_tokens
@@ -646,7 +650,8 @@ async function runClaude(
   listing: ScrapedListing,
   images: PreparedImage[],
   inspections?: Inspection[],
-  photoLabels?: string[]
+  photoLabels?: string[],
+  landOnly?: boolean
 ): Promise<RawAnalysis> {
   const client = getAnthropic();
   const requested = new Set(
@@ -658,7 +663,7 @@ async function runClaude(
   let onlyIds: Set<string> | undefined;
 
   for (let attempt = 0; ; attempt++) {
-    const { raw, truncated } = await callAnalysis(client, listing, images, inspections, photoLabels, onlyIds);
+    const { raw, truncated } = await callAnalysis(client, listing, images, inspections, photoLabels, onlyIds, landOnly);
     mergeAnalysis(merged, raw, seen);
     if (!truncated) break;
 
@@ -727,6 +732,14 @@ export async function analyseProperty(
     photoLabels?: string[];
     /** Suburb/market data already loaded by the upload flow's background prefetch. */
     prefetched?: { marketRent?: MarketRent; capitalGrowth?: CapitalGrowth; suburbValue?: SuburbValue };
+    /**
+     * Bare land — there is no building to assess. Restricts the analysis to the
+     * Land and Legal inspections, so the model is never shown the improvements
+     * checklist and any improvements item it volunteers anyway is dropped when
+     * the result is assembled. Both halves matter: the prompt stops it being
+     * asked for, the assembly stops it being believed.
+     */
+    landOnly?: boolean;
   }
 ): Promise<AnalysisResult> {
   const pf = opts?.prefetched;
@@ -745,8 +758,13 @@ export async function analyseProperty(
         return undefined;
       });
   const images = await prepareImages(listing.photoUrls ?? []);
-  const raw = await runClaude(listing, images, opts?.inspections, opts?.photoLabels);
-  const result = assembleResult(raw, listing, images.length, opts?.inspections);
+  // A section has no improvements to inspect. Narrowing here means the checklist,
+  // the closing instruction and the assembled result all agree.
+  const inspections: Inspection[] | undefined = opts?.landOnly
+    ? ["land", "legal"]
+    : opts?.inspections;
+  const raw = await runClaude(listing, images, inspections, opts?.photoLabels, opts?.landOnly);
+  const result = assembleResult(raw, listing, images.length, inspections);
   const market = await marketP;
   const suburbValue = await suburbP;
   return { ...result, marketRent: market.marketRent, capitalGrowth: market.capitalGrowth, suburbValue };

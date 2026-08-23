@@ -21,6 +21,9 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const { assessDwelling, identifiesOneProperty } = await import(
   join(root, "lib/property/dwelling.ts")
 );
+const { landValuePublishable, LAND_VALUE_MAX_SQM } = await import(
+  join(root, "lib/scoring/land-quality.ts")
+);
 
 let failures = 0;
 const check = (label, got, want) => {
@@ -70,6 +73,23 @@ check("a street number", identifiesOneProperty("14 Ferndale Road, Remuera"), tru
 check("a letter suffix", identifiesOneProperty("14A Bay Road"), true);
 check("a flat number", identifiesOneProperty("2/14 Smith Street"), true);
 check("a spelled-out unit", identifiesOneProperty("Unit 3, 14 Smith Street"), true);
+
+console.log("\nCan we stand behind this land value?");
+// The reported section: 5,967m² valued at $1.41m against a $195,000 asking price.
+// On a land report the valuation IS the report, so an unbounded extrapolation
+// from suburb house comps is the whole answer being wrong.
+const pub = (landAreaSqm, landValue, askingPrice) =>
+  landValuePublishable({ landAreaSqm, landValue, askingPrice }).ok;
+check("the 5,967m² section that broke it", pub(5967, 1410467, 195000), false);
+check("a section past the size band", pub(LAND_VALUE_MAX_SQM + 1, 300000, 300000), false);
+check("an ordinary section near asking", pub(600, 310000, 300000), true);
+check("right on the size limit", pub(LAND_VALUE_MAX_SQM, 300000, 300000), true);
+check("no asking price to check against", pub(600, 300000, null), true);
+// A wide gap is the PRODUCT on a house — here there is no building to explain
+// one, and the rate is already stretched, so it means we are wrong.
+check("estimate double the asking price", pub(600, 600000, 300000), false);
+check("estimate a third of the asking price", pub(600, 100000, 300000), false);
+check("a refusal explains itself", typeof landValuePublishable({ landAreaSqm: 5967, landValue: 1410467, askingPrice: 195000 }).reason, "string");
 
 if (failures) {
   console.error(`\n${failures} dwelling check(s) FAILED.\n`);

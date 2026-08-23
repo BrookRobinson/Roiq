@@ -62,6 +62,16 @@ export interface StoredReport {
   /** Set when this report reuses an earlier analysis of the same listing rather
    *  than running a new one. The report must say so — it is not a live read. */
   reusedFrom?: { analysedAt: string };
+  /**
+   * Bare land — no building on the property, so only the Land and Legal
+   * inspections were assessed.
+   *
+   * The report MUST read this before showing a score or a valuation. The engine
+   * normalises whatever it scored back to 1,000, so a land report would
+   * otherwise print a number that looks directly comparable to a house's and
+   * isn't. Improvements and Renovations have nothing to describe either.
+   */
+  landOnly?: boolean;
 }
 
 const key = (id: string) => `roiq:report:${id}`;
