@@ -1,4 +1,4 @@
-# Working on BDR Report
+# Working on Tectara
 
 NZ property analysis: paste a listing URL → scrape → Claude vision → a scored,
 persona-aware report out of 1,000. Next.js 14 App Router, TypeScript, Tailwind,

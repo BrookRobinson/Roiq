@@ -5,7 +5,7 @@ import { SHARE_TTL_DAYS, newShareToken, isShareToken } from "@/lib/share";
 import type { StoredReport } from "@/lib/report-store";
 import { sendEmail } from "@/lib/email/send";
 import type { Json } from "@/lib/supabase/types";
-import { PRODUCT_NAME } from "@/lib/brand";
+import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 
 export const runtime = "nodejs";
 
@@ -142,9 +142,9 @@ async function sendShareEmail(args: {
 
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a">
-      <h2 style="margin:0 0 4px">A BDR property report has been shared with you</h2>
+      <h2 style="margin:0 0 4px">A ${PRODUCT_NAME} property report has been shared with you</h2>
       <p style="color:#475569;margin:0 0 20px">${escapeHtml(address)}${
-        typeof score === "number" ? ` — BDR score ${score}/1000` : ""
+        typeof score === "number" ? ` — ${PRODUCT_SHORT_NAME} score ${score}/1000` : ""
       }</p>
       ${
         args.note

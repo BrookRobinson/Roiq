@@ -15,10 +15,10 @@
 // ============================================================
 
 /** The product's name, as a customer reads it. */
-export const PRODUCT_NAME = "BDR Report";
+export const PRODUCT_NAME = "Tectara";
 
 /** For tight spaces — a mobile navbar, a PDF header. */
-export const PRODUCT_SHORT_NAME = "BDR";
+export const PRODUCT_SHORT_NAME = "Tectara";
 
 /** Sits under the wordmark and in the page title. */
 export const TAGLINE = "Know before you buy.";
@@ -52,8 +52,8 @@ export function absoluteUrl(path: string): string {
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-/** "BDR Report — Know before you buy." */
+/** "Tectara — Know before you buy." */
 export const titleWithTagline = (): string => `${PRODUCT_NAME} — ${TAGLINE}`;
 
-/** "BDR Report · roiq.co.nz" — the footer line on printed documents. */
+/** "Tectara · roiq.co.nz" — the footer line on printed documents. */
 export const printFooter = (): string => `${PRODUCT_NAME} · ${displayDomain()}`;

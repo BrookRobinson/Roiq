@@ -6,7 +6,7 @@ import type { MapListing, ComputedListing, MapMode, UserVariables } from "@/lib/
 import { DEAL_HEX, pctLabel } from "@/lib/map/calc";
 import { loadReport } from "@/lib/report-store";
 import { useSession } from "@/lib/auth/session";
-import { PRODUCT_NAME } from "@/lib/brand";
+import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 
 interface Detail {
   listing: MapListing;
@@ -146,8 +146,8 @@ export function PropertySheet({
                 </div>
               ) : mode === "homebuyer" ? (
                 <div className="space-y-2.5">
-                  <Row label="BDR Score" value={`${l.roiqScore}/1000`} />
-                  <Row label="BDR Valuation" value={money(c.roiqValuation)} />
+                  <Row label={`${PRODUCT_SHORT_NAME} Score`} value={`${l.roiqScore}/1000`} />
+                  <Row label={`${PRODUCT_SHORT_NAME} Valuation`} value={money(c.roiqValuation)} />
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm" style={{ color: "var(--text-secondary)" }}>vs Asking Price</span>
                     <span className="text-sm font-bold mono px-2 py-0.5 rounded-md" style={{ color: hex, background: `${hex}1a` }}>
@@ -158,7 +158,7 @@ export function PropertySheet({
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  <Row label="BDR Score" value={`${l.roiqScore}/1000`} />
+                  <Row label={`${PRODUCT_SHORT_NAME} Score`} value={`${l.roiqScore}/1000`} />
                   <Row label="Adjusted buy-in" value={money(c.adjustedBuyIn)} hint="asking + repairs" />
                   <Row label="Est. weekly rent" value={`${money(c.weeklyRent)}/wk`} />
                   <Row label="Annual cashflow" value={signed(c.annualCashflow)} valueColor={c.annualCashflow >= 0 ? "var(--good)" : "var(--bad)"} />
@@ -239,7 +239,7 @@ function Row({ label, value, hint, valueColor, bold }: { label: string; value: s
 
 function homebuyerNote(gap: number): string {
   const g = Math.round(gap);
-  if (g > 15) return `Great deal — BDR values it ${g}% above the asking price.`;
-  if (g < -15) return `Overpriced — BDR values it ${Math.abs(g)}% below the asking price.`;
+  if (g > 15) return `Great deal — ${PRODUCT_SHORT_NAME} values it ${g}% above the asking price.`;
+  if (g < -15) return `Overpriced — ${PRODUCT_SHORT_NAME} values it ${Math.abs(g)}% below the asking price.`;
   return `Fair price — close to ${PRODUCT_NAME}'s estimated value.`;
 }
