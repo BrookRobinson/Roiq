@@ -21,6 +21,7 @@ npm run verify:allowance     # who gets how many reports, and what the wall says
 npm run verify:email-key     # which accounts count as one inbox
 npm run verify:discovery     # the sitemap/URL parsers behind nightly discovery
 npm run verify:dwelling      # is there a building to score, and does the address name one property
+npm run verify:floor-area    # advertised floor area vs the rating roll, and what that must never say
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
 
@@ -247,6 +248,27 @@ along. Comments naming the product are left alone too.
 `lib/map/discovery.ts` deliberately does NOT import from `lib/brand` — its
 parsers are dependency-free so `verify:discovery` can load the module with
 plain node, and a single `@/` import ends that.
+
+**The floor-area gap is the only consent-adjacent check the app can honestly
+make.** Councils do not publish building consents as queryable data — Christchurch
+sells monthly aggregate lists at $16, most councils sell a property file on
+request, a couple offer a human-facing search — so the report can never state a
+consent status. What it CAN do is compare two public records of the same house:
+the advertised floor area against the district valuation roll's
+`building_total_floor_area`. Materially more house than the rating record knows
+about is what an undeclared addition looks like from outside.
+
+`lib/property/floor-area-check.ts` is pure and tested. It flags only when the gap
+is **both ≥20% and ≥25m²**, and both conditions are load-bearing: rolls routinely
+exclude a garage, conservatory or sleepout that an agent counts, so a percentage
+alone would flag half the country. It reports the roll's age, because work
+consented after the last assessment legitimately isn't in it yet.
+
+**It must never say "unconsented"** — no council file has been opened and none can
+be. `verify:floor-area` asserts that in the output text, not just the logic,
+because the wording is the part that would quietly drift. And its silence is not
+an all-clear: the roll covers ~12% of properties, so the check usually cannot run
+at all.
 
 **Never score what the analysis could not see.** A listing photographs the
 kitchen, not the piles under the floor. `confidence_tier` was already reported by

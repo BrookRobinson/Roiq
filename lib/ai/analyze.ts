@@ -43,6 +43,7 @@ import type {
 } from "@/lib/property-tab/types";
 import type { StructureType } from "@/lib/scoring/structures";
 import type { ScrapedListing } from "@/lib/scraper/types";
+import { compareFloorArea } from "@/lib/property/floor-area-check";
 
 export interface GapFinding {
   gapType: string;
@@ -490,7 +491,23 @@ function publicRecordFacts(listing: ScrapedListing): (string | null)[] {
     v?.landValue ? fact("Rating valuation — land value", nzd(v.landValue)) : null,
     v?.improvementsValue ? fact("Rating valuation — improvements", nzd(v.improvementsValue)) : null,
     v?.floorAreaSqm ? fact("Floor area (valuation roll)", `${v.floorAreaSqm} m²`) : null,
+    floorAreaFact(listing),
   ];
+}
+
+/**
+ * The one consent-adjacent check the app can honestly make, handed to the model
+ * as a computed FACT so it neither has to spot it nor gets to embellish it.
+ * Silence is not an all-clear — the roll covers ~12% of properties.
+ */
+function floorAreaFact(listing: ScrapedListing): string | null {
+  const cmp = compareFloorArea({
+    listingSqm: listing.floorAreaSqm,
+    rollSqm: listing.linz?.valuation?.floorAreaSqm ?? null,
+    rollEffectiveDate: listing.linz?.valuation?.effectiveDate ?? null,
+  });
+  if (cmp.status === "unknown" || !cmp.note) return null;
+  return fact("Advertised floor area vs rating roll", cmp.note);
 }
 
 function idsFor(insp: CatalogInspection, onlyIds?: Set<string>): string {

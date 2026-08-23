@@ -16,6 +16,7 @@ import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
+import { compareFloorArea } from "@/lib/property/floor-area-check";
 import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
@@ -2463,6 +2464,15 @@ function PublicRecordCard({ listing }: { listing: ScrapedListing }) {
   const t = rec.title;
   const v = rec.valuation;
   const money = (n: number | null) => (n == null ? "—" : `$${n.toLocaleString()}`);
+  // Two public records of the same house. When the advertised one is materially
+  // bigger, something was built that the rating record hasn't caught up with —
+  // which is what an undeclared addition looks like from the outside. It is NOT
+  // called unconsented: no council file has been opened, and none can be.
+  const floorArea = compareFloorArea({
+    listingSqm: listing.floorAreaSqm,
+    rollSqm: v?.floorAreaSqm ?? null,
+    rollEffectiveDate: v?.effectiveDate ?? null,
+  });
 
   return (
     <div className="card p-5">
@@ -2492,6 +2502,19 @@ function PublicRecordCard({ listing }: { listing: ScrapedListing }) {
           <RecordRow label="Land value" value={money(v.landValue)} />
           <RecordRow label="Improvements" value={money(v.improvementsValue)} />
           {v.floorAreaSqm != null && <RecordRow label="Floor area" value={`${v.floorAreaSqm.toLocaleString()} m²`} />}
+          {floorArea.status === "listing_larger" && (
+            <div
+              className="mt-2 rounded-lg p-3"
+              style={{ background: "var(--warn-wash)", border: "1px solid var(--warn)" }}
+            >
+              <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
+                More house than the rating record knows about — {floorArea.differenceSqm}m² ({floorArea.differencePct}%)
+              </div>
+              <p className="text-[11px]" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                {floorArea.note}
+              </p>
+            </div>
+          )}
           {v.landAreaSqm != null && <RecordRow label="Land area" value={`${v.landAreaSqm.toLocaleString()} m²`} />}
           {v.zoning && <RecordRow label="Zoning" value={v.zoning} />}
         </div>
