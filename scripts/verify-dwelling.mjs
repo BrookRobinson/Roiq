@@ -52,6 +52,13 @@ check("a stray bedroom count doesn't vouch for a building", has({ noBuildingStat
 check("the refusal gives a reason", typeof assessDwelling({ noBuildingStated: true }).reason, "string");
 
 console.log("\nA building — must go through");
+// The regression that nearly shipped: OneRoof publishes floorAreaString "0m"
+// when it simply does not hold the figure, so a four-bedroom house in Whakatāne
+// reads 0m² exactly like a bare paddock. The scraper therefore only sets
+// noBuildingStated when the zero is CORROBORATED (portal category "Section", or
+// no bedrooms) — never on the zero alone. If that ever regresses, a real house
+// gets a land report and its Improvements tab disappears.
+check("a house with no floor area published and no zero flag", has({ propertyType: "house", floorAreaSqm: null, bedrooms: 4 }), true);
 check("an ordinary house", has({ propertyType: "house", floorAreaSqm: 195, bedrooms: 3 }), true);
 check("a house with no floor area published", has({ propertyType: "house", floorAreaSqm: null }), true);
 check("nothing known at all", has({}), true);

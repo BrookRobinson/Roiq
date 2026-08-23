@@ -356,8 +356,17 @@ NOTHING: a wrong record is the wrong-house failure with an official stamp on it.
 1,000 points all describe a dwelling, so a bare section scored as a house is
 scored from photographs of an empty paddock — and the output reads exactly as
 confidently as a true report. `lib/property/dwelling.ts` decides, on evidence
-only: a published floor area of **exactly 0** (a portal answering the question,
-not failing to), then a `section` type. It deliberately does NOT read the
+only: the scraper's `noBuildingStated` flag, then a `section` type.
+
+**A published floor area of 0 is NOT on its own evidence of no building.** That
+was the first attempt and it was wrong: OneRoof prints `floorAreaString:"0m"`
+whenever it doesn't hold the figure, so a four-bedroom house in Whakatāne reads
+0m² exactly like a bare paddock, and it would have been given a land report with
+no Improvements tab. The scraper sets `noBuildingStated` only when the zero is
+**corroborated** — the portal's own `"category":"Section"`, or no bedrooms. That
+category field is also the one trustworthy property type: OneRoof marks every
+page `SingleFamilyResidence` AND files sections under "Houses for Sale", so both
+the schema type and the page title lie. It deliberately does NOT read the
 description ("large section" is in half the country's listings) and does NOT
 treat a bedroom count as proof of a building — the section that exposed this had
 a stray "1 bedroom" scraped from page furniture. A stated zero outranks the

@@ -5,7 +5,7 @@
  */
 
 import * as cheerio from "cheerio";
-import { ScrapedListing, emptyListing, SupportedPortal, PriceMethod } from "../types";
+import { ScrapedListing, emptyListing, SupportedPortal, PriceMethod, PropertyType } from "../types";
 import { scrapeFetch, extractJsonLd, stripHtml, parsePrice, parseArea, parseQuantitativeArea, extractAreaFromJson, parseYear } from "../fetch";
 import { detectPropertyType, detectTitleType, extractFeatures } from "./shared";
 
@@ -16,6 +16,27 @@ import { detectPropertyType, detectTitleType, extractFeatures } from "./shared";
  * "0" never comes from the middle of "1,097m²".
  */
 const STATED_ZERO_FLOOR_AREA = /\bfloor_?area(?:string|sqm|_sqm)?\\?"?\s*:\s*\\?"?\s*0\s*(?:m|"|\\|,|})/i;
+
+/**
+ * The portal's own category for the listing — `"category":"Section"`.
+ *
+ * This is the trustworthy signal for what kind of property it is, and the page
+ * <title> is not: OneRoof files sections under "Houses for Sale" too, so the
+ * title says "House" for a bare paddock.
+ */
+const PORTAL_CATEGORY = /"category\\?"?\s*:\s*\\?"([A-Za-z ]{3,30})/i;
+
+/** Portal category → our property type. Only the unambiguous ones. */
+const CATEGORY_TYPES: Record<string, PropertyType> = {
+  section: "section",
+  land: "section",
+  "bare land": "section",
+  house: "house",
+  townhouse: "townhouse",
+  apartment: "apartment",
+  unit: "unit",
+  lifestyle: "lifestyle",
+};
 
 export function detectPortal(url: string): SupportedPortal {
   if (/harcourts\.net|harcourts\.co\.nz/.test(url))      return "harcourts";
@@ -196,7 +217,28 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   // It also overrules the schema.org type, which is why this runs after it:
   // OneRoof marks up EVERY property page as `SingleFamilyResidence`, sections
   // included, and trusting that scored a bare paddock as a house.
-  if (listing.floorAreaSqm == null && STATED_ZERO_FLOOR_AREA.test(html)) {
+  // The portal's own category, which beats both the schema.org type and the
+  // page title. OneRoof marks every property page `SingleFamilyResidence` and
+  // files sections under "Houses for Sale", but its category field says
+  // "Section" plainly.
+  const categoryRaw = html.match(PORTAL_CATEGORY)?.[1]?.trim().toLowerCase();
+  const categoryType = categoryRaw ? CATEGORY_TYPES[categoryRaw] : undefined;
+  if (categoryType) listing.propertyType = categoryType;
+
+  // A published floor area of 0 is NOT proof there is no building. OneRoof
+  // prints `floorAreaString:"0m"` when it simply doesn't hold the figure — a
+  // four-bedroom house in Whakatāne reads 0m² exactly like a bare paddock does.
+  // Treating the zero alone as evidence turned that house into a land report.
+  //
+  // So the zero only counts when the listing agrees with it some other way:
+  // the portal calls it a section, or it has no bedrooms. Either on its own is
+  // weak; the zero plus one of them is what a section actually looks like.
+  const noBedrooms = listing.bedrooms == null || listing.bedrooms === 0;
+  if (
+    listing.floorAreaSqm == null &&
+    STATED_ZERO_FLOOR_AREA.test(html) &&
+    (categoryType === "section" || noBedrooms)
+  ) {
     listing.noBuildingStated = true;
     if (listing.propertyType === "house" || listing.propertyType === "unknown") {
       listing.propertyType = "section";
