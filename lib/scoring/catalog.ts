@@ -180,7 +180,7 @@ export const SOURCE_TAXONOMY: Record<string, SourceRef> = {
   land_shape: { source: "Title diagram / aerial imagery", sourceType: "linz" },
   land_subdivision: { source: "Zoning + lot size + district-plan minimum-lot rules", sourceType: "council_data", verifyAgainst: "council district plan" },
   land_frontage: { source: "Record of title / listing", sourceType: "title" },
-  land_trees: { source: "Photos + council protected/notable-tree register", sourceType: "council_data" },
+  land_trees: { source: "Listing photos", sourceType: "council_data" },
   // Legal
   // No verifyAgainst: the record of title is retrieved from LINZ before the
   // analysis runs (lib/linz/property-records.ts), so the type, estate and legal
@@ -188,9 +188,13 @@ export const SOURCE_TAXONOMY: Record<string, SourceRef> = {
   // confirm what the report already printed is the app declining to do its job.
   leg_title: { source: "LINZ record of title", sourceType: "title" },
   leg_weathertight: { source: "Build era + cladding type + leaky-era window (1994–2004)", sourceType: "inference", verifyAgainst: "LIM / building report" },
-  leg_unconsented: { source: "LIM / council property file + photo cross-check", sourceType: "lim", verifyAgainst: "LIM / council property file" },
-  leg_consents: { source: "LIM / council records (CCCs issued)", sourceType: "lim", verifyAgainst: "LIM" },
-  leg_eqc: { source: "Listing disclosure / EQC claim records", sourceType: "council_data", verifyAgainst: "EQC claim history" },
+  // Councils do NOT publish consent records as queryable data — a handful offer a
+  // human-facing search, the rest sell a property file on request. So the only
+  // thing the app actually brings to this item is the photographs, plus a LIM the
+  // user uploaded. Naming a council file we never opened would be inventing a source.
+  leg_unconsented: { source: "Listing photos + listing facts (no council file is retrieved)", sourceType: "lim", verifyAgainst: "LIM / council property file" },
+  leg_consents: { source: "Your uploaded LIM or CCC, when provided — consents aren't published as data", sourceType: "lim", verifyAgainst: "LIM" },
+  leg_eqc: { source: "Listing disclosure, and your uploaded EQC records when provided", sourceType: "council_data", verifyAgainst: "EQC claim history" },
   leg_bodycorp: { source: "Body corporate minutes & disclosure (unit title)", sourceType: "title", verifyAgainst: "body corporate minutes" },
   leg_easements: { source: "Record of title", sourceType: "title", verifyAgainst: "record of title" },
   leg_crosslease: { source: "Flats plan vs current footprint (title)", sourceType: "title", verifyAgainst: "flats plan / record of title" },
