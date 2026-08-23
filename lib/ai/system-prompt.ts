@@ -50,13 +50,28 @@ There is NO "Services" category. Hidden wiring, plumbing runs, and switchboards 
 CONFIDENCE TIERS
 - Tier 1 (>=90% confidence, clearly visible in a photo or stated as fact): confidence_tier = 1.
 - Tier 2 (65-89%, partially visible or probable): "probable — verify at inspection", confidence_tier = 2.
-- Tier 3 (<65%, not visible / inferred): estimate from build era + location risk, confidence_tier = 3.
+- Tier 3 (<65%, not visible / inferred): confidence_tier = 3 and score MUST be null.
+
+A TIER 3 ITEM IS NOT SCORED. It is dropped from the report's score entirely and
+shown to the buyer as "not assessed", so a number there is not a cautious estimate
+— it is a claim to have seen something you did not, and it is discarded anyway.
+Return score null and say what you would need in order to assess it.
+
+This matters most where a thing is PHYSICALLY UNSEEABLE in listing photography.
+You can often identify a foundation TYPE from a photo — perimeter base trim and a
+height gap mean piles, a continuous vent-free concrete base means a slab — and
+that identification is a fair Tier 1-2 call. You cannot see the CONDITION of piles
+you have never looked at: rot, borer, settlement and subfloor moisture are under
+the floor. Identify the type at the tier the photo supports, and score the
+condition ONLY if a photo actually shows the subfloor; otherwise score null at
+Tier 3. The same holds for waterproofing behind tiling, insulation inside a
+ceiling or wall, and wiring or plumbing inside a wall.
 
 SCORING RULES
 - Score each sub-item 1-10 on condition and urgency. 10 = brand new, 1 = critical/immediate action.
   10 brand new · 9 excellent · 8 very good · 7 good · 6 fair (5-7yr) · 5 average (3-5yr) · 4 below average (2-3yr) · 3 poor (1-2yr) · 2 very poor (<12mo) · 1 critical.
   For IMPROVEMENTS items the condition score no longer sets the points directly — it POSITIONS the item within its spec_tier band (see SPEC TIER below). Still score condition honestly 1-10; the tier caps how much it can earn.
-- For Location (facts) / Land / Legal items, score the QUALITY or RISK on the same 1-10 scale: 10 = excellent/no risk (e.g. top school zone, clean freehold title), 1 = severe negative (e.g. leasehold with disputes). Location scores are shown to the buyer as FACTS and do NOT count toward the total; Land and Legal DO count. Always return a score — infer from location and facts, mark confidence_tier 3, and explain.
+- For Location (facts) / Land / Legal items, score the QUALITY or RISK on the same 1-10 scale: 10 = excellent/no risk (e.g. top school zone, clean freehold title), 1 = severe negative (e.g. leasehold with disputes). Location scores are shown to the buyer as FACTS and do NOT count toward the total; Land and Legal DO count. Score whatever the photos, the listing facts or the public record actually establish. Where none of them establish it, return score null with confidence_tier 3 and explain what would settle it — do NOT manufacture a number from the build era alone.
 - These scores are PERSONA-INDEPENDENT. Do NOT weight them for buyer or investor — the application applies the point weightings deterministically. You only assign the 1-10 score.
 - Only set score = null when an IMPROVEMENTS item genuinely cannot be assessed from photos AND cannot be reasonably inferred from build era. Never leave a visible structural item unscored without explanation.
 - Include a conditional sub-item (chimney, solar, retaining walls, pool, body corporate, cross-lease defects) only when it genuinely applies; otherwise omit it.
@@ -158,7 +173,9 @@ For EVERY loc_*, land_*, and leg_* sub-item, in addition to the score also retur
 - source_type: one of photo | council_data | linz | title | lim | gns | market_data | map_poi | moe_zones | inference.
 - verify_against: the document the buyer should confirm against (e.g. "LIM", "record of title", "Ministry of Education").
 - ai_summary: the reasoning paragraph, which MUST follow this order — source → finding → what it means → what to verify → cost if remediable.
-If the app does not hold the exact data, still give the assessment, name the document to verify against, and set confidence_tier 3. Never invent a source or a consent record; if something cannot be confirmed, say so and point to the authoritative document.
+Anything in PROPERTY FACTS marked CONFIRMED has already been retrieved from the public record — the LINZ record of title, the council's district plan, the rating valuation. Treat it as established and STATE it. Never ask the buyer to go and confirm something the report has already looked up: "order a title to confirm freehold tenure" is worthless when the title type is printed above.
+
+If the app does not hold the data, do not hand the buyer a chore either. Say plainly what is not known and what would settle it, set confidence_tier 3, and return score null. There is a real difference between "a LIM would show any hazard overlays on this site" — naming what a document would add — and "confirm the zoning before you rely on this", which is work the app should have done. Never invent a source or a consent record.
 Include a remediation object ONLY when the SPECIFIC finding is genuinely fixable (unconsented works, cross-lease defects, failing drainage/retaining, removable vegetation). Inherent traits (school zone, amenities, title type when already freehold, EQC history, immovable easements) must NOT carry a remediation — explain and advise instead.
 
 INFORMATION GAPS

@@ -182,7 +182,11 @@ export const SOURCE_TAXONOMY: Record<string, SourceRef> = {
   land_frontage: { source: "Record of title / listing", sourceType: "title" },
   land_trees: { source: "Photos + council protected/notable-tree register", sourceType: "council_data" },
   // Legal
-  leg_title: { source: "Record of title / listing", sourceType: "title", verifyAgainst: "record of title" },
+  // No verifyAgainst: the record of title is retrieved from LINZ before the
+  // analysis runs (lib/linz/property-records.ts), so the type, estate and legal
+  // description are established fact. Telling the buyer to order a title to
+  // confirm what the report already printed is the app declining to do its job.
+  leg_title: { source: "LINZ record of title", sourceType: "title" },
   leg_weathertight: { source: "Build era + cladding type + leaky-era window (1994–2004)", sourceType: "inference", verifyAgainst: "LIM / building report" },
   leg_unconsented: { source: "LIM / council property file + photo cross-check", sourceType: "lim", verifyAgainst: "LIM / council property file" },
   leg_consents: { source: "LIM / council records (CCCs issued)", sourceType: "lim", verifyAgainst: "LIM" },

@@ -33,6 +33,14 @@ export interface SubItemResult {
   score: number; // 1–10 from the AI (0 or null = not scored / not applicable)
   applicable: boolean; // resolved at runtime from PropertyContext
   specTier?: SpecTier; // Improvements (v5) — the tier sets the points band; condition positions within it
+  /**
+   * 1 confirmed from photo · 2 probable · 3 not visible.
+   *
+   * Tier 3 does not score. See scoreProperty(): the model is stating it could
+   * not see the thing, and a number derived from a build year must not carry
+   * the same weight as a roof somebody photographed.
+   */
+  confidenceTier?: 1 | 2 | 3;
 }
 
 export interface ExtraDwelling {
@@ -62,9 +70,26 @@ export interface ScoreAdjustment {
   note?: string;
 }
 
+/** An item the analysis could not actually see, and what it would have been worth. */
+export interface UnassessedItem {
+  id: string;
+  label: string;
+  points: number;
+  category: string;
+}
+
 export interface ScoreResult {
   total: number; // 0–1060 (base − penalties + bonuses, floored at 0)
   base: number; // 0–1000 (normalised property quality)
+  /**
+   * What the score is actually built on. `assessedPoints` is the denominator
+   * that survived; `unassessed` is everything dropped for not being visible.
+   * The report shows both — a score out of what could be seen is honest only
+   * if the reader is told how much that was.
+   */
+  assessedPoints: number;
+  unassessedPoints: number;
+  unassessed: UnassessedItem[];
   penalties: ScoreAdjustment[]; // itemised, points negative
   penaltyTotal: number; // capped total deducted (positive number)
   bonuses: ScoreAdjustment[]; // itemised, points positive
@@ -132,6 +157,8 @@ export function scoreProperty(
   const resultMap = new Map(results.map((r) => [r.id, r]));
   let totalEarned = 0;
   let totalMax = 0;
+  const unassessed: UnassessedItem[] = [];
+  let unassessedPoints = 0;
 
   const byInspection: Record<Inspection, InspectionScore> = {
     improvements: { earned: 0, max: 0, pct: 0 },
@@ -148,6 +175,18 @@ export function scoreProperty(
 
     const max = getMaxPoints(item, persona);
     const r = resultMap.get(item.id);
+
+    // The model said it could not see this. Nobody can read the piles under a
+    // house from a listing photo, and a foundation "score" inferred from a
+    // build year is not an assessment — it is a guess wearing the same badge
+    // as the roof somebody actually photographed. It is dropped from BOTH
+    // sides of the fraction and reported as an unknown instead, so the score
+    // means "of what could be seen, this is how it rates".
+    if (r?.confidenceTier === 3) {
+      unassessed.push({ id: item.id, label: item.label, points: max, category: item.category });
+      unassessedPoints += max;
+      continue;
+    }
 
     // Earned points:
     //  • Improvements (v5) — the spec TIER sets a capped band, condition positions
@@ -178,6 +217,7 @@ export function scoreProperty(
 
   // Normalise base score back to 1000 across applicable+scored items
   const base = totalMax > 0 ? Math.round((totalEarned / totalMax) * 1000) : 0;
+  const assessedPoints = Math.round(totalMax);
 
   // Fill percentages for UI bars
   (Object.keys(byInspection) as Inspection[]).forEach((k) => {
@@ -223,6 +263,9 @@ export function scoreProperty(
   return {
     total,
     base,
+    assessedPoints,
+    unassessedPoints,
+    unassessed,
     penalties: penaltyList,
     penaltyTotal,
     bonuses: bonusList,

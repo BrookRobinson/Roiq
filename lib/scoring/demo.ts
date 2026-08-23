@@ -277,7 +277,7 @@ function buildSubItems(): SubItem[] {
     const reasoning = SUMMARIES[item.id]
       ?? (isImprovement
         ? ""
-        : `Source: ${tax?.source ?? "listing facts"}. ${finding}. ${tax?.verifyAgainst ? `Confirm against the ${tax.verifyAgainst} before going unconditional.` : "Verify before going unconditional."}`);
+        : `Source: ${tax?.source ?? "listing facts"}. ${finding}. ${tax?.verifyAgainst ? `A ${tax.verifyAgainst} would settle this before you go unconditional.` : "Not established from the listing or the public record."}`);
     const tier: 1 | 2 | 3 = isImprovement
       ? (score <= 4 ? 1 : 2)
       : (tax && ["title", "photo", "moe_zones", "linz"].includes(tax.sourceType) ? 1 : 3);
@@ -450,7 +450,7 @@ export function buildDemoReport(): StoredReport {
       {
         gapType: "document",
         area: "Title & LIM",
-        description: "Order a LIM and the LINZ record of title to confirm freehold tenure, consents for the studio, and any natural-hazard overlays.",
+        description: "Freehold tenure and the legal description come from the LINZ record of title. A LIM would add the consent history for the studio and any natural-hazard overlays the council holds — those aren't published as data we can retrieve.",
         includedInAgentLetter: false,
         includedInLimLetter: true,
       },

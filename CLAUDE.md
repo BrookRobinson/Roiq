@@ -248,6 +248,36 @@ along. Comments naming the product are left alone too.
 parsers are dependency-free so `verify:discovery` can load the module with
 plain node, and a single `@/` import ends that.
 
+**Never score what the analysis could not see.** A listing photographs the
+kitchen, not the piles under the floor. `confidence_tier` was already reported by
+the model (1 confirmed from photo · 2 probable · 3 not visible) and was **purely
+decorative** — a foundation number inferred from a build year carried the same 55
+points, the largest item in the model, as a roof somebody had actually
+photographed. `scoreProperty()` now **drops every Tier 3 item from BOTH sides of
+the fraction** and returns it in `unassessed`, so the score means "of what could
+be seen, this is how it rates". The report shows the gap next to the score rather
+than burying it: how many items, what they were worth, and what they were.
+
+Three parts have to agree or the change is cosmetic. `toResults()` must pass
+`confidenceTier` through — it used to drop it, which is why the engine was blind.
+The prompt must return **score null at Tier 3** rather than manufacturing a
+number nobody counts (it used to say "Always return a score … mark
+confidence_tier 3"). And `InspectionCard` must not print a score for a Tier 3
+item, or the same over-claim reappears in a smaller font attached to a number
+that counts for nothing.
+
+The nuance worth keeping: a foundation **type** is often readable from a photo —
+perimeter base trim and a height gap mean piles, a continuous vent-free base means
+a slab — and that is a fair Tier 1–2 call. The **condition** of piles nobody has
+looked at is not. Same for waterproofing behind tiling, insulation in a ceiling,
+wiring inside a wall.
+
+**The model is told what the app already knows.** `publicRecordFacts()` puts the
+LINZ title, the district-plan zone and the rating valuation into PROPERTY FACTS
+marked CONFIRMED, so the analysis stops writing "order a title to confirm freehold
+tenure" about a title type printed above the paragraph. `leg_title` carries no
+`verifyAgainst` any more for the same reason.
+
 **Never tell the reader to go and look something up.** The development-potential
 finding used to end "confirm zoning and coverage before you rely on it", which
 hands back the job they came here to avoid. The rule: fetch it, or say plainly

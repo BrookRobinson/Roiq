@@ -874,6 +874,13 @@ function ScoreBreakdown({ scored, locked = false }: { scored: ScoreResult; locke
           <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Condition &amp; Quality Score</div>
           <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
             The property itself, minus objective location negatives, plus on-site value-adds. Location desirability is shown as facts, never scored. Always out of 1000, so properties stay comparable — an extra dwelling adds value, not points.
+            {scored.unassessed.length > 0 && (
+              <>
+                {" "}
+                Scored on <strong style={{ color: "var(--text-secondary)" }}>what the photos actually show</strong> — items
+                nobody can see in a listing are left out rather than guessed at.
+              </>
+            )}
           </div>
         </div>
         <div className="text-right flex-shrink-0">
@@ -915,6 +922,11 @@ function ScoreBreakdown({ scored, locked = false }: { scored: ScoreResult; locke
             <span className="mono flex-shrink-0" style={{ color: "var(--good)" }}>+{b.points}</span>
           </div>
         ))}
+
+        {/* What we could NOT see. Shown next to the score rather than buried,
+            because a score means one thing when everything was visible and
+            something else when the biggest item on the list wasn't. */}
+        {scored.unassessed.length > 0 && <NotAssessed scored={scored} />}
         {bonusCapped && (
           <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>On-site value-adds capped at +{scored.bonusTotal} (of +{bonusSum}).</div>
         )}
@@ -2489,6 +2501,62 @@ function PublicRecordCard({ listing }: { listing: ScrapedListing }) {
         Sourced from Toitū Te Whenua LINZ under CC BY 4.0. A rating valuation is set for rates, not
         for sale — it is not a market appraisal and is often years old.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The items the analysis could not see.
+ *
+ * A listing photographs the kitchen, not the piles under the floor. Those items
+ * used to be scored anyway — a foundation number inferred from a build year
+ * carried the same 55 points as a roof somebody had actually photographed, and
+ * the reader had no way to tell the two apart. They are now excluded from the
+ * score and named here instead, with what they would have been worth, so the
+ * gap is visible rather than papered over with a guess.
+ */
+function NotAssessed({ scored }: { scored: ScoreResult }) {
+  const [open, setOpen] = useState(false);
+  const share = scored.assessedPoints + scored.unassessedPoints;
+  const pct = share > 0 ? Math.round((scored.unassessedPoints / share) * 100) : 0;
+
+  return (
+    <div className="mt-3 pt-3" style={{ borderTop: "1px dashed var(--border)" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-start justify-between gap-3 text-left cursor-pointer"
+      >
+        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          Not assessed — not visible in the listing
+          <span className="text-[11px] block" style={{ color: "var(--text-muted)" }}>
+            {scored.unassessed.length} item{scored.unassessed.length === 1 ? "" : "s"} left out of the score rather than
+            guessed at — {pct}% of the points available for this property
+          </span>
+        </span>
+        <span className="text-xs mono flex-shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }}>
+          {open ? "hide" : "show"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-1">
+          {scored.unassessed.map((u) => (
+            <div key={u.id} className="flex items-center justify-between gap-3">
+              <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                {u.label} <span style={{ color: "var(--text-muted)" }}>· {u.category}</span>
+              </span>
+              <span className="text-xs mono flex-shrink-0" style={{ color: "var(--text-muted)" }}>
+                {u.points} pts
+              </span>
+            </div>
+          ))}
+          <p className="text-[11px] pt-1.5" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+            These need eyes on the property — a builder&apos;s report or an inspection. They are not counted for or
+            against this house.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

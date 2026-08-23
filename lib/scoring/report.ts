@@ -29,7 +29,15 @@ export interface Assessment {
 
 /** Raw 1–10 scores + spec tiers the engine consumes (persona-independent). */
 export function toResults(subItems: SubItem[]): SubItemResult[] {
-  return subItems.map((s) => ({ id: s.id, score: s.score ?? 0, specTier: s.specTier, applicable: true }));
+  // confidenceTier travels with the score: the engine refuses to score an item
+  // the analysis admits it could not see, and it can only do that if it knows.
+  return subItems.map((s) => ({
+    id: s.id,
+    score: s.score ?? 0,
+    specTier: s.specTier,
+    applicable: true,
+    confidenceTier: s.confidenceTier,
+  }));
 }
 
 /** Rich extra dwellings → the engine's minimal {conditionScore, replacementCostMid}. */

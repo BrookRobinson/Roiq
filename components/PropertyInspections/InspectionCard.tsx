@@ -54,7 +54,18 @@ export function InspectionCard({
 
   // Displayed score: verified items use the document score; doc items show none
   // until verified; everything else uses the AI score.
-  const displayScore = isDoc ? (verified ? (verified.score as number) : null) : item.score;
+  // Tier 3 means the analysis could not see this item, so it no longer scores
+  // (see lib/scoring/engine.ts). Showing a number here anyway would be the same
+  // over-claim in a smaller font — and worse, a number that quietly counts for
+  // nothing. A verified document overrides that: reading it IS seeing it.
+  const notVisible = !isDoc && item.confidenceTier === 3;
+  const displayScore = isDoc
+    ? verified
+      ? (verified.score as number)
+      : null
+    : notVisible
+      ? null
+      : item.score;
   const concerning = displayScore !== null && displayScore <= 4;
   const [open, setOpen] = useState(concerning || (isDoc && !verified));
   const { withinHold, holdYears } = useHoldPeriod();
@@ -135,7 +146,9 @@ export function InspectionCard({
           ) : (
             <div className="flex-shrink-0 w-11 h-11 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
               <span className="text-sm font-bold mono leading-none" style={{ color }}>{displayScore ?? "—"}</span>
-              <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>/10</span>
+              <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>
+                {displayScore === null && notVisible ? "n/a" : "/10"}
+              </span>
             </div>
           )}
 

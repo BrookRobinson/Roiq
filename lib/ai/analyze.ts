@@ -345,7 +345,7 @@ function placeholderSubItem(item: ScoringSubItem, hadPhotos: boolean, ctx: SubIt
     photoReferences: [],
     ...(SOURCE_TAXONOMY[item.id]
       ? {
-          finding: "Not yet assessed — verify",
+          finding: "Not assessed — not visible in the listing",
           source: SOURCE_TAXONOMY[item.id].source,
           sourceType: SOURCE_TAXONOMY[item.id].sourceType,
           verifyAgainst: SOURCE_TAXONOMY[item.id].verifyAgainst,
@@ -463,9 +463,34 @@ function formatFacts(listing: ScrapedListing): string {
     fact("Build year", listing.buildYear),
     fact("Property type", listing.propertyType !== "unknown" ? listing.propertyType : null),
     fact("Title type", listing.titleType !== "unknown" ? listing.titleType : null),
+    // The public record, where we hold it. Given to the model as ESTABLISHED
+    // FACT so it stops writing "confirm freehold tenure" and "check the zoning"
+    // about things the report has already looked up — asking the buyer to go and
+    // re-verify what is printed above the paragraph is the product failing them.
+    ...publicRecordFacts(listing),
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/** Title, rating valuation and zoning — retrieved before the analysis runs. */
+function publicRecordFacts(listing: ScrapedListing): (string | null)[] {
+  const t = listing.linz?.title;
+  const v = listing.linz?.valuation;
+  const z = listing.zoning;
+  const nzd = (n: number | null | undefined) =>
+    n != null ? `$${n.toLocaleString("en-NZ")}` : null;
+  return [
+    t?.type ? fact("Title type (LINZ record of title — CONFIRMED)", t.type) : null,
+    t?.titleNo ? fact("Record of Title", t.titleNo) : null,
+    t?.legalDescription ? fact("Legal description (LINZ)", t.legalDescription) : null,
+    t?.estate ? fact("Estate (LINZ)", t.share ? `${t.estate} ${t.share}` : t.estate) : null,
+    z?.zone ? fact("District plan zone (council — CONFIRMED)", `${z.zone} (${z.council})`) : null,
+    v?.capitalValue ? fact("Rating valuation — capital value", nzd(v.capitalValue)) : null,
+    v?.landValue ? fact("Rating valuation — land value", nzd(v.landValue)) : null,
+    v?.improvementsValue ? fact("Rating valuation — improvements", nzd(v.improvementsValue)) : null,
+    v?.floorAreaSqm ? fact("Floor area (valuation roll)", `${v.floorAreaSqm} m²`) : null,
+  ];
 }
 
 function idsFor(insp: CatalogInspection, onlyIds?: Set<string>): string {
