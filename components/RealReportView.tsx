@@ -729,6 +729,7 @@ export function RealReportView({
               photoContext={{ buildYear: listing.buildYear, floorAreaSqm: listing.floorAreaSqm, propertyType: listing.propertyType }}
               onItemPhoto={(id, a: ItemPhotoAnalysis) => updateViewing(setItemPhoto(viewing, id, a))}
               onClearItemPhoto={(id) => updateViewing(clearItemPhoto(viewing, id))}
+              onVerifiedDoc={onVerified}
               onOpenLetter={() => setTab("negotiation")}
               onOpenLand={() => setTab("address")}
             />

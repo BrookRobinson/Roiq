@@ -23,8 +23,18 @@ import {
 import type { ItemPhotoAnalysis } from "@/lib/viewing/photo-types";
 import { ItemPhotoUpload, type PhotoContext } from "./ItemPhotoUpload";
 import { itemLabel } from "@/lib/scoring/catalog";
+import { DocUpload } from "@/components/PropertyInspections/DocUpload";
+import type { DocAnalysis } from "@/lib/report-store";
 
 const ANSWER_ORDER: ViewingAnswer[] = ["ok", "problem", "no_access"];
+
+/** What to call each document on its own upload button. */
+const DOC_NOUN: Record<string, string> = {
+  leg_lim: "LIM",
+  leg_consents: "council property file",
+  leg_eqc: "EQC claim history",
+  leg_title: "record of title",
+};
 
 /** Same bands the rest of the report scores against. */
 const scoreColour = (score: number) =>
@@ -66,6 +76,7 @@ export function ViewingChecklist({
   onViewedOn,
   onItemPhoto,
   onClearItemPhoto,
+  onVerifiedDoc,
   onOpenLetter,
   onOpenLand,
 }: {
@@ -79,8 +90,10 @@ export function ViewingChecklist({
   onViewedOn: (iso: string | null) => void;
   onItemPhoto: (itemId: string, analysis: ItemPhotoAnalysis) => void;
   onClearItemPhoto: (itemId: string) => void;
+  /** A LIM / consent file / EQC history / title, read and scored. */
+  onVerifiedDoc: (itemId: string, doc: DocAnalysis) => void;
   onOpenLetter: () => void;
-  /** Paperwork lines are settled by uploading a document on the Land tab. */
+  /** The Land tab holds the full reading of each document once it's in. */
   onOpenLand: () => void;
 }) {
   const status = useMemo(() => checklistStatus(items, state), [items, state]);
@@ -309,6 +322,7 @@ export function ViewingChecklist({
                 onNote={onNote}
                 onItemPhoto={onItemPhoto}
                 onClearItemPhoto={onClearItemPhoto}
+                onVerifiedDoc={onVerifiedDoc}
                 onOpenLand={onOpenLand}
               />
             ))}
@@ -329,6 +343,7 @@ function Row({
   onNote,
   onItemPhoto,
   onClearItemPhoto,
+  onVerifiedDoc,
   onOpenLand,
 }: {
   item: ChecklistItem;
@@ -340,6 +355,7 @@ function Row({
   onNote: (key: string, note: string) => void;
   onItemPhoto: (itemId: string, analysis: ItemPhotoAnalysis) => void;
   onClearItemPhoto: (itemId: string) => void;
+  onVerifiedDoc: (itemId: string, doc: DocAnalysis) => void;
   onOpenLand: () => void;
 }) {
   const [note, setNoteLocal] = useState(record?.note ?? "");
@@ -394,14 +410,26 @@ function Row({
             {item.whatToCheck}
           </p>
 
-          {item.source === "document" && (
-            <button
-              onClick={onOpenLand}
-              className="mt-2 text-[13px] font-medium underline no-print"
-              style={{ color: "var(--brand)" }}
-            >
-              Upload it on the Land tab
-            </button>
+          {/* The document goes in HERE, for the same reason the camera does: the
+              buyer is standing at an open home with the LIM the agent just
+              handed them, and sending them off to another tab to use it is how a
+              checklist stops getting finished. Once it's read, the line is gone
+              — the report has the document, so there is nothing left to ask. */}
+          {item.source === "document" && item.itemId && (
+            <div className="mt-3 no-print">
+              <DocUpload
+                itemId={item.itemId}
+                label={`Upload the ${DOC_NOUN[item.itemId] ?? "document"}`}
+                onVerified={(doc) => onVerifiedDoc(item.itemId as string, doc)}
+              />
+              <p className="mt-1.5 text-[12px]" style={{ color: "var(--text-muted)" }}>
+                PDF. Claude reads the whole thing and scores it — the full reading lands on the{" "}
+                <button onClick={onOpenLand} className="underline" style={{ color: "var(--brand)" }}>
+                  Land tab
+                </button>
+                .
+              </p>
+            </div>
           )}
 
           {/* Offered before the three answers, and deliberately so: a photograph

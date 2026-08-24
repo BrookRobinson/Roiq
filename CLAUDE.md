@@ -185,6 +185,18 @@ read off the wrong cupboard door would be worse than the gap it replaced,
 because the gap is honest and the 6/10 ends up in a letter. The refusal is not
 an error path; it is the feature working.
 
+**The paperwork lines take their document inline too**, for the same reason: the
+buyer is at an open home holding the LIM the agent just handed them, and sending
+them to another tab to use it is how a checklist stops getting finished. The
+full reading still lands on the Land tab; the checklist line simply disappears,
+because the report now has the document.
+
+`DocUpload` must SHOW a `docTypeConfirmed: false`, never store it. It used to
+hand every result to `onVerified` — and since nothing downstream scores an
+unconfirmed document, uploading a plumber's invoice to the LIM slot looked
+exactly like uploading nothing at all. Same shape as `shows_item` on the photos:
+the refusal is the feature, and it has to reach the person holding the file.
+
 Only **improvements** items offer it (`lib/viewing/photo-assessable.ts`). A
 photograph cannot tell you whether the studio was consented or what the title
 says, and offering an upload there would promise something the analysis can't
