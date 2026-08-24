@@ -1432,6 +1432,7 @@ interface RenoLine {
   scopeHint?: string; // real scope for compliance/paperwork lines, which have no costing recipe
   legal?: boolean; // carries a Healthy Homes legal obligation (investor)
   nonExisting?: boolean; // the feature is deteriorated / effectively absent
+  inferred?: boolean; // derived from the build era, not observed — never recommended
 }
 
 // Unified renovation list: Improvement replacement costs + Location/Land/Legal
@@ -1558,8 +1559,9 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         notes:
           "Derived from the build era, not from anything seen. Draughts are found by standing in the house: gaps at skirtings and architraves, doors and windows that don't seal, and an unused open fireplace left open to the sky. Tick this once you've checked.",
         costing: costThreeTier({ id: "hh_draught", name: "Draught stopping", ...ctx, fallback: { low: draught.remediation.low, high: draught.remediation.high } }),
-        // Never pre-ticked. An inference is not a defect.
+        // Never pre-ticked, and never recommended. An inference is not a defect.
         autoInclude: false,
+        inferred: true,
         legal: true,
         nonExisting: false,
       });
@@ -1807,7 +1809,14 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   const deferred = renoLines.length - items.length;
   const total = selectedRenoCost(renoLines, renoToggles, withinHold);
   // The plan = items ticked on the Improvements tab (auto-ticked when they score ≤30%).
-  const selected = items.filter((l) => renoIncluded(l, renoToggles));
+  //
+  // Plus any `inferred` line, shown UNTICKED. Draught stopping has no Improvements
+  // card to tick it from, so leaving it out of the plan the moment it stopped
+  // pre-ticking itself made it unreachable — the buyer could neither see what it
+  // meant nor add it after checking. Shown and unticked, it costs nothing, states
+  // that it is derived from the build era rather than observed, and says what to
+  // go and look for.
+  const selected = items.filter((l) => renoIncluded(l, renoToggles) || l.inferred);
   const upliftTotal = persona === "investor" ? selected.reduce((sum, l) => sum + l.uplift, 0) : 0;
   const price = listing.askingPrice ?? 0;
 

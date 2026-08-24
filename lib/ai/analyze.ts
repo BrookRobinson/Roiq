@@ -595,6 +595,26 @@ function checklistText(inspections?: Inspection[], onlyIds?: Set<string>): strin
     .join("\n\n");
 }
 
+/**
+ * The vendor's own words, placed ABOVE the photos and the checklist.
+ *
+ * It used to be appended after the 84-item checklist, where it was reliably
+ * ignored — a report said "no listing description text confirms double glazing"
+ * about a listing whose third paragraph says double glazing was installed. It is
+ * the one place a vendor lists work the photographs cannot show, so it goes
+ * first and it is framed as evidence rather than as background colour.
+ */
+function vendorSays(listing: ScrapedListing): string {
+  const d = listing.description?.trim();
+  if (!d) return "";
+  return `
+WHAT THE VENDOR SAYS — READ THIS BEFORE YOU SCORE ANYTHING
+Concrete claims here are EVIDENCE, and they outrank an inference from the build era. If it says double glazing was installed, the windows are NOT "original single glazed"; if it names insulation, a heat pump, a new roof, a rewire or a recent recladding, score the matching item on that basis at tier 1-2 and cite the description in ai_summary. Where the claim is partial — "double glazing, with a couple of windows still to be done" — say so precisely and score the mix on the worst part. Ignore adjectives; act on facts. Never write that the description does not mention something without checking this text.
+
+${d.slice(0, 2500)}
+`;
+}
+
 function buildUserMessage(
   listing: ScrapedListing,
   photoCount: number,
@@ -616,7 +636,7 @@ TODAY'S DATE: ${today}. Base any growth/demand/market reasoning on the MOST RECE
 
 PROPERTY DETAILS
 ${facts || "- (limited details available from the listing)"}
-
+${vendorSays(listing)}
 PHOTOS
 ${photoLine}
 

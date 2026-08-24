@@ -299,14 +299,19 @@ export function buildViewingChecklist(
     const shots = new Set(
       subItems.filter((s) => s.id.startsWith("bed_")).flatMap((s) => s.photoReferences ?? [])
     );
+    // AT MOST, deliberately. These are photo numbers, not rooms, and a listing
+    // routinely shoots one bedroom from two angles — counting them as two rooms
+    // is the exact mistake this line exists to catch, so it must not make it
+    // itself. Claiming "the other 2 bedrooms" when 3 were never shown is worse
+    // than declining to put a number on it.
     const missing = bedrooms - shots.size;
     if (missing > 0) {
       out.push({
         key: "rooms:bedrooms",
-        label: `The ${missing === bedrooms ? bedrooms : `other ${missing}`} bedroom${missing === 1 ? "" : "s"}`,
+        label: "The bedrooms the listing didn't show",
         group: "Bedrooms",
-        why: `The listing advertises ${bedrooms} bedrooms and ${shots.size === 0 ? "none appear" : `only ${shots.size} appears`} in the photographs. Every bedroom score in this report rests on ${shots.size === 0 ? "no photograph at all" : "that one room"}.`,
-        whatToCheck: `Photograph each bedroom the listing didn't show — one wide shot from the doorway is enough. Check size against a double bed plus a wardrobe, whether the window opens, whether there's any fixed heating, and the state of the flooring and ceiling.`,
+        why: `The listing advertises ${bedrooms} bedrooms. The photographs show at most ${shots.size} of them${shots.size > 1 ? " — and two shots of one room is a common way that count reads high" : ""}, so every bedroom score in this report rests on ${shots.size === 0 ? "no photograph at all" : "what little was photographed"}.`,
+        whatToCheck: `Photograph every bedroom — one wide shot from the doorway each, so all ${bedrooms} are covered. Check size against a double bed plus a wardrobe, whether the window opens, whether there's any fixed heating, and the state of the flooring and ceiling.`,
         source: "gap",
         canPhotograph: false,
       });

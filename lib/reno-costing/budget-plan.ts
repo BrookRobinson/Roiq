@@ -45,6 +45,8 @@ export interface PlanInput {
   costing?: ThreeTierCost;
   autoInclude: boolean;
   urgencyYears: number;
+  /** Derived from the build era rather than observed. Never recommended as due. */
+  inferred?: boolean;
   legal?: boolean;
   nonExisting?: boolean;
   /** Used ONLY to break ties within a priority band — never shown to the user. */
@@ -134,6 +136,13 @@ export function buildBudgetPlan(
   persona: "buyer" | "investor"
 ): BudgetPlan {
   const ranked: PlanLine[] = inputs
+    // Era-derived lines never enter the recommendation. Draught stopping is the
+    // only one today: it is computed from the build year alone, because no
+    // photograph shows a draught. Recommending it reads as a finding, and it was
+    // proposing $1,600 of sealing — as "work that's already due" — on a house
+    // whose own listing advertises new double glazing and Insulmax wall
+    // insulation. It stays available to tick by hand once someone has been.
+    .filter((i) => !i.inferred)
     .map((i) => {
       const tier = chooseTier(i);
       const { cost, label, scope } = tierCost(i, tier);
