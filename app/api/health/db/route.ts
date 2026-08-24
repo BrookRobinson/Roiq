@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 /** Tables the app reads or writes, and what breaks without each. */
 const TABLES: { name: string; used_by: string }[] = [
   { name: "users", used_by: "auth profile + map variables" },
-  { name: "reports", used_by: "saved reports (not yet wired — sessionStorage today)" },
+  { name: "reports", used_by: "saved reports + the viewing checklist" },
   { name: "listing_photos", used_by: "report photos" },
   { name: "market_data", used_by: "cached suburb market figures" },
   { name: "map_listings", used_by: "the property map" },
@@ -113,15 +113,28 @@ export async function GET() {
     ? await supabase.from("map_listings").select("source_key").limit(1)
     : { error: null };
 
+  // The viewing checklist syncs into reports.viewing. A missing column doesn't
+  // throw anywhere — the sync just answers `synced: false` forever and the
+  // answers stay on one device, which is the exact silent failure this endpoint
+  // exists to catch.
+  const reportsTable = tables.find((t) => t.name === "reports");
+  const { error: viewingError } = reportsTable?.exists
+    ? await supabase.from("reports").select("viewing").limit(1)
+    : { error: null };
+  const viewingColumn = reportsTable?.exists ? !viewingError : false;
+
   const writes = {
     service_role_key: hasAdminClient(),
     source_key_column: mapListings?.exists ? !keyError : false,
-    ok: hasAdminClient() && !!mapListings?.exists && !keyError,
+    viewing_column: viewingColumn,
+    ok: hasAdminClient() && !!mapListings?.exists && !keyError && viewingColumn,
     note: !hasAdminClient()
       ? "SUPABASE_SERVICE_ROLE_KEY is not set — the map can read but nothing can be written to it."
       : keyError
         ? "map_listings.source_key is missing — run the 20260821_map_listing_writes migration."
-        : "Map writes are configured.",
+        : !viewingColumn
+          ? "reports.viewing is missing — run the 20260824_viewing migration, or viewing checklists stay on one device."
+          : "Map writes and viewing sync are configured.",
   };
 
   return NextResponse.json({
@@ -132,8 +145,8 @@ export async function GET() {
       missing.length > 0
         ? `${missing.length} of ${tables.length} tables missing. Run supabase/setup.sql in the SQL editor.`
         : writes.ok
-          ? `Schema complete — all ${tables.length} tables present, map writes configured.`
-          : `All ${tables.length} tables present, but the map can't be written to. ${writes.note}`,
+          ? `Schema complete — all ${tables.length} tables present, writes configured.`
+          : `All ${tables.length} tables present, but something can't be written. ${writes.note}`,
     writes,
     missing,
     // RLS blocking an anonymous read is expected on user-owned tables; it means

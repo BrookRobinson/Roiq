@@ -1,15 +1,18 @@
-// Viewing answers, kept per report in localStorage.
+// Viewing answers: on the device first, on the server after.
 //
-// localStorage rather than sessionStorage on purpose: the whole point of this
-// list is that it's filled in AT the property, hours or days after the report
-// was read, probably on a different device's tab and certainly after the
-// browser was closed. Losing it would be losing the visit.
+// The order matters and is not an implementation detail. This list gets filled
+// in AT the property — on a phone, in someone else's driveway, on whatever
+// signal is going. So every answer is written to localStorage synchronously and
+// is safe the instant it's tapped; the server sync is a background nicety that
+// makes it follow the buyer to another device, and it is allowed to fail
+// silently as often as it likes.
 //
-// Same shape as the persona preference (lib/report-store.ts) — keyed by report
-// id, silently non-fatal, never blocks a render.
+// The two copies are merged once, on load (./merge.ts), because the night-before
+// laptop and the open-home phone both hold real answers.
 
 import { EMPTY_VIEWING, type ViewingAnswer, type ViewingState } from "./status";
 import type { ItemPhotoAnalysis } from "./photo-types";
+import { mergeViewing } from "./merge";
 
 const key = (reportId: string) => `roiq:report:${reportId}:viewing`;
 
@@ -33,6 +36,89 @@ export function saveViewing(reportId: string, state: ViewingState): void {
     localStorage.setItem(key(reportId), JSON.stringify(state));
   } catch {
     /* storage full / unavailable — the answers stay in memory for this session */
+  }
+  queueSync(reportId, state);
+}
+
+// ── Server sync ──────────────────────────────────────────────────────────────
+
+/**
+ * A report id the server could actually know about.
+ *
+ * The demo and the map's sample reports aren't rows in anyone's database, so
+ * syncing them is a request that can only 404. Same uuid test the report view
+ * uses to decide whether a report is real.
+ */
+const isRealReport = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id);
+
+const timers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Debounced, because a note commits on every keystroke pause and a whole
+ * checklist gets answered in a fast run of taps. The device's copy is already
+ * written; this only decides how soon another device sees it.
+ */
+function queueSync(reportId: string, state: ViewingState): void {
+  if (typeof window === "undefined" || !isRealReport(reportId)) return;
+  const existing = timers.get(reportId);
+  if (existing) clearTimeout(existing);
+  timers.set(
+    reportId,
+    setTimeout(() => {
+      timers.delete(reportId);
+      void pushViewing(reportId, state);
+    }, 1200)
+  );
+}
+
+/** Send the WHOLE state. See the note on deletions in ./merge.ts. */
+async function pushViewing(reportId: string, state: ViewingState): Promise<void> {
+  try {
+    await fetch(`/api/reports/${reportId}/viewing`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ viewing: state }),
+      keepalive: true, // survives the tab being closed mid-write
+    });
+  } catch {
+    /* No signal at the property. The device's copy stands and the next
+       change re-sends everything, so nothing needs retrying here. */
+  }
+}
+
+/**
+ * What the server holds for this report, folded into what this device holds.
+ *
+ * Returns the local state unchanged on any failure — including no network and
+ * "not your report" — so a signed-out reader or a Pro subscriber looking at
+ * somebody else's report simply keeps their own copy.
+ */
+export async function syncViewing(reportId: string, local: ViewingState): Promise<ViewingState> {
+  if (!isRealReport(reportId)) return local;
+  try {
+    const res = await fetch(`/api/reports/${reportId}/viewing`);
+    if (!res.ok) return local;
+    const j = await res.json();
+    const remote = j?.viewing;
+    if (!remote || typeof remote !== "object") return local;
+    const merged = mergeViewing(
+      {
+        viewedOn: typeof remote.viewedOn === "string" ? remote.viewedOn : null,
+        answers: remote.answers && typeof remote.answers === "object" ? remote.answers : {},
+        photos: remote.photos && typeof remote.photos === "object" ? remote.photos : {},
+      },
+      local
+    );
+    // Write the merge back both ways so the two copies agree from here on.
+    try {
+      localStorage.setItem(key(reportId), JSON.stringify(merged));
+    } catch {
+      /* non-fatal */
+    }
+    void pushViewing(reportId, merged);
+    return merged;
+  } catch {
+    return local;
   }
 }
 

@@ -164,6 +164,26 @@ purchaser in their own words, with the indicative cost shown but deliberately
 **not** added to the reduction sought: the analysis didn't grade it, so the
 buyer's own read must not set the headline figure.
 
+**The viewing lives in `reports.viewing`, but the device writes first.** It gets
+filled in at a property, on a phone, on whatever signal is going, so every
+answer lands in localStorage synchronously and is safe the instant it's tapped;
+the server sync is debounced, `keepalive`, and allowed to fail silently forever.
+It is owner-scoped both ways — a Pro subscriber reading somebody else's report
+off the map must not read or overwrite the answers of the person who actually
+went, so a write that matches no row returns `synced: false` rather than an
+error.
+
+The two copies are merged **per answer, once, on load** (`lib/viewing/merge.ts`),
+because the night-before laptop and the open-home phone both hold real answers
+and losing one means sending somebody back to a house they've already been to.
+Newest `answeredAt` wins, ties go to local. A DELETION can't survive a merge —
+an absent key is indistinguishable from one that side never saw — which is why
+the sync PUTs the whole state and the server takes it verbatim.
+
+A missing `reports.viewing` column throws nowhere: the sync just answers
+`synced: false` forever and every checklist quietly stays on one device.
+`/api/health/db` checks the column by name for exactly that reason.
+
 `lib/viewing/status.ts` holds both rules and imports nothing, so
 `verify:viewing` can assert them with plain node. The letter must also be built
 from the report's **effective** sub-items, not the raw ones, or it claims a

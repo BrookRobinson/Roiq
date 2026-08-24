@@ -149,6 +149,68 @@ export async function loadReport(
   }
 }
 
+/**
+ * The viewing recorded against one of the caller's own reports.
+ *
+ * Separate from loadReport so the browser can sync it on its own schedule: the
+ * report is a fixed artefact, the viewing is a live document somebody is filling
+ * in while standing at a house.
+ */
+export async function loadViewing(
+  id: string,
+  ownerKey: string | null,
+  userId: string | null = null
+): Promise<unknown | null> {
+  const supabase = createAdminClient();
+  const filter = ownerFilter(ownerKey, userId);
+  if (!supabase || !filter) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("reports")
+      .select("viewing")
+      .eq("id", id)
+      .or(filter)
+      .maybeSingle();
+    if (error || !data) return null;
+    return (data as { viewing?: unknown }).viewing ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Record the viewing against the caller's own report.
+ *
+ * Owner-scoped, and deliberately so. A Pro subscriber can open somebody else's
+ * report off the map; their notes about a house they have never been to must not
+ * overwrite the answers of the person who actually went. An update that matches
+ * no row is not an error here — it means "not yours", and the browser keeps its
+ * own copy either way.
+ */
+export async function saveViewing(
+  id: string,
+  ownerKey: string | null,
+  userId: string | null,
+  viewing: unknown
+): Promise<boolean> {
+  const supabase = createAdminClient();
+  const filter = ownerFilter(ownerKey, userId);
+  if (!supabase || !filter) return false;
+
+  try {
+    const { data, error } = await supabase
+      .from("reports")
+      .update({ viewing } as never)
+      .eq("id", id)
+      .or(filter)
+      .select("id");
+    return !error && Array.isArray(data) && data.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** The caller's reports, newest first. */
 export async function listReports(
   ownerKey: string | null,

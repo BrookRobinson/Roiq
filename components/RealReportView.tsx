@@ -37,7 +37,7 @@ import { MaterialStudio } from "@/components/MaterialStudio";
 import { NegotiationTab } from "@/components/Negotiation/NegotiationTab";
 import { ViewingChecklist, LetterLocked } from "@/components/Viewing/ViewingChecklist";
 import { buildViewingChecklist, checklistStatus, EMPTY_VIEWING, type ViewingState } from "@/lib/viewing/checklist";
-import { loadViewing, saveViewing, setAnswer, setNote, setViewedOn, setItemPhoto, clearItemPhoto } from "@/lib/viewing/store";
+import { loadViewing, saveViewing, syncViewing, setAnswer, setNote, setViewedOn, setItemPhoto, clearItemPhoto } from "@/lib/viewing/store";
 import type { ItemPhotoAnalysis } from "@/lib/viewing/photo-types";
 import { surfaceForKind, materialsFor } from "@/lib/materials-catalogue";
 import { summarise, defaultInputs, FINANCE_DEFAULTS, PURCHASE_COST_LABELS } from "@/lib/finance/calculator";
@@ -287,7 +287,16 @@ export function RealReportView({
   // those photographs feed the effective sub-items below — an item somebody has
   // now photographed is no longer an item nobody has seen.
   const [viewing, setViewing] = useState<ViewingState>(EMPTY_VIEWING);
-  useEffect(() => { setViewing(loadViewing(report.id)); }, [report.id]);
+  useEffect(() => {
+    // The device's copy first, so a checklist answered at the property is on
+    // screen immediately and with no network. The server's copy is folded in
+    // after, which is what carries a viewing from the laptop to the phone.
+    const local = loadViewing(report.id);
+    setViewing(local);
+    let live = true;
+    void syncViewing(report.id, local).then((merged) => { if (live) setViewing(merged); });
+    return () => { live = false; };
+  }, [report.id]);
   const itemPhotos = viewing.photos ?? {};
 
   function updateViewing(next: ViewingState) {

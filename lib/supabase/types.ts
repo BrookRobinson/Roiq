@@ -90,6 +90,8 @@ export interface Database {
           owner_key: string | null;
           /** The full StoredReport as generated — the source of truth. */
           report: Json | null;
+          /** ViewingState — the checklist answers that gate the agent letter. */
+          viewing: Json | null;
           photos_analysed: number | null;
           model: string | null;
           created_at: string;
@@ -128,6 +130,7 @@ export interface Database {
           user_id?: string | null;
           owner_key?: string | null;
           report?: Json | null;
+          viewing?: Json | null;
           photos_analysed?: number | null;
           model?: string | null;
           created_at?: string;

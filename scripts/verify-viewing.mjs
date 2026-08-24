@@ -23,6 +23,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const { checklistStatus, dispositionFor, EMPTY_VIEWING } = await import(
   join(root, "lib/viewing/status.ts")
 );
+const { mergeViewing } = await import(join(root, "lib/viewing/merge.ts"));
 
 let failures = 0;
 const check = (label, got, want) => {
@@ -132,6 +133,51 @@ check("couldn't inspect a scored item → unverified, NOT claimed", dispositionF
 check("couldn't inspect an unscored item → unverified", dispositionFor("no_access", false), "unverified");
 check("no answer on a Tier 1 photo finding → claimed", dispositionFor(undefined, true), "claim");
 check("no answer on an unscored item → nothing to say", dispositionFor(undefined, false), "drop");
+
+console.log("\nMerging the phone at the property with the laptop from last night");
+const ans = (answer, at) => ({ answer, answeredAt: at });
+const laptop = {
+  viewedOn: null,
+  answers: { leg_lim: ans("ok", "2026-08-22T09:00:00Z"), ext_foundation: ans("ok", "2026-08-22T09:01:00Z") },
+  photos: {},
+};
+const phone = {
+  viewedOn: "2026-08-23",
+  answers: { ext_foundation: ans("problem", "2026-08-23T14:00:00Z"), liv_insulation: ans("no_access", "2026-08-23T14:02:00Z") },
+  photos: {},
+};
+const merged = mergeViewing(laptop, phone);
+check("an answer only the laptop had survives", merged.answers.leg_lim.answer, "ok");
+check("an answer only the phone had survives", merged.answers.liv_insulation.answer, "no_access");
+check("where both answered, the later one wins", merged.answers.ext_foundation.answer, "problem");
+check("a recorded viewing date beats a blank one", merged.viewedOn, "2026-08-23");
+check(
+  "and it beats a blank one from the other direction too",
+  mergeViewing(phone, laptop).viewedOn,
+  "2026-08-23"
+);
+check(
+  "merging is safe to repeat",
+  JSON.stringify(mergeViewing(merged, merged)),
+  JSON.stringify(merged)
+);
+check(
+  "a photo assessment merges on its own timestamp",
+  mergeViewing(
+    { viewedOn: null, answers: {}, photos: { ext_roof: { itemId: "ext_roof", score: 8, analysedAt: "2026-08-22T09:00:00Z" } } },
+    { viewedOn: null, answers: {}, photos: { ext_roof: { itemId: "ext_roof", score: 3, analysedAt: "2026-08-23T14:00:00Z" } } }
+  ).photos.ext_roof.score,
+  3
+);
+check(
+  "an older photo never overwrites a newer one",
+  mergeViewing(
+    { viewedOn: null, answers: {}, photos: { ext_roof: { itemId: "ext_roof", score: 3, analysedAt: "2026-08-23T14:00:00Z" } } },
+    { viewedOn: null, answers: {}, photos: { ext_roof: { itemId: "ext_roof", score: 8, analysedAt: "2026-08-22T09:00:00Z" } } }
+  ).photos.ext_roof.score,
+  3
+);
+check("merging with nothing changes nothing", JSON.stringify(mergeViewing(EMPTY_VIEWING, phone).answers), JSON.stringify(phone.answers));
 
 console.log("\nThe rule that started all this");
 check(
