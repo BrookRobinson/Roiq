@@ -1,5 +1,7 @@
 "use client";
 
+import { ITEM_BY_ID } from "@/lib/scoring/catalog";
+
 import { useState } from "react";
 import type { SubItem, RenoControls } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
@@ -199,7 +201,10 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
         {/* Outside hold period label — the fallback position. When the card has
             an "Add to renovation plan" control the tag lives beside that instead,
             which is where someone is actually deciding whether to include it. */}
-        {!isWithinHold && !canReno && item.score !== null && item.score <= 7 && (
+        {/* Only for items that CAN have work done to them. It was printing
+            "Major work outside your 10-year hold — monitor and maintain" against
+            Natural light & aspect, which is not a thing anyone maintains. */}
+        {!isWithinHold && !canReno && ITEM_BY_ID[item.id]?.costBearing && item.score !== null && item.score <= 7 && (
           <div
             className="mt-2 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
             style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}

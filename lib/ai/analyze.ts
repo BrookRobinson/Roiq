@@ -623,7 +623,7 @@ ${photoLine}
 SUB-ITEMS TO ASSESS (use these exact ids)
 ${checklistText(inspections, onlyIds)}
 
-${listing.description ? `LISTING DESCRIPTION\n${listing.description.slice(0, 2000)}\n\n` : ""}${
+${
     onlyIds
       ? `This is the REMAINING part of an analysis that ran out of output room. Assess ONLY the ${onlyIds.size} sub-item id(s) listed above — do not repeat any others. Keep each ai_summary to two or three sentences so the whole set fits in one response. Still return property_context, extra_dwellings and information_gaps for the property as a whole.`
       : landOnly

@@ -10,9 +10,18 @@
 
 import type { ItemPhotoAnalysis } from "./photo-types";
 
-/** What the buyer found. There is no "skip" — "no_access" IS the answer when
- *  the thing genuinely couldn't be reached, and the letter then says so. */
-export type ViewingAnswer = "ok" | "problem" | "no_access";
+/**
+ * What the buyer found.
+ *
+ * There is no "skip". "no_access" IS the answer when the thing genuinely
+ * couldn't be reached, and the letter then says so — and "not_there" is the
+ * answer when it does not exist, which is different again and matters more.
+ * The report inferred a deck from a build era on a house that has never had
+ * one; without a way to say "there is no deck", the buyer's only options were to
+ * call it a problem or claim to have inspected it, and the letter then put
+ * decking in front of a vendor who would have laughed at it.
+ */
+export type ViewingAnswer = "ok" | "problem" | "no_access" | "not_there";
 
 export interface ViewingRecord {
   answer: ViewingAnswer;
@@ -40,6 +49,7 @@ export const ANSWER_LABEL: Record<ViewingAnswer, string> = {
   ok: "No issue",
   problem: "Problem confirmed",
   no_access: "Couldn't inspect",
+  not_there: "Not there",
 };
 
 // ── The gate ─────────────────────────────────────────────────────────────────
@@ -54,6 +64,8 @@ export interface ChecklistStatus {
   missingViewingDate: boolean;
   problems: number;
   noAccess: number;
+  /** Items that turned out not to exist on this property. */
+  absent: number;
 }
 
 /**
@@ -71,6 +83,7 @@ export function checklistStatus(items: { key: string }[], state: ViewingState): 
   let answered = 0;
   let problems = 0;
   let noAccess = 0;
+  let absent = 0;
   for (const it of items) {
     const rec = state.answers[it.key];
     const photo = state.photos?.[it.key];
@@ -78,6 +91,7 @@ export function checklistStatus(items: { key: string }[], state: ViewingState): 
     answered++;
     if (rec?.answer === "problem" || (!rec && photo?.score != null && photo.score <= 4)) problems++;
     if (rec?.answer === "no_access") noAccess++;
+    if (rec?.answer === "not_there") absent++;
   }
   const allAnswered = answered === items.length;
   return {
@@ -88,6 +102,7 @@ export function checklistStatus(items: { key: string }[], state: ViewingState): 
     missingViewingDate: allAnswered && !state.viewedOn,
     problems,
     noAccess,
+    absent,
   };
 }
 
@@ -98,6 +113,9 @@ export type Disposition =
   | "claim"
   /** Checked on site and sound. Removed, and the letter says how many were. */
   | "drop"
+  /** The thing does not exist. Removed from the letter entirely and NOT counted
+   *  among the items found sound — there was never anything to find. */
+  | "absent"
   /** The buyer's own observation of something the analysis never scored. Listed,
    *  attributed to them, never costed. */
   | "observe"
@@ -113,6 +131,7 @@ export type Disposition =
  * agent as costed claims about a house nobody had walked through.
  */
 export function dispositionFor(answer: ViewingAnswer | undefined, scored: boolean): Disposition {
+  if (answer === "not_there") return "absent";
   if (answer === "ok") return "drop";
   if (answer === "no_access") return "unverified";
   if (answer === "problem") return scored ? "claim" : "observe";

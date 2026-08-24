@@ -230,8 +230,18 @@ function costFor(
 ): { low: number; high: number } {
   const low = s.estimatedReplacementCost?.low ?? Math.round((rcnNew ?? 0) * 0.8);
   const high = s.estimatedReplacementCost?.high ?? Math.round((rcnNew ?? 0) * 1.25);
-  if (high <= 0) return { low: 0, high: 0 };
 
+  // Deliberately NOT an early return on `high <= 0`.
+  //
+  // An UNSCORED item has no replacement cost from the analysis and no
+  // depreciated value, because the analysis never saw it — insulation inside a
+  // ceiling, an extractor fan that isn't there. That used to zero the cost, so
+  // when the buyer went and confirmed there was no insulation and no fan, the
+  // letter listed both with a dash where the money should be. The three-tier
+  // costing does not need the analysis's number: it prices ceiling insulation
+  // off the floor area and an extractor off a unit rate, the same way the
+  // Renovations tab does. Let it, and fall back to nothing only if it also has
+  // nothing to say.
   const t = costThreeTier({
     id: s.id,
     name: s.name,
@@ -240,12 +250,11 @@ function costFor(
     bedrooms: ctx.bedrooms,
     fallback: { low, high },
   });
+  const total = t.budget.tradieTotal;
+  if (total <= 0) return { low: 0, high: 0 };
   // The tier carries its own low/high spread; keep both ends rather than a point
   // estimate, so the letter never claims more precision than the model has.
-  return {
-    low: Math.round(t.budget.tradieTotal * 0.85),
-    high: Math.round(t.budget.tradieTotal * 1.15),
-  };
+  return { low: Math.round(total * 0.85), high: Math.round(total * 1.15) };
 }
 
 export function buildNegotiationCase(
@@ -306,12 +315,13 @@ export function buildNegotiationCase(
     // switch, which returns early: an item the buyer couldn't reach still has
     // whatever compliance work the public record showed against it.
     //
-    // Two answers remove a remedy. "Found it sound" — the buyer looked and there
-    // is nothing to put right. And "couldn't inspect": asking a vendor for the
+    // Three answers remove a remedy. "Found it sound" — the buyer looked and
+    // there is nothing to put right. "Couldn't inspect" — asking a vendor for the
     // cost of a Certificate of Acceptance, on the same page that says the consent
     // position could not be established, is the contradiction an agent reads
-    // first and the reason the rest of the letter stops being believed.
-    if (s.remediation && answer !== "ok" && answer !== "no_access") {
+    // first and the reason the rest of the letter stops being believed. And "not
+    // there" — you cannot charge for remedying a thing that does not exist.
+    if (s.remediation && answer !== "ok" && answer !== "no_access" && answer !== "not_there") {
       remedies.push({
         id: s.id,
         name: s.remediation.renovationLineItem,
@@ -324,6 +334,12 @@ export function buildNegotiationCase(
 
     // One rule, in lib/viewing/status.ts, so it can be verified in isolation.
     switch (dispositionFor(answer, band !== null)) {
+      // It isn't there. Gone from the letter entirely, and NOT counted among the
+      // items found sound: a deck the analysis inferred from a build era, on a
+      // house that has never had one, is not a thing the buyer inspected and
+      // approved — there was nothing to inspect.
+      case "absent":
+        continue;
       // Checked on site and found sound. The report's read is superseded by
       // someone who was actually there, so it is dropped rather than argued.
       case "drop":

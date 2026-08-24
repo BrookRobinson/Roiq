@@ -89,7 +89,8 @@ function dbLine(name: string, level: "budget" | "premium", qty: number): MatLine
 export type RenoKind =
   | "cladding" | "exterior_paint" | "roof" | "gutters" | "soffits" | "windows" | "foundation"
   | "decking" | "insulation" | "flooring_vinyl" | "flooring_carpet" | "flooring_tile"
-  | "kitchen" | "bathroom" | "heating" | "hotwater" | "ventilation" | "driveway" | "fencing" | "generic";
+  | "kitchen" | "splashback" | "benchtop" | "kitchen_tap"
+  | "bathroom" | "heating" | "hotwater" | "ventilation" | "driveway" | "fencing" | "generic";
 
 export function kindForItem(id: string, category?: string, name?: string): RenoKind {
   const hay = `${id} ${name ?? ""}`.toLowerCase();
@@ -111,6 +112,14 @@ export function kindForItem(id: string, category?: string, name?: string): RenoK
     // The "Flooring" item is a FLOOR job, not a whole-kitchen replacement — route it
     // to flooring before the kitchen fallback (mirrors the Bathroom branch below).
     if (/floor/.test(hay)) return "flooring_vinyl";
+    // Nor are these. Clicking Splashback and being offered "Re-paint doors,
+    // replace handles, new tap and a benchtop resurface" at $477, or a $14,149
+    // flat-pack kitchen, is the costing describing a job nobody asked about —
+    // and it makes every other figure in the tab look invented.
+    if (/splashback/.test(hay)) return "splashback";
+    if (/benchtop/.test(hay)) return "benchtop";
+    if (/sink|tapware|\btap\b/.test(hay)) return "kitchen_tap";
+    // Cabinetry and layout genuinely ARE the kitchen.
     return "kitchen";
   }
   if (category === "Bathroom") {
@@ -149,6 +158,12 @@ function primaryQty(kind: RenoKind, floorSqm: number, bedrooms: number): { area:
       return { area: 8, count: 0, unit: "m²", note: "≈8m² wet-area floor" };
     case "kitchen":
       return { area: 3, count: 0, unit: "lm run", note: "3 lineal-metre kitchen run" };
+    case "splashback":
+      return { area: 3, count: 0, unit: "lm run", note: "≈3 lineal metres behind the bench and hob" };
+    case "benchtop":
+      return { area: 3, count: 0, unit: "lm run", note: "≈3 lineal metres of benchtop" };
+    case "kitchen_tap":
+      return { area: 0, count: 1, unit: "job", note: "sink and mixer" };
     case "bathroom":
       return { area: 6, count: 0, unit: "m²", note: "≈6m² bathroom" };
     case "driveway":
@@ -343,6 +358,36 @@ const RECIPES: Partial<Record<RenoKind, Recipe>> = {
     patchInline: [],
     patchDb: [{ db: "Wet area floor tiles", qty: (c) => Math.max(1, round(c.area * 0.2)) }, { db: "Grout", qty: () => 1 }],
     patchLabour: [{ trade: "tiler", hours: (c) => round(c.area * 0.4) }],
+  },
+  splashback: {
+    scopeBudget: "Tiled splashback behind the bench and hob, sealed and grouted.",
+    scopePremium: "Toughened glass or full-height stone splashback, cut and installed.",
+    scopePatch: "Clean, re-grout and re-seal the existing splashback.",
+    bom: [{ db: "Splashback", qty: (c) => Math.max(1, round(c.area)) }],
+    labour: [{ trade: "tiler", hours: (c) => round(c.area * 1.5) }],
+    patchInline: [],
+    patchDb: [{ db: "Grout", qty: () => 1 }],
+    patchLabour: [{ trade: "tiler", hours: () => 2 }],
+  },
+  benchtop: {
+    scopeBudget: "New laminate benchtop, cut and fitted with the existing sink refitted.",
+    scopePremium: "Engineered stone benchtop, templated and installed.",
+    scopePatch: "Resurface and re-seal the existing benchtop, re-silicone the joins.",
+    bom: [{ db: "Benchtop", qty: (c) => Math.max(1, round(c.area)) }],
+    labour: [{ trade: "carpenter", hours: () => 5 }, { trade: "plumber", hours: () => 2 }],
+    patchInline: [],
+    patchDb: [],
+    patchLabour: [{ trade: "carpenter", hours: () => 3 }],
+  },
+  kitchen_tap: {
+    scopeBudget: "New stainless sink and mixer, refitted to the existing benchtop.",
+    scopePremium: "Undermount sink and premium mixer, benchtop cut-out adjusted.",
+    scopePatch: "Replace the mixer only and re-seal around the sink.",
+    bom: [{ db: "Kitchen sink", qty: () => 1 }, { db: "Kitchen tap", qty: () => 1 }],
+    labour: [{ trade: "plumber", hours: () => 3 }],
+    patchInline: [],
+    patchDb: [{ db: "Kitchen tap", qty: () => 1 }],
+    patchLabour: [{ trade: "plumber", hours: () => 1.5 }],
   },
   kitchen: {
     scopeBudget: "New flat-pack melamine kitchen, laminate benchtop, sink, mixer and dishwasher.",

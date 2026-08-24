@@ -558,6 +558,53 @@ presented as its own — the wrong-house failure, but silent. `identifiesOneProp
 requires a street number leading the first component, and the lookup is skipped
 entirely when the listing has no dwelling.
 
+**Read the listing description — it is evidence, and it was being thrown away.**
+OneRoof's JSON-LD `description` carries only the marketing HEADLINE ("A Smart
+Move in Central Hokitika"), so the analysis was handed six words and never saw
+the paragraph saying the house had double glazing, Insulmax wall insulation, a
+heat pump and a multi-fuel fire installed — and duly reported original single
+glazing. `longestParagraphBlock()` now finds the body by SHAPE (the element whose
+direct `<p>` children hold the most text) rather than by class name, because
+portal class names are utility soup that no selector will guess. A description
+under 200 characters is treated as a heading, not a description. The description
+also moved ABOVE the photos and the checklist in the prompt: it was appended
+after an 84-item list, which is where it got ignored.
+
+**OneRoof's price is in the server HTML now, and the skip that said otherwise
+cost a real report its asking price.** The page-wide scans stay off for OneRoof —
+45+ nearby and related-listing prices are embedded and a loose scan returns a
+neighbour's. But `priceBesideHeading()` reads the first `$` figure within 600
+characters after the address `<h1>`, which cannot reach a related-listings
+carousel. Verified against four Hokitika listings, each matching its own page.
+Same page, same fix: `Decade Built / 1950s` sits in a label/value pair the
+year regex walked past, so a decade now parses to its midpoint.
+
+**Never score a thing that might not exist.** `ext_decking` is conditional —
+plenty of NZ houses have no deck, and scoring one anyway put an inferred deck
+into a letter to a vendor's agent as a costed defect. Conditional + absent drops
+out of both sides of the fraction, the same as a chimney or a pool.
+
+**Appliances are chattels.** They stay out of Overview's "Priority repairs — act
+before making an offer": they're negotiated on the agreement, may not be included
+at all, and a tired oven leading that list makes everything under it look soft.
+
+**A cost tier must describe the item you clicked.** Splashback, benchtop and sink
+route to their own reno kinds. They used to fall through to `kitchen`, so
+clicking Splashback offered "Re-paint doors, replace handles, new tap and a
+benchtop resurface" and a $14,149 flat-pack kitchen.
+
+**Healthy Homes draught-stopping is derived from the build era and nothing else.**
+No photograph shows a draught. It must never be stated as a finding or pre-ticked
+into the renovation plan — it was asserting "Below the draught-stopping standard
+— gaps/holes to seal" and pre-selecting $1,600 on a house whose listing
+advertises new double glazing and wall insulation.
+
+**`verify:scoring` is stale.** It predates the v4 model revision (flood,
+liquefaction, coastal, soil, fault and wind were erased and Location stopped
+counting), asserts the old 1,000-point column sums, and is not wired into
+`package.json`. It fails on a clean checkout. Don't read its failure as a
+regression — fix it or delete it.
+
 **Valuations are estimates until a licensed sold-sales feed lands.** Land value
 and suburb $/m² are inferred, and everything downstream inherits that. Don't
 write copy that presents them as settled fact.

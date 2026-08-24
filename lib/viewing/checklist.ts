@@ -151,11 +151,21 @@ const WHAT_TO_CHECK: Record<string, string> = {
   leg_encumbrances: "Have your solicitor check for caveats, encumbrances and any registered interest that survives the sale.",
 };
 
-/** When we have no specific instruction, say the honest generic thing. */
+/**
+ * When we have no specific instruction, say the honest generic thing — and only
+ * that. An earlier version appended "Check it while you're in {category}", which
+ * reads fine for "the kitchen" and produced "Check it while you're in demand &
+ * lifestyle" for the rest. A sentence that is nonsense for a third of the list
+ * is worse than no sentence.
+ */
 function fallbackCheck(s: SubItem): string {
-  const cat = ITEM_BY_ID[s.id]?.category ?? "the property";
-  return `Look at this in person and note its condition — it wasn't visible in the listing photos, so nothing in the report is based on seeing it. Check it while you're in ${cat.toLowerCase()}.`;
+  const cat = ITEM_BY_ID[s.id]?.category;
+  const room = cat && ROOMS.has(cat) ? ` Check it while you're in the ${cat.toLowerCase()}.` : "";
+  return `Look at this in person and note its condition — it wasn't visible in the listing photos, so nothing in the report is based on seeing it.${room}`;
 }
+
+/** Categories that name somewhere you physically stand. */
+const ROOMS = new Set(["Kitchen", "Bathroom", "Living areas", "Bedrooms", "Garage"]);
 
 function groupOf(id: string): string {
   const item = ITEM_BY_ID[id];
@@ -174,6 +184,10 @@ function groupOf(id: string): string {
  *                    uploaded LIM removes its own line instead of standing there
  *                    asking for a document that's already in.
  */
+/** True once the buyer has photographed the item and had it assessed. */
+const verifiedPhoto = (subItems: SubItem[], id: string) =>
+  subItems.find((s) => s.id === id)?.evidenceSource?.startsWith("Your own photo") ?? false;
+
 export function buildViewingChecklist(
   report: StoredReport,
   subItems: SubItem[],
@@ -181,8 +195,15 @@ export function buildViewingChecklist(
 ): ChecklistItem[] {
   const out: ChecklistItem[] = [];
   const seen = new Set<string>();
+  const landOnly = report.landOnly === true;
 
   for (const s of subItems) {
+    // Location is never on this list. Suburb growth, demand and market trend are
+    // desk research; putting "Suburb growth trend & demand" on a list of things
+    // to check at an open home is asking somebody to look at a graph through a
+    // window. They are also facts-only items that never counted toward the score.
+    if (ITEM_BY_ID[s.id]?.inspection === "location") continue;
+
     // Paperwork: a document item is settled by uploading the document, not by
     // looking at the house — but it's still an unknown until someone does.
     if (isVerifiedDocItem(s.id) || s.id === "leg_title") {
@@ -244,6 +265,51 @@ export function buildViewingChecklist(
         priorSummary: s.observedDefect || s.aiSummary || undefined,
       });
       seen.add(s.id);
+    }
+  }
+
+  // The subfloor, always. Its condition is the one thing the report NEVER sees —
+  // rot, borer, settlement and subfloor moisture are all under the floor, and the
+  // score is computed from type, era and movement visible inside precisely
+  // because no listing photographs the piles. A photo through the hatch is worth
+  // more than every other line on this list.
+  if (!landOnly && !seen.has("ext_foundation") && !verifiedPhoto(subItems, "ext_foundation")) {
+    const found = subItems.find((s) => s.id === "ext_foundation");
+    out.push({
+      key: "ext_foundation",
+      itemId: "ext_foundation",
+      label: "Foundation / subfloor",
+      group: "Exterior",
+      why:
+        found?.aiSummary?.trim() ||
+        "The foundation type is read from the perimeter, but no listing photograph shows under the floor — so its condition has never been seen.",
+      whatToCheck: WHAT_TO_CHECK.ext_foundation,
+      source: "ungraded",
+      canPhotograph: true,
+      priorSummary: found?.aiSummary || undefined,
+    });
+    seen.add("ext_foundation");
+  }
+
+  // Rooms the listing never photographed. A four-bedroom house advertised with
+  // one bedroom in shot is not a report on four bedrooms, and saying nothing
+  // about that lets the score stand on a room nobody has seen.
+  const bedrooms = report.listing.bedrooms ?? 0;
+  if (bedrooms > 1) {
+    const shots = new Set(
+      subItems.filter((s) => s.id.startsWith("bed_")).flatMap((s) => s.photoReferences ?? [])
+    );
+    const missing = bedrooms - shots.size;
+    if (missing > 0) {
+      out.push({
+        key: "rooms:bedrooms",
+        label: `The ${missing === bedrooms ? bedrooms : `other ${missing}`} bedroom${missing === 1 ? "" : "s"}`,
+        group: "Bedrooms",
+        why: `The listing advertises ${bedrooms} bedrooms and ${shots.size === 0 ? "none appear" : `only ${shots.size} appears`} in the photographs. Every bedroom score in this report rests on ${shots.size === 0 ? "no photograph at all" : "that one room"}.`,
+        whatToCheck: `Photograph each bedroom the listing didn't show — one wide shot from the doorway is enough. Check size against a double bed plus a wardrobe, whether the window opens, whether there's any fixed heating, and the state of the flooring and ceiling.`,
+        source: "gap",
+        canPhotograph: false,
+      });
     }
   }
 

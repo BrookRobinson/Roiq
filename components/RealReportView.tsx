@@ -125,6 +125,13 @@ const LOCKED_TABS: Record<string, { title: string; blurb: string; includes: stri
   },
 };
 
+/**
+ * Items that leave with the vendor, or are haggled over on the sale and purchase
+ * agreement rather than priced into the offer. They still score and still cost —
+ * they just don't belong in "act before making an offer".
+ */
+const CHATTELS = new Set(["kit_appliances"]);
+
 const fmt = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 const inspOf = (id: string): Inspection | undefined => ITEM_BY_ID[id]?.inspection;
 const isImprovement = (s: SubItem) => inspOf(s.id) === "improvements";
@@ -1246,8 +1253,12 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
     good: subs.filter((s) => s.score !== null && s.score >= 8).length,
     unscored: subs.filter((s) => s.score === null).length,
   };
+  // "Act before making an offer" means work that comes with the house. Appliances
+  // are CHATTELS: they are negotiated on the sale and agreement, they may not
+  // even be included, and a tired oven is not a reason to reconsider an offer on
+  // a property. Leading the overview with one makes the whole list look soft.
   const repairs = subs
-    .filter((s) => isImprovement(s) && ITEM_BY_ID[s.id]?.costBearing && s.score !== null && s.score <= 4)
+    .filter((s) => isImprovement(s) && ITEM_BY_ID[s.id]?.costBearing && !CHATTELS.has(s.id) && s.score !== null && s.score <= 4)
     .sort((a, b) => (a.score ?? 9) - (b.score ?? 9));
   const risks = subs
     .filter((s) => !isImprovement(s) && s.score !== null && s.score <= 4)
@@ -1520,23 +1531,37 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
   }
 
   // Healthy Homes draught-stopping — investor only, no equivalent quality item.
+  //
+  // It is derived from the BUILD ERA and nothing else: no photograph shows a
+  // draught, and nobody has stood in the house. So it must not be stated as a
+  // finding and must not tick itself into the plan. It was saying "Below the
+  // draught-stopping standard — gaps/holes to seal" and pre-selecting $1,600 of
+  // work on a house whose own listing advertises new double glazing, Insulmax
+  // wall insulation and a heat pump. The honest version says what we know (the
+  // era), what we don't (whether it actually leaks), and leaves the tick to the
+  // buyer once they've been.
   if (persona === "investor") {
     const draught = assessHealthyHomes(subItems, listing.buildYear).find((h) => h.key === "hh_draught");
     if (draught) {
+      const era = listing.buildYear ? `A ${listing.buildYear} house ` : "A house of this era ";
       lines.push({
         key: "hh_draught",
         name: "Draught stopping (Healthy Homes)",
-        detail: draught.compliant ? "Meets the draught-stopping standard" : "Below the draught-stopping standard — gaps/holes to seal",
+        detail: draught.compliant
+          ? "Built to an era that meets the standard — confirm at inspection"
+          : `${era}predates draught-stopping requirements — not assessed, check at the viewing`,
         low: draught.remediation.low,
         high: draught.remediation.high,
         urgencyYears: 0,
-        detailColor: draught.compliant ? "var(--good)" : "var(--bad)",
+        detailColor: "var(--text-muted)",
         uplift: 0,
-        notes: undefined,
+        notes:
+          "Derived from the build era, not from anything seen. Draughts are found by standing in the house: gaps at skirtings and architraves, doors and windows that don't seal, and an unused open fireplace left open to the sky. Tick this once you've checked.",
         costing: costThreeTier({ id: "hh_draught", name: "Draught stopping", ...ctx, fallback: { low: draught.remediation.low, high: draught.remediation.high } }),
-        autoInclude: !draught.compliant,
+        // Never pre-ticked. An inference is not a defect.
+        autoInclude: false,
         legal: true,
-        nonExisting: draught.tier === "deteriorated",
+        nonExisting: false,
       });
     }
   }

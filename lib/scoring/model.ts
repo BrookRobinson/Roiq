@@ -104,7 +104,12 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   { id: "ext_roof", label: "Roof", inspection: "improvements", category: "Exterior", buyerPoints: 48, investorPoints: 50, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "ext_cladding", label: "Cladding", inspection: "improvements", category: "Exterior", buyerPoints: 42, investorPoints: 44, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "ext_windows", label: "Windows & glazing", inspection: "improvements", category: "Exterior", buyerPoints: 28, investorPoints: 28, conditional: false, costBearing: true, affectsHealthyHomes: true },
-  { id: "ext_decking", label: "Decking / balcony", inspection: "improvements", category: "Exterior", buyerPoints: 12, investorPoints: 6, conditional: false, costBearing: true, affectsHealthyHomes: false },
+  // Conditional since 2026-08: plenty of New Zealand houses have no deck and no
+  // balcony, and scoring one anyway meant inferring a deck's condition from a
+  // build era on a property that has never had one — which then reached a letter
+  // to the vendor's agent as a costed defect. Absent = omitted from both sides of
+  // the fraction, the same as a chimney or a pool.
+  { id: "ext_decking", label: "Decking / balcony", inspection: "improvements", category: "Exterior", buyerPoints: 12, investorPoints: 6, conditional: true, appliesWhen: "A deck, balcony or raised timber platform is visible in a photo or stated in the listing", costBearing: true, affectsHealthyHomes: false },
   { id: "ext_gutters", label: "Guttering & downpipes", inspection: "improvements", category: "Exterior", buyerPoints: 10, investorPoints: 11, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "ext_soffits", label: "Soffits & fascias", inspection: "improvements", category: "Exterior", buyerPoints: 9, investorPoints: 9, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "ext_doors", label: "Exterior doors / joinery", inspection: "improvements", category: "Exterior", buyerPoints: 8, investorPoints: 6, conditional: false, costBearing: true, affectsHealthyHomes: false },

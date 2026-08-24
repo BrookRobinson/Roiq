@@ -122,11 +122,17 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   // (a CV, a finance widget, a weekly-rent estimate) that the loose scans would grab first
   // (seen: $495k vs $395k; and a stray "$1,460/wk" read as the asking price).
   //
-  // OneRoof is the exception: its pages embed 45+ nearby/related-listing prices and load
-  // the SUBJECT listing's own price CLIENT-SIDE (it is absent from the server HTML), so
-  // ANY price scanned here is a neighbouring property's (seen: a $2.099m listing scraped
-  // as $380k). Skip the price scan entirely for OneRoof — the resolver backfills the real
-  // asking price by address (ensureAreas → lookupPropertyAreas web search).
+  // OneRoof is the exception for the LOOSE scans: its pages embed 45+ nearby and
+  // related-listing prices, so a page-wide scan returns a neighbour's (seen: a
+  // $2.099m listing scraped as $380k).
+  //
+  // It is NOT an exception for the heading-anchored scan below. That reason used
+  // to be "the subject listing's own price loads client-side and is absent from
+  // the server HTML" — that is no longer true: the price now renders in a span
+  // directly after the address <h1>, and skipping it meant a report telling the
+  // buyer to "add a price" on a page displaying $599,000. Anchoring to the h1 is
+  // what makes it safe: 600 characters after the subject property's own address
+  // cannot reach a related-listing carousel.
   const scanPrice = portal !== "oneroof";
   let priceText = scanPrice ? askingPriceText(html) : "";
   if (scanPrice && !priceText) {
@@ -142,6 +148,12 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
     if (neg) priceText = neg;
   }
   if (scanPrice && !priceText) priceText = extractPriceFromText(html);
+  // A plainly advertised price with no keyword in front of it. OneRoof puts the
+  // figure in its own span directly after the address <h1> — "$599,000", nothing
+  // else — so every keyword-anchored pattern above walks past it and the report
+  // then asks the buyer to type in a price the page is displaying. Anchored to
+  // the h1 so it can't pick up a CV, a rates figure or a finance widget.
+  if (!priceText) priceText = priceBesideHeading(html);
 
   if (priceText) {
     const lower = priceText.toLowerCase();
@@ -251,6 +263,17 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
     if (m) listing.buildYear = parseYear(m[1]);
   }
 
+  // Decade built. OneRoof's property-data panel publishes "Decade Built / 1950s"
+  // as a label and a value in separate elements, so the year regex above walks
+  // straight past it and the report goes on to say the build year wasn't stated
+  // — on a page that states it. Mid-decade, because that is the least wrong
+  // single number for "the 1950s" and every era band in the model is decades
+  // wide (pre-1970 piles, post-1978 draught stopping, post-2008 insulation).
+  if (!listing.buildYear) {
+    const d = html.match(/decade\s*(?:built)?[^0-9]{0,120}?\b([12][0-9]{2})0s\b/i);
+    if (d) listing.buildYear = parseYear(`${d[1]}5`);
+  }
+
   // Photos — start with JSON-LD images, then expand the gallery by matching the
   // hero image's directory. This captures relative / lazy-loaded gallery srcs
   // that portals like Property Brokers keep out of JSON-LD, without pulling in
@@ -303,6 +326,21 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   listing.agencyName = $("[class*='agency'], [class*='office-name'], [class*='brand-name']").first().text().trim() || null;
 
   // Description
+  // The BODY, not just the headline. OneRoof's JSON-LD description is the
+  // marketing title alone ("A Smart Move in Central Hokitika") — so the analysis
+  // was handed six words and never saw the paragraph stating this house has had
+  // double glazing, Insulmax wall insulation, a heat pump and a multi-fuel fire
+  // installed. It then reported the windows as original single glazing. The
+  // description is the one place a vendor lists work the photos cannot show, so
+  // a short one is treated as a heading and the real text is hunted for.
+  const HEADLINE_MAX = 200;
+  if (!listing.description || listing.description.length < HEADLINE_MAX) {
+    const body = longestParagraphBlock($);
+    if (body && body.length > (listing.description?.length ?? 0)) {
+      listing.description = [listing.description, body].filter(Boolean).join("\n\n").slice(0, 4000);
+    }
+  }
+
   if (!listing.description) {
     const desc = $("[class*='description'], [class*='listing-text'], .property-description").text().trim();
     listing.description = desc.slice(0, 4000) || null;
@@ -347,6 +385,50 @@ function extractPriceFromText(html: string): string {
     if (n !== null && n >= MIN_ASKING_PRICE) return m[0].trim();
   }
   return "";
+}
+
+/**
+ * The biggest run of prose on the page.
+ *
+ * Portals wrap the listing body in whatever utility classes their design system
+ * happens to produce — OneRoof's is `childs-[p+p]:mt-10 childs-[*]:break-words`,
+ * which no class-name selector will ever guess. What IS stable is the shape:
+ * the listing description is the largest cluster of <p> text on a property page.
+ * So find the element whose direct <p> children hold the most text, rather than
+ * trying to name it.
+ */
+function longestParagraphBlock($: cheerio.CheerioAPI): string | null {
+  let best = "";
+  $("div, section, article").each((_i, el) => {
+    const node = $(el);
+    // Direct children only: a wrapper high up the tree would otherwise win by
+    // swallowing the whole page, navigation and agent blurb included.
+    const paras = node.children("p");
+    if (paras.length < 2) return;
+    const text = paras
+      .map((_j, p) => $(p).text().trim())
+      .get()
+      .filter(Boolean)
+      .join("\n\n")
+      .trim();
+    if (text.length > best.length) best = text;
+  });
+  return best.length > 120 ? best : null;
+}
+
+/**
+ * The asking price where it sits beside the address heading, unlabelled.
+ *
+ * Only the first $ figure within a short window after the </h1> counts: further
+ * down the page live rating valuations, estimated ranges, rates and mortgage
+ * calculators, and any of them would be a wrong number presented as the ask.
+ */
+function priceBesideHeading(html: string): string {
+  const h1 = html.match(/<h1[^>]*>[\s\S]{0,200}?<\/h1>([\s\S]{0,600})/i);
+  if (!h1) return "";
+  const after = h1[1].replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+  const m = after.match(/\$\s?[0-9][0-9,]{4,}/);
+  return m ? m[0].replace(/\s+/g, "") : "";
 }
 
 // A NZ street address ("13 Main Road", "23a Oxford Street, Taylorville") — used so a

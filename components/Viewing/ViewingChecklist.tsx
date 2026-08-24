@@ -11,7 +11,7 @@
 // ============================================================
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Check, CircleAlert, Lock, Printer, Unlock, X } from "lucide-react";
+import { Ban, CalendarDays, Check, CircleAlert, Lock, Printer, Unlock, X } from "lucide-react";
 
 import {
   ANSWER_LABEL,
@@ -26,7 +26,7 @@ import { itemLabel } from "@/lib/scoring/catalog";
 import { DocUpload } from "@/components/PropertyInspections/DocUpload";
 import type { DocAnalysis } from "@/lib/report-store";
 
-const ANSWER_ORDER: ViewingAnswer[] = ["ok", "problem", "no_access"];
+const ANSWER_ORDER: ViewingAnswer[] = ["ok", "problem", "no_access", "not_there"];
 
 /** What to call each document on its own upload button. */
 const DOC_NOUN: Record<string, string> = {
@@ -44,6 +44,7 @@ const ANSWER_COLOR: Record<ViewingAnswer, string> = {
   ok: "var(--good)",
   problem: "var(--bad)",
   no_access: "var(--warn)",
+  not_there: "var(--text-muted)",
 };
 
 const SOURCE_NOTE: Record<ChecklistItem["source"], string> = {
@@ -454,7 +455,7 @@ function Row({
             className="no-print flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold"
             style={{ background: "var(--surface-2)", color: ANSWER_COLOR[answered], border: "1px solid var(--rule)" }}
           >
-            {answered === "ok" ? <Check size={11} /> : answered === "problem" ? <X size={11} /> : <CircleAlert size={11} />}
+            {answered === "ok" ? <Check size={11} /> : answered === "problem" ? <X size={11} /> : answered === "not_there" ? <Ban size={11} /> : <CircleAlert size={11} />}
             {ANSWER_LABEL[answered]}
           </span>
         )}
@@ -487,7 +488,7 @@ function Row({
 
       {/* A confirmed problem and a no-access both end up in the letter, in their
           own words, so the note is where it's worth typing something. */}
-      {!photo && (answered === "problem" || answered === "no_access") && (
+      {!photo && (answered === "problem" || answered === "no_access" || answered === "not_there") && (
         <div className="mt-3 no-print">
           <textarea
             className="input"
@@ -497,7 +498,9 @@ function Row({
             placeholder={
               answered === "problem"
                 ? "What you actually saw — the agent's letter quotes this."
-                : "Why you couldn't check it, e.g. no subfloor access."
+                : answered === "not_there"
+                  ? "Optional — e.g. no deck anywhere on the section."
+                  : "Why you couldn't check it, e.g. no subfloor access."
             }
           />
         </div>
@@ -507,7 +510,8 @@ function Row({
       <div className="print-only" style={{ display: "none", marginTop: 6, fontSize: 11 }}>
         <span style={{ marginRight: 14 }}>☐ No issue</span>
         <span style={{ marginRight: 14 }}>☐ Problem</span>
-        <span>☐ Couldn&rsquo;t inspect</span>
+        <span style={{ marginRight: 14 }}>☐ Couldn&rsquo;t inspect</span>
+        <span>☐ Not there</span>
         <div style={{ borderBottom: "1px solid #999", height: 16, marginTop: 4 }} />
       </div>
     </div>
