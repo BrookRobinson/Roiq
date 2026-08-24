@@ -116,18 +116,34 @@ function titleiseSlug(slug: string): string | null {
 
 // ── Fetching ────────────────────────────────────────────────────────────────
 
-async function fetchText(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, cache: "no-store" });
-    if (!res.ok) {
-      console.warn(`[discovery] ${url} responded ${res.status}`);
-      return null;
+/**
+ * Fetch a sitemap, retrying a transient failure.
+ *
+ * Without this, one hiccup on the INDEX means the whole run reads nothing and
+ * reports it as a completed run with zero listings — during the national
+ * backfill, three regions came back empty in the loop and every one of them
+ * succeeded on a plain retry moments later. A nightly job that quietly does
+ * nothing is the failure mode this whole file is meant to avoid, and the index
+ * is a single point through which every shard hangs.
+ *
+ * Only worth retrying what might succeed: a 404 is an answer, a 429 or a 5xx or
+ * a dropped connection is not.
+ */
+async function fetchText(url: string, attempts = 3): Promise<string | null> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, cache: "no-store" });
+      if (res.ok) return await res.text();
+      const worthRetrying = res.status === 429 || res.status >= 500;
+      console.warn(`[discovery] ${url} responded ${res.status}${worthRetrying && i < attempts - 1 ? " — retrying" : ""}`);
+      if (!worthRetrying) return null;
+    } catch (err) {
+      console.warn(`[discovery] ${url} failed:`, (err as Error)?.message);
     }
-    return await res.text();
-  } catch (err) {
-    console.warn(`[discovery] ${url} failed:`, (err as Error)?.message);
-    return null;
+    // Backs off rather than hammering: 1s, then 3s.
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 1000 * (i * 2 + 1)));
   }
+  return null;
 }
 
 export interface DiscoveryOptions {

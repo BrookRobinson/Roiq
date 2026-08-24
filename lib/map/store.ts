@@ -112,7 +112,19 @@ export async function getActiveListings(bbox: BBox | null): Promise<MapListing[]
   try {
     const supabase = createClient();
     const rows = await readAllPages(() => {
-      let q = supabase.from("map_listings").select("*").eq("listing_status", "active");
+      // A listing with no coordinates is NOT a pin. Discovery records an address
+      // from the sitemap and geocodes it later, and `rowToMapListing` defaults a
+      // null to 0 — so an un-geocoded listing was being served as a point at
+      // 0,0. With a handful in the queue that was an invisible nuisance; after
+      // the national backfill it was 34,851 of them, which is one enormous
+      // cluster in the Gulf of Guinea and every count on the map wrong. They
+      // reappear on their own once the nightly geocoder reaches them.
+      let q = supabase
+        .from("map_listings")
+        .select("*")
+        .eq("listing_status", "active")
+        .not("lat", "is", null)
+        .not("lng", "is", null);
       if (bbox) {
         q = q.gte("lat", bbox.minLat).lte("lat", bbox.maxLat).gte("lng", bbox.minLng).lte("lng", bbox.maxLng);
       }

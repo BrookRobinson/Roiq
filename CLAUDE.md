@@ -363,6 +363,21 @@ scoring column null. A pin with a real address and an invented number is the
 same failure the seed-listings rule guards against. Users analyse what they
 care about, from their own allowance.
 
+**A listing with no coordinates is not a pin, and that has to be enforced in the
+QUERY.** Discovery records an address from the sitemap and geocodes it later, and
+`rowToMapListing` defaults a null lat to `0` — so an un-geocoded listing was
+served as a point at 0,0. With a handful in the queue that was an invisible
+nuisance; after the national backfill it was 34,851 of them, which is one
+enormous cluster off West Africa and every count on the map wrong.
+`getActiveListings` now filters `lat`/`lng` NOT NULL. They reappear on their own
+as the nightly geocoder reaches them.
+
+**The map API's viewport parameter is `bounds`, not `bbox`.** With the wrong name
+it is silently ignored and you get every pin in the country — 37,912 rows and a
+12-second response — which looks like the API being slow rather than the query
+being wrong. `PropertyMap.tsx` passes it correctly; a Hokitika viewport is 4KB
+and 0.4s.
+
 **`MapListing.analysed` is the gate on every displayed number.** A discovered
 pin has no score, valuation or rent, and `rowToMapListing` fills those with
 placeholder zeros — so anything that DISPLAYS or FILTERS on them must check the
