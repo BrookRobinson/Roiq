@@ -147,6 +147,14 @@ line is answered **and** a viewing date is recorded. Both halves are required:
 answering the form at a desk is not a viewing, and the date is the one sentence
 in the letter that says a person stood in the house.
 
+**The gate follows the paywall's shop-window rule, with one difference.** A
+sample id and the embedded landing demo describe fictional properties nobody can
+go and view, so the letter is open on both — a padlock where the product is
+supposed to be sells nothing, and the checklist there says plainly that a real
+report holds it shut. A SHARED report stays gated: the viewing is owner-scoped,
+so the recipient's browser holds none of it, and building the letter from an
+empty viewing would present every finding as unverified.
+
 **"Couldn't inspect" is an answer, not a skip.** A subfloor with no hatch and a
 LIM the vendor won't release before an offer are real, and a buyer who did
 everything they could must not be deadlocked. It unlocks the letter — and moves

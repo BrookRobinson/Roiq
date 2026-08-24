@@ -72,6 +72,7 @@ export function ViewingChecklist({
   state,
   address,
   photoContext,
+  gated = true,
   onAnswer,
   onNote,
   onViewedOn,
@@ -86,6 +87,12 @@ export function ViewingChecklist({
   address: string;
   /** Property facts handed to the model alongside the buyer's photographs. */
   photoContext: PhotoContext;
+  /**
+   * False on a demo or sample report, where the agent letter is open regardless.
+   * The list still demonstrates itself; it just must not claim to be holding a
+   * door shut that is standing open.
+   */
+  gated?: boolean;
   onAnswer: (key: string, answer: ViewingAnswer | null) => void;
   onNote: (key: string, note: string) => void;
   onViewedOn: (iso: string | null) => void;
@@ -133,10 +140,20 @@ export function ViewingChecklist({
             <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
               {status.complete
                 ? "You've been through the property — the letter is unlocked"
-                : "Go and see the property before you write to the agent"}
+                : gated
+                  ? "Go and see the property before you write to the agent"
+                  : "What a viewing would have to settle on this property"}
             </h2>
             <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
-              {status.complete ? (
+              {!gated && !status.complete ? (
+                <>
+                  This is a sample property, so there is nothing to go and look at and the agent
+                  letter is open to read. On a real report these {items.length} lines have to be
+                  answered first — the letter is held shut until somebody has walked through the
+                  house, because a costed schedule of defects assembled from photographs is not a
+                  negotiating position.
+                </>
+              ) : status.complete ? (
                 <>
                   All {items.length} {items.length === 1 ? "thing" : "things"} the photographs
                   couldn&rsquo;t settle {items.length === 1 ? "has" : "have"} been answered, and the
@@ -185,7 +202,7 @@ export function ViewingChecklist({
           <button onClick={printChecklist} className="btn-secondary gap-2 px-4 py-2 text-sm">
             <Printer size={14} /> Print checklist
           </button>
-          {status.complete && (
+          {(status.complete || !gated) && (
             <button onClick={onOpenLetter} className="btn-primary gap-2 px-4 py-2 text-sm">
               <Unlock size={14} /> Open the agent letter
             </button>

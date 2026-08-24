@@ -445,6 +445,21 @@ export function RealReportView({
   );
   const viewingStatus = useMemo(() => checklistStatus(checklist, viewing), [checklist, viewing]);
 
+  /**
+   * The viewing gate, except on the shop window.
+   *
+   * A demo report and the embedded landing demo describe fictional properties
+   * nobody can go and view, so the gate has nothing to gate: it would only ever
+   * show a padlock where the thing being sold is supposed to be. Same rule as
+   * the paywall — never lock a sample id or the landing demo (see CLAUDE.md).
+   *
+   * A SHARED report stays gated on purpose. The viewing is owner-scoped, so a
+   * recipient's browser holds none of it, and building the letter from an empty
+   * viewing would present every finding as unverified — which is the exact
+   * over-claim the gate exists to stop.
+   */
+  const letterUnlocked = viewingStatus.complete || isSample || embedded;
+
   function onPersonaToggle(next: Persona) {
     setPersona(next);
     saveReportPersona(report.id, next);
@@ -652,7 +667,7 @@ export function RealReportView({
                       {viewingStatus.outstanding}
                     </span>
                   )}
-                  {t.id === "negotiation" && !locked && !viewingStatus.complete && (
+                  {t.id === "negotiation" && !locked && !letterUnlocked && (
                     <Lock size={11} style={{ color: "var(--text-muted)" }} aria-label="locked until the property is viewed" />
                   )}
                 </button>
@@ -743,6 +758,7 @@ export function RealReportView({
               onNote={(k, n) => updateViewing(setNote(viewing, k, n))}
               onViewedOn={(iso) => updateViewing(setViewedOn(viewing, iso))}
               photoContext={{ buildYear: listing.buildYear, floorAreaSqm: listing.floorAreaSqm, propertyType: listing.propertyType }}
+              gated={!(isSample || embedded)}
               onItemPhoto={(id, a: ItemPhotoAnalysis) => updateViewing(setItemPhoto(viewing, id, a))}
               onClearItemPhoto={(id) => updateViewing(clearItemPhoto(viewing, id))}
               onVerifiedDoc={onVerified}
@@ -753,7 +769,7 @@ export function RealReportView({
           {/* The letter is the one place the report speaks to somebody else, so
               it is the one place an unverified finding does real damage. */}
           {tab === "negotiation" && !locked && (
-            viewingStatus.complete ? (
+            letterUnlocked ? (
               <NegotiationTab report={report} viewing={viewing} checklist={checklist} subItems={effectiveSubItems} />
             ) : (
               <LetterLocked
