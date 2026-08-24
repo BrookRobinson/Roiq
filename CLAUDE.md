@@ -337,6 +337,25 @@ as part of their business" — so it is never crawled; a user pasting one link
 is a different act from harvesting the index nightly. Trade Me blocks
 automation outright. Before adding a portal, read its robots.txt.
 
+**Incremental discovery alone never fills the map, and that isn't obvious until
+you count.** The nightly job asks the sitemap for what changed in the last two
+days, so a property that was already for sale before we started and hasn't been
+edited since is never seen. After two nights the map held 1,918 of roughly
+30,000 listings and Hokitika showed 4 of its 46 — which reads as "the app is
+missing listings", not as "the crawl is incremental". `?full=1` drops the `since`
+filter and reads every URL in every shard; `?regions=west-coast` narrows it to
+matching shard names so a backfill can go a region at a time. A first run, or any
+rebuild, needs one.
+
+**Geocoding is the real throughput limit, and it's concurrency-bound not
+rate-limited.** A sitemap URL carries an address and no coordinates, and a pin
+without them never appears. At the nightly default (concurrency 4) the West Coast
+backfill drained 80 addresses in 240s; at `geocodeConcurrency=10` the remaining
+340 finished inside one pass with zero failures. A LINZ miss falls through to
+Mapbox, so one address can cost two round trips — which is why the default is
+low and why an attended backfill should raise it rather than wait weeks. Keep the
+nightly default at 4: it runs unattended against a public service.
+
 **Discovery never analyses.** ~260 listings appear daily; at NZ$1.45 each that
 is ~$13,000/month spent on properties nobody may open. The nightly job records
 that a listing *exists* — address, region, portal `lastmod` — and leaves every

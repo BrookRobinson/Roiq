@@ -67,16 +67,40 @@ async function handle(req: NextRequest) {
   let growthRefreshed = 0;
 
   // ── 2. Discovery ─────────────────────────────────────────────────────────
-  // Only what the portal touched since yesterday — the whole index is ~30,000
-  // listings and re-reading all of it nightly would be pointless traffic.
-  const since = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
-  const found = await discoverListings({ since });
+  // Nightly: only what the portal touched since yesterday — re-reading the whole
+  // index every night would be pointless traffic.
+  //
+  // BUT incremental alone never fills the map. The `since` filter means a
+  // listing that was already for sale before we started, and hasn't been edited
+  // since, is never seen — so after two nights the map held 1,918 of roughly
+  // 30,000 listings, and Hokitika showed 4 of its 46. `?full=1` drops the filter
+  // and reads every URL in every shard, which is what a first run (or a rebuild)
+  // actually needs. `?regions=west-coast` narrows it to matching shard names so
+  // a backfill can be done a region at a time inside the route's time ceiling.
+  const url = new URL(req.url);
+  const full = url.searchParams.get("full") === "1";
+  const regionsParam = url.searchParams.get("regions");
+  const regions = regionsParam ? regionsParam.split(",").map((r) => r.trim()).filter(Boolean) : null;
+
+  const since = full ? null : new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+  const found = await discoverListings({ since, regions });
   const discovery = await persistDiscoveredListings(found.listings);
 
   // Sitemap URLs carry an address but no coordinates, and a pin without them
-  // lands at 0,0 rather than on the map. Capped per night so a backlog drains
-  // over several runs instead of eating a month of Mapbox allowance in one.
-  const geo = await geocodeMissingPins();
+  // lands at 0,0 rather than on the map. Capped per run so a backlog drains
+  // over several nights instead of eating a month of allowance in one — a
+  // backfill can raise both caps, since it is a deliberate one-off rather than
+  // something running unattended every night.
+  const geo = await geocodeMissingPins({
+    limit: Number(url.searchParams.get("geocodeLimit")) || undefined,
+    timeBudgetMs: Number(url.searchParams.get("geocodeMs")) || undefined,
+    // Raised only for a deliberate, attended backfill. The nightly default stays
+    // at 4: LINZ is a public service and a job running unattended every night
+    // should not lean on it. A miss there falls through to Mapbox, so a single
+    // address can cost two round trips — which is why the nightly run drains
+    // roughly 80 an hour and a 30,000-listing backfill needs its own pass.
+    concurrency: Number(url.searchParams.get("geocodeConcurrency")) || undefined,
+  });
 
   if (discovery.changed.length) {
     // A portal edit on a property we already hold means a cached report may now
