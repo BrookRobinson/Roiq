@@ -570,6 +570,24 @@ under 200 characters is treated as a heading, not a description. The description
 also moved ABOVE the photos and the checklist in the prompt: it was appended
 after an 84-item list, which is where it got ignored.
 
+**OneRoof's `addressLocality` is the DISTRICT, not the suburb.** Its JSON-LD
+returns `"Westland"` for a Hokitika property, so 230 Sewell Street was filed
+under Westland and drew its suburb $/m² comparables from the wrong place — which
+feeds the valuation. The `<h1>` is human-written and reads "230 Sewell Street,
+Hokitika, Westland": street, suburb, district. The middle part is taken as the
+suburb ONLY when the first part exactly equals the street address already
+parsed, so it can never fire on a marketing headline, and never when the
+candidate is just the region under another name.
+
+**Bed/bath/car counts can be ICON-labelled rather than word-labelled.** The text
+patterns need the number first ("4 bedrooms"); OneRoof writes
+`<i class="icon icon-bath"></i><span>2</span>`, so a two-bathroom house came back
+with no bathroom count at all. `countAfterIcon()` reads them from the same
+post-`<h1>` window the price uses — a related-listing card further down the page
+must never answer for the subject property. All three of these (suburb, counts,
+price) are gap-fills: they only run when the field is still null, so they cannot
+overwrite something a portal stated properly.
+
 **OneRoof's price is in the server HTML now, and the skip that said otherwise
 cost a real report its asking price.** The page-wide scans stay off for OneRoof —
 45+ nearby and related-listing prices are embedded and a loose scan returns a

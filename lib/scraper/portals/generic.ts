@@ -177,6 +177,20 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
     }
   }
 
+  // Beds / baths / cars from an ICON-LABELLED count.
+  //
+  // The text patterns below need the number to come first ("4 bedrooms"), and
+  // OneRoof writes the icon first: `<i class="icon icon-bath"></i><span>2</span>`.
+  // So a four-bedroom, two-bathroom house came back with no bathroom count at
+  // all. Read from the same post-heading window the price uses, so a related
+  // listing further down the page can't answer for the subject property.
+  const summary = headingWindow(html);
+  if (summary) {
+    if (!listing.bedrooms) listing.bedrooms = countAfterIcon(summary, "bed");
+    if (!listing.bathrooms) listing.bathrooms = countAfterIcon(summary, "bath");
+    if (!listing.carParks) listing.carParks = countAfterIcon(summary, "car");
+  }
+
   // Beds / baths from text
   if (!listing.bedrooms) {
     const m = html.match(/(\d)\s*(?:bedroom|bed(?!\w))/i);
@@ -326,6 +340,28 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
   listing.agencyName = $("[class*='agency'], [class*='office-name'], [class*='brand-name']").first().text().trim() || null;
 
   // Description
+  // The SUBURB, from the address heading.
+  //
+  // OneRoof's JSON-LD gives `addressLocality: "Westland"` — the district, not the
+  // suburb — so 230 Sewell Street, Hokitika was filed under Westland and its
+  // suburb $/m² comparables were drawn from the wrong place, which feeds the
+  // valuation. The <h1> is human-written and says "230 Sewell Street, Hokitika,
+  // Westland": street, suburb, district. Take the middle when the first part is
+  // the street address we already have, so this can't fire on some other heading.
+  const heading = headingText(html);
+  if (heading) {
+    const parts = heading.split(",").map((x) => x.trim()).filter(Boolean);
+    const street = (listing.address ?? "").toLowerCase();
+    if (parts.length >= 3 && street && parts[0].toLowerCase() === street) {
+      const suburb = parts[1];
+      // Never overwrite with the region under a different name.
+      if (suburb && suburb.toLowerCase() !== (listing.region ?? "").toLowerCase()) {
+        listing.suburb = suburb;
+        if (!listing.city || listing.city === listing.region) listing.city = parts[2];
+      }
+    }
+  }
+
   // The BODY, not just the headline. OneRoof's JSON-LD description is the
   // marketing title alone ("A Smart Move in Central Hokitika") — so the analysis
   // was handed six words and never saw the paragraph stating this house has had
@@ -416,6 +452,26 @@ function longestParagraphBlock($: cheerio.CheerioAPI): string | null {
   return best.length > 120 ? best : null;
 }
 
+/** The text inside the page's first <h1> — the property address on every portal. */
+function headingText(html: string): string {
+  const m = html.match(/<h1[^>]*>([\s\S]{0,200}?)<\/h1>/i);
+  return m ? m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "";
+}
+
+/** The markup immediately after that heading — the subject property's own summary. */
+function headingWindow(html: string): string {
+  const m = html.match(/<h1[^>]*>[\s\S]{0,200}?<\/h1>([\s\S]{0,900})/i);
+  return m ? m[1] : "";
+}
+
+/** `<i class="icon icon-bath"></i><span>2</span>` → 2. */
+function countAfterIcon(window: string, what: "bed" | "bath" | "car"): number | null {
+  const m = window.match(new RegExp(`icon-${what}\\b[\\s\\S]{0,160}?>\\s*(\\d{1,2})\\s*<`, "i"));
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 && n < 30 ? n : null;
+}
+
 /**
  * The asking price where it sits beside the address heading, unlabelled.
  *
@@ -424,9 +480,8 @@ function longestParagraphBlock($: cheerio.CheerioAPI): string | null {
  * calculators, and any of them would be a wrong number presented as the ask.
  */
 function priceBesideHeading(html: string): string {
-  const h1 = html.match(/<h1[^>]*>[\s\S]{0,200}?<\/h1>([\s\S]{0,600})/i);
-  if (!h1) return "";
-  const after = h1[1].replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+  const after = headingWindow(html).slice(0, 600).replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ");
+  if (!after) return "";
   const m = after.match(/\$\s?[0-9][0-9,]{4,}/);
   return m ? m[0].replace(/\s+/g, "") : "";
 }
