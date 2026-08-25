@@ -3,7 +3,8 @@ import { getRealListings } from "@/lib/map/store";
 import { persistMapListing } from "@/lib/map/persist";
 import { fetchSuburbRentDetail, fetchSuburbGrowth } from "@/lib/map/sources";
 import { discoverListings } from "@/lib/map/discovery";
-import { persistDiscoveredListings, geocodeMissingPins } from "@/lib/map/discovery-store";
+import { persistDiscoveredListings, geocodeMissingPins, persistPropertyTypes } from "@/lib/map/discovery-store";
+import { crawlRegionTypes, ONEROOF_REGIONS } from "@/lib/map/property-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -97,6 +98,33 @@ async function handle(req: NextRequest) {
   // over several nights instead of eating a month of allowance in one — a
   // backfill can raise both caps, since it is a deliberate one-off rather than
   // something running unattended every night.
+  // ── 2b. Property types ───────────────────────────────────────────────────
+  // The sitemaps carry an address and no type, so the map could only offer
+  // "rural" and "not known yet". OneRoof's own search pages carry the type in
+  // the URL, and a listing that appears under property-type_section-9 is a
+  // section because the portal says so. Opt-in per run and one region at a
+  // time: it is a few hundred page reads, so it belongs on a weekly sweep
+  // rather than in the nightly job.
+  const typeRegionParam = url.searchParams.get("typeRegions");
+  let typeCrawl: { region: string; pagesRead: number; pagesFailed: number; typed: number; updated: number }[] = [];
+  if (typeRegionParam) {
+    const wanted =
+      typeRegionParam === "all"
+        ? [...ONEROOF_REGIONS]
+        : ONEROOF_REGIONS.filter((r) => typeRegionParam.split(",").some((w) => r.startsWith(w.trim())));
+    for (const region of wanted) {
+      const crawled = await crawlRegionTypes(region);
+      const written = await persistPropertyTypes(crawled.types);
+      typeCrawl.push({
+        region,
+        pagesRead: crawled.pagesRead,
+        pagesFailed: crawled.pagesFailed,
+        typed: crawled.types.size,
+        updated: written.updated,
+      });
+    }
+  }
+
   const geo = await geocodeMissingPins({
     limit: Number(url.searchParams.get("geocodeLimit")) || undefined,
     timeBudgetMs: Number(url.searchParams.get("geocodeMs")) || undefined,
@@ -170,6 +198,7 @@ async function handle(req: NextRequest) {
 
   const run = {
     at: new Date().toISOString(),
+    typeCrawl: typeCrawl.length ? typeCrawl : undefined,
     discovery: {
       since,
       shardsRead: found.shardsRead,

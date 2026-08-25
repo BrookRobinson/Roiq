@@ -253,3 +253,47 @@ export async function geocodeMissingPins(
 
   return { geocoded, failed, remaining, stopped };
 }
+
+/**
+ * Write the property types a type crawl worked out.
+ *
+ * Only ever fills a gap or corrects a discovered pin. A listing someone has
+ * ANALYSED has its type from the listing page itself — read, not inferred from
+ * a search-result category — so that one wins and is left alone.
+ */
+export async function persistPropertyTypes(
+  types: Map<string, string>
+): Promise<{ updated: number; failed: number }> {
+  const supabase = createAdminClient();
+  if (!supabase || types.size === 0) return { updated: 0, failed: 0 };
+
+  let updated = 0;
+  let failed = 0;
+  const entries = [...types.entries()];
+
+  // Batched by type: one update per distinct type per chunk, rather than one
+  // round trip per listing. 200 keys a time keeps the URL inside PostgREST's
+  // limits on an `in` filter.
+  const byType = new Map<string, string[]>();
+  for (const [portalId, t] of entries) {
+    const list = byType.get(t) ?? [];
+    list.push(`oneroof-${portalId}`);
+    byType.set(t, list);
+  }
+
+  for (const [type, keys] of byType) {
+    for (let i = 0; i < keys.length; i += 200) {
+      const chunk = keys.slice(i, i + 200);
+      const { error, data } = await supabase
+        .from("map_listings")
+        .update({ property_type: type } as never)
+        .in("source_key", chunk)
+        .is("full_report_id", null) // an analysed listing knows better
+        .select("source_key");
+      if (error) failed += chunk.length;
+      else updated += data?.length ?? 0;
+    }
+  }
+
+  return { updated, failed };
+}

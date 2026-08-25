@@ -329,6 +329,29 @@ their browser, so the numbers are in the DOM. Never lock a shared link, the
 embedded landing demo, or a sample id — those are the shop window. The lock
 reads the **current** plan, so upgrading opens a report already run.
 
+**The property type comes from OneRoof's SEARCH pages, not the sitemap.** The
+sitemaps carry an address and nothing else, so 95% of the map read "not known
+yet". The type is in the search URL —
+`/search/houses-for-sale/region_west-coast-44_property-type_section-9_page_1` —
+and every listing on that page is a section because the portal filed it there.
+Page 1 of a region also renders the COUNT beside each type ("Section (88)"), so
+the crawl asks for exactly the pages it needs instead of walking until a page
+looks short. `lib/map/property-types.ts` holds the nine type ids and the parsers,
+dependency-free like `discovery.ts`.
+
+Two traps, both paid for once. Ids are de-duplicated per page, so a page linking
+one property twice returns 39 — breaking on a SHORT page abandoned the rest of
+that type and left West Coast 177 listings untyped; only an EMPTY page ends a
+type. And every type is crawled including `house`, rather than tagging the
+minority types and calling the remainder houses: elimination is cheaper and it
+is the wrong trade, because a bare section recorded as a house is exactly the
+failure the land-report rule exists to stop.
+
+It is ~1,000 page reads nationally, so it is a weekly sweep (`?typeRegions=`),
+never part of the nightly job. robots.txt is `Allow: /` with two narrow Disallows
+that don't touch `/search/`, and these URLs are published in
+`sitemap/houses-for-sale-serps-1.xml` — but pace it anyway.
+
 **The sitemap can tell you rural, and nothing else about type.** OneRoof
 publishes `residential-for-sale-listings` and `rural-for-sale-listings`
 separately and they do NOT overlap — the West Coast shards share zero URLs — so
