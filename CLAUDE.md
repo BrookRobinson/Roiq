@@ -400,6 +400,21 @@ scoring column null. A pin with a real address and an invented number is the
 same failure the seed-listings rule guards against. Users analyse what they
 care about, from their own allowance.
 
+**A type filter must show how many of each type can actually be DRAWN.** A
+listing is discovered by address and geocoded on a later pass, so a type can
+genuinely hold 2,659 listings and 15 locations — and with the filter silent
+about that, ticking "Rural land" produced an empty map that reads as a broken
+feature rather than one honestly behind on its geocoding. That is exactly how it
+was noticed. `/api/map/type-counts` returns total and mapped per type, and the
+filter prints the mapped number with "N more found, still being located"
+underneath. Never let a half-populated type look like an empty one.
+
+**Long background jobs die when the Mac sleeps, and they die silently.** The
+national geocode drain and the type crawl both stopped mid-run on a low battery,
+and both logged nothing but a non-JSON response — a restarting dev server looks
+identical to a finished queue. Run them under `caffeinate -is`, and make the
+driver RETRY a non-JSON response rather than treating it as the end.
+
 **A listing with no coordinates is not a pin, and that has to be enforced in the
 QUERY.** Discovery records an address from the sitemap and geocodes it later, and
 `rowToMapListing` defaults a null lat to `0` — so an un-geocoded listing was

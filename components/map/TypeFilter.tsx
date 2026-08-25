@@ -11,7 +11,7 @@
 // ============================================================
 
 import { Check, SlidersHorizontal, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export interface TypeOption {
   value: string;
@@ -43,6 +43,26 @@ export function TypeFilter({
 }) {
   const [open, setOpen] = useState(false);
   const all = selected.length === 0;
+
+  /**
+   * How many of each type exist, and how many can be drawn.
+   *
+   * Fetched once when the panel is first opened rather than on mount — it is
+   * two counts per type and nobody needs them until they look. The gap between
+   * the two is what stops an empty map reading as a broken one: a listing is
+   * discovered with an address and geocoded on a later pass, so a type can
+   * genuinely have 2,659 listings and 15 locations.
+   */
+  const [counts, setCounts] = useState<Record<string, { total: number; mapped: number }> | null>(null);
+  useEffect(() => {
+    if (!open || counts) return;
+    let live = true;
+    fetch("/api/map/type-counts")
+      .then((r) => r.json())
+      .then((d) => { if (live && d?.ok) setCounts(d.counts); })
+      .catch(() => { /* the filter still works without the numbers */ });
+    return () => { live = false; };
+  }, [open, counts]);
 
   function toggle(value: string) {
     onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
@@ -94,6 +114,7 @@ export function TypeFilter({
 
             {TYPE_OPTIONS.map((o) => {
               const on = selected.includes(o.value);
+              const c = counts?.[o.value];
               return (
                 <button
                   key={o.value}
@@ -110,10 +131,24 @@ export function TypeFilter({
                   >
                     {on && <Check size={11} style={{ color: "var(--on-accent)" }} />}
                   </span>
-                  <span>
-                    <span className="block text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
-                      {o.label}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
+                        {o.label}
+                      </span>
+                      {c && (
+                        <span className="mono text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {c.mapped.toLocaleString("en-NZ")}
+                        </span>
+                      )}
                     </span>
+                    {/* The honest gap. Silence here is what made a half-geocoded
+                        type look like a type with nothing in it. */}
+                    {c && c.total > c.mapped && (
+                      <span className="block text-[11px]" style={{ color: "var(--warn)" }}>
+                        {(c.total - c.mapped).toLocaleString("en-NZ")} more found, still being located
+                      </span>
+                    )}
                     {o.hint && (
                       <span className="block text-[11px]" style={{ color: "var(--text-muted)" }}>
                         {o.hint}
@@ -125,9 +160,8 @@ export function TypeFilter({
             })}
 
             <p className="px-2 pb-1 pt-2 text-[11px]" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
-              Nothing selected shows everything. Type is known for rural listings and for any
-              property that has been analysed — it isn&rsquo;t published in the listing index the
-              rest come from.
+              Nothing selected shows everything. The number is how many can be drawn on the map
+              right now — a listing is found by address first and given its location shortly after.
             </p>
           </div>
         </>
