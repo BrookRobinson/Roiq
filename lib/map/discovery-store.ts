@@ -121,6 +121,12 @@ export async function persistDiscoveredListings(
         region: l.region,
         source_portal: "oneroof",
         listing_status: "active",
+        // The only property-type fact a sitemap carries. "rural" is real — the
+        // portal filed it there itself. "residential" is NOT written as a type,
+        // because it lumps a house, an apartment, a townhouse and a bare section
+        // together and writing any of those would be a guess. Null means "not
+        // known yet", which the map says out loud rather than hiding.
+        property_type: l.category === "rural" ? "rural" : undefined,
         portal_last_modified: l.lastModified,
         discovered_at: prior ? undefined : now,
         last_seen: now,
@@ -231,13 +237,18 @@ export async function geocodeMissingPins(
   // so a `limit` above that comes back short and a full page looks exactly
   // like the end of the queue — which had this reporting "remaining: 0" with
   // 888 addresses still to do.
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("map_listings")
     .select("source_key", { count: "exact", head: true })
     .is("lat", null)
     .like("source_key", "oneroof-%");
 
-  const remaining = count ?? 0;
+  // A FAILED count must not read as an empty queue. `count ?? 0` said "0 left"
+  // when the count query errored, and the backfill driver — which stops when
+  // nothing is left — stopped at 16% with 31,812 addresses still to do and
+  // reported success. Unknown is not zero: fall back to what this pass could
+  // still see, so the caller keeps going rather than declaring victory.
+  const remaining = countError || count == null ? Math.max(0, queue.length - next) : count;
   if (remaining > 0 && stopped === "done") stopped = "limit";
 
   return { geocoded, failed, remaining, stopped };

@@ -42,12 +42,15 @@ export function PropertyMap({
   onSelect,
   onSeeded,
   onLocked,
+  types,
   teaser = false,
   demo = false,
   embedded = false,
 }: {
   mode: MapMode;
   vars: UserVariables;
+  /** Property types to show. Null / empty means every type. */
+  types?: string[] | null;
   onSelect: (id: string) => void;
   /** Reports whether the pins on screen are the demo set rather than real ones. */
   onSeeded?: (seeded: boolean) => void;
@@ -77,9 +80,11 @@ export function PropertyMap({
   const modeRef = useRef(mode);
   const varsRef = useRef(vars);
   const demoRef = useRef(demo);
+  const typesRef = useRef(types);
   modeRef.current = mode;
   varsRef.current = vars;
   demoRef.current = demo;
+  typesRef.current = types;
   const teaserRef = useRef(teaser);
   teaserRef.current = teaser;
   const onLockedRef = useRef(onLocked);
@@ -104,7 +109,9 @@ export function PropertyMap({
     const q = encodeURIComponent(JSON.stringify(varsRef.current));
     try {
       const res = await fetch(
-        `/api/map/listings?mode=${modeRef.current}&bounds=${bounds}&vars=${q}${demoRef.current ? "&demo=1" : ""}`
+        `/api/map/listings?mode=${modeRef.current}&bounds=${bounds}&vars=${q}` +
+          `${typesRef.current?.length ? `&types=${typesRef.current.join(",")}` : ""}` +
+          `${demoRef.current ? "&demo=1" : ""}`
       );
       const data = await res.json();
       if (!data.ok) return;
@@ -287,11 +294,13 @@ export function PropertyMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-colour when the mode or the user's variables change.
+  // Re-fetch when the mode, the user's variables, or the type filter change.
+  // The types array is joined rather than passed by identity — a new array with
+  // the same contents on every render would refetch the map continuously.
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, vars]);
+  }, [mode, vars, (types ?? []).join(",")]);
 
   if (!TOKEN) {
     return (

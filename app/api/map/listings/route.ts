@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getActiveListings, isShowingSeedData, parseBBox, resolveVariables } from "@/lib/map/store";
+import { getActiveListings, isShowingSeedData, parseBBox, parseTypes, resolveVariables } from "@/lib/map/store";
 import { SEED_LISTINGS } from "@/lib/map/seed";
 import { computeListing } from "@/lib/map/calc";
 import type { MapMode } from "@/lib/map/types";
@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const mode: MapMode = url.searchParams.get("mode") === "investor" ? "investor" : "homebuyer";
   const bbox = parseBBox(url.searchParams.get("bounds"));
+  // e.g. types=section,lifestyle,rural — omitted means every type.
+  const types = parseTypes(url.searchParams.get("types"));
   const vars = await resolveVariables(req);
   const demo = url.searchParams.get("demo") === "1";
   const all = demo
@@ -27,9 +29,10 @@ export async function GET(req: NextRequest) {
           l.status === "active" &&
           (!bbox ||
             (l.lat >= bbox.minLat && l.lat <= bbox.maxLat &&
-             l.lng >= bbox.minLng && l.lng <= bbox.maxLng))
+             l.lng >= bbox.minLng && l.lng <= bbox.maxLng)) &&
+          (!types || types.includes((l.propertyType ?? "unknown") as never))
       )
-    : await getActiveListings(bbox);
+    : await getActiveListings(bbox, types);
   // Budget filter — hide anything above the user's max purchase price.
   const listings = vars.budget > 0 ? all.filter((l) => l.askingPrice <= vars.budget) : all;
 

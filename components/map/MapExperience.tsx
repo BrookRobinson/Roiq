@@ -9,6 +9,7 @@ import { MapLegend } from "@/components/map/MapLegend";
 import { PropertySheet } from "@/components/map/PropertySheet";
 import { VariablesScreen } from "@/components/map/VariablesScreen";
 import { loadVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
+import { TypeFilter } from "./TypeFilter";
 import { useSession } from "@/lib/auth/session";
 import Link from "next/link";
 import { Lock } from "lucide-react";
@@ -38,6 +39,8 @@ const PropertyMap = dynamic(() => import("@/components/map/PropertyMap").then((m
 export function MapExperience({ demo = false }: { demo?: boolean }) {
   const [ready, setReady] = useState(false);
   const [vars, setVars] = useState<UserVariables | null>(null);
+  /** Property types to show. Empty means all of them. */
+  const [types, setTypes] = useState<string[]>([]);
   // Today's mortgage rate, fetched for first-time users — it drives every deal
   // colour, so starting from a stale constant would mis-colour the whole map.
   const [liveRatePct, setLiveRatePct] = useState<number | null>(null);
@@ -223,10 +226,18 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                 demo map that's not news — the banner below already says so. */}
             <MapLegend mode={mode} seeded={!demo && seeded} />
 
+            {/* Sits above the map rather than floating over it: the filter
+                changes what the map contains, so it belongs with the legend that
+                explains what's on it. */}
+            <div className="flex items-center gap-2 px-4 pb-2">
+              <TypeFilter selected={types} onChange={setTypes} />
+            </div>
+
             <div className="flex-1 min-h-0 relative flex">
               <PropertyMap
                 mode={mode}
                 vars={vars ?? DEFAULT_VARIABLES}
+                types={types}
                 demo={demo}
                 teaser={!unlocked}
                 onSelect={setSelected}

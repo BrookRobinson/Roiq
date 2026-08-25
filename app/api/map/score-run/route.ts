@@ -83,7 +83,13 @@ async function handle(req: NextRequest) {
   const regions = regionsParam ? regionsParam.split(",").map((r) => r.trim()).filter(Boolean) : null;
 
   const since = full ? null : new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
-  const found = await discoverListings({ since, regions });
+  // Both of OneRoof's for-sale sitemaps. They don't overlap — rural listings
+  // were absent from the map entirely, not merely untyped on it.
+  const catParam = url.searchParams.get("categories");
+  const categories = catParam
+    ? (catParam.split(",").map((c) => c.trim()).filter((c) => c === "residential" || c === "rural") as ("residential" | "rural")[])
+    : undefined;
+  const found = await discoverListings({ since, regions, categories });
   const discovery = await persistDiscoveredListings(found.listings);
 
   // Sitemap URLs carry an address but no coordinates, and a pin without them

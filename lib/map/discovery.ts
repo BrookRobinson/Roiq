@@ -25,6 +25,29 @@ export const ONEROOF_SITEMAP_INDEX =
   "https://www.oneroof.co.nz/sitemap/index/residential-for-sale-listings.xml";
 
 /**
+ * The categories OneRoof publishes separately, and the only property-type fact
+ * a sitemap can give us.
+ *
+ * They do not overlap: the West Coast rural shard and the West Coast residential
+ * shard share ZERO urls, so rural listings — farms and lifestyle blocks — were
+ * simply absent from the map rather than untyped on it. Crawling both adds those
+ * listings AND types them, because which sitemap a listing appears in is the
+ * portal's own categorisation rather than our guess.
+ *
+ * What this canNOT do is separate a house from an apartment, a townhouse or a
+ * bare section: OneRoof files all of those under "residential" and the listing
+ * URL carries no type. Those stay null until something actually reads the
+ * listing page — which is what running a report does. Never infer one from the
+ * address slug; "Lot 3" is a section about as often as it is a new townhouse.
+ */
+export const ONEROOF_CATEGORIES = {
+  residential: "https://www.oneroof.co.nz/sitemap/index/residential-for-sale-listings.xml",
+  rural: "https://www.oneroof.co.nz/sitemap/index/rural-for-sale-listings.xml",
+} as const;
+
+export type ListingCategory = keyof typeof ONEROOF_CATEGORIES;
+
+/**
  * Identifies us honestly, so OneRoof can see who's asking and block us if they'd
  * rather. The URL has to be one that actually resolves — a contact address
  * nobody can reach is the same as not leaving one.
@@ -48,6 +71,12 @@ export interface DiscoveredListing {
   region: string | null;
   /** The date the portal last changed the page, from <lastmod>. */
   lastModified: string | null;
+  /**
+   * Which of OneRoof's sitemaps it came from. "rural" is a real property-type
+   * fact; "residential" only rules rural out — it says nothing about house vs
+   * apartment vs section.
+   */
+  category: ListingCategory;
 }
 
 // ── Pure parsers ────────────────────────────────────────────────────────────
@@ -79,7 +108,7 @@ export function parseUrlSet(xml: string): { url: string; lastModified: string | 
  * clean today, but a shape change should drop the row rather than store a
  * mangled address that later looks like a real property.
  */
-export function parseOneRoofUrl(raw: string): Omit<DiscoveredListing, "lastModified"> | null {
+export function parseOneRoofUrl(raw: string): Omit<DiscoveredListing, "lastModified" | "category"> | null {
   let path: string;
   try {
     const u = new URL(raw);
@@ -154,6 +183,8 @@ export interface DiscoveryOptions {
   since?: string | null;
   /** Restrict to regions whose shard URL contains one of these (e.g. "west-coast"). */
   regions?: string[] | null;
+  /** Which OneRoof sitemaps to read. Both by default. */
+  categories?: ListingCategory[];
   /** Safety valve so a bad run can't fetch the entire country by accident. */
   maxShards?: number;
   /** Politeness gap between shard requests, ms. */
@@ -171,41 +202,52 @@ export interface DiscoveryOptions {
 export async function discoverListings(
   opts: DiscoveryOptions = {}
 ): Promise<{ listings: DiscoveredListing[]; shardsRead: number; shardsFailed: number }> {
-  const { since = null, regions = null, maxShards = 40, delayMs = 400 } = opts;
-
-  const indexXml = await fetchText(ONEROOF_SITEMAP_INDEX);
-  if (!indexXml) return { listings: [], shardsRead: 0, shardsFailed: 1 };
-
-  let shards = parseSitemapIndex(indexXml);
-  if (regions?.length) {
-    shards = shards.filter((s) => regions.some((r) => s.includes(r)));
-  }
-  shards = shards.slice(0, maxShards);
+  const {
+    since = null,
+    regions = null,
+    maxShards = 40,
+    delayMs = 400,
+    categories = ["residential", "rural"],
+  } = opts;
 
   const listings: DiscoveredListing[] = [];
   const seen = new Set<string>();
   let shardsRead = 0;
   let shardsFailed = 0;
 
-  for (const shard of shards) {
-    const xml = await fetchText(shard);
-    if (!xml) {
+  for (const category of categories) {
+    const indexXml = await fetchText(ONEROOF_CATEGORIES[category]);
+    if (!indexXml) {
       shardsFailed++;
       continue;
     }
-    shardsRead++;
 
-    for (const entry of parseUrlSet(xml)) {
-      if (since && (!entry.lastModified || entry.lastModified < since)) continue;
-
-      const parsed = parseOneRoofUrl(entry.url);
-      if (!parsed || seen.has(parsed.portalId)) continue;
-
-      seen.add(parsed.portalId);
-      listings.push({ ...parsed, lastModified: entry.lastModified });
+    let shards = parseSitemapIndex(indexXml);
+    if (regions?.length) {
+      shards = shards.filter((s) => regions.some((r) => s.includes(r)));
     }
+    shards = shards.slice(0, maxShards);
 
-    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    for (const shard of shards) {
+      const xml = await fetchText(shard);
+      if (!xml) {
+        shardsFailed++;
+        continue;
+      }
+      shardsRead++;
+
+      for (const entry of parseUrlSet(xml)) {
+        if (since && (!entry.lastModified || entry.lastModified < since)) continue;
+
+        const parsed = parseOneRoofUrl(entry.url);
+        if (!parsed || seen.has(parsed.portalId)) continue;
+
+        seen.add(parsed.portalId);
+        listings.push({ ...parsed, lastModified: entry.lastModified, category });
+      }
+
+      if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    }
   }
 
   return { listings, shardsRead, shardsFailed };

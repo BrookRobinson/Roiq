@@ -329,6 +329,20 @@ their browser, so the numbers are in the DOM. Never lock a shared link, the
 embedded landing demo, or a sample id — those are the shop window. The lock
 reads the **current** plan, so upgrading opens a report already run.
 
+**The sitemap can tell you rural, and nothing else about type.** OneRoof
+publishes `residential-for-sale-listings` and `rural-for-sale-listings`
+separately and they do NOT overlap — the West Coast shards share zero URLs — so
+rural listings (farms, lifestyle blocks) were absent from the map entirely
+rather than merely untyped on it. `ONEROOF_CATEGORIES` crawls both and writes
+`property_type: "rural"` from the sitemap it came from, which is the portal's own
+categorisation rather than our guess. `residential` is deliberately NOT written
+as a type: it lumps a house, an apartment, a townhouse and a bare section
+together, and any of those would be an invention. Null means "not known yet" and
+the map's type filter offers that as its own option, because roughly 95% of pins
+are in that state and a filter that silently dropped them would empty the map and
+look broken. Never infer a type from the address slug — "Lot 3" is a bare section
+about as often as it is a new townhouse.
+
 **Discovery crawls OneRoof and nothing else.** OneRoof's robots.txt is
 `Allow: /` and they publish a for-sale sitemap built for indexing.
 **realestate.co.nz's robots.txt prohibits automated access and names this

@@ -108,7 +108,36 @@ async function readAllPages<T>(
   return all;
 }
 
-export async function getActiveListings(bbox: BBox | null): Promise<MapListing[]> {
+/**
+ * The property types the map can filter on, in the order they're offered.
+ *
+ * `unknown` is a real option, not a gap to hide: most pins are discovered from
+ * a sitemap that carries an address and nothing else, so "we don't know yet" is
+ * the honest state for them and the reader is entitled to filter it in or out.
+ */
+export const MAP_PROPERTY_TYPES = [
+  "house",
+  "apartment",
+  "townhouse",
+  "unit",
+  "section",
+  "lifestyle",
+  "rural",
+  "unknown",
+] as const;
+
+export type MapPropertyType = (typeof MAP_PROPERTY_TYPES)[number];
+
+export function parseTypes(param: string | null): MapPropertyType[] | null {
+  if (!param) return null;
+  const wanted = param
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter((t): t is MapPropertyType => (MAP_PROPERTY_TYPES as readonly string[]).includes(t));
+  return wanted.length ? wanted : null;
+}
+
+export async function getActiveListings(bbox: BBox | null, types: MapPropertyType[] | null = null): Promise<MapListing[]> {
   try {
     const supabase = createClient();
     const rows = await readAllPages(() => {
@@ -127,6 +156,19 @@ export async function getActiveListings(bbox: BBox | null): Promise<MapListing[]
         .not("lng", "is", null);
       if (bbox) {
         q = q.gte("lat", bbox.minLat).lte("lat", bbox.maxLat).gte("lng", bbox.minLng).lte("lng", bbox.maxLng);
+      }
+      if (types?.length) {
+        // "unknown" is a null column, which `in` can't express — so asking for
+        // it is an OR against null rather than a value match.
+        const named = types.filter((t) => t !== "unknown");
+        const wantsUnknown = types.includes("unknown");
+        if (wantsUnknown && named.length) {
+          q = q.or(`property_type.is.null,property_type.in.(${named.join(",")})`);
+        } else if (wantsUnknown) {
+          q = q.is("property_type", null);
+        } else {
+          q = q.in("property_type", named);
+        }
       }
       return q;
     });
