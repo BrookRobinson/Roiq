@@ -647,6 +647,28 @@ and the headline is a **land + title score against its own total**, never out of
 would otherwise print a number that sits next to a house's and invites a
 comparison that means nothing.
 
+**A bare section has no rent, no yield and no cash flow — and the report must
+not compute one.** The Financial tab was printing "+$24/wk net cash flow" and
+"8.5% gross yield" against an empty 5,002m² paddock, off the suburb's HOUSE
+median rent. The model had even written the caveat into the rent note, which is
+not enough: a caveat beside a confident green figure loses. Both the Overview
+yield panel and the Finance rent section now say plainly that there is nothing
+to let, and name what actually matters instead — land value, holding costs, cost
+to build. Anything keyed to letting a dwelling has to check `landOnly` first.
+
+**Room counts on a `noBuildingStated` listing are page furniture, not facts.**
+A Hokitika section came back "1 bed" — scraped from a similar-listings strip —
+which the land report would have printed in its header. When the portal itself
+says there is no building, bedrooms/bathrooms/carParks are set to NULL, not
+zero: null is "no such thing here", zero reads as a measured fact.
+
+**A land report's viewing checklist must drop the dwelling-only items.** The
+same section listed "Weathertightness history (leaky-building era 1994–2004)" as
+something to go and inspect, because the analysis had honestly refused to score
+it — and unscored is exactly what puts a line on that list. `DWELLING_ONLY_ITEMS`
+in lib/viewing/checklist.ts. Keep it narrow: EQC stays (land carries claim
+history) and consents stay (what you may build is the whole question).
+
 **A land value we can't stand behind is not published.** `valueLand()` extracts a
 rate from ordinary suburb house sales and stretches it over the area with a 40%
 tail that has no ceiling — the reported 5,967m² section came out at $1.41m

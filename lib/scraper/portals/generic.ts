@@ -269,6 +269,17 @@ export async function scrapeGeneric(url: string, portal: SupportedPortal): Promi
     if (listing.propertyType === "house" || listing.propertyType === "unknown") {
       listing.propertyType = "section";
     }
+
+    // Room counts on a bare section are page furniture, not facts about the
+    // property. A 5,002m² Hokitika section came back "1 bed" — scraped from a
+    // similar-listings strip elsewhere on the page — which the land report would
+    // then print in its header as though somebody could sleep there. The portal
+    // agreeing there is no building outranks any count parsed from the markup,
+    // so they are dropped rather than carried through as zero: null is "no such
+    // thing here", zero would read as a measured fact.
+    listing.bedrooms = null;
+    listing.bathrooms = null;
+    listing.carParks = null;
   }
 
   // Build year

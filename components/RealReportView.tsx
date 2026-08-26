@@ -745,7 +745,7 @@ export function RealReportView({
           {tab === "financial" && !locked && (
             <>
               <PurchasePriceBar value={askingPrice} priceText={listing.priceText} onChange={setAskingPrice} />
-              <FinanceTab key={askingPrice ?? "none"} listing={{ ...listing, askingPrice }} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} improvementValuation={improvementValuation} dwellingAdded={dwellingValue.addedValue} />
+              <FinanceTab key={askingPrice ?? "none"} listing={{ ...listing, askingPrice }} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} improvementValuation={improvementValuation} dwellingAdded={dwellingValue.addedValue} landOnly={landOnly} />
               <div className="mt-4"><LocationFactCard subItems={effectiveSubItems} ids={["loc_growth"]} title="Suburb growth & demand" /></div>
             </>
           )}
@@ -851,7 +851,7 @@ function CapitalGrowthPanel({ capitalGrowth, askingPrice }: { capitalGrowth?: Ca
 // ── Investor Rating panel (investor only) — yield + growth, separate from the
 //    1,000-pt quality score (panels approach). ─────────────────────────────────
 function InvestorRatingPanel({
-  askingPrice, marketRent, renoLines, renoToggles, growthScore, qualityBase,
+  askingPrice, marketRent, renoLines, renoToggles, growthScore, qualityBase, landOnly = false,
 }: {
   askingPrice: number | null;
   marketRent?: MarketRent;
@@ -859,9 +859,27 @@ function InvestorRatingPanel({
   renoToggles: Record<string, RenoToggle>;
   growthScore: number | null;
   qualityBase: number;
+  /** Bare section — nothing to let, so no rent, no yield, no vacancy risk. */
+  landOnly?: boolean;
 }) {
   const { withinHold } = useHoldPeriod();
   const [override, setOverride] = useState<string>("");
+
+  // Nothing here applies to an empty section. Gross yield, net yield and
+  // vacancy risk all describe letting a dwelling, and the rent they rest on is
+  // the suburb's HOUSE median — so on a paddock they are a confident answer to
+  // a question nobody can ask yet.
+  if (landOnly) {
+    return (
+      <div className="card p-5 text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.65 }}>
+        <strong style={{ color: "var(--text-primary)" }}>No rental return — there is no dwelling.</strong>{" "}
+        Yield and vacancy describe letting a house, and this is bare land. What an investor is
+        buying here is the section and what may be built on it, so the numbers that matter are the
+        land value, the holding costs and the cost to build — not a rent.
+      </div>
+    );
+  }
+
   if (!askingPrice) return <div className="card p-5 text-sm" style={{ color: "var(--text-secondary)" }}>Enter a purchase price to calculate yield.</div>;
 
   const weekly = override !== "" ? Number(override) : marketRent?.weekly ?? null;
@@ -1339,6 +1357,7 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
           renoToggles={renoToggles}
           growthScore={growthScore}
           qualityBase={scored.base}
+          landOnly={landOnly}
         />
       )}
 
@@ -2088,9 +2107,11 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
   );
 }
 
-function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles, score, suburbValue, improvementValuation, dwellingAdded = 0 }: {
+function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles, score, suburbValue, improvementValuation, dwellingAdded = 0, landOnly = false }: {
   listing: StoredReport["listing"];
   persona: Persona;
+  /** Bare section — there is nothing to let, so there is no rent and no yield. */
+  landOnly?: boolean;
   marketRent?: MarketRent;
   capitalGrowth?: CapitalGrowth;
   renoLines: RenoLine[];
@@ -2271,8 +2292,23 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
         </div>
       </FinSection>
 
-      {/* Section 5 — Investor */}
-      {isInvestor && (
+      {/* Section 5 — Investor.
+          Not on a bare section. There is no dwelling to let, so weekly rent,
+          vacancy, management and yield describe a building that doesn't exist —
+          and the panel was printing "+$24/wk net cash flow" and "8.5% gross
+          yield" against an empty paddock, with the rent figure lifted from the
+          suburb's HOUSE median. A caveat inside the note isn't enough when the
+          number beside it is a confident green figure. */}
+      {isInvestor && landOnly && (
+        <FinSection title="Investor — rent & cashflow">
+          <p className="py-1.5 text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            There is no dwelling on this property, so it produces no rent and has no yield. The
+            costs above are the real cost of holding the land — rates, insurance and finance — and
+            they run whether or not anything is ever built on it.
+          </p>
+        </FinSection>
+      )}
+      {isInvestor && !landOnly && (
         <FinSection title="Investor — rent & cashflow">
           <FinNum label="Weekly rent" value={inp.weeklyRent} onChange={(v) => set({ weeklyRent: v })} hint={marketRent ? marketRent.source : "estimate — verify"} />
           <div className="flex items-center justify-between gap-2 py-1.5 text-sm">

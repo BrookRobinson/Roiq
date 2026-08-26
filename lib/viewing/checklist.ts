@@ -188,6 +188,22 @@ function groupOf(id: string): string {
 const verifiedPhoto = (subItems: SubItem[], id: string) =>
   subItems.find((s) => s.id === id)?.evidenceSource?.startsWith("Your own photo") ?? false;
 
+/**
+ * Items that describe a BUILDING, and so mean nothing on a bare section.
+ *
+ * A 5,002m² Hokitika paddock came back with "Weathertightness history
+ * (leaky-building era 1994–2004)" on its viewing checklist. The analysis had
+ * already said "not applicable — no dwelling on site" and left it unscored, and
+ * unscored is precisely what puts a line on this list — so an honest refusal to
+ * score it turned into an instruction to go and inspect the weathertightness of
+ * a building that isn't there.
+ *
+ * Deliberately narrow. EQC stays (the land itself carries claim history) and so
+ * do consents (what you may build is the whole question on a section); only the
+ * ones that are meaningless without a dwelling are dropped.
+ */
+const DWELLING_ONLY_ITEMS = new Set(["leg_weathertight", "leg_crosslease", "leg_bodycorp"]);
+
 export function buildViewingChecklist(
   report: StoredReport,
   subItems: SubItem[],
@@ -198,6 +214,9 @@ export function buildViewingChecklist(
   const landOnly = report.landOnly === true;
 
   for (const s of subItems) {
+    // Nothing that describes a building belongs on a bare section's list.
+    if (landOnly && DWELLING_ONLY_ITEMS.has(s.id)) continue;
+
     // Location is never on this list. Suburb growth, demand and market trend are
     // desk research; putting "Suburb growth trend & demand" on a list of things
     // to check at an open home is asking somebody to look at a graph through a
