@@ -656,6 +656,15 @@ yield panel and the Finance rent section now say plainly that there is nothing
 to let, and name what actually matters instead — land value, holding costs, cost
 to build. Anything keyed to letting a dwelling has to check `landOnly` first.
 
+**A house growth rate must not be projected onto a section either.** The same
+report applied a suburb trend of 7.4% p.a. — sourced from an average HOUSE value
+of $511,200 — to a $270,000 paddock, and printed a confident ten-year figure.
+Land and houses don't move together: most of a house's growth is in its land, so
+a rising market can lift sections faster than the average dwelling while a flat
+one leaves a small-town section unsold for years. We hold no land-only series,
+so on `landOnly` the trend is shown as labelled CONTEXT and no forward value is
+projected — same call as withholding a land valuation we can't stand behind.
+
 **Room counts on a `noBuildingStated` listing are page furniture, not facts.**
 A Hokitika section came back "1 bed" — scraped from a similar-listings strip —
 which the land report would have printed in its header. When the portal itself

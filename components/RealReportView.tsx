@@ -791,15 +791,33 @@ export function RealReportView({
 
 // ── Predicted future sale price (used on the Overview tab's value card) ───────
 function FutureSalePrice({
-  askingPrice, capitalGrowth, renoLines, renoToggles, align = "right",
+  askingPrice, capitalGrowth, renoLines, renoToggles, align = "right", landOnly = false,
 }: {
   askingPrice: number | null;
   capitalGrowth?: CapitalGrowth;
   renoLines: RenoLine[];
   renoToggles: Record<string, RenoToggle>;
   align?: "right" | "left";
+  /** Bare section — the growth rate behind this describes houses, not land. */
+  landOnly?: boolean;
 }) {
   const { holdYears, withinHold } = useHoldPeriod();
+
+  // No forward number on a section. The only growth rate we hold is a suburb
+  // HOUSE trend, and land does not track it: in a rising market land usually
+  // outpaces the house on it, and in a flat one a small-town section can sit
+  // unmoved for years. Projecting one from the other would be a confident
+  // figure with nothing behind it — the same reason a land VALUE is withheld
+  // when the rate is stretched (lib/scoring/land-quality.ts).
+  if (landOnly) {
+    return (
+      <div className={`mt-1.5 text-xs ${align === "right" ? "text-right" : ""}`} style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+        Not projected for bare land — the only growth trend available is for houses in this
+        suburb, and a section doesn&rsquo;t follow it.
+      </div>
+    );
+  }
+
   if (!askingPrice) return <div className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>Add a price for a sale estimate</div>;
   const indicative = capitalGrowth?.annualRatePct == null;
   const rate = capitalGrowth?.annualRatePct ?? 3.5;
@@ -820,7 +838,7 @@ function FutureSalePrice({
 }
 
 // ── Capital growth panel (all users) ──────────────────────────────────────────
-function CapitalGrowthPanel({ capitalGrowth, askingPrice }: { capitalGrowth?: CapitalGrowth; askingPrice: number | null }) {
+function CapitalGrowthPanel({ capitalGrowth, askingPrice, landOnly = false }: { capitalGrowth?: CapitalGrowth; askingPrice: number | null; landOnly?: boolean }) {
   if (!capitalGrowth || !askingPrice) return null;
   const rate = capitalGrowth.annualRatePct;
   const proj = (yrs: number) => ({ label: `${yrs}-year`, year: 2026 + yrs, value: projectValue(askingPrice, rate, yrs), pct: cumulativeGrowthPct(rate, yrs) });
@@ -832,15 +850,36 @@ function CapitalGrowthPanel({ capitalGrowth, askingPrice }: { capitalGrowth?: Ca
         <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>Capital growth</h3>
         <span className="text-xs px-1.5 py-0.5 rounded mono" style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}>{rate}% p.a. trend</span>
       </div>
-      <div className="grid sm:grid-cols-2 gap-3 my-4">
-        {projections.map((p) => (
-          <div key={p.label} className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
-            <div className="text-xs" style={{ color: "var(--text-muted)" }}>{p.label} · by {p.year}</div>
-            <div className="text-xl font-bold mono" style={{ color: "var(--text-primary)" }}>Est. {fmtShort(p.value)}</div>
-            <div className="text-xs font-semibold" style={{ color: "var(--good)" }}>+{p.pct.toFixed(0)}%</div>
+
+      {/* On a section the trend is kept as CONTEXT and the projection is dropped.
+          The figure is a real sourced fact about houses in this suburb — it was
+          being applied to a 5,002m² paddock at $270,000 to produce a confident
+          ten-year value, off an average house value of $511,200. The honest
+          version states the trend, says whose it is, and stops there. */}
+      {landOnly ? (
+        <div className="my-4 rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
+          <div className="text-sm" style={{ color: "var(--text-primary)", lineHeight: 1.65 }}>
+            This {rate}% is the trend for <strong>houses</strong> in this suburb, and it is shown
+            for context only — no forward value is projected for this section.
           </div>
-        ))}
-      </div>
+          <div className="mt-1.5 text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+            Land and houses don&rsquo;t move together. Most of a house&rsquo;s growth is in its land,
+            so a rising market can lift sections faster than the average dwelling — and a flat one
+            can leave a small-town section unsold for years while house prices tick along. We hold no
+            land-only series for this suburb, so there is no honest number to put here.
+          </div>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-3 my-4">
+          {projections.map((p) => (
+            <div key={p.label} className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>{p.label} · by {p.year}</div>
+              <div className="text-xl font-bold mono" style={{ color: "var(--text-primary)" }}>Est. {fmtShort(p.value)}</div>
+              <div className="text-xs font-semibold" style={{ color: "var(--good)" }}>+{p.pct.toFixed(0)}%</div>
+            </div>
+          ))}
+        </div>
+      )}
       <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>{capitalGrowth.why}</p>
       {capitalGrowth.recentNote && <p className="text-xs mt-2" style={{ color: "var(--warn)" }}>⚠ {capitalGrowth.recentNote}</p>}
       <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>Source: {capitalGrowth.source}</p>
@@ -1333,10 +1372,10 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
             </div>
           ) : (
             <>
-              <FutureSalePrice askingPrice={askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="left" />
+              <FutureSalePrice askingPrice={askingPrice} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} align="left" landOnly={landOnly} />
               <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
                 {landOnly
-                  ? <>Growth is applied to the asking price. There is no building on this section, so nothing here assumes one gets built.</>
+                  ? <>What a section is worth later depends on what can be built on it and what it costs to do — see the <strong style={{ color: "var(--brand)" }}>Land</strong> tab for the site facts that decide that.</>
                   : <>See the <strong style={{ color: "var(--brand)" }}>Financial</strong> tab for the {PRODUCT_SHORT_NAME} Value Verdict — whether the asking price is fair once renovations are factored in.</>}
               </div>
             </>
@@ -1362,7 +1401,7 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
       )}
 
       {/* Capital growth — all users */}
-      <CapitalGrowthPanel capitalGrowth={report.capitalGrowth} askingPrice={askingPrice} />
+      <CapitalGrowthPanel capitalGrowth={report.capitalGrowth} askingPrice={askingPrice} landOnly={landOnly} />
 
       {/* Tally */}
       <div className="grid sm:grid-cols-5 gap-3">
