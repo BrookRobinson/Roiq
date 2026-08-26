@@ -671,6 +671,22 @@ which the land report would have printed in its header. When the portal itself
 says there is no building, bedrooms/bathrooms/carParks are set to NULL, not
 zero: null is "no such thing here", zero reads as a measured fact.
 
+**Never put a document on the checklist for a fact the report already holds.**
+The title TYPE comes from the LINZ register and is printed in the report's own
+header, so asking the buyer to obtain a record of title to confirm it is the
+homework rule failing in a new place. Gated on `listing.titleType`, NOT on the
+item's score: the model is inconsistent here — it scored `leg_title` 9/10 tier 1
+"Freehold" on one report and returned "Not assessed — not visible in the
+listing" on another with the same known tenure. What a title carries BEYOND the
+type — easements, covenants, caveats — is a separate question with its own items
+and still earns its place on the list.
+
+**Consents describe work done to a STRUCTURE.** On a bare section with nothing
+built, there is no consent history to produce and no CCC to chase, and the
+analysis says as much itself — so `leg_consents` is dropped when `landOnly` and
+nothing stands on the land. It returns the moment there is a shed, sleepout or
+garage, any of which may have needed a consent it never got.
+
 **A land report's viewing checklist must drop the dwelling-only items.** The
 same section listed "Weathertightness history (leaky-building era 1994–2004)" as
 something to go and inspect, because the analysis had honestly refused to score

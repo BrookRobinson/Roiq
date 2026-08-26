@@ -212,6 +212,10 @@ export function buildViewingChecklist(
   const out: ChecklistItem[] = [];
   const seen = new Set<string>();
   const landOnly = report.landOnly === true;
+  /** Anything built on the site — a shed, sleepout or garage still needed consent. */
+  const hasStructure = (report.extraDwellings?.length ?? 0) > 0;
+  const tt = report.listing?.titleType;
+  const titleTypeKnown = Boolean(tt) && tt !== "unknown";
 
   for (const s of subItems) {
     // Nothing that describes a building belongs on a bare section's list.
@@ -222,6 +226,32 @@ export function buildViewingChecklist(
     // to check at an open home is asking somebody to look at a graph through a
     // window. They are also facts-only items that never counted toward the score.
     if (ITEM_BY_ID[s.id]?.inspection === "location") continue;
+
+    // The TITLE TYPE is already known when the register answered — it comes from
+    // LINZ, which is the authority, and the report prints it in its own header
+    // (lib/linz/property-records.ts). Asking the buyer to go and obtain a title
+    // to confirm a fact stated at the top of their own report is exactly the
+    // homework this product exists to remove.
+    //
+    // Read from the LISTING rather than the item's score, deliberately. The
+    // model is not consistent about this: on one report it scored leg_title 9/10
+    // tier 1 "Freehold", and on another — same known freehold tenure — it
+    // returned "Not assessed, not visible in the listing" and no score, which
+    // put the ask straight back on the list. The title type is a fact we hold or
+    // don't; it is not the model's to forget.
+    //
+    // What a record of title carries BEYOND the type — easements, covenants,
+    // caveats — is a different question with its own items (leg_easements,
+    // leg_encumbrances), which reach this list on their own merits.
+    if (s.id === "leg_title" && titleTypeKnown) continue;
+
+    // Consents and code compliance describe work that was done to a STRUCTURE.
+    // On a bare section with nothing built there is no consent history to
+    // produce and no CCC to chase, and the analysis says so itself — asking for
+    // the council property file on an empty paddock is a job with no possible
+    // answer. It stays the moment anything is on the land: a shed, a sleepout, a
+    // garage, any of which may have needed a consent it never got.
+    if (s.id === "leg_consents" && landOnly && !hasStructure) continue;
 
     // Paperwork: a document item is settled by uploading the document, not by
     // looking at the house — but it's still an unknown until someone does.
