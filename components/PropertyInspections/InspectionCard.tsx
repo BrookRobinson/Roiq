@@ -79,8 +79,15 @@ export function InspectionCard({
     ? { label: "Verified ✓", bg: "var(--good-wash)", fg: "var(--good)" }
     : isDoc
     ? { label: "Needs document", bg: "var(--warn-wash)", fg: "var(--warn)" }
+    : // The title used to be INFERRED from the word "freehold" appearing somewhere
+      // in the listing HTML, which is what "Indicative" was warning about. It now
+      // comes from the LINZ register and is scored from the tenure itself
+      // (lib/scoring/title.ts), so the warning only applies when the register
+      // didn't answer and the type is genuinely unestablished.
+      isTitle && item.score == null
+      ? { label: "Indicative", bg: "var(--surface)", fg: "var(--text-muted)" }
     : isTitle
-    ? { label: "Indicative", bg: "var(--surface)", fg: "var(--text-muted)" }
+    ? { label: "From the register", bg: "var(--good-wash)", fg: "var(--good)" }
     : item.remediation
     ? { label: "Reno tab", bg: "var(--accent-wash)", fg: "var(--brand)" }
     : null;
@@ -124,7 +131,7 @@ export function InspectionCard({
                       <span>{item.sourceType && <span className="font-medium" style={{ color: "var(--text-secondary)" }}>{SOURCE_TYPE_LABEL[item.sourceType]}: </span>}{item.source}</span>
                     </span>
                   )}
-                  <ConfidenceTierBadge tier={item.confidenceTier} />
+                  <ConfidenceTierBadge tier={item.confidenceTier} source={item.evidenceSource || item.source} />
                 </div>
               </>
             )}

@@ -29,8 +29,19 @@ const tierConfig: Record<
   },
 };
 
-export function ConfidenceTierBadge({ tier }: { tier: ConfidenceTier }) {
+/**
+ * Tier 1 means "established", and HOW it was established depends on the item.
+ * A roof is confirmed from a photograph; a title, a zone or a rating valuation
+ * is confirmed from a public record, and labelling that "Confirmed from photo"
+ * is a small confident lie about where the fact came from — the title item was
+ * printing it beside a LINZ record of title.
+ */
+const RECORD_SOURCED = /record of title|linz|council|district plan|rating|register|gns|moe|zone/i;
+
+export function ConfidenceTierBadge({ tier, source }: { tier: ConfidenceTier; source?: string }) {
   const cfg = tierConfig[tier];
+  const label =
+    tier === 1 && source && RECORD_SOURCED.test(source) ? "Confirmed from the public record" : cfg.label;
   return (
     <div
       className="inline-flex items-center gap-1.5 rounded-md"
@@ -46,7 +57,7 @@ export function ConfidenceTierBadge({ tier }: { tier: ConfidenceTier }) {
         className="w-1.5 h-1.5 rounded-full flex-shrink-0"
         style={{ background: cfg.dotColor }}
       />
-      <span style={{ color: cfg.textColor }}>T{tier} — {cfg.label}</span>
+      <span style={{ color: cfg.textColor }}>T{tier} — {label}</span>
     </div>
   );
 }

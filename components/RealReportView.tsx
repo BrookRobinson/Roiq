@@ -21,6 +21,7 @@ import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scorin
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
 import { assessSectionSize, assessTopography, assessShape, assessTrees, assessAspect, assessFrontage } from "@/lib/scoring/land-quality";
+import { assessTitleType } from "@/lib/scoring/title";
 import { valueExtraDwellings, dwellingComplianceWork, type ExtraDwellingValueResult, type DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
 import { SendReportDialog } from "@/components/SendReportDialog";
@@ -359,6 +360,26 @@ export function RealReportView({
         // stay, so the inferred risk is still explained, just not scored. (Location /
         // Land / Legal are fact-based and are meant to be inferred + scored.)
         if (isImprovement(s) && s.confidenceTier === 3) return { ...s, score: null as typeof s.score };
+        // The TITLE is scored from its tenure, not from the model reading a
+        // listing. Same arrangement as the foundation and the land items: the
+        // fact comes from the register, the report does the arithmetic. The
+        // model was returning 9/10 "Freehold" on one property and "Not assessed
+        // — not visible in the listing" on another with the same known freehold
+        // tenure. A tenure is a category; it is not the model's to forget.
+        if (s.id === "leg_title") {
+          const t = assessTitleType(report.listing.titleType);
+          if (t) {
+            return {
+              ...s,
+              score: t.score as typeof s.score,
+              urgencyLabel: urgencyLabel(t.score as never),
+              confidenceTier: t.confidenceTier,
+              finding: t.finding,
+              evidenceSource: "LINZ record of title",
+              aiSummary: t.rationale,
+            };
+          }
+        }
         // Section size is scored objectively vs a typical lot, not the AI's guess.
         if (s.id === "land_size") return { ...s, score: assessSectionSize(report.listing.landAreaSqm).score as typeof s.score };
         // Topography is derived from the gradient band + usable share, for the same

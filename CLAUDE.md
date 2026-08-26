@@ -24,6 +24,7 @@ npm run verify:dwelling      # is there a building to score, and does the addres
 npm run verify:floor-area    # advertised floor area vs the rating roll, and what that must never say
 npm run verify:foundation    # foundation scoring from type, era and visible movement
 npm run verify:viewing       # the gate on the agent letter, and what it may claim about each item
+npm run verify:title         # title scored from tenure, and the warnings a buyer must not miss
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
 
@@ -670,6 +671,26 @@ A Hokitika section came back "1 bed" — scraped from a similar-listings strip �
 which the land report would have printed in its header. When the portal itself
 says there is no building, bedrooms/bathrooms/carParks are set to NULL, not
 zero: null is "no such thing here", zero reads as a measured fact.
+
+**The title is scored from its TENURE, not by the model.** `leg_title` was the
+AI's to judge and it would not do it consistently: 9/10 tier 1 "Freehold" on one
+property, "Not assessed — not visible in the listing" and no score on another
+with the same known freehold tenure, both printing "freehold" in their own
+header. `lib/scoring/title.ts` scores it by lookup — freehold 10, unit title 7,
+cross-lease 5, leasehold 3, licence to occupy 2 — the same arrangement the
+foundation and the land items use: the fact is reported, the report does the
+arithmetic. Unknown returns NULL rather than a number, so an unestablished
+tenure stays an honest gap. Applied in `effectiveSubItems`, so saved reports are
+fixed on render without re-analysis. `verify:title` guards the ordering and the
+warnings (ground-rent reviews, the flats plan, the body corporate).
+
+Two labels had to move with it. "Indicative" on the title meant "inferred from
+the word freehold appearing in the listing HTML" and is wrong once the register
+has answered — it now shows only when the type is genuinely unestablished. And
+tier 1 read **"Confirmed from photo"** beside a LINZ record of title; the badge
+takes the item's source and says "Confirmed from the public record" for anything
+record-sourced. Tier 1 means established — how it was established depends on the
+item.
 
 **Never put a document on the checklist for a fact the report already holds.**
 The title TYPE comes from the LINZ register and is printed in the report's own
