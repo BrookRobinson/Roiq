@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { UserRow } from "@/lib/supabase/types";
 import { effectivePlan, planMeets, type Plan } from "@/lib/billing/plans";
+import { isDevOwner, DEV_OWNER_PLAN } from "@/lib/auth/dev-owner";
 
 /**
  * Returns the authenticated Supabase user and their profile row.
@@ -36,6 +37,9 @@ export async function getUser(): Promise<{
  * column directly is the bug that hands someone Pro forever.
  */
 export async function getUserPlan(): Promise<Plan> {
+  // Owner mode short-circuits every plan gate at once — the report tabs, the map
+  // teaser, /api/reports' Pro branch. Local only; see lib/auth/dev-owner.ts.
+  if (isDevOwner()) return DEV_OWNER_PLAN;
   const { profile } = await getUser();
   return effectivePlan(profile?.plan, profile?.plan_expires_at);
 }

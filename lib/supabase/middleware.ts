@@ -7,6 +7,12 @@ import type { Database } from "@/lib/supabase/types";
 // to re-enable real auth gating before launch.
 const REVIEW_MODE = process.env.NEXT_PUBLIC_REVIEW_MODE !== "false";
 
+// Owner mode — the app is the owner's own machine, so it never asks him to log
+// in. Refused outright in production; see lib/auth/dev-owner.ts.
+const DEV_OWNER =
+  process.env.NODE_ENV !== "production" &&
+  (process.env.DEV_OWNER_MODE === "true" || process.env.NEXT_PUBLIC_DEV_OWNER_MODE === "true");
+
 export async function updateSession(request: NextRequest) {
   // Skip auth enforcement when Supabase env vars are not configured (local dev without Supabase)
   if (
@@ -70,7 +76,7 @@ export async function updateSession(request: NextRequest) {
     !pathname.startsWith("/report/share_") && // shared links are public by design
     pathname !== "/report/new";
 
-  if (!REVIEW_MODE && !user && (isProtected || isProtectedReport)) {
+  if (!REVIEW_MODE && !DEV_OWNER && !user && (isProtected || isProtectedReport)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);

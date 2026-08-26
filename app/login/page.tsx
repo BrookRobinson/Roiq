@@ -1,5 +1,11 @@
 "use client";
 
+// Owner mode never sees this page. The app is the owner's own machine and it
+// does not ask him to sign in to look at his own work, so landing here — by a
+// bookmark, a stale link, or a redirect that predates the flag — bounces
+// straight on. Local only; isDevOwner() refuses in production before it reads
+// the flag. See lib/auth/dev-owner.ts.
+
 import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -7,8 +13,18 @@ import { Suspense } from "react";
 import { Eye, EyeOff, ArrowRight, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { isDevOwner } from "@/lib/auth/dev-owner";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 function LoginForm() {
+  // Bounce before anything renders, so the form never flashes up.
+  const router = useRouter();
+  const ownerMode = isDevOwner();
+  useEffect(() => {
+    if (ownerMode) router.replace("/dashboard");
+  }, [ownerMode, router]);
+
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/dashboard";
 
@@ -34,6 +50,8 @@ function LoginForm() {
 
     window.location.href = next;
   }
+
+  if (ownerMode) return null;
 
   return (
     <div

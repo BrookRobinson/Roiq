@@ -6,6 +6,7 @@ import { emailKey } from "@/lib/auth/email-key";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { claimReports } from "@/lib/reports/store";
 import { readOwnerKey } from "@/lib/reports/owner";
+import { isDevOwner, DEV_OWNER_PLAN, DEV_OWNER_EMAIL } from "@/lib/auth/dev-owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,22 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const { authUser, profile } = await getUser().catch(() => ({ authUser: null, profile: null }));
+
+  // Owner mode: report a signed-in Pro without touching the database, so the
+  // navbar, the report tabs and the map all behave as they would for a paying
+  // account. Local only — isDevOwner() refuses in production before it reads
+  // the flag. See lib/auth/dev-owner.ts.
+  if (!authUser && isDevOwner()) {
+    return NextResponse.json({
+      ok: true,
+      user: { id: "dev-owner", email: DEV_OWNER_EMAIL },
+      plan: DEV_OWNER_PLAN,
+      planExpiresAt: null,
+      daysLeft: 3650,
+      claimed: 0,
+      devOwner: true,
+    });
+  }
 
   if (!authUser) {
     return NextResponse.json({

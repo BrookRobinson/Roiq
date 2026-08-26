@@ -247,6 +247,20 @@ the copy a lie. `/api/health/billing` fails if a configured price is recurring.
 `users.stripe_subscription_id` and `subscription_status` predate that decision
 and stay unused.
 
+**Owner mode is the local sign-in bypass, and its guard is NOT a setting.**
+`DEV_OWNER_MODE=true` in `.env.local` makes the app behave as a signed-in Pro:
+no login redirect, `/login` and `/signup` bounce to the dashboard, `getUserPlan()`
+returns pro, and every plan gate opens. `lib/auth/dev-owner.ts` checks
+`NODE_ENV === "production"` FIRST and refuses before it reads the flag — Next
+sets that for `next build`/`next start` and on Vercel, so a stray
+`DEV_OWNER_MODE=true` in a deployed environment is inert rather than a free
+giveaway of the paid product. Don't "improve" it into a configurable override.
+
+It invents no Supabase user and writes nothing as one: reports made in owner
+mode still belong to the browser's own `bdr_owner` cookie, so turning it off
+orphans nothing. The report ALLOWANCE still applies (pro = 20/month) — it guards
+the owner's own Claude spend, not the paywall.
+
 **`users.plan` is not access.** It records what was last bought and stays there
 after the month ends. Access is the plan paired with `plan_expires_at` still in
 the future — `effectivePlan()`, behind `getUserPlan()` and `/api/auth/me`. Read
