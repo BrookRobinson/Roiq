@@ -33,8 +33,8 @@ const PORTALS = [
 
 const PIPELINE_STEPS = [
   { id: "scrape", label: "Scraping the listing", sub: "Address, price, details, photos" },
-  { id: "photos", label: "Downloading & resizing photos", sub: "Preparing images for Claude" },
-  { id: "vision", label: "Analysing with Claude vision", sub: "Scoring every visible element" },
+  { id: "photos", label: "Downloading & resizing photos", sub: `Preparing images for ${PRODUCT_NAME}` },
+  { id: "vision", label: `Analysing with ${PRODUCT_NAME} vision`, sub: "Scoring every visible element" },
   { id: "score", label: "Calculating quality score", sub: "Persona-aware 1,000-point rubric" },
   { id: "report", label: "Building your report", sub: "Compiling findings and gaps" },
 ];
@@ -126,7 +126,7 @@ function NewReportInner() {
         }
         setError(
           res.status === 503
-            ? "Claude isn't configured — add a funded ANTHROPIC_API_KEY to .env.local and restart the server."
+            ? `${PRODUCT_NAME} analysis isn't configured — add a funded ANTHROPIC_API_KEY to .env.local and restart the server.`
             : data.message ?? data.error ?? `Analysis failed (HTTP ${res.status}).`
         );
         // 402 means they're out of reports, not that anything broke — show the
@@ -608,7 +608,7 @@ function AnalysisPipeline({ pipelineStep, url }: { pipelineStep: number; url: st
       </div>
 
       <p className="text-center text-xs mt-8" style={{ color: "var(--text-muted)" }}>
-        Real Claude vision analysis · this can take 1–3 minutes on the current API tier
+        Real {PRODUCT_NAME} vision analysis · this can take 1–3 minutes on the current API tier
       </p>
     </div>
   );

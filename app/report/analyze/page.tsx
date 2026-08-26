@@ -73,7 +73,7 @@ export default function AnalyzePage() {
       if (!res.ok) {
         if (res.status === 503) {
           setError({
-            title: "Claude API key not configured",
+            title: `${PRODUCT_NAME} analysis key not configured`,
             detail:
               "Add a funded ANTHROPIC_API_KEY to roiq/.env.local (the ANTHROPIC_API_KEY= line), then restart the dev server.",
           });
@@ -118,7 +118,7 @@ export default function AnalyzePage() {
           </span>
         </div>
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-          Paste a NZ listing URL. {PRODUCT_NAME} scrapes it, sends the photos to Claude vision, and returns a real
+          Paste a NZ listing URL. {PRODUCT_NAME} scrapes it, sends the photos to {PRODUCT_NAME} vision, and returns a real
           condition report and 1,000-point score. This is the actual pipeline — not the demo.
         </p>
 
@@ -152,7 +152,7 @@ export default function AnalyzePage() {
           </div>
           {loading && (
             <p className="text-xs mt-3" style={{ color: "var(--text-muted)" }}>
-              Scraping the listing and running Claude vision over the photos — this usually takes 30–60 seconds.
+              Scraping the listing and running {PRODUCT_NAME} vision over the photos — this usually takes 30–60 seconds.
             </p>
           )}
         </div>

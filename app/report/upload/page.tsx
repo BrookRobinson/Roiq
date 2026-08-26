@@ -193,7 +193,7 @@ export default function UploadReportPage() {
       const data = await res.json();
       if (!res.ok) {
         setError(res.status === 503
-          ? "Claude isn't configured — add a funded ANTHROPIC_API_KEY to .env.local and restart the server."
+          ? `${PRODUCT_NAME} analysis isn't configured — add a funded ANTHROPIC_API_KEY to .env.local and restart the server.`
           : data.message ?? data.error ?? `Analysis failed (HTTP ${res.status}).`);
         setStep("input");
         return;
@@ -253,7 +253,7 @@ export default function UploadReportPage() {
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
           {step === "done"
             ? <><CheckCircle2 size={56} className="mx-auto mb-4" style={{ color: "var(--success)" }} /><h2 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Report ready</h2><p className="text-sm" style={{ color: "var(--text-secondary)" }}>Redirecting…</p></>
-            : <><Loader2 size={48} className="mx-auto mb-4 animate-spin" style={{ color: "var(--brand)" }} /><h2 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Analysing your photos…</h2><p className="text-sm" style={{ color: "var(--text-secondary)" }}>Claude vision is scoring every area. This can take 1–3 minutes.</p></>}
+            : <><Loader2 size={48} className="mx-auto mb-4 animate-spin" style={{ color: "var(--brand)" }} /><h2 className="text-2xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>Analysing your photos…</h2><p className="text-sm" style={{ color: "var(--text-secondary)" }}>{PRODUCT_NAME} vision is scoring every area. This can take 1–3 minutes.</p></>}
         </div>
       </div>
     );

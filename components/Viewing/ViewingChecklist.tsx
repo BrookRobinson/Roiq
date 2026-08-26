@@ -25,6 +25,7 @@ import { ItemPhotoUpload, type PhotoContext } from "./ItemPhotoUpload";
 import { itemLabel } from "@/lib/scoring/catalog";
 import { DocUpload } from "@/components/PropertyInspections/DocUpload";
 import type { DocAnalysis } from "@/lib/report-store";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 const ANSWER_ORDER: ViewingAnswer[] = ["ok", "problem", "no_access", "not_there"];
 
@@ -441,7 +442,7 @@ function Row({
                 onVerified={(doc) => onVerifiedDoc(item.itemId as string, doc)}
               />
               <p className="mt-1.5 text-[12px]" style={{ color: "var(--text-muted)" }}>
-                PDF. Claude reads the whole thing and scores it — the full reading lands on the{" "}
+                PDF. {PRODUCT_NAME} reads the whole thing and scores it — the full reading lands on the{" "}
                 <button onClick={onOpenLand} className="underline" style={{ color: "var(--brand)" }}>
                   Land tab
                 </button>

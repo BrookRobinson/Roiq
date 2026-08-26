@@ -599,7 +599,14 @@ export function RealReportView({
                 </div>
                 <div className="flex items-center gap-3 mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
                   <span className="flex items-center gap-1"><ImageIcon size={12} /> {listing.photoUrls.length > 0 ? `${listing.photoUrls.length} found · ${photosAnalysed} analysed` : `${photosAnalysed} photos analysed`}</span>
-                  <span className="mono">{model}</span>
+                  {/* The raw model id — "claude-sonnet-5" — used to print here, in
+                      front of every reader. It names our supplier rather than
+                      telling the buyer anything about their property, and it is
+                      the one place the vendor's name reached customer-facing copy
+                      at all. The engine version is the part that means something:
+                      two reports on the same house can differ because the engine
+                      moved, and that is worth being able to see. */}
+                  <span className="mono" title={model}>{engineLabel(model)}</span>
                   {(!listing.scrapedOk || photosAnalysed === 0) && (
                     <span style={{ color: "var(--warn)" }}>⚠ scrape partial — leans Tier 3</span>
                   )}
@@ -808,6 +815,19 @@ export function RealReportView({
       </div>
     </HoldPeriodProvider>
   );
+}
+
+/**
+ * What the reader is told ran their analysis.
+ *
+ * A stored report keeps the real model id — it is how a result is traced back
+ * and re-run, and rewriting stored data to hide a supplier would be dishonest
+ * about our own records. This only changes what is DISPLAYED, and the full id is
+ * still on the element's title attribute for anyone who needs it.
+ */
+function engineLabel(model: string): string {
+  const demo = /demo/i.test(model);
+  return `${PRODUCT_NAME} vision engine${demo ? " (demo)" : ""}`;
 }
 
 // ── Predicted future sale price (used on the Overview tab's value card) ───────

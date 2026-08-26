@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     const tool = resp.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === DOC_TOOL_NAME
     );
-    if (!tool) throw new Error("Claude did not return a document analysis.");
+    if (!tool) throw new Error(`${PRODUCT_NAME} did not return a document analysis.`);
     const raw = tool.input as RawDocAnalysis;
 
     const score =

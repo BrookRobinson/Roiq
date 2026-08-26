@@ -1,5 +1,6 @@
 "use client";
 
+import { PRODUCT_NAME } from "@/lib/brand";
 import { useState } from "react";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { DocAnalysis } from "@/lib/report-store";
@@ -115,7 +116,7 @@ export function InspectionCard({
               <div className="text-sm mt-1" style={{ color: "var(--warn)" }}>Upload {DOC_NAME[item.id]} to get a verified score.</div>
             ) : verified ? (
               <div className="flex items-center gap-1.5 text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
-                <FileText size={11} /> Verified from <span style={{ color: "var(--text-secondary)" }}>{verified.fileName}</span> · read by Claude
+                <FileText size={11} /> Verified from <span style={{ color: "var(--text-secondary)" }}>{verified.fileName}</span> · read by {PRODUCT_NAME}
               </div>
             ) : (
               <>
@@ -228,7 +229,7 @@ function UploadPrompt({ itemId, onVerified }: { itemId: string; onVerified?: (do
       <div className="flex items-start gap-2 mb-3">
         <FileSearch size={15} className="mt-0.5 flex-shrink-0" style={{ color: "var(--warn)" }} />
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          This item isn&apos;t scored from a guess. Upload {DOC_NAME[itemId]} and Claude will read the whole document,
+          This item isn&apos;t scored from a guess. Upload {DOC_NAME[itemId]} and {PRODUCT_NAME} will read the whole document,
           summarise it in plain English, give it a verified 1–10 score, and update your overall property score.
         </p>
       </div>

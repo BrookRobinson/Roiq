@@ -494,6 +494,22 @@ Internal identifiers — `roiqScore`, `bdr_owner`, the Supabase project, the rep
 — stay as they are: no customer reads them and renaming them drags a migration
 along. Comments naming the product are left alone too.
 
+**No customer-facing string names the supplier — with one deliberate exception.**
+"Claude vision", "read by Claude", "Claude is temporarily overloaded" and the raw
+model id printed in every report header (`claude-sonnet-5`) all read
+`PRODUCT_NAME` now. The header shows "Tectara vision engine", with the real model
+id kept on the element's `title` attribute — the stored report still carries it,
+because that is how a result is traced back and re-run, and rewriting stored data
+to hide a supplier would be dishonest about our own records.
+
+The exception is **`app/privacy/page.tsx`, which must keep naming Anthropic**. It
+is a sub-processor disclosure: it tells the reader where their photos actually
+go. Replacing it with our own name would state that data stays with us when it
+does not, which is the one place the rename would turn a true statement into a
+false one. Internal identifiers (`runClaude`, `ANTHROPIC_API_KEY`, model ids,
+`@anthropic-ai/sdk`) and code comments stay as they are, for the same reason the
+rest of the brand rule leaves them alone.
+
 `lib/map/discovery.ts` deliberately does NOT import from `lib/brand` — its
 parsers are dependency-free so `verify:discovery` can load the module with
 plain node, and a single `@/` import ends that.

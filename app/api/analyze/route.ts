@@ -15,6 +15,7 @@ import { isAnalysisConfigured } from "@/lib/ai/client";
 import { coverageFor, categoryLabel } from "@/lib/photo-categories";
 import type { Inspection } from "@/lib/scoring/model";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 export const runtime = "nodejs";
 // A full 84-item report on a Tier-1 key can take a few minutes; don't let the
@@ -249,7 +250,7 @@ export async function POST(req: NextRequest) {
       {
         error: overloaded ? "overloaded" : "analysis_failed",
         message: overloaded
-          ? "Claude is temporarily overloaded (or rate-limited) — wait a few seconds and try again."
+          ? `The ${PRODUCT_NAME} analysis service is temporarily overloaded (or rate-limited) — wait a few seconds and try again.`
           : message,
       },
       { status: overloaded ? 503 : 500 }

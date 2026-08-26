@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@/lib/brand";
 import Anthropic, { toFile } from "@anthropic-ai/sdk";
 
 import { getAnthropic, ANALYSIS_MODEL, VISION_MODEL } from "./client";
@@ -750,7 +751,7 @@ async function callAnalysis(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === ANALYSIS_TOOL_NAME
   );
   if (!toolUse) {
-    throw new Error("Claude did not return a structured analysis (no tool_use block)");
+    throw new Error(`${PRODUCT_NAME} did not return a structured analysis (no tool_use block)`);
   }
   const raw = toolUse.input as RawAnalysis;
   raw.sub_items ??= [];

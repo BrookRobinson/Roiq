@@ -235,7 +235,7 @@ export async function analyseItemPhotos(
   const call = resp.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === TOOL_NAME
   );
-  if (!call) throw new Error("Claude did not return an assessment.");
+  if (!call) throw new Error(`${PRODUCT_NAME} did not return an assessment.`);
   const raw = call.input as RawItemPhoto;
 
   const showsItem = Boolean(raw.shows_item);
