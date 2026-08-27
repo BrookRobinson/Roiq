@@ -15,6 +15,7 @@ import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/repo
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
+import { methodFor, comparablesMatch } from "@/lib/scoring/valuation-method";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { compareFloorArea } from "@/lib/property/floor-area-check";
 import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
@@ -2101,11 +2102,34 @@ function FinSection({ title, children }: { title: string; children: React.ReactN
 // ── Tectara Value Verdict (Change 1) — the headline number, top of the Finance tab.
 // Suburb median $/m² (scraped) × condition multiplier (the hidden quality score)
 // × floor area = Tectara fair value; compared against asking + selected renovations.
-function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, dwellingAdded = 0 }: {
+function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, dwellingAdded = 0, listing }: {
   asking: number; improvementValuation: ImprovementValueResult; landAreaSqm: number | null; suburbValue?: SuburbValue; dwellingAdded?: number;
+  listing?: StoredReport["listing"];
 }) {
   const [open, setOpen] = useState(false);
   const land = valueLand({ landAreaSqm, suburbValue });
+
+  // An apartment, a unit, or anything on a title that gives its owner no
+  // section of their own. There is no land line to add because the land is
+  // already inside what comparable sales of this type fetch — adding it again
+  // would count it twice. Same figure the map carries; there is one valuation.
+  const method = methodFor({
+    propertyType: listing?.propertyType,
+    titleType: listing?.titleType,
+    floorAreaSqm: improvementValuation.floorAreaSqm || listing?.floorAreaSqm,
+    landAreaSqm,
+  });
+  if (method === "floor-area-comparables") {
+    return (
+      <ByComparables
+        asking={asking}
+        floorAreaSqm={improvementValuation.floorAreaSqm || listing?.floorAreaSqm || 0}
+        suburbValue={suburbValue}
+        propertyType={listing?.propertyType ?? null}
+        titleType={listing?.titleType ?? null}
+      />
+    );
+  }
 
   if (!asking || improvementValuation.buildingValue <= 0 || !land || !suburbValue) {
     const why = !asking
@@ -2186,6 +2210,86 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
   );
 }
 
+/**
+ * The verdict for a property with no section of its own.
+ *
+ * One number, from what comparable sales of this type fetch per square metre.
+ * The land is NOT missing from it — every one of those buyers paid for the
+ * ground under their flat, so it is already inside the rate. Breaking it out as
+ * a separate line would count it twice, and pricing a share of shared ground as
+ * though it were a private section would overstate what is being bought.
+ *
+ * No condition adjustment. We can see the condition and the report says so
+ * elsewhere; nobody has yet measured what a condition point is worth per m² in
+ * this market, so the figure is what a TYPICAL one of these fetches and the
+ * caveat is printed rather than a multiplier invented.
+ */
+function ByComparables({ asking, floorAreaSqm, suburbValue, propertyType, titleType }: {
+  asking: number; floorAreaSqm: number; suburbValue?: SuburbValue;
+  propertyType: string | null; titleType: string | null;
+}) {
+  const matched = comparablesMatch(propertyType, suburbValue?.propertyType);
+  const rate = suburbValue?.medianPerSqm ?? 0;
+  const total = matched && rate > 0 && floorAreaSqm > 0 ? Math.round(rate * floorAreaSqm) : 0;
+
+  if (!total || !asking) {
+    return (
+      <div className="card p-5" style={{ border: "1px solid var(--border)" }}>
+        <div className="text-[11px] uppercase tracking-widest mb-1" style={{ color: "var(--brand)" }}>{PRODUCT_SHORT_NAME} Value Verdict</div>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          {!asking
+            ? "Add a purchase price to see the verdict."
+            : !floorAreaSqm
+              ? "This listing gives no floor area, and floor area is what a property like this is valued on."
+              : `We value ${/^[aeiou]/i.test(propertyType ?? "") ? "an" : "a"} ${propertyType ?? "property"} like this from recent sales of the same kind nearby, and we couldn't find enough of them.`}
+        </p>
+      </div>
+    );
+  }
+
+  const low = Math.round(total * 0.88);
+  const high = Math.round(total * 1.12);
+  const verdict = asking > high ? "over" : asking < low ? "under" : "fair";
+  const diff = total - asking;
+  const VC = verdict === "over" ? "var(--bad)" : verdict === "under" ? "var(--good)" : "var(--warn)";
+  const fmt = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
+
+  return (
+    <div className="card p-5" style={{ border: `1px solid ${VC}55` }}>
+      <div className="text-[11px] uppercase tracking-widest mb-3" style={{ color: "var(--brand)" }}>{PRODUCT_SHORT_NAME} Value Verdict</div>
+      <div className="space-y-1.5 text-sm">
+        <div className="flex items-center justify-between">
+          <span style={{ color: "var(--text-secondary)" }}>{floorAreaSqm}m² × {fmt(rate)}/m² <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· {suburbValue?.sampleSize ?? 0} comparable sales</span></span>
+          <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(total)}</span>
+        </div>
+        <div className="flex items-center justify-between"><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Likely range</span><span className="mono text-[11px]" style={{ color: "var(--text-muted)" }}>{fmt(low)} – {fmt(high)}</span></div>
+        <div className="flex items-center justify-between pt-2"><span style={{ color: "var(--text-secondary)" }}>Asking price</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(asking)}</span></div>
+      </div>
+
+      <div className="mt-4 rounded-lg p-3" style={{ background: `${VC}14`, border: `1px solid ${VC}40` }}>
+        <div className="font-bold text-sm" style={{ color: VC }}>
+          {verdict === "over" ? `Above the range by ~${fmt(Math.abs(diff))}` : verdict === "under" ? `Below the range by ~${fmt(diff)}` : "Inside the estimated range"}
+        </div>
+        <p className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>
+          Compared with what {propertyType ? `${propertyType}s` : "properties"} of this size have recently sold for nearby.
+        </p>
+      </div>
+
+      <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+        {titleType === "cross_lease" || titleType === "unit_title"
+          ? "There's no separate land figure because the land is already inside what these sell for — every one of those buyers paid for the ground under their home too. Showing it again would count it twice."
+          : "There's no separate land figure because the land is already inside what these sell for."}
+      </p>
+      <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+        This is what a <strong style={{ color: "var(--text-secondary)" }}>typical</strong> one of these fetches at this size. We can see this
+        one&apos;s condition — it&apos;s scored throughout this report — but we don&apos;t yet have the sales
+        evidence to say what that condition is worth in dollars, so we haven&apos;t guessed at it. Always
+        obtain a registered valuation before purchasing.
+      </p>
+    </div>
+  );
+}
+
 function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles, score, suburbValue, improvementValuation, dwellingAdded = 0, landOnly = false }: {
   listing: StoredReport["listing"];
   persona: Persona;
@@ -2245,7 +2349,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   return (
     <div className="space-y-4">
       {/* Tectara Value Verdict — the most important thing a buyer needs to know. */}
-      <ValueVerdict asking={price} improvementValuation={improvementValuation} landAreaSqm={listing.landAreaSqm} suburbValue={suburbValue} dwellingAdded={dwellingAdded} />
+      <ValueVerdict asking={price} improvementValuation={improvementValuation} landAreaSqm={listing.landAreaSqm} suburbValue={suburbValue} dwellingAdded={dwellingAdded} listing={listing} />
 
       {/* Section 9 — THE FINAL ANSWER */}
       <div className="card p-5" style={{ border: "1px solid var(--brand)", background: "linear-gradient(180deg, var(--accent-wash), transparent)" }}>
