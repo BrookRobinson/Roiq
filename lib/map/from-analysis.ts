@@ -8,7 +8,7 @@
 // costs the market figures and geocode.
 // ============================================================
 
-import { roiqFairValue } from "@/lib/scoring/investment";
+import { roiqFairValue, isScorable } from "@/lib/scoring/investment";
 import { geocodeAddress } from "./geocode";
 import { fetchSuburbRentDetail, fetchSuburbGrowth } from "./sources";
 import type { ReportContribution } from "./contribution";
@@ -76,7 +76,10 @@ export async function buildMapListing(c: ReportContribution, id: string): Promis
       // Only http(s) photos — a base64 upload would bloat every map response.
       photos: (listing.photoUrls ?? []).filter((u) => typeof u === "string" && u.startsWith("http")).slice(0, 6),
       listingType: null,
-      roiqScore: c.score,
+      // Null when nothing could be assessed — see isScorable(). Publishing a
+      // "0/1000" against a real address claims the property is the worst in the
+      // country, when what happened is that we couldn't see enough of it.
+      roiqScore: isScorable(c.score) ? c.score : null,
       // No suburb median or no floor area = no valuation. It used to fall back
       // to `asking`, which put the vendor's own number on the map under our
       // name and coloured the pin "fair price" for it.

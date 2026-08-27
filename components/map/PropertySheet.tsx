@@ -150,6 +150,13 @@ export function PropertySheet({
                 </div>
               ) : mode === "homebuyer" ? (
                 <div className="space-y-2.5">
+                  {/* An analysis that assessed nothing has no score and, because
+                      the score drives it, no valuation either. One explanation,
+                      not two. */}
+                  {l.roiqScore == null ? (
+                    <Unscored />
+                  ) : (
+                  <>
                   <Row label={`${PRODUCT_SHORT_NAME} Score`} value={`${l.roiqScore}/1000`} />
                   {c.roiqValuation == null || c.valuationGapPct == null ? (
                     /* The property was analysed, but the valuation needs two
@@ -186,10 +193,19 @@ export function PropertySheet({
                       </p>
                     </>
                   )}
+                  </>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  <Row label={`${PRODUCT_SHORT_NAME} Score`} value={`${l.roiqScore}/1000`} />
+                  {/* The figures below come from the asking price, the rent feed
+                      and the growth rate — none of them needs a score, so an
+                      unscored analysis still gets a full investor view. */}
+                  {l.roiqScore == null ? (
+                    <Unscored compact />
+                  ) : (
+                    <Row label={`${PRODUCT_SHORT_NAME} Score`} value={`${l.roiqScore}/1000`} />
+                  )}
                   <Row label="Adjusted buy-in" value={money(c.adjustedBuyIn)} hint="asking + repairs" />
                   <Row label="Est. weekly rent" value={`${money(c.weeklyRent)}/wk`} />
                   <Row label="Annual cashflow" value={signed(c.annualCashflow)} valueColor={c.annualCashflow >= 0 ? "var(--good)" : "var(--bad)"} />
@@ -257,6 +273,30 @@ export function PropertySheet({
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * Analysed, but nothing in it could be graded.
+ *
+ * This is not a bad property and it is not an un-analysed one — a report exists
+ * and somebody paid for it. Every item came back unassessable, usually because
+ * the listing photos didn't show enough. The old behaviour published "0/1000"
+ * against the address, which reads as the worst house in the country.
+ */
+function Unscored({ compact = false }: { compact?: boolean }) {
+  return (
+    <div>
+      <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+        We analysed this one, but the listing photos didn&apos;t show enough of it to score.
+      </p>
+      {!compact && (
+        <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+          Without a score there&apos;s no valuation either. The full report lists what couldn&apos;t
+          be assessed and what to look for at a viewing.
+        </p>
+      )}
+    </div>
   );
 }
 

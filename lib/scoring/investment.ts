@@ -80,8 +80,41 @@ export function qualityMultiplier(score: number): number {
   return last[1];
 }
 
-/** Tectara fair value = suburb median $/m² × quality multiplier × floor area. */
-export function roiqFairValue(medianPerSqm: number, score: number, floorAreaSqm: number): number {
+/**
+ * Did the analysis actually assess anything?
+ *
+ * A score of zero is not a bad property. It is what comes back when EVERY item
+ * landed in `unassessed` — nothing was visible enough to grade — because Tier 3
+ * items stopped scoring. 244 Upper Kokatahi Road is one: 27 photos read, 62
+ * sub-items produced, `byCategory` empty, total 0. The house is fine; the
+ * analysis of it isn't.
+ *
+ * Left unguarded that zero flows straight into a price. It multiplied the
+ * suburb rate by the bottom of the quality curve and valued a $699,000 property
+ * at $242,028 — and published "0/1000" against a real address, which reads as
+ * the worst house in New Zealand rather than "we couldn't see enough". Both are
+ * claims we have no basis for.
+ *
+ * Zero is the only value refused, deliberately. Anything above it means at
+ * least one item was graded, and inventing a floor above zero would be picking
+ * a number nobody chose.
+ */
+export function isScorable(score: number | null | undefined): score is number {
+  return typeof score === "number" && Number.isFinite(score) && score > 0;
+}
+
+/**
+ * Tectara fair value = suburb median $/m² × quality multiplier × floor area.
+ *
+ * Null when the analysis assessed nothing. No score, no valuation — the same
+ * rule as no suburb median and no floor area.
+ */
+export function roiqFairValue(
+  medianPerSqm: number,
+  score: number,
+  floorAreaSqm: number
+): number | null {
+  if (!isScorable(score)) return null;
   return Math.round(medianPerSqm * qualityMultiplier(score) * floorAreaSqm);
 }
 

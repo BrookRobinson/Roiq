@@ -42,7 +42,7 @@ registerHooks({
     return target ? { url: pathToFileURL(target).href, shortCircuit: true } : next(specifier, context);
   },
 });
-const { computeListing, realValuation } = await import(join(root, "lib/map/calc.ts"));
+const { computeListing, realValuation, valuationForScore } = await import(join(root, "lib/map/calc.ts"));
 const { DEFAULT_VARIABLES } = await import(join(root, "lib/map/variables.ts"));
 
 let failures = 0;
@@ -77,6 +77,20 @@ check("null stays null", realValuation(null, 800_000), null);
 check("asking price echoed back is not a valuation", realValuation(800_000, 800_000), null);
 check("no asking price to compare against, figure stands", realValuation(900_000, null), 900_000);
 check("a dollar off the asking price is a real one", realValuation(800_001, 800_000), 800_001);
+
+// ── 1b. A valuation is only as good as the score under it ───────────────
+// Every valuation is median × qualityMultiplier(score) × floor area, so one
+// built on a score that assessed nothing has no foundation. 244 Upper Kokatahi
+// Road scored zero — nothing in it could be assessed — and $242,028 was written
+// against a $699,000 asking price. Refusing only on the write path would leave
+// that figure sitting on the map forever.
+console.log("\nvaluationForScore — no score, no valuation, on the way out too");
+check("a real score keeps its valuation", valuationForScore(900_000, 800_000, 650), 900_000);
+check("score 0 withholds it", valuationForScore(242_028, 699_000, 0), null);
+check("no score at all withholds it", valuationForScore(900_000, 800_000, null), null);
+// Both refusals still apply together.
+check("asking-price echo is still withheld even with a good score",
+  valuationForScore(800_000, 800_000, 650), null);
 
 // ── 2. No valuation → no verdict, never a zero ──────────────────────────
 console.log("\nhomebuyer mode — a missing valuation is not a fair price");

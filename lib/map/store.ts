@@ -11,7 +11,8 @@ import type { Database, MapListingRow } from "@/lib/supabase/types";
 import { SEED_LISTINGS, seedById } from "./seed";
 import { getUserListings, getUserListingById } from "./user-listings";
 import { DEFAULT_VARIABLES, withDefaults, variablesFromColumns } from "./variables";
-import { computeListing, realValuation } from "./calc";
+import { computeListing, valuationForScore } from "./calc";
+import { isScorable } from "@/lib/scoring/investment";
 import { readAllPages } from "@/lib/supabase/paged";
 import type { MapListing, UserVariables } from "./types";
 
@@ -36,6 +37,7 @@ const inBBox = (l: MapListing, b: BBox): boolean =>
 
 function rowToMapListing(r: MapListingRow): MapListing {
   const photos = Array.isArray(r.photos) ? (r.photos as string[]) : [];
+  const score = isScorable(r.quick_quality_score) ? r.quick_quality_score : null;
   const breakdown =
     r.repair_breakdown && typeof r.repair_breakdown === "object" && !Array.isArray(r.repair_breakdown)
       ? (r.repair_breakdown as Record<string, number>)
@@ -57,8 +59,9 @@ function rowToMapListing(r: MapListingRow): MapListing {
     landAreaSqm: r.land_area_sqm,
     photos,
     listingType: (r.listing_type as MapListing["listingType"]) ?? null,
-    roiqScore: r.quick_quality_score ?? 0,
-    roiqValuation: realValuation(r.roiq_valuation, r.asking_price),
+    roiqScore: score,
+    // No score, no valuation — on the way OUT as well as in. See valuationForScore().
+    roiqValuation: valuationForScore(r.roiq_valuation, r.asking_price, score),
     medianPerSqm: null,
     repairAllowance: r.repair_allowance ?? 0,
     repairBreakdown: breakdown,

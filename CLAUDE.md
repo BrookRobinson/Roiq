@@ -133,6 +133,24 @@ the demo, so only non-uuid ids (`rpt_*`, `sample-*`) may do that. A real id that
 isn't found says so. Map pins publish report ids — rendering 14 Ferndale Rd under
 someone else's address is the failure mode this guards against.
 
+**A score of zero is not a score.** It is what comes back when every item
+landed in `unassessed` — nothing visible enough to grade — since Tier 3 items
+stopped scoring. 244 Upper Kokatahi Road is one: 27 photos read, 62 sub-items
+produced, `byCategory` empty, total 0. The house is fine; the analysis of it
+isn't. Unguarded that zero multiplied the suburb rate by the bottom of the
+quality curve and valued a $699,000 property at $242,028, and published
+"0/1000" against a real address — which reads as the worst house in New Zealand,
+not as "we couldn't see enough". `isScorable()` refuses zero and nothing else:
+anything above it means at least one item was graded, and a floor above zero
+would be a number nobody chose.
+
+It is enforced on the way OUT as well as in (`valuationForScore()`), because the
+rows are already in the table — refusing only on the write path would leave that
+$242,028 on the map forever. `MapListing.roiqScore` is nullable, and null is not
+"not analysed": a report exists and somebody paid for it. The sheet says so.
+Investor mode still shows everything, because the rent, repairs and projections
+come from the asking price and real feeds and never needed a score.
+
 **No staircase may set a price.** `qualityMultiplier()` was
 `score < 600 ? 0.95 : 1.20` — one point out of a thousand moved a valuation 26%.
 230 Sewell Street scores 592; eight points the other way took it from $586,264

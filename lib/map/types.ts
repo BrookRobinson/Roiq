@@ -36,7 +36,15 @@ export interface MapListing {
   listingType: "sale" | "auction" | "tender" | "deadline" | "negotiation" | null;
 
   // ── Pre-computed scoring outputs (from analyseProperty + investment math) ──
-  roiqScore: number;                        // 0–1000 (buyer base)
+  /**
+   * 0–1000 (buyer base), or null when the analysis assessed nothing.
+   *
+   * Null is NOT "not analysed" — a report exists and somebody paid for it. It
+   * means every item came back unassessable, so there is no score to show. A
+   * literal 0 must never reach a reader: against a real address it reads as the
+   * worst property in the country. See isScorable().
+   */
+  roiqScore: number | null;
   /**
    * Our valuation — or null when we could not make one.
    *

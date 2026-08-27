@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const { qualityMultiplier, roiqFairValue, QUALITY_ANCHORS } = await import(
+const { qualityMultiplier, roiqFairValue, isScorable, QUALITY_ANCHORS } = await import(
   join(root, "lib/scoring/investment.ts")
 );
 
@@ -78,6 +78,29 @@ console.log("\nroiqFairValue rounds to whole dollars");
 check("median 6000 × 0.95 × 150m²", roiqFairValue(6000, 500, 150), 855_000);
 check("one point higher is not a different house", 
   Math.abs(roiqFairValue(6000, 592, 150) - roiqFairValue(6000, 593, 150)) < 1500, true);
+
+// ── 7. A score of zero is not a score ───────────────────────────────────
+// 244 Upper Kokatahi Road: 27 photos read, 62 sub-items produced, every one of
+// them unassessable, byCategory empty, total 0. The house is fine; the analysis
+// of it isn't. Unguarded, that zero multiplied the suburb rate by the bottom of
+// the curve and valued a $699,000 property at $242,028 — and published "0/1000"
+// against a real address, which reads as the worst house in New Zealand.
+console.log("\nisScorable — zero means we assessed nothing, not that it's worthless");
+check("a real score", isScorable(650), true);
+check("the lowest real score there is", isScorable(1), true);
+check("zero is not a score", isScorable(0), false);
+check("null", isScorable(null), false);
+check("undefined", isScorable(undefined), false);
+check("NaN", isScorable(NaN), false);
+check("a negative is not a score", isScorable(-10), false);
+
+console.log("\nno score, no price");
+check("score 0 produces NO valuation", roiqFairValue(6000, 0, 150), null);
+check("…the same refusal as no median or no floor area", roiqFairValue(6000, 0, 0), null);
+check("a real score still produces one", roiqFairValue(6000, 650, 150), 1_023_750);
+// The exact figure the guard prevents: Kokatahi's $699,000 asking price valued
+// at the bottom of the curve off a score nobody produced.
+check("the Kokatahi valuation is refused, not floored", roiqFairValue(2200, 0, 110), null);
 
 console.log(failures === 0 ? "\nQuality curve holds.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);
