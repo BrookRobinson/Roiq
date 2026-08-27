@@ -16,6 +16,7 @@ import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { methodFor, comparablesMatch } from "@/lib/scoring/valuation-method";
+import { maintenanceBasis } from "@/lib/finance/maintenance";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { compareFloorArea } from "@/lib/property/floor-area-check";
 import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
@@ -2311,7 +2312,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   const growthPct = capitalGrowth?.annualRatePct ?? 5;
   const rentDefault = marketRent?.weekly ?? Math.round((price * 0.04) / 52);
 
-  const [inp, setInp] = useState<FinanceInputs>(() => defaultInputs({ persona, price, floorSqm, holdYears, renoCost: renoTotal, weeklyRent: rentDefault, growthPct }));
+  const [inp, setInp] = useState<FinanceInputs>(() => defaultInputs({ persona, price, floorSqm, holdYears, renoCost: renoTotal, weeklyRent: rentDefault, growthPct, buildYear: listing.buildYear }));
   const [rateLoading, setRateLoading] = useState(false);
   const [rateInfo, setRateInfo] = useState<{ source: string; retrievedAt: string; lender: string; options: { label: string; ratePct: number }[] } | null>(null);
   const [rateErr, setRateErr] = useState<string | null>(null);
@@ -2465,7 +2466,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
         <FinNum label="Council rates" value={inp.councilRates} onChange={(v) => set({ councilRates: v })} hint="regional estimate — verify" />
         <FinNum label="Home insurance" value={inp.insurance} onChange={(v) => set({ insurance: v })} hint="rebuild-cost estimate" />
         <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
-          <span style={{ color: "var(--text-secondary)" }}>Maintenance <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>· {Math.round(inp.maintenancePctOfPrice * 1000) / 10}% of price</span></span>
+          <span style={{ color: "var(--text-secondary)" }}>Maintenance <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>· {Math.round(inp.maintenancePctOfPrice * 1000) / 10}% of price · {maintenanceBasis(listing.buildYear, new Date().getFullYear())}</span></span>
           <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(s.maintenance)}</span>
         </div>
         <FinNum label="Body corporate" value={inp.bodyCorp} onChange={(v) => set({ bodyCorp: v })} hint="if applicable" />
@@ -2618,10 +2619,12 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
                     <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>Points</span>
                     <span className="font-bold tabular-nums" style={{ color: c, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{r.earned}/{r.maxPoints}</span>
                   </span>
-                  <span className="inline-flex flex-col items-center rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "2px 10px", minWidth: 84 }}>
-                    <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>Status</span>
-                    <span className="font-bold whitespace-nowrap" style={{ color: HH_TIER_COLOR[r.tier], fontFamily: "Fira Code, monospace", fontSize: 11, lineHeight: 1.3 }}>{hhStatusLabel(r)}</span>
-                  </span>
+                  {/* The spec tier used to be shown here as "Status". It is a
+                      judgement about how MODERN the fitting looks, and beside a
+                      legal-compliance badge it read as a second, contradictory
+                      compliance verdict — "Compliant" and "Dated" side by side
+                      invites the reader to think one of them is wrong. The
+                      compliance badge is the status; the points carry the rest. */}
                 </div>
               </div>
               {canReno && (

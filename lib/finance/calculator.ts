@@ -4,6 +4,8 @@
 // All NZ defaults live here; every value is overridable from the Finance tab UI.
 // ============================================================
 
+import { maintenancePctForAge } from "./maintenance";
+
 export type RateType = "1yr" | "2yr" | "floating";
 export type LoanType = "pi" | "io"; // principal & interest | interest only
 
@@ -236,6 +238,10 @@ export function defaultInputs(args: {
   growthPct: number;
   interestRatePct?: number;
   bodyCorp?: number;
+  /** Scales the maintenance allowance — a new build costs less to keep. */
+  buildYear?: number | null;
+  /** Injected so the figure is reproducible rather than drifting with the clock. */
+  thisYear?: number;
 }): FinanceInputs {
   const ins = insuranceEstimate(args.floorSqm);
   return {
@@ -252,7 +258,7 @@ export function defaultInputs(args: {
     purchaseCostsEnabled: { legal: true, lim: true, inspection: true, loanFee: true, valuation: true },
     councilRates: councilRatesEstimate(args.price),
     insurance: ins.annual,
-    maintenancePctOfPrice: FINANCE_DEFAULTS.maintenancePctOfPrice,
+    maintenancePctOfPrice: maintenancePctForAge(args.buildYear, args.thisYear ?? new Date().getFullYear()),
     bodyCorp: args.bodyCorp ?? 0,
     growthPct: args.growthPct,
     weeklyRent: args.weeklyRent,

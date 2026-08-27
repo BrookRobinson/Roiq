@@ -17,6 +17,7 @@ import { costThreeTier } from "@/lib/reno-costing/three-tier";
 import { valueImprovementItems } from "@/lib/scoring/improvement-values";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
+import { SCORING_MODEL } from "@/lib/scoring/model";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { StoredReport } from "@/lib/report-store";
 import { dispositionFor } from "@/lib/viewing/status";
@@ -179,6 +180,21 @@ export interface NegotiationCase {
 
   critical: NegotiationItem[];
   urgent: NegotiationItem[];
+  /**
+   * Things about the property that scored badly and cannot be put right.
+   *
+   * A view, a section's size, its contour, its aspect, the noise from a road —
+   * the model marks all 29 of them `costBearing: false` because no amount of
+   * money changes them. They used to be filed as "urgent" alongside a leaking
+   * roof, so a letter went to a vendor's agent asking them to remedy
+   * "Section size — poor, replace within 1–2 years", with an indicative cost of
+   * $0. It reads as a form letter written by something that doesn't understand
+   * houses, and it discredits every real finding underneath it.
+   *
+   * They still belong in the document — they are why the buyer is offering what
+   * they are offering — but as reasons, not as a repair bill.
+   */
+  characteristics: NegotiationItem[];
   remedies: NegotiationRemedy[];
 
   repairsLow: number;
@@ -196,6 +212,15 @@ export interface NegotiationCase {
    */
   viewing: ViewingOutcome | null;
 }
+
+/**
+ * Which items are things money can fix.
+ *
+ * The model states it per item. 29 of them are `costBearing: false` — a view, a
+ * section's size, its contour, road noise — and no schedule of works can touch
+ * any of them.
+ */
+const COST_BEARING = new Map(SCORING_MODEL.map((i) => [i.id, i.costBearing]));
 
 export const bandFor = (score: number): Band | null => (score <= 2 ? "critical" : score <= 4 ? "urgent" : null);
 
@@ -283,6 +308,7 @@ export function buildNegotiationCase(
 
   const critical: NegotiationItem[] = [];
   const urgent: NegotiationItem[] = [];
+  const characteristics: NegotiationItem[] = [];
   const remedies: NegotiationRemedy[] = [];
 
   const answers = viewingState?.answers ?? {};
@@ -377,7 +403,13 @@ export function buildNegotiationCase(
         buyerNote: answer === "problem" ? buyerNote : undefined,
         photoEvidence: viewingState?.photos?.[s.id]?.showsItem || undefined,
       };
-      (band === "critical" ? critical : urgent).push(item);
+      // Nothing you can spend money on doesn't go in a schedule of works,
+      // however badly it scored. `costBearing` is the model's own word for it.
+      if (COST_BEARING.get(s.id) === false) {
+        characteristics.push({ ...item, costLow: 0, costHigh: 0 });
+      } else {
+        (band === "critical" ? critical : urgent).push(item);
+      }
     }
   }
 
@@ -420,6 +452,7 @@ export function buildNegotiationCase(
   const bySeverity = (a: NegotiationItem, b: NegotiationItem) => a.score - b.score || b.costHigh - a.costHigh;
   critical.sort(bySeverity);
   urgent.sort(bySeverity);
+  characteristics.sort(bySeverity);
 
   const all = [...critical, ...urgent];
   const repairsLow = all.reduce((n, i) => n + i.costLow, 0) + remedies.reduce((n, r) => n + r.costLow, 0);
@@ -460,6 +493,7 @@ export function buildNegotiationCase(
     ask,
     critical,
     urgent,
+    characteristics,
     remedies,
     repairsLow,
     repairsHigh,

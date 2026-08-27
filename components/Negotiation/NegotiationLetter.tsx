@@ -154,6 +154,45 @@ export function NegotiationLetter({
               />
             )}
 
+            {/* Not a schedule of works. A view, a section's size, its contour —
+                the model marks these `costBearing: false` because no money
+                changes them. They used to sit under "Urgent" asking a vendor to
+                remedy "Section size — poor, replace within 1–2 years" at a cost
+                of $0, which reads as a form letter and discredits the real
+                findings above it. They are reasons for the offer, not repairs. */}
+            {data.characteristics.length > 0 && (
+              <section className="mt-8">
+                <h2 className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                  Noted, but not remediable
+                </h2>
+                <p className="mt-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
+                  Characteristics of the property that weigh on value and cannot be put right by any
+                  work. No cost is attributed to them and no remedy is sought — they are set out
+                  because they bear on the price, not because anything can be done about them.
+                </p>
+                <div className="mt-3 space-y-2">
+                  {data.characteristics.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-start justify-between gap-4 px-4 py-3"
+                      style={{ background: "var(--surface-2)", border: "1px solid var(--rule)" }}
+                    >
+                      <div>
+                        <div className="text-[13px] font-semibold" style={{ color: "var(--ink)" }}>{c.name}</div>
+                        {c.observedDefect && (
+                          <div className="mt-0.5 text-[12px]" style={{ color: "var(--text-secondary)" }}>{c.observedDefect}</div>
+                        )}
+                        <div className="mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {c.area}
+                          {c.photoRefs.length > 0 && ` · listing photo${c.photoRefs.length > 1 ? "s" : ""} ${c.photoRefs.join(", ")}`}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {data.remedies.length > 0 && (
               <section className="mt-8">
                 <h2 className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>

@@ -9,6 +9,7 @@
     "lint": "next lint",
     "db:setup-sql": "node scripts/build-setup-sql.mjs",
     "verify:billing": "node --no-warnings scripts/verify-billing.mjs",
+    "verify:maintenance": "node --no-warnings scripts/verify-maintenance.mjs",
     "verify:listing-key": "node --no-warnings scripts/verify-listing-key.mjs",
     "verify:allowance": "node --no-warnings scripts/verify-allowance.mjs",
     "verify:email-key": "node --no-warnings scripts/verify-email-key.mjs",
