@@ -26,6 +26,7 @@ npm run verify:foundation    # foundation scoring from type, era and visible mov
 npm run verify:viewing       # the gate on the agent letter, and what it may claim about each item
 npm run verify:title         # title scored from tenure, and the warnings a buyer must not miss
 npm run verify:map-valuation # when the map may show a valuation, and what it must say when it can't
+npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
 
@@ -48,6 +49,12 @@ vendor's agent.
   `GenericSchema` constraint and **every typed query silently resolves to
   `never`** — which is what the scattered `as never` casts were working around.
   If a query types as `never`, check this first.
+- **PostgREST silently truncates a read at 1,000 rows.** `.limit(2000)` returns
+  1,000 rows and no error, so a full page is indistinguishable from the end of
+  the table. It showed the first 1,000 of 1,906 pins on the map, and had the
+  discovery job deduplicating against the first 2% of a 41,103-row table — so a
+  property somebody had already analysed could quietly gain a second, scoreless
+  pin beside it. Use `readAllPages` from `lib/supabase/paged.ts`.
 - **A Next.js route file may only export route handlers.** Extra exported types
   or constants fail the generated type check — put them in `lib/`.
 - **Folders starting with `_` are private** and never routed.
@@ -71,6 +78,8 @@ vendor's agent.
 | `lib/billing/` | `plans.ts` is pure and safe to import anywhere; `stripe.ts` is server-only. |
 | `lib/scoring/` | The 1,000-point engine. `model.ts` is the rubric, `engine.ts` scores, `catalog.ts` is the item list. |
 | `lib/map/`, `lib/reports/`, `lib/negotiation/`, `lib/email/`, `lib/auth/` | Feature libs. Server-only modules say so at the top. |
+| `lib/map/delisting.ts` | When a crawl may conclude a listing has gone. Dependency-free on purpose. |
+| `lib/supabase/paged.ts` | `readAllPages` — any read that isn't deliberately one page. See the trap below. |
 | `supabase/migrations/` | Source of truth for schema. Regenerate `setup.sql` after adding one. |
 
 ## Rules that aren't obvious from the code
@@ -120,6 +129,40 @@ caught showing $0.
 the demo, so only non-uuid ids (`rpt_*`, `sample-*`) may do that. A real id that
 isn't found says so. Map pins publish report ids — rendering 14 Ferndale Rd under
 someone else's address is the failure mode this guards against.
+
+**A listing leaving the index is recorded, and it is not recorded as a sale.**
+Every pin used to claim it was for sale forever. Now a complete crawl that
+can't find a listing notes it (`missing_since`), and the NEXT complete crawl
+that still can't find it writes `listing_status = 'removed'`, `delisted_at`, and
+`last_asking_price` — frozen, because the page is gone within days and a sale
+price arriving months later has nothing to compare against unless we kept it.
+That pairing is the whole point: a bought sale price says what a house sold for
+and cannot say what condition it was in. We can, but only for properties we had
+already analysed, and only if the record exists before the price arrives.
+
+`removed`, never `sold`. From outside, a sale and a withdrawal are identical.
+`sale_price` / `sale_date` / `sale_source` are written by a sale feed and by
+nothing else.
+
+**Most of `lib/map/delisting.ts` is refusals, and that is the feature.** Absence
+is also exactly what a broken crawl looks like — an empty shard, a short index,
+a `regions=` someone forgot they passed — and the resulting write is not
+undoable in any useful sense: once four thousand houses are stamped as having
+left the market, nothing in the data says which ones really did. So a crawl may
+only conclude if it read BOTH sitemaps, with no `since` filter, no region
+filter and no failed shard, and still found at least half the pins we hold. A
+refused sweep is a normal outcome and the run log says which refusal. In
+practice the nightly incremental run never sweeps; the weekly `?sweep=1` cron
+does. Sweep mode deliberately skips the listing upserts, the geocoding and the
+market refresh — a full crawl plus 41,000 upserts plus a 150-second geocoding
+budget does not fit in the route's 300-second ceiling, and the step that would
+get cut short is the one that matters.
+
+**A pin that isn't in the index we crawled is not a missing pin.** A property
+analysed from a Trade Me link has no entry in OneRoof's sitemap and never will.
+`HeldPin.indexKey` is null for those and they are skipped outright — treating
+"not in the index we read" as "gone from the market" would delist every one of
+them on the first sweep.
 
 **A valuation we couldn't make is not a fair price.** Our valuation needs a
 suburb $/m² from recent sales AND a floor area, and neither is guaranteed — a

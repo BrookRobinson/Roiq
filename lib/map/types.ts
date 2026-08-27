@@ -58,7 +58,13 @@ export interface MapListing {
   /** The portal page this pin came from — what "Analyse this property" opens. */
   listingUrl: string | null;
   fullReportId: string | null;              // link to an existing Tectara, if any
-  status: "active" | "sold";
+  /**
+   * `removed` = the listing left the portal's for-sale index and a second
+   * complete crawl confirmed it. Removed, NOT sold: a withdrawal and a sale
+   * look identical from outside, so `sold` stays reserved for a row a sale
+   * feed has actually priced. See lib/map/delisting.ts.
+   */
+  status: "active" | "sold" | "removed";
 
   /**
    * Has this property actually been analysed?

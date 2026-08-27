@@ -3,7 +3,13 @@ import { getRealListings } from "@/lib/map/store";
 import { persistMapListing } from "@/lib/map/persist";
 import { fetchSuburbRentDetail, fetchSuburbGrowth } from "@/lib/map/sources";
 import { discoverListings } from "@/lib/map/discovery";
-import { persistDiscoveredListings, geocodeMissingPins, persistPropertyTypes } from "@/lib/map/discovery-store";
+import {
+  persistDiscoveredListings,
+  geocodeMissingPins,
+  persistPropertyTypes,
+  sweepDelisted,
+} from "@/lib/map/discovery-store";
+import { ALL_CATEGORIES } from "@/lib/map/delisting";
 import { crawlRegionTypes, ONEROOF_REGIONS } from "@/lib/map/property-types";
 
 export const runtime = "nodejs";
@@ -79,7 +85,15 @@ async function handle(req: NextRequest) {
   // actually needs. `?regions=west-coast` narrows it to matching shard names so
   // a backfill can be done a region at a time inside the route's time ceiling.
   const url = new URL(req.url);
-  const full = url.searchParams.get("full") === "1";
+  // `?sweep=1` is the weekly reconciliation pass: a complete crawl whose only
+  // purpose is to work out what has LEFT the index. It reads everything and
+  // writes almost nothing — no listing upserts, no geocoding, no market
+  // refresh — because a full crawl plus 41,000 upserts plus a 150-second
+  // geocoding budget does not fit in this route's 300-second ceiling, and the
+  // step that would get cut short is the one that matters. Adding listings is
+  // the nightly incremental run's job and it is good at it.
+  const sweepOnly = url.searchParams.get("sweep") === "1";
+  const full = sweepOnly || url.searchParams.get("full") === "1";
   const regionsParam = url.searchParams.get("regions");
   const regions = regionsParam ? regionsParam.split(",").map((r) => r.trim()).filter(Boolean) : null;
 
@@ -91,7 +105,34 @@ async function handle(req: NextRequest) {
     ? (catParam.split(",").map((c) => c.trim()).filter((c) => c === "residential" || c === "rural") as ("residential" | "rural")[])
     : undefined;
   const found = await discoverListings({ since, regions, categories });
-  const discovery = await persistDiscoveredListings(found.listings);
+  const discovery = sweepOnly ? null : await persistDiscoveredListings(found.listings);
+
+  // ── 2c. Off-market sweep ─────────────────────────────────────────────────
+  // A property that has left the index has sold, been withdrawn, or expired,
+  // and until now nothing noticed: every pin claimed to be for sale forever,
+  // and the asking price it left at — the one number a sale price is worth
+  // comparing to — was never written down anywhere.
+  //
+  // Runs itself off the crawl that just happened rather than taking a flag,
+  // because the question isn't "did someone ask for a sweep" but "did this
+  // crawl actually see the whole index". An incremental night, a region
+  // backfill or a single failed shard all make absence meaningless, so the
+  // sweep declines and says which. In practice that means the nightly
+  // incremental run never sweeps and the weekly `?sweep=1` run does.
+  const delisting = await sweepDelisted(found.listings, {
+    since,
+    regions,
+    categories: categories ?? ALL_CATEGORIES,
+    shardsRead: found.shardsRead,
+    shardsFailed: found.shardsFailed,
+  });
+  if (delisting.refusal) {
+    console.log(`[delisting] not swept — ${delisting.because ?? delisting.refusal}`);
+  } else if (delisting.delisted || delisting.suspected) {
+    console.log(
+      `[delisting] ${delisting.delisted} confirmed off-market, ${delisting.suspected} missing for the first time`
+    );
+  }
 
   // Sitemap URLs carry an address but no coordinates, and a pin without them
   // lands at 0,0 rather than on the map. Capped per run so a backlog drains
@@ -125,7 +166,9 @@ async function handle(req: NextRequest) {
     }
   }
 
-  const geo = await geocodeMissingPins({
+  const geo = sweepOnly
+    ? { geocoded: 0, failed: 0, remaining: 0, stopped: "done" as const }
+    : await geocodeMissingPins({
     limit: Number(url.searchParams.get("geocodeLimit")) || undefined,
     timeBudgetMs: Number(url.searchParams.get("geocodeMs")) || undefined,
     // Raised only for a deliberate, attended backfill. The nightly default stays
@@ -134,9 +177,9 @@ async function handle(req: NextRequest) {
     // address can cost two round trips — which is why the nightly run drains
     // roughly 80 an hour and a 30,000-listing backfill needs its own pass.
     concurrency: Number(url.searchParams.get("geocodeConcurrency")) || undefined,
-  });
+      });
 
-  if (discovery.changed.length) {
+  if (discovery && discovery.changed.length) {
     // A portal edit on a property we already hold means a cached report may now
     // describe a price or a set of photos that are gone. The reuse check
     // catches that on the next paste anyway — this is the early warning.
@@ -156,7 +199,7 @@ async function handle(req: NextRequest) {
   // holds the national index rather than a handful of reports, walking all of
   // them would spend the whole run doing lookups against empty rows and blow
   // the route's budget before reaching the ones that matter.
-  const targets = (await getRealListings()).filter((l) => l.analysed);
+  const targets = sweepOnly ? [] : (await getRealListings()).filter((l) => l.analysed);
   const listings: typeof targets = [];
   for (const l of targets) {
     if (!l.suburb) {
@@ -199,11 +242,17 @@ async function handle(req: NextRequest) {
   const run = {
     at: new Date().toISOString(),
     typeCrawl: typeCrawl.length ? typeCrawl : undefined,
-    discovery: {
+    sweepOnly: sweepOnly || undefined,
+    // What the crawl read, reported whether or not anything was written from
+    // it — a sweep run persists no listings, and "shardsFailed: 1" is the whole
+    // reason it would then decline to conclude anything.
+    crawl: {
       since,
       shardsRead: found.shardsRead,
       shardsFailed: found.shardsFailed,
       seen: found.listings.length,
+    },
+    discovery: discovery && {
       added: discovery.added,
       updated: discovery.updated,
       skippedAnalysed: discovery.skippedAnalysed,
@@ -211,6 +260,7 @@ async function handle(req: NextRequest) {
       failed: discovery.failed,
       reason: discovery.reason ?? null,
     },
+    delisting,
     geocoding: geo,
     refreshing: targets.length,
     rentRefreshed,

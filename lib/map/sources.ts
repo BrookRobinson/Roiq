@@ -34,7 +34,7 @@ export interface RawListing {
   photos: string[];
   description: string;
   listedAt: string;
-  status: "active" | "sold";
+  status: "active" | "sold" | "removed";
 }
 
 /**

@@ -12,9 +12,19 @@
 // ============================================================
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { readAllPages } from "@/lib/supabase/paged";
 import { normaliseListingUrl, propertyKey } from "@/lib/reports/listing-key";
 import type { DiscoveredListing } from "@/lib/map/discovery";
 import { geocodeAddress } from "@/lib/map/geocode";
+import {
+  planSweep,
+  seenEnough,
+  sweepRefusal,
+  REFUSAL_REASON,
+  type CrawlScope,
+  type HeldPin,
+  type SweepRefusal,
+} from "@/lib/map/delisting";
 
 export interface DiscoveryPersistResult {
   added: number;
@@ -51,10 +61,24 @@ export async function persistDiscoveredListings(
 
   try {
     // Everything already on the map, by URL and by key.
-    const { data: existing, error } = await supabase
-      .from("map_listings")
-      .select("source_key, listing_url, address, suburb, portal_last_modified, full_report_ref");
-    if (error) throw new Error(error.message);
+    //
+    // Paged. This was a single unbounded select, which PostgREST silently
+    // truncates at 1,000 rows — so with 41,103 pins the "has anyone analysed
+    // this property already?" check was reading the first 2% of the table and
+    // answering no for the rest, which is how an analysed house gains a second
+    // scoreless pin beside it.
+    const existing = await readAllPages<{
+      source_key: string | null;
+      listing_url: string | null;
+      address: string | null;
+      suburb: string | null;
+      portal_last_modified: string | null;
+      full_report_ref: string | null;
+    }>(() =>
+      supabase
+        .from("map_listings")
+        .select("source_key, listing_url, address, suburb, portal_last_modified, full_report_ref")
+    );
 
     // Several rows can point at one property — a pin from a report and a pin
     // from a previous night's discovery. Keyed by URL, they must be considered
@@ -130,6 +154,12 @@ export async function persistDiscoveredListings(
         portal_last_modified: l.lastModified,
         discovered_at: prior ? undefined : now,
         last_seen: now,
+        // Seeing it in the index settles the question. A pin we suspected had
+        // gone hasn't, and one we'd concluded had gone has been re-listed —
+        // either way it is on the market now, and a delisting date sitting on
+        // an active listing is a contradiction, not a record.
+        missing_since: null,
+        delisted_at: null,
       });
 
       if (prior) result.updated++;
@@ -296,4 +326,166 @@ export async function persistPropertyTypes(
   }
 
   return { updated, failed };
+}
+
+// ── Off-market sweep ────────────────────────────────────────────────────────
+
+export interface DelistingSweepResult {
+  /** False when the crawl wasn't entitled to conclude anything. */
+  ran: boolean;
+  refusal?: SweepRefusal;
+  /** Plain-English version of the refusal, for the run log. */
+  because?: string;
+  /** Pins confirmed gone — absent from two complete crawls running. */
+  delisted: number;
+  /** Pins absent for the first time. Noted, nothing written to the map. */
+  suspected: number;
+  /** Pins back in the index, suspicion withdrawn. */
+  returned: number;
+  /** Active pins that were in the crawled index at all. */
+  eligible: number;
+  seen: number;
+  failed: number;
+  reason?: string;
+}
+
+/** Only OneRoof URLs are in the index this sweep crawled. */
+function oneRoofKey(url: string | null): string | null {
+  if (!url || !/^https?:\/\/(www\.)?oneroof\.co\.nz\//i.test(url)) return null;
+  return normaliseListingUrl(url);
+}
+
+/**
+ * Record which listings have left the market.
+ *
+ * The signal is absence from OneRoof's for-sale index. That is also exactly
+ * what a half-broken crawl looks like, so almost all of the work here is
+ * declining to act: `sweepRefusal` rejects any crawl that wasn't a complete
+ * read of both sitemaps, `seenEnough` rejects one that came back implausibly
+ * short, and `planSweep` requires a listing to go missing twice before writing
+ * anything down. A refused sweep is a normal outcome and says why.
+ *
+ * What it writes is `removed`, never `sold`. A listing leaves a portal because
+ * it sold, because it was withdrawn, or because the vendor gave up, and from
+ * outside those are identical. The asking price is frozen at the same
+ * moment because that is the number that stops being knowable — the page is
+ * gone within days, and a sale price arriving months later has nothing to be
+ * compared against unless we kept it.
+ */
+export async function sweepDelisted(
+  crawled: readonly { url: string }[],
+  scope: CrawlScope
+): Promise<DelistingSweepResult> {
+  // Normalised the same way the held pins are, or nothing matches and the
+  // sweep delists the entire index on its second run.
+  const seenUrls = new Set<string>();
+  for (const l of crawled) {
+    const key = oneRoofKey(l.url);
+    if (key) seenUrls.add(key);
+  }
+
+  const idle: DelistingSweepResult = {
+    ran: false,
+    delisted: 0,
+    suspected: 0,
+    returned: 0,
+    eligible: 0,
+    seen: seenUrls.size,
+    failed: 0,
+  };
+
+  const refusal = sweepRefusal(scope);
+  if (refusal) return { ...idle, refusal, because: REFUSAL_REASON[refusal] };
+
+  const supabase = createAdminClient();
+  if (!supabase) return { ...idle, reason: "no_database" };
+
+  try {
+    const active = await readAllPages<{
+      source_key: string | null;
+      listing_url: string | null;
+      listing_status: string | null;
+      missing_since: string | null;
+      asking_price: number | null;
+    }>(() =>
+      supabase
+        .from("map_listings")
+        .select("source_key, listing_url, listing_status, missing_since, asking_price")
+        .eq("listing_status", "active")
+    );
+
+    const held: HeldPin[] = [];
+    const askingByKey = new Map<string, number | null>();
+    for (const row of active) {
+      if (!row.source_key) continue;
+      held.push({
+        sourceKey: row.source_key,
+        indexKey: oneRoofKey(row.listing_url),
+        missingSince: row.missing_since,
+        listingStatus: row.listing_status,
+      });
+      askingByKey.set(row.source_key, row.asking_price);
+    }
+
+    const eligible = held.filter((p) => p.indexKey).length;
+    // The circuit breaker, measured against the pins this crawl could possibly
+    // have seen rather than the whole table — report pins from other portals
+    // are not in this index and would drag the ratio down for no reason.
+    if (!seenEnough(seenUrls.size, eligible)) {
+      return { ...idle, refusal: "too-few-seen", because: REFUSAL_REASON["too-few-seen"], eligible };
+    }
+
+    const plan = planSweep(held, seenUrls);
+    const now = new Date().toISOString();
+    let failed = 0;
+
+    const update = async (keys: string[], patch: Record<string, unknown>) => {
+      for (let i = 0; i < keys.length; i += 200) {
+        const chunk = keys.slice(i, i + 200);
+        const { error } = await supabase
+          .from("map_listings")
+          .update(patch as never)
+          .in("source_key", chunk);
+        if (error) {
+          console.warn("[delisting] chunk failed:", error.message);
+          failed += chunk.length;
+        }
+      }
+    };
+
+    await update(plan.returned, { missing_since: null });
+    await update(plan.suspect, { missing_since: now });
+
+    // The asking price has to be copied per row, and PostgREST can't set a
+    // column from another column. Grouping by value makes it a handful of
+    // updates rather than one per listing — and for discovered pins it is a
+    // single batch, because the sitemap carries no price and they are all null.
+    const byAsking = new Map<number | null, string[]>();
+    for (const key of plan.delist) {
+      const price = askingByKey.get(key) ?? null;
+      const bucket = byAsking.get(price) ?? [];
+      bucket.push(key);
+      byAsking.set(price, bucket);
+    }
+    for (const [price, keys] of byAsking) {
+      await update(keys, {
+        listing_status: "removed",
+        delisted_at: now,
+        missing_since: null,
+        last_asking_price: price,
+      });
+    }
+
+    return {
+      ran: true,
+      delisted: plan.delist.length,
+      suspected: plan.suspect.length,
+      returned: plan.returned.length,
+      eligible,
+      seen: seenUrls.size,
+      failed,
+    };
+  } catch (err) {
+    return { ...idle, reason: (err as Error).message };
+  }
 }

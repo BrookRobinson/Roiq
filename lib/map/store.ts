@@ -12,6 +12,7 @@ import { SEED_LISTINGS, seedById } from "./seed";
 import { getUserListings, getUserListingById } from "./user-listings";
 import { DEFAULT_VARIABLES, withDefaults, variablesFromColumns } from "./variables";
 import { computeListing, realValuation } from "./calc";
+import { readAllPages } from "@/lib/supabase/paged";
 import type { MapListing, UserVariables } from "./types";
 
 type MapListingInsert = Database["public"]["Tables"]["map_listings"]["Insert"];
@@ -67,7 +68,8 @@ function rowToMapListing(r: MapListingRow): MapListing {
     // that's a reference, not somewhere to send anyone.
     listingUrl: r.listing_url && /^https?:\/\//i.test(r.listing_url) ? r.listing_url : null,
     fullReportId: r.full_report_ref ?? r.full_report_id,
-    status: r.listing_status === "sold" ? "sold" : "active",
+    status:
+      r.listing_status === "sold" || r.listing_status === "removed" ? r.listing_status : "active",
     // Only a real analysis ever writes a score, so its presence is the test.
     analysed: r.quick_quality_score != null,
   };
@@ -82,31 +84,6 @@ function rowToMapListing(r: MapListingRow): MapListing {
  * mixing invented listings in with real ones, on a product whose whole promise
  * is sourced numbers, would be the wrong trade.
  */
-/**
- * Read every matching row, not just the first page.
- *
- * PostgREST caps a response at its own max-rows setting — 1,000 by default —
- * and does it silently: `.limit(2000)` returns 1,000 rows and no error, so a
- * full page is indistinguishable from the end of the table. With fewer than a
- * thousand listings nobody noticed; with the national index it meant the map
- * quietly showed the first 1,000 of 1,906.
- */
-const PAGE = 1000;
-const MAX_ROWS = 50_000; // a backstop, not a limit anyone should reach
-
-async function readAllPages<T>(
-  build: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }> }
-): Promise<T[]> {
-  const all: T[] = [];
-  for (let from = 0; from < MAX_ROWS; from += PAGE) {
-    const { data, error } = await build().range(from, from + PAGE - 1);
-    if (error) throw error;
-    if (!data?.length) break;
-    all.push(...data);
-    if (data.length < PAGE) break;
-  }
-  return all;
-}
 
 /**
  * The property types the map can filter on, in the order they're offered.

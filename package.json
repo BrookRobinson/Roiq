@@ -19,6 +19,7 @@
     "verify:title": "node --no-warnings scripts/verify-title.mjs",
     "verify:floor-area": "node --no-warnings scripts/verify-floor-area.mjs",
     "verify:map-valuation": "node --no-warnings scripts/verify-map-valuation.mjs",
+    "verify:delisting": "node --no-warnings scripts/verify-delisting.mjs",
     "build:zoning": "node --no-warnings scripts/build-zoning-registry.mjs"
   },
   "dependencies": {

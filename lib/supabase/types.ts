@@ -257,14 +257,37 @@ export interface Database {
           investor_colour: string | null;
           last_scored_at: string | null;
           last_checked_at: string | null;
+          // 20260827_delisting — see lib/map/delisting.ts for why absence is
+          // noted before it is concluded, and why nothing here says "sold".
+          missing_since: string | null;
+          delisted_at: string | null;
+          last_asking_price: number | null;
+          sale_price: number | null;
+          sale_date: string | null;
+          sale_source: string | null;
         };
         Insert: Omit<
           Database["public"]["Tables"]["map_listings"]["Row"],
-          "id" | "portal_last_modified" | "discovered_at"
+          | "id"
+          | "portal_last_modified"
+          | "discovered_at"
+          | "missing_since"
+          | "delisted_at"
+          | "last_asking_price"
+          | "sale_price"
+          | "sale_date"
+          | "sale_source"
         > &
           Partial<Pick<
             Database["public"]["Tables"]["map_listings"]["Row"],
-            "portal_last_modified" | "discovered_at"
+            | "portal_last_modified"
+            | "discovered_at"
+            | "missing_since"
+            | "delisted_at"
+            | "last_asking_price"
+            | "sale_price"
+            | "sale_date"
+            | "sale_source"
           >>;
         Update: Partial<Database["public"]["Tables"]["map_listings"]["Insert"]>;
         Relationships: [];

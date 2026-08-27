@@ -1,5 +1,12 @@
 {
   "crons": [
-    { "path": "/api/map/score-run", "schedule": "0 14 * * *" }
+    {
+      "path": "/api/map/score-run",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/map/score-run?sweep=1",
+      "schedule": "0 16 * * 0"
+    }
   ]
 }
