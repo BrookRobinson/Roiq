@@ -22,6 +22,7 @@
 import { valueImprovementItems } from "./improvement-values";
 import { valueExtraDwellings } from "./extra-dwelling-value";
 import { valueLand, roiqValuation, type RoiqValuation } from "./valuation";
+import { methodFor, comparablesMatch, type ValuationMethod } from "./valuation-method";
 import type { SuburbValue } from "./investment";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { ExtraDwelling } from "@/lib/property-tab/types";
@@ -41,6 +42,10 @@ export interface PropertyValueInput {
   landAreaSqm: number | null;
   extraDwellings?: ExtraDwelling[];
   suburbValue?: SuburbValue | null;
+  /** LINZ's tenure. The thing that decides whether there is land to value. */
+  titleType?: string | null;
+  /** The portal's label — weak evidence, used only where tenure is silent. */
+  propertyType?: string | null;
 }
 
 export interface PropertyValue extends RoiqValuation {
@@ -48,6 +53,20 @@ export interface PropertyValue extends RoiqValuation {
   mainBuildingValue: number;
   /** Sleepout, minor dwelling and the like — depreciated, less compliance work. */
   extraDwellingValue: number;
+  /** Which method produced this. The report says so; a figure with no stated
+   *  method is a figure the reader can't argue with. */
+  method: ValuationMethod;
+  /**
+   * Set when the figure is what a TYPICAL property of this type and size
+   * fetches, with no adjustment for how this one presents.
+   *
+   * The condition read still exists and the report shows it — what doesn't
+   * exist yet is any evidence for how many dollars a condition point is worth
+   * in an apartment market, and inventing a multiplier for it is the thing this
+   * codebase keeps having to undo. Until real sales say otherwise, the number
+   * is sourced and the caveat is printed.
+   */
+  typicalForType?: boolean;
 }
 
 /**
@@ -59,6 +78,18 @@ export interface PropertyValue extends RoiqValuation {
  * as a whole one.
  */
 export function valueProperty(input: PropertyValueInput): PropertyValue | null {
+  const method = methodFor({
+    propertyType: input.propertyType,
+    titleType: input.titleType,
+    floorAreaSqm: input.floorAreaSqm,
+    landAreaSqm: input.landAreaSqm,
+  });
+
+  if (method === "floor-area-comparables") return valueByFloorArea(input, method);
+  // Bare land is deliberately withheld — the land rate is stretched well past
+  // what it was built from, and on a land report that IS the whole answer.
+  if (method !== "land-and-building") return null;
+
   const improvements = valueImprovementItems({
     subItems: input.subItems,
     floorAreaSqm: input.floorAreaSqm,
@@ -79,5 +110,46 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
     ...rv,
     mainBuildingValue: improvements.buildingValue,
     extraDwellingValue: extra,
+    method,
+  };
+}
+
+/**
+ * An apartment, a unit, or anything on a title that gives its owner no section
+ * of their own.
+ *
+ * The method is the one the market itself uses: what comparable sales of this
+ * type fetch per square metre of floor area, times this property's floor area.
+ * There is no land term because there is no land to add — that is the whole
+ * reason the house method returns nothing here.
+ *
+ * The comparables must be for the RIGHT TYPE. A suburb median built from house
+ * sales says nothing about what an apartment fetches in the same street, and
+ * reaching for it because it was the figure to hand is how the map ended up
+ * valuing a 342m² West Coast building at $1.17m. `comparablesMatch` refuses it.
+ *
+ * NO CONDITION MULTIPLIER IS APPLIED, and that is deliberate. We can see the
+ * condition — that is the product — but nobody has yet measured what a
+ * condition point is worth per square metre in an apartment market, and picking
+ * one would be the same invented staircase this codebase has already had to
+ * delete once. So the figure says what a typical apartment of this size fetches
+ * around here, `typicalForType` is set, and the report prints the caveat.
+ */
+function valueByFloorArea(input: PropertyValueInput, method: ValuationMethod): PropertyValue | null {
+  const floor = input.floorAreaSqm ?? 0;
+  const sv = input.suburbValue;
+  if (floor <= 0 || !sv?.medianPerSqm) return null;
+  if (!comparablesMatch(input.propertyType, sv.propertyType)) return null;
+
+  const total = Math.round(sv.medianPerSqm * floor);
+  if (total <= 0) return null;
+
+  const rv = roiqValuation(total, { landValue: 0, ratePerSqm: 0, landAreaSqm: 0, isEstimate: true });
+  return {
+    ...rv,
+    mainBuildingValue: total,
+    extraDwellingValue: 0,
+    method,
+    typicalForType: true,
   };
 }

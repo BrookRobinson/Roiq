@@ -27,6 +27,7 @@ npm run verify:foundation    # foundation scoring from type, era and visible mov
 npm run verify:viewing       # the gate on the agent letter, and what it may claim about each item
 npm run verify:title         # title scored from tenure, and the warnings a buyer must not miss
 npm run verify:map-valuation # when the map may show a valuation, and what it must say when it can't
+npm run verify:valuation-method # which method fits which property — tenure decides, not the label
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
 npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
@@ -224,6 +225,32 @@ copy blamed thin comparable sales, when the real cause was a report the server
 could no longer read. A pin can see two things: a listing with no floor area and
 a listing with no land area. Everything else is invisible from there, so the
 fall-through names no cause at all.
+
+**Tenure picks the method, not the marketing label.** One method used to be
+applied to everything — land + the building on it — which is right for a house
+on its own section and silently wrong for an apartment, which has no land at
+all. Every apartment in the country came back unvalued with no explanation.
+`lib/scoring/valuation-method.ts` chooses: **land-and-building** for freehold
+with a section, **floor-area-comparables** for anything on a unit title,
+cross lease, leasehold or licence to occupy (and for apartments and units
+whatever the title says), **land-only** for a bare section, **none** when there
+is neither a measurement nor ground. A "townhouse" may be either — freehold on
+its own section is a house for valuing purposes, unit title is an apartment with
+stairs — and only LINZ can tell you which.
+
+**A house median may never value an apartment.** They are different markets in
+the same street. `SuburbValue` records the type its comparables were filtered to
+— `lib/ai/comparables.ts` already searches per type — and `comparablesMatch()`
+refuses a mismatch outright rather than reaching for the figure to hand. That
+reach is how a 342m² West Coast building was once valued at $1.17m.
+
+**The apartment figure carries NO condition multiplier, deliberately.** The
+condition read exists and the report shows it; what does not exist is any
+evidence for what a condition point is worth per m² in an apartment market, and
+picking one would be the same invented staircase this codebase has already
+deleted once. So the number says what a TYPICAL property of that type and size
+fetches, `typicalForType` is set, and the caveat is printed. Real sales replace
+the assumption; nothing else may.
 
 **One property, one valuation, one place it comes from.** There were two. The
 report added an itemised building value to a land value; the map ran its own

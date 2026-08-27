@@ -63,6 +63,8 @@ export async function POST(req: NextRequest) {
           landAreaSqm: listing.landAreaSqm,
           extraDwellings: result.extraDwellings,
           suburbValue: result.suburbValue,
+          titleType: listing.titleType,
+          propertyType: listing.propertyType,
         })?.total ?? null,
       completeness: {
         photosAnalysed: result.photosAnalysed ?? 0,

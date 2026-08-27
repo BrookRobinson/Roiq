@@ -103,6 +103,8 @@ export function contributionFrom(report: StoredReport): ReportContribution {
         landAreaSqm: report.listing.landAreaSqm,
         extraDwellings: report.extraDwellings,
         suburbValue: report.suburbValue,
+        titleType: report.listing.titleType,
+        propertyType: report.listing.propertyType,
       })?.total ?? null,
     completeness: {
       photosAnalysed: report.photosAnalysed ?? 0,
