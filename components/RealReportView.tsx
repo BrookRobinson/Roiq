@@ -2179,6 +2179,24 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
         </p>
       </div>
 
+      {/* What the figure rests on, stated with the figure rather than buried in
+          the working. Components nobody could see are skipped entirely — no
+          phantom value — which is right and completely invisible unless it is
+          said. Weighted by replacement cost: missing the roof is not the same
+          as missing the letterbox. */}
+      <div className="mt-3 rounded-lg p-2.5" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+        <div className="text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>What this is based on</div>
+        <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+          {improvementValuation.coverage.valued} of {improvementValuation.coverage.possible} building components
+          could be assessed from the photos — {Math.round(improvementValuation.coverage.byCost * 100)}% of the
+          building by replacement cost. Anything not visible is left out of the valuation rather than guessed
+          at, so the more of the building we could see, the tighter this figure is.
+          {suburbValue?.sampleSize
+            ? ` The land half comes from ${suburbValue.sampleSize} recent nearby sales.`
+            : ""}
+        </p>
+      </div>
+
       <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
         Land value is an <strong style={{ color: "var(--text-secondary)" }}>estimate</strong> from suburb comparable sales until a live sold-sales feed is connected. Always obtain a registered valuation before purchasing.
       </p>
@@ -2281,6 +2299,14 @@ function ByComparables({ asking, floorAreaSqm, suburbValue, propertyType, titleT
           ? "There's no separate land figure because the land is already inside what these sell for — every one of those buyers paid for the ground under their home too. Showing it again would count it twice."
           : "There's no separate land figure because the land is already inside what these sell for."}
       </p>
+      <div className="mt-3 rounded-lg p-2.5" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+        <div className="text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>What this is based on</div>
+        <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+          {suburbValue?.sampleSize ?? 0} recent sales of the same kind of property nearby, and this
+          one&apos;s floor area. No part of it is inferred from the condition score.
+        </p>
+      </div>
+
       <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
         This is what a <strong style={{ color: "var(--text-secondary)" }}>typical</strong> one of these fetches at this size. We can see this
         one&apos;s condition — it&apos;s scored throughout this report — but we don&apos;t yet have the sales
@@ -2931,7 +2957,12 @@ function PublicRecordCard({ listing }: { listing: ScrapedListing }) {
 function NotAssessed({ scored }: { scored: ScoreResult }) {
   const [open, setOpen] = useState(false);
   const share = scored.assessedPoints + scored.unassessedPoints;
-  const pct = share > 0 ? Math.round((scored.unassessedPoints / share) * 100) : 0;
+  // Stated as how much WAS checked, not how much was missed. "15% of the points
+  // available" read as though points had been withheld or were still to be won;
+  // nothing is deducted for an unassessed item, it simply isn't in the maths.
+  // "Based on 85% of what we'd normally check" says the same thing and tells the
+  // reader what to do with it — the lower it is, the more a viewing will settle.
+  const assessedPct = share > 0 ? Math.round((scored.assessedPoints / share) * 100) : 100;
 
   return (
     <div className="mt-3 pt-3" style={{ borderTop: "1px dashed var(--border)" }}>
@@ -2943,8 +2974,9 @@ function NotAssessed({ scored }: { scored: ScoreResult }) {
         <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
           Not assessed — not visible in the listing
           <span className="text-[11px] block" style={{ color: "var(--text-muted)" }}>
-            {scored.unassessed.length} item{scored.unassessed.length === 1 ? "" : "s"} left out of the score rather than
-            guessed at — {pct}% of the points available for this property
+            {scored.unassessed.length} thing{scored.unassessed.length === 1 ? "" : "s"} couldn&apos;t be seen in the
+            photos, so {scored.unassessed.length === 1 ? "it was" : "they were"} left out rather than guessed at. This
+            score is based on {assessedPct}% of what we&apos;d normally check.
           </span>
         </span>
         <span className="text-xs mono flex-shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }}>

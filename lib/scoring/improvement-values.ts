@@ -126,6 +126,24 @@ export interface ImprovementValueResult {
   totalValueGap: number; // Σ component value gaps (reno upside)
   ratePerSqm: number | null; // buildingValue / floor area
   floorAreaSqm: number;
+  /**
+   * How much of the building this valuation actually rests on.
+   *
+   * Unassessed components are skipped outright above — no phantom value — which
+   * is right, and invisible. A reader shown a figure built from nine of
+   * seventeen components has no way of knowing that unless it is stated, and a
+   * valuation is the number they will act on. Weighted by replacement cost
+   * rather than counted, because missing the roof is not the same as missing
+   * the letterbox.
+   */
+  coverage: {
+    /** Components with a condition score, so genuinely valued. */
+    valued: number;
+    /** Components this property could have had valued. */
+    possible: number;
+    /** Share of the building's replacement cost that was assessed, 0–1. */
+    byCost: number;
+  };
 }
 
 function sizeFor(scale: ScaleBasis, floor: number, baths: number): number {
@@ -176,6 +194,19 @@ export function valueImprovementItems(args: {
     wRcnCond += rcnNew * conditionFactor(condition);
   }
 
+  // What the valuation is standing on. Counted here rather than inferred later:
+  // a second pass over IMPROVEMENT_BASE_COSTS is the only way to know what this
+  // property COULD have had valued, and only this function knows its sizing.
+  let possible = 0;
+  let rcnPossible = 0;
+  for (const [id, spec] of Object.entries(IMPROVEMENT_BASE_COSTS)) {
+    if (!ITEM_META.get(id)) continue;
+    const rcn = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths));
+    if (rcn <= 0) continue;
+    possible++;
+    rcnPossible += rcn;
+  }
+
   // Base shell depreciates by the components' blended (RCN-weighted) condition.
   const shellCondFactor = wRcn > 0 ? wRcnCond / wRcn : conditionFactor(6);
   const shellValue = floor > 0 ? Math.round(BASE_SHELL_RATE * floor * shellCondFactor) : 0;
@@ -187,6 +218,11 @@ export function valueImprovementItems(args: {
     shellValue,
     buildingValue,
     totalValueGap,
+    coverage: {
+      valued: items.length,
+      possible,
+      byCost: rcnPossible > 0 ? wRcn / rcnPossible : 0,
+    },
     ratePerSqm: floor > 0 ? Math.round(buildingValue / floor) : null,
     floorAreaSqm: floor,
   };
