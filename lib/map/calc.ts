@@ -5,7 +5,7 @@
 // ============================================================
 
 import { projectValue } from "@/lib/scoring/investment";
-import type { MapListing, UserVariables, MapMode, DealColour, ComputedListing } from "./types";
+import type { MapListing, UserVariables, MapMode, DealColour, PinColour, ComputedListing } from "./types";
 
 // ±15% bands for green / orange / red (both modes, per spec).
 const BAND = 15;
@@ -14,6 +14,24 @@ function colourFor(pct: number): DealColour {
   if (pct > BAND) return "green";
   if (pct < -BAND) return "red";
   return "orange";
+}
+
+/**
+ * A stored valuation, or null if it isn't a real one.
+ *
+ * Two ways a row has none. New rows write null when the valuation couldn't be
+ * made. OLDER rows were written when a failed valuation fell back to the ASKING
+ * PRICE — so they hold the vendor's number under our name, indistinguishable
+ * from ours except that it matches the asking price to the dollar. A real
+ * valuation is `median $/m² × quality × floor area` rounded to the dollar, and
+ * landing exactly on a round asking price essentially never happens, so the
+ * exact match is the tell. Withholding the odd real valuation beats publishing
+ * one we invented.
+ */
+export function realValuation(valuation: number | null, askingPrice: number | null): number | null {
+  if (valuation == null) return null;
+  if (askingPrice != null && valuation === askingPrice) return null;
+  return valuation;
 }
 
 /**
@@ -29,8 +47,11 @@ export function computeListing(listing: MapListing, vars: UserVariables, mode: M
   const growthRate = vars.capitalGrowthPct ?? listing.suburbGrowthRatePct;
 
   // ── Homebuyer: valuation vs asking ──────────────────────────────
+  // No valuation, or no asking price, means no gap — not a gap of zero. A zero
+  // reads as "priced exactly right", which is a verdict, and we haven't got one.
   const roiqValuation = listing.roiqValuation;
-  const valuationGapPct = asking > 0 ? ((roiqValuation - asking) / asking) * 100 : 0;
+  const valuationGapPct =
+    roiqValuation != null && asking > 0 ? ((roiqValuation - asking) / asking) * 100 : null;
 
   // ── Investor: projected return over the hold period (spec formula block) ──
   const adjustedPrice = asking + listing.repairAllowance;
@@ -68,9 +89,12 @@ export function computeListing(listing: MapListing, vars: UserVariables, mode: M
   const returnOnDepositPct = deposit > 0 ? (netProfit / deposit) * 100 : 0;
 
   const pct = mode === "homebuyer" ? valuationGapPct : netProfitPctOfInvested;
+  // Investor mode never lands here — it needs the asking price, repairs and
+  // rent, none of which depend on our valuation.
+  const colour: PinColour = pct == null ? "unvalued" : colourFor(pct);
 
   return {
-    colour: colourFor(pct),
+    colour,
     pct,
     holdYears,
     roiqValuation,
@@ -96,3 +120,13 @@ export const DEAL_HEX: Record<DealColour, string> = {
   orange: "#fbbf24",
   red: "#ff5f5f",
 };
+
+/** No verdict — deliberately off the green/orange/red scale, matching the pin. */
+export const NEUTRAL_HEX = "#8b93a1";
+
+/** Colour for any pin state, verdict or not. */
+export function pinHex(colour: PinColour): string {
+  return colour === "green" || colour === "orange" || colour === "red"
+    ? DEAL_HEX[colour]
+    : NEUTRAL_HEX;
+}

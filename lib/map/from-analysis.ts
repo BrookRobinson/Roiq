@@ -77,7 +77,10 @@ export async function buildMapListing(c: ReportContribution, id: string): Promis
       photos: (listing.photoUrls ?? []).filter((u) => typeof u === "string" && u.startsWith("http")).slice(0, 6),
       listingType: null,
       roiqScore: c.score,
-      roiqValuation: medianPerSqm && floor ? roiqFairValue(medianPerSqm, c.score, floor) : asking,
+      // No suburb median or no floor area = no valuation. It used to fall back
+      // to `asking`, which put the vendor's own number on the map under our
+      // name and coloured the pin "fair price" for it.
+      roiqValuation: medianPerSqm && floor ? roiqFairValue(medianPerSqm, c.score, floor) : null,
       medianPerSqm,
       repairAllowance: c.repairAllowance ?? 0,
       repairBreakdown: c.repairBreakdown ?? {},

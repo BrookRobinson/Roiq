@@ -11,7 +11,7 @@ import type { Database, MapListingRow } from "@/lib/supabase/types";
 import { SEED_LISTINGS, seedById } from "./seed";
 import { getUserListings, getUserListingById } from "./user-listings";
 import { DEFAULT_VARIABLES, withDefaults, variablesFromColumns } from "./variables";
-import { computeListing } from "./calc";
+import { computeListing, realValuation } from "./calc";
 import type { MapListing, UserVariables } from "./types";
 
 type MapListingInsert = Database["public"]["Tables"]["map_listings"]["Insert"];
@@ -57,7 +57,7 @@ function rowToMapListing(r: MapListingRow): MapListing {
     photos,
     listingType: (r.listing_type as MapListing["listingType"]) ?? null,
     roiqScore: r.quick_quality_score ?? 0,
-    roiqValuation: r.roiq_valuation ?? 0,
+    roiqValuation: realValuation(r.roiq_valuation, r.asking_price),
     medianPerSqm: null,
     repairAllowance: r.repair_allowance ?? 0,
     repairBreakdown: breakdown,
@@ -284,7 +284,8 @@ export function mapListingInsert(l: MapListing, sourceUrl = ""): MapListingInser
     profit_10yr_est: inv.netProfit,
     opportunity_grade: null,
     roiq_valuation: l.roiqValuation,
-    valuation_vs_asking_pct: Math.round(hb.valuationGapPct * 10) / 10,
+    valuation_vs_asking_pct:
+      hb.valuationGapPct == null ? null : Math.round(hb.valuationGapPct * 10) / 10,
     repair_allowance: l.repairAllowance,
     repair_breakdown: l.repairBreakdown,
     estimated_weekly_rent: l.estimatedWeeklyRent,

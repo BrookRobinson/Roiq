@@ -25,10 +25,13 @@ const UNANALYSED = "#8b93a1";
 const POINT_COLOUR: mapboxgl.Expression = [
   "match", ["get", "colour"],
   "green", "#00e676", "orange", "#fbbf24", "red", "#ff5f5f",
-  "unanalysed", UNANALYSED,
+  // Analysed, but with no valuation behind it, so there is no gap to colour.
+  // The same grey for the same reason: no verdict, said out loud.
+  "unanalysed", UNANALYSED, "unvalued", UNANALYSED,
   "#fbbf24",
 ];
-/** Smaller and dimmer than a scored pin: present, but not competing with a verdict. */
+/** Smaller and dimmer than a scored pin: present, but not competing with a verdict.
+ *  An `unvalued` pin keeps full size — there IS a report behind it to open. */
 const POINT_RADIUS: mapboxgl.Expression = [
   "case", ["==", ["get", "colour"], "unanalysed"], 5, 9,
 ];
@@ -178,7 +181,12 @@ export function PropertyMap({
           g: ["+", ["case", ["==", ["get", "colour"], "green"], 1, 0]],
           o: ["+", ["case", ["==", ["get", "colour"], "orange"], 1, 0]],
           r: ["+", ["case", ["==", ["get", "colour"], "red"], 1, 0]],
-          u: ["+", ["case", ["==", ["get", "colour"], "unanalysed"], 1, 0]],
+          // Both no-verdict states count here, or a cluster of pins we couldn't
+          // value reads green off the two in it that we could.
+          u: [
+            "+",
+            ["case", ["match", ["get", "colour"], ["unanalysed", "unvalued"], true, false], 1, 0],
+          ],
         },
       });
 

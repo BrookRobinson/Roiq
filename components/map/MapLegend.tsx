@@ -10,7 +10,11 @@ const ITEMS: Record<MapMode, Array<[string, string, string]>> = {
     ["#00e676", "+15%", "Underpriced"],
     ["#fbbf24", "±15%", "Fair price"],
     ["#ff5f5f", "−15%", "Overpriced"],
-    ["#8b93a1", "", "Not analysed"],
+    // Grey covers both no-verdict states in this mode: nobody has analysed the
+    // property, or we analysed it and had no suburb sales / no floor area to
+    // value it from. The sheet says which. One swatch, because the reader's
+    // question is the same either way — why has this pin got no number?
+    ["#8b93a1", "", "No verdict yet"],
   ],
   investor: [
     ["#00e676", "+15%", "Strong return"],

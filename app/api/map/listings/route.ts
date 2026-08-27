@@ -44,8 +44,17 @@ export async function GET(req: NextRequest) {
     if (!l.analysed) {
       return { id: l.id, lat: l.lat, lng: l.lng, colour: "unanalysed" as const, pct: null };
     }
+    // Analysed, but in homebuyer mode with nothing to value it against — the
+    // suburb had no sales to median, or there's no floor area to apply them to.
+    // Same treatment: its own colour and no percentage.
     const c = computeListing(l, vars, mode);
-    return { id: l.id, lat: l.lat, lng: l.lng, colour: c.colour, pct: Math.round(c.pct) };
+    return {
+      id: l.id,
+      lat: l.lat,
+      lng: l.lng,
+      colour: c.colour,
+      pct: c.pct == null ? null : Math.round(c.pct),
+    };
   });
 
   // Tell the client whether these are real properties or the demo backdrop, so

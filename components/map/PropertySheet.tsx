@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, ChevronRight, Bookmark, BookmarkCheck, Bed, Bath } from "lucide-react";
 import type { MapListing, ComputedListing, MapMode, UserVariables } from "@/lib/map/types";
-import { DEAL_HEX, pctLabel } from "@/lib/map/calc";
+import { pinHex, pctLabel } from "@/lib/map/calc";
 import { loadReport } from "@/lib/report-store";
 import { useSession } from "@/lib/auth/session";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
@@ -76,7 +76,7 @@ export function PropertySheet({
   // you're on Pro — reading everyone else's analyses is what Pro is for.
   const ownReport = !!l?.fullReportId && !!loadReport(l.fullReportId);
   const hasReport = !!l?.fullReportId && (ownReport || isPro);
-  const hex = c ? DEAL_HEX[c.colour] : "var(--brand)";
+  const hex = c ? pinHex(c.colour) : "var(--brand)";
 
   return (
     <>
@@ -98,13 +98,16 @@ export function PropertySheet({
               <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style={{ background: "rgba(0,0,0,0.55)", color: "#fff" }} aria-label="Close">
                 <X size={16} />
               </button>
-              {l.analysed ? (
+              {/* Three states, and only the first is a verdict: we have a
+                  percentage, nobody has analysed the property, or we analysed it
+                  and had nothing to value it against. */}
+              {c.pct != null ? (
                 <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-sm font-bold mono" style={{ background: hex, color: "#050d0d", boxShadow: `0 2px 12px ${hex}99` }}>
                   {pctLabel(c.pct)}
                 </div>
               ) : (
                 <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-[11px] font-semibold" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>
-                  Not analysed yet
+                  {l.analysed ? "No valuation" : "Not analysed yet"}
                 </div>
               )}
             </div>
@@ -148,14 +151,41 @@ export function PropertySheet({
               ) : mode === "homebuyer" ? (
                 <div className="space-y-2.5">
                   <Row label={`${PRODUCT_SHORT_NAME} Score`} value={`${l.roiqScore}/1000`} />
-                  <Row label={`${PRODUCT_SHORT_NAME} Valuation`} value={money(c.roiqValuation)} />
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm" style={{ color: "var(--text-secondary)" }}>vs Asking Price</span>
-                    <span className="text-sm font-bold mono px-2 py-0.5 rounded-md" style={{ color: hex, background: `${hex}1a` }}>
-                      {pctLabel(c.valuationGapPct)}
-                    </span>
-                  </div>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>{homebuyerNote(c.valuationGapPct)}</p>
+                  {c.roiqValuation == null || c.valuationGapPct == null ? (
+                    /* The property was analysed, but the valuation needs two
+                       inputs we haven't always got: recent suburb sales per m²,
+                       and a floor area to apply them to. Say which one is
+                       missing. The alternative — what this used to do — was to
+                       fall back to the asking price and call it our valuation,
+                       which put a "fair price" verdict on every section and
+                       every suburb with thin sales data. */
+                    <>
+                      <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                        No valuation for this one.{" "}
+                        {l.floorAreaSqm
+                          ? `We value a property from recent sales per m² in ${l.suburb ?? "the suburb"}, and there aren't enough of them here.`
+                          : "We value a property from recent sales per m², and this listing gives no floor area to apply them to."}
+                      </p>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        The score, the repair allowances and the investor projections don&apos;t depend on it.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Row label={`${PRODUCT_SHORT_NAME} Valuation`} value={money(c.roiqValuation)} />
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm" style={{ color: "var(--text-secondary)" }}>vs Asking Price</span>
+                        <span className="text-sm font-bold mono px-2 py-0.5 rounded-md" style={{ color: hex, background: `${hex}1a` }}>
+                          {pctLabel(c.valuationGapPct)}
+                        </span>
+                      </div>
+                      <p className="text-xs" style={{ color: "var(--text-muted)" }}>{homebuyerNote(c.valuationGapPct)}</p>
+                      <p className="text-[11px]" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+                        Estimated from recent sales per m² in {l.suburb ?? "the suburb"}, adjusted for the
+                        condition score. Not a registered valuation.
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -241,9 +271,17 @@ function Row({ label, value, hint, valueColor, bold }: { label: string; value: s
   );
 }
 
+/**
+ * What the gap says — attributed, not asserted.
+ *
+ * This used to open with "Great deal" and "Overpriced", which are verdicts on
+ * somebody's house stated as fact, off a valuation modelled from suburb sales
+ * per m² with no comparable-sales feed behind it yet. The number is the same;
+ * it is now clearly ours, and the line under it says what it was built from.
+ */
 function homebuyerNote(gap: number): string {
   const g = Math.round(gap);
-  if (g > 15) return `Great deal — ${PRODUCT_SHORT_NAME} values it ${g}% above the asking price.`;
-  if (g < -15) return `Overpriced — ${PRODUCT_SHORT_NAME} values it ${Math.abs(g)}% below the asking price.`;
-  return `Fair price — close to ${PRODUCT_NAME}'s estimated value.`;
+  if (g > 15) return `Asking ${g}% under ${PRODUCT_SHORT_NAME}'s estimate.`;
+  if (g < -15) return `Asking ${Math.abs(g)}% over ${PRODUCT_SHORT_NAME}'s estimate.`;
+  return `Asking price is close to ${PRODUCT_NAME}'s estimate.`;
 }

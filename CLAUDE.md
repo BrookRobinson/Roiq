@@ -25,6 +25,7 @@ npm run verify:floor-area    # advertised floor area vs the rating roll, and wha
 npm run verify:foundation    # foundation scoring from type, era and visible movement
 npm run verify:viewing       # the gate on the agent letter, and what it may claim about each item
 npm run verify:title         # title scored from tenure, and the warnings a buyer must not miss
+npm run verify:map-valuation # when the map may show a valuation, and what it must say when it can't
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
 
@@ -119,6 +120,29 @@ caught showing $0.
 the demo, so only non-uuid ids (`rpt_*`, `sample-*`) may do that. A real id that
 isn't found says so. Map pins publish report ids — rendering 14 Ferndale Rd under
 someone else's address is the failure mode this guards against.
+
+**A valuation we couldn't make is not a fair price.** Our valuation needs a
+suburb $/m² from recent sales AND a floor area, and neither is guaranteed — a
+bare section has no floor area, and thin suburbs return no sales to median. When
+that happened the valuation fell back to the **asking price**, which is not a
+fallback: it is the vendor's number handed back as ours. The gap came out at 0%,
+the pin coloured orange, and the sheet said "Fair price — close to Tectara's
+estimated value" about a property nobody had valued — the same class of
+invention as a $0 valuation on an unanalysed pin, and harder to spot because it
+looked like a finding. `MapListing.roiqValuation` is nullable, a null gets the
+`unvalued` pin state (grey, no percentage, alongside `unanalysed`), and the
+sheet says which input was missing. Investor mode is untouched: it is built from
+the asking price, the repairs and the rent, and never needed a valuation.
+`realValuation()` also withholds the rows written in the old era, which are
+identifiable because they match the asking price to the dollar.
+
+**And the verdict is attributed, not asserted.** The sheet used to open with
+"Great deal" and "Overpriced" — verdicts on somebody's house stated as fact, off
+a figure modelled from suburb sales per m² with no comparable-sales feed behind
+it yet. Same number, now clearly ours ("Asking 77% under Tectara's estimate"),
+with a line under it saying what it was built from and that it is not a
+registered valuation. When the sold-sales feed lands, that line changes; the
+shape doesn't.
 
 **Seed listings are a display fallback, never data.** They exist so an empty map
 isn't blank. Writing them to `map_listings` makes invented properties

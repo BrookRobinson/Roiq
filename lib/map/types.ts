@@ -6,6 +6,14 @@ export type MapMode = "homebuyer" | "investor";
 export type DealColour = "green" | "orange" | "red";
 
 /**
+ * What a pin can be on the wire: one of the three verdicts, or a reason there
+ * isn't one. `unanalysed` = nobody has run a report; `unvalued` = we have a
+ * report but no valuation to compare the asking price against. Both are grey,
+ * because inventing a verdict is worse than admitting to not having one.
+ */
+export type PinColour = DealColour | "unvalued" | "unanalysed";
+
+/**
  * A scored listing in the shape the map + detail sheet consume. Mirrors the
  * Supabase `map_listings` row (camelCased) plus the pre-computed scoring outputs
  * the 24-hour job / seed writes. The map never re-runs the AI — it reads these.
@@ -29,7 +37,18 @@ export interface MapListing {
 
   // ── Pre-computed scoring outputs (from analyseProperty + investment math) ──
   roiqScore: number;                        // 0–1000 (buyer base)
-  roiqValuation: number;                    // NZD — roiqFairValue(medianPerSqm, score, floor)
+  /**
+   * Our valuation — or null when we could not make one.
+   *
+   * It needs a suburb $/m² from recent sales AND a floor area, and neither is
+   * guaranteed: a bare section has no floor area at all, and some suburbs come
+   * back with no sales to median. This used to fall back to the ASKING PRICE,
+   * which is not a fallback — it is the vendor's number handed back as ours,
+   * and it made every property we had failed to value read on the map as
+   * "Fair price — close to our estimated value." Null instead, and every
+   * consumer says so rather than showing a figure.
+   */
+  roiqValuation: number | null;             // NZD — roiqFairValue(medianPerSqm, score, floor)
   medianPerSqm: number | null;              // suburb median $/m² used for the valuation
   repairAllowance: number;                  // NZD — summed detected repairs
   repairBreakdown: Record<string, number>;  // e.g. { "Roof replacement": 29000 }
@@ -88,13 +107,15 @@ export interface UserVariables {
 
 /** Everything the map marker + detail sheet need after applying a user's variables. */
 export interface ComputedListing {
-  colour: DealColour;
-  pct: number;                 // the marker % (gap for homebuyer, net-profit-of-invested for investor)
+  colour: PinColour;
+  /** The marker % — gap for homebuyer, net-profit-of-invested for investor.
+   *  Null in homebuyer mode when there is no valuation to compare against. */
+  pct: number | null;
   holdYears: number;
 
   // Homebuyer
-  roiqValuation: number;
-  valuationGapPct: number;
+  roiqValuation: number | null;
+  valuationGapPct: number | null;
 
   // Investor
   adjustedBuyIn: number;       // asking + repair allowance
