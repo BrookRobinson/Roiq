@@ -14,6 +14,7 @@
     "verify:email-key": "node --no-warnings scripts/verify-email-key.mjs",
     "verify:discovery": "node --no-warnings scripts/verify-discovery.mjs",
     "verify:dwelling": "node --no-warnings scripts/verify-dwelling.mjs",
+    "verify:farm": "node --no-warnings scripts/verify-farm.mjs",
     "verify:foundation": "node --no-warnings scripts/verify-foundation.mjs",
     "verify:viewing": "node --no-warnings scripts/verify-viewing.mjs",
     "verify:title": "node --no-warnings scripts/verify-title.mjs",

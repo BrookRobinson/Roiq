@@ -21,6 +21,7 @@ npm run verify:allowance     # who gets how many reports, and what the wall says
 npm run verify:email-key     # which accounts count as one inbox
 npm run verify:discovery     # the sitemap/URL parsers behind nightly discovery
 npm run verify:dwelling      # is there a building to score, and does the address name one property
+npm run verify:farm          # farmland is refused at the door; a lifestyle block never is
 npm run verify:floor-area    # advertised floor area vs the rating roll, and what that must never say
 npm run verify:foundation    # foundation scoring from type, era and visible movement
 npm run verify:viewing       # the gate on the agent letter, and what it may claim about each item
@@ -157,6 +158,22 @@ $242,028 on the map forever. `MapListing.roiqScore` is nullable, and null is not
 "not analysed": a report exists and somebody paid for it. The sheet says so.
 Investor mode still shows everything, because the rent, repairs and projections
 come from the asking price and real feeds and never needed a score.
+
+**Farms are refused at the door, and a lifestyle block never is.** Tectara
+values a home and the ground it sits on. A farm is worth what it PRODUCES —
+hectares, soil, water take, stock units, supply contracts — and none of that is
+in a listing photograph. Running the 1,000-point model over one scores a $3m
+dairy unit on the state of its kitchen. `lib/property/farm.ts` refuses it in
+`/api/analyze` before a cent is spent, with a 422 and a reason the person who
+pasted the link actually sees.
+
+**The signal is the portal's own classification and nothing else.** There is no
+hectare figure separating a farm from a lifestyle block that somebody didn't
+just choose, and a lifestyle block is squarely in scope — a house on a few
+hectares is exactly the customer. Its oversized land figure is already handled
+by `LAND_VALUE_MAX_SQM`, not by turning the person away. A farm that arrives
+untyped isn't caught here and falls through to the dwelling and land-cap checks;
+that is a known gap rather than a silent one.
 
 **A grey pin only becomes a coloured one for a WHOLE report.** A grey pin says
 one honest thing: this property is for sale and nobody has analysed it. The

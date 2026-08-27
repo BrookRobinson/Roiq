@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { type ScrapedListing } from "@/lib/scraper";
 import { resolveListing, resolveListingByAddress, ListingNotFoundError } from "@/lib/listing-resolver";
 import { assessDwelling } from "@/lib/property/dwelling";
+import { assessFarm } from "@/lib/property/farm";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
 import { findReusableReport, isOwnReport, REUSE_MAX_AGE_DAYS } from "@/lib/reports/reuse";
 import { getQuota } from "@/lib/reports/quota";
@@ -125,6 +126,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "missing_input", message: "Provide a `url`, `address`, `listing`, or `photos`." },
         { status: 400 }
+      );
+    }
+
+    // ── Is it a farm? ─────────────────────────────────────────────────────
+    // Stop at the door. Tectara values a home and the ground it sits on; a farm
+    // is worth what it produces, and none of that is in a listing photograph.
+    // Refusing here costs nothing and spends nothing — the alternative is a
+    // $3m dairy unit scored on the state of its kitchen.
+    //
+    // A lifestyle block is NOT a farm and is not refused: a house on a few
+    // hectares is exactly what this app is for.
+    const farm = assessFarm(listing);
+    if (farm.isFarm) {
+      return NextResponse.json(
+        {
+          error: "not_residential",
+          message: `${listing.address ?? "This property"} is a farm — ${farm.reason}.`,
+        },
+        { status: 422 }
       );
     }
 

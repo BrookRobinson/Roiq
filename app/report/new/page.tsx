@@ -4,7 +4,7 @@ import { CopyUrlHelp } from "@/components/CopyUrlHelp";
 import Navbar from "@/components/Navbar";
 import { useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Upload, Link2, Loader2, CheckCircle2, Trees } from "lucide-react";
+import { ArrowRight, Upload, Link2, Loader2, CheckCircle2, Trees, Tractor } from "lucide-react";
 import { saveReport, saveReportPersona } from "@/lib/report-store";
 import type { Persona } from "@/lib/scoring/model";
 import { PersonaChoice, PersonaRequiredDialog } from "@/components/report/PersonaChoice";
@@ -71,6 +71,8 @@ function NewReportInner() {
   // A bare section. Not an error — the listing is fine, there is just no
   // building to score — so it gets an explanation rather than a red box.
   const [noDwelling, setNoDwelling] = useState<string | null>(null);
+  /** Farmland. Out of scope by design, not a failure — see lib/property/farm.ts. */
+  const [notResidential, setNotResidential] = useState<string | null>(null);
   // An address picked from the search, parked while the persona dialog is up so
   // the choice survives it and they don't have to find the property again.
   const [pendingMatch, setPendingMatch] = useState<AnalysedMatch | null>(null);
@@ -113,6 +115,13 @@ function NewReportInner() {
         // URL couldn't be scraped or recovered → offer manual address entry.
         // Bare land. Nothing is broken and nothing was charged — say what the
         // listing is and stop, rather than scoring a house that isn't there.
+        // A farm. Nothing broke, nothing was spent — say what it is and why we
+        // don't do it, rather than dressing a scope decision up as an error.
+        if (res.status === 422 && data.error === "not_residential") {
+          setNotResidential(data.message ?? "This listing is farmland.");
+          setStep("input");
+          return;
+        }
         if (res.status === 422 && data.error === "no_dwelling") {
           setNoDwelling(data.message ?? "This listing has no building on it.");
           setStep("input");
@@ -304,6 +313,30 @@ function NewReportInner() {
                     <Link href="/pricing?plan=starter" className="btn-primary text-sm px-4 py-2">
                       See plans <ArrowRight size={15} />
                     </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {notResidential && (
+              <div className="card p-5 mb-4" style={{ border: "1px solid var(--brand)", background: "var(--accent-wash)" }}>
+                <div className="flex items-start gap-3">
+                  <Tractor size={18} style={{ color: "var(--brand)", flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <div className="font-semibold text-sm mb-1" style={{ color: "var(--text-primary)" }}>
+                      That&apos;s a farm — we don&apos;t value those
+                    </div>
+                    <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{notResidential}</p>
+                    <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+                      {PRODUCT_NAME} values a home and the ground it sits on — its condition, what it
+                      needs spent on it, and what that&apos;s worth against the asking price. A farm is
+                      worth what it produces: the land, the water, the soil, what it carries. That
+                      takes a rural valuer, and it isn&apos;t something we can read off listing photos.
+                    </p>
+                    <p className="text-sm mt-2" style={{ color: "var(--text-secondary)" }}>
+                      None of your reports were used. Lifestyle blocks are fine — a house on a few
+                      hectares is well within what we do.
+                    </p>
                   </div>
                 </div>
               </div>
