@@ -27,6 +27,7 @@ npm run verify:viewing       # the gate on the agent letter, and what it may cla
 npm run verify:title         # title scored from tenure, and the warnings a buyer must not miss
 npm run verify:map-valuation # when the map may show a valuation, and what it must say when it can't
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
+npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
 
@@ -79,6 +80,7 @@ vendor's agent.
 | `lib/scoring/` | The 1,000-point engine. `model.ts` is the rubric, `engine.ts` scores, `catalog.ts` is the item list. |
 | `lib/map/`, `lib/reports/`, `lib/negotiation/`, `lib/email/`, `lib/auth/` | Feature libs. Server-only modules say so at the top. |
 | `lib/map/delisting.ts` | When a crawl may conclude a listing has gone. Dependency-free on purpose. |
+| `lib/valuation/` | The scoreboard: our valuations graded against what the market paid. `scoreboard.ts` is dependency-free. |
 | `lib/supabase/paged.ts` | `readAllPages` — any read that isn't deliberately one page. See the trap below. |
 | `supabase/migrations/` | Source of truth for schema. Regenerate `setup.sql` after adding one. |
 
@@ -129,6 +131,45 @@ caught showing $0.
 the demo, so only non-uuid ids (`rpt_*`, `sample-*`) may do that. A real id that
 isn't found says so. Map pins publish report ids — rendering 14 Ferndale Rd under
 someone else's address is the failure mode this guards against.
+
+**The app grades itself, and a run of bad calls is not yet a bias.** Every
+property we valued that later sells is a scored prediction; until
+`/api/health/valuation` existed, the answer went in the bin. The two traps it
+exists to avoid are both ways of fooling yourself. First, **a handful of sales
+is not a bias**: valuations scatter, three sections selling 20% over our number
+is a reason to LOOK, and chasing the last few sales gives a rate that lurches
+about and is wrong in a new direction every month — under `MIN_SAMPLE` (25) the
+verdict is `insufficient` no matter how damning the median. Second, **an offset
+and a spread are different faults**: a median error of −20% means the rate is
+wrong and moving it fixes everything; a median of zero with sales scattered ±35%
+means the rate is fine and the model is missing a variable, and moving it there
+makes things worse. They are named separately (`biased-low` / `noisy`) so nobody
+treats one as the other. Everything is median-based — one $4m sale in a suburb
+of $600k houses would drag a mean somewhere useless.
+
+**Read `bareLand` first.** A section has no building to estimate, so the sale
+price IS the land value — the cleanest test there is, and the only one with no
+guesswork in it. A systematic miss on sections means the land RATE is wrong, and
+that same rate is buried inside every house valuation in the suburb where you
+can't see it.
+
+**Two refusals in the grader.** A valuation made AFTER the property sold is a
+fit, not a prediction — it read the answer off the page, and grading it would
+report the model as excellent because it was copying. And a sale price with no
+`sale_source` is not evidence. Both are skipped with a reason rather than
+quietly included.
+
+**And `shouldDisclose` is the promise.** Serving a valuation we have MEASURED as
+systematically wrong, without saying so, is the same fault as the map calling a
+house we had never valued a "fair price" — worse, because a buyer acting on a
+number we knew ran 20% low loses every auction they enter. When that flips true,
+the reports owe their readers a sentence.
+
+**The scoreboard reads valuations through `realValuation()`, never the raw
+column.** Rows written before the map fix hold the ASKING PRICE in
+`roiq_valuation`. Grading those would mark the vendor's own number as our
+prediction — and since a property tends to sell near its asking price, it would
+score us as accurate exactly where we had never valued anything.
 
 **A listing leaving the index is recorded, and it is not recorded as a sale.**
 Every pin used to claim it was for sale forever. Now a complete crawl that
