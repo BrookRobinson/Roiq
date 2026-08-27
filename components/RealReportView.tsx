@@ -1664,7 +1664,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
       lines.push({
         key: "hh_draught",
         name: "Draught stopping (Healthy Homes)",
-        detail: draught.compliant
+        detail: draught.compliant !== false
           ? "Built to an era that meets the standard — confirm at inspection"
           : `${era}predates draught-stopping requirements — not assessed, check at the viewing`,
         low: draught.remediation.low,
@@ -2580,7 +2580,9 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
   subItems: SubItem[]; buildYear: number | null; renoControls: RenoControls; onOpenRenovations: () => void;
 }) {
   const results = assessHealthyHomes(subItems, buildYear);
-  const toFix = results.filter((r) => !r.compliant).length;
+  // Only what we've actually established fails. Unknown is not a failure and it
+  // is certainly not a pass.
+  const toFix = results.filter((r) => r.compliant === false).length;
 
   return (
     <div className="rounded-2xl p-5" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
@@ -2608,16 +2610,33 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{r.label}</span>
-                    <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: r.compliant ? "var(--good-wash)" : "var(--bad-wash)", color: r.compliant ? "var(--good)" : "var(--bad)" }}>
-                      {r.compliant ? "Compliant" : "⚖️ Must do, by law"}
+                    {/* Three states, not two. Showing "Compliant" for a standard
+                        nobody established could put a landlord into a tenancy
+                        with a house that isn't. */}
+                    <span
+                      className="text-[11px] px-1.5 py-0.5 rounded-full font-medium"
+                      style={
+                        r.compliant === null
+                          ? { background: "var(--surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }
+                          : { background: r.compliant ? "var(--good-wash)" : "var(--bad-wash)", color: r.compliant ? "var(--good)" : "var(--bad)" }
+                      }
+                    >
+                      {r.compliant === null ? "Not established" : r.compliant ? "Compliant" : "⚖️ Must do, by law"}
                     </span>
+                    {r.basis === "build-era" && (
+                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                        from the build year — not visible in photos
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>{r.requirement}</p>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
                   <span className="inline-flex flex-col items-center rounded-lg" style={{ background: `${c}1f`, border: `1px solid ${c}55`, padding: "2px 10px", minWidth: 64 }}>
                     <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>Points</span>
-                    <span className="font-bold tabular-nums" style={{ color: c, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{r.earned}/{r.maxPoints}</span>
+                    <span className="font-bold tabular-nums" style={{ color: c, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>
+                      {r.assessed ? `${r.earned}/${r.maxPoints}` : `—/${r.maxPoints}`}
+                    </span>
                   </span>
                   {/* The spec tier used to be shown here as "Status". It is a
                       judgement about how MODERN the fitting looks, and beside a
