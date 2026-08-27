@@ -8,7 +8,7 @@
 // costs the market figures and geocode.
 // ============================================================
 
-import { roiqFairValue, isScorable } from "@/lib/scoring/investment";
+import { isScorable } from "@/lib/scoring/investment";
 import { geocodeAddress } from "./geocode";
 import { fetchSuburbRentDetail, fetchSuburbGrowth } from "./sources";
 import type { ReportContribution } from "./contribution";
@@ -80,10 +80,12 @@ export async function buildMapListing(c: ReportContribution, id: string): Promis
       // "0/1000" against a real address claims the property is the worst in the
       // country, when what happened is that we couldn't see enough of it.
       roiqScore: isScorable(c.score) ? c.score : null,
-      // No suburb median or no floor area = no valuation. It used to fall back
-      // to `asking`, which put the vendor's own number on the map under our
-      // name and coloured the pin "fair price" for it.
-      roiqValuation: medianPerSqm && floor ? roiqFairValue(medianPerSqm, c.score, floor) : null,
+      // THE report's valuation, carried, never recomputed. The map used to
+      // work out its own here — suburb $/m² × condition × floor area, with no
+      // land in it — which gave a different answer for the same house. Null
+      // when the report couldn't value it: the pin then shows a score and no
+      // price, which is the truth.
+      roiqValuation: c.roiqValuation ?? null,
       medianPerSqm,
       repairAllowance: c.repairAllowance ?? 0,
       repairBreakdown: c.repairBreakdown ?? {},

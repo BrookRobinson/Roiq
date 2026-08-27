@@ -28,7 +28,6 @@ import { SendReportDialog } from "@/components/SendReportDialog";
 import { MANDATORY_CATEGORIES, categoryLabel } from "@/lib/photo-categories";
 import {
   projectValue, cumulativeGrowthPct, grossYieldPct, netYieldPct, estimateAnnualCosts, vacancyRisk,
-  qualityMultiplier, roiqFairValue,
 } from "@/lib/scoring/investment";
 import type { CapitalGrowth, MarketRent, SuburbValue } from "@/lib/scoring/investment";
 import { costThreeTier, tierTotal, TIER_ORDER, scaleTier, isScalableKind } from "@/lib/reno-costing/three-tier";

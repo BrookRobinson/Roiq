@@ -159,19 +159,19 @@ export function PropertySheet({
                   <>
                   <Row label={`${PRODUCT_SHORT_NAME} Score`} value={`${l.roiqScore}/1000`} />
                   {c.roiqValuation == null || c.valuationGapPct == null ? (
-                    /* The property was analysed, but the valuation needs two
-                       inputs we haven't always got: recent suburb sales per m²,
-                       and a floor area to apply them to. Say which one is
-                       missing. The alternative — what this used to do — was to
-                       fall back to the asking price and call it our valuation,
-                       which put a "fair price" verdict on every section and
-                       every suburb with thin sales data. */
+                    /* The report couldn't value it either — this pin carries
+                       the report's figure and has no fallback of its own. It
+                       needs a building AND land: a floor area to cost the
+                       building from, and a land area plus nearby sales to price
+                       the ground. Say which half is missing. */
                     <>
                       <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
                         No valuation for this one.{" "}
-                        {l.floorAreaSqm
-                          ? `We value a property from recent sales per m² in ${l.suburb ?? "the suburb"}, and there aren't enough of them here.`
-                          : "We value a property from recent sales per m², and this listing gives no floor area to apply them to."}
+                        {!l.floorAreaSqm
+                          ? "This listing gives no floor area, so there's nothing to cost the building from."
+                          : !l.landAreaSqm
+                            ? "This listing gives no land area, so there's nothing to price the ground from."
+                            : `We couldn't find enough recent sales near ${l.suburb ?? "here"} to price the land.`}
                       </p>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                         The score, the repair allowances and the investor projections don&apos;t depend on it.
@@ -188,8 +188,8 @@ export function PropertySheet({
                       </div>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>{homebuyerNote(c.valuationGapPct)}</p>
                       <p className="text-[11px]" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
-                        Estimated from recent sales per m² in {l.suburb ?? "the suburb"}, adjusted for the
-                        condition score. Not a registered valuation.
+                        This is the full report&apos;s own valuation — the building costed from its
+                        condition, plus the land from recent nearby sales. Not a registered valuation.
                       </p>
                     </>
                   )}

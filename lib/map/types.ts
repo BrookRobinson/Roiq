@@ -56,7 +56,7 @@ export interface MapListing {
    * "Fair price — close to our estimated value." Null instead, and every
    * consumer says so rather than showing a figure.
    */
-  roiqValuation: number | null;             // NZD — roiqFairValue(medianPerSqm, score, floor)
+  roiqValuation: number | null;             // NZD — the REPORT's valuation, carried
   medianPerSqm: number | null;              // suburb median $/m² used for the valuation
   repairAllowance: number;                  // NZD — summed detected repairs
   repairBreakdown: Record<string, number>;  // e.g. { "Roof replacement": 29000 }

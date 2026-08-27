@@ -157,21 +157,27 @@ $242,028 on the map forever. `MapListing.roiqScore` is nullable, and null is not
 Investor mode still shows everything, because the rent, repairs and projections
 come from the asking price and real feeds and never needed a score.
 
-**No staircase may set a price.** `qualityMultiplier()` was
-`score < 600 ? 0.95 : 1.20` — one point out of a thousand moved a valuation 26%.
-230 Sewell Street scores 592; eight points the other way took it from $586,264
-to $740,545, on a model that cannot tell 592 from 600 to anything like that
-precision. It interpolates between the five anchors now, and the anchors are
-pinned to the MIDDLE of the band each used to cover, so a property scoring 300
-or 500 or 700 gets exactly what it always got and only the arbitrary band edges
-move. Ends stay flat rather than extrapolating, because a sixth number would be
-one nobody chose.
+**One property, one valuation, one place it comes from.** There were two. The
+report added an itemised building value to a land value; the map ran its own
+`suburb $/m² × condition × floor area`, with no land term in it at all. Same
+house, two answers — 230 Sewell Street was $697,648 in the report and $657,233
+on the map, and a buyer clicking a pin into the report saw both, unexplained. On
+an odd property the gap was far worse: 75 Revell Street has a 342m² building on
+the West Coast, and the floor-area-only formula valued it at $1.17m against a
+$659,000 asking price, because nothing in it knows $/m² falls as a building
+grows.
 
-Smoothing did not make those five numbers right — they are still five values
-somebody picked, and the scoreboard is what will eventually replace them with a
-curve fitted to real sales. It only stopped the model claiming a precision it
-hasn't got. If you add another threshold ladder to anything that ends up in a
-price, give it the same treatment and the same verify script.
+`lib/scoring/property-value.ts` is now the only place a property gets a value.
+The report shows it, `contributionFrom()` carries it onto the pin, and
+`from-analysis.ts` copies it across rather than working anything out. **A pin
+carries the report's valuation or it carries none** — there is no fallback left
+to reconcile.
+
+`qualityMultiplier()` and `roiqFairValue()` are deleted, not deprecated. A rival
+valuation formula sitting unused in the codebase is how this comes back. If you
+find yourself about to write `× floor area` to reach a price, that is the
+mistake. (This also retired `verify:quality-curve`, whose curve no longer
+exists; its `isScorable` assertions moved to `verify:map-valuation`.)
 
 **The app grades itself, and a run of bad calls is not yet a bias.** Every
 property we valued that later sells is a scored prediction; until

@@ -14,6 +14,7 @@ import type { StoredReport } from "@/lib/report-store";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
 import { computeRepairAllowance } from "./repair-allowance";
+import { valueProperty } from "@/lib/scoring/property-value";
 
 export interface ReportContribution {
   /** The report this came from, so the pin can link back to it. */
@@ -27,6 +28,21 @@ export interface ReportContribution {
   marketRent?: MarketRent;
   capitalGrowth?: CapitalGrowth;
   suburbValue?: SuburbValue;
+  /**
+   * THE valuation — the one the report itself shows, land + improvements.
+   *
+   * The map used to work out its own from the suburb $/m², the score and the
+   * floor area, which produced a different number for the same house and had no
+   * land in it at all. A pin now carries the report's figure or it carries
+   * none. Null is a normal answer: no floor area, no land area or no comparable
+   * sales all mean the report couldn't value it either, and the pin says so
+   * rather than inventing a second opinion.
+   *
+   * Trusted from the caller exactly as `score` and `repairAllowance` already
+   * are — the payload is deliberately the slim slice of a report the map needs,
+   * not the sub-item prose it would take to recompute this server-side.
+   */
+  roiqValuation: number | null;
 }
 
 /**
@@ -71,6 +87,17 @@ export function contributionFrom(report: StoredReport): ReportContribution {
     marketRent: report.marketRent,
     capitalGrowth: report.capitalGrowth,
     suburbValue: report.suburbValue,
+    // The raw sub-items, not any effective ones: a pin records what the
+    // analysis said when it was made, and nobody had been to the property yet.
+    roiqValuation:
+      valueProperty({
+        subItems: report.subItems ?? [],
+        floorAreaSqm: report.listing.floorAreaSqm,
+        bathrooms: report.listing.bathrooms,
+        landAreaSqm: report.listing.landAreaSqm,
+        extraDwellings: report.extraDwellings,
+        suburbValue: report.suburbValue,
+      })?.total ?? null,
   };
 }
 

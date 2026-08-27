@@ -5,6 +5,7 @@ import { buildMapListing } from "@/lib/map/from-analysis";
 import { addUserListing } from "@/lib/map/user-listings";
 import { persistMapListing } from "@/lib/map/persist";
 import { computeRepairAllowance } from "@/lib/map/repair-allowance";
+import { valueProperty } from "@/lib/scoring/property-value";
 import type { ReportContribution } from "@/lib/map/contribution";
 
 export const runtime = "nodejs";
@@ -52,6 +53,16 @@ export async function POST(req: NextRequest) {
       marketRent: result.marketRent,
       capitalGrowth: result.capitalGrowth,
       suburbValue: result.suburbValue,
+      // The same valuation the report would show — one method, one number.
+      roiqValuation:
+        valueProperty({
+          subItems: result.subItems,
+          floorAreaSqm: listing.floorAreaSqm,
+          bathrooms: listing.bathrooms,
+          landAreaSqm: listing.landAreaSqm,
+          extraDwellings: result.extraDwellings,
+          suburbValue: result.suburbValue,
+        })?.total ?? null,
     };
 
     const built = await buildMapListing(contribution, `manual-${Date.now()}`);

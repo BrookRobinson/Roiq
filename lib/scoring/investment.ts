@@ -31,54 +31,18 @@ export interface SuburbValue {
   retrieved: string; // "June 2026"
 }
 
-/**
- * Quality → value multiplier. The 1,000-point score scales the suburb median to
- * reflect this property's condition against the median home.
- *
- * These five numbers used to be a staircase — `score < 600 ? 0.95 : 1.20` — and
- * a staircase is indefensible in a valuation. One point of a thousand, at 599
- * versus 600, moved the answer 26%. 230 Sewell Street scores 592: eight points
- * the other way and its valuation went from $586,264 to $740,545, on a model
- * that cannot tell 592 from 600 to anything like that precision. Nobody could
- * explain that to a buyer, because there is nothing to explain — it was an
- * artefact of where the bands were drawn.
- *
- * So the anchors are kept and the steps between them are interpolated. Each
- * band's value is pinned to the MIDDLE of the band it used to cover, which is
- * the score it was always most defensible for: a property scoring 300 or 500 or
- * 700 gets exactly what it got before, and it is the band EDGES — the arbitrary
- * part — that move. Below the first anchor and above the last it is flat,
- * because extrapolating past the range someone actually chose would be
- * inventing a sixth number.
- *
- * What this does NOT do is make the five numbers right. They are still five
- * values somebody picked, and no amount of smoothing changes that; it only
- * stops the model claiming a precision it hasn't got. Replacing them with a
- * curve fitted to real sales is what /api/health/valuation exists to make
- * possible — see lib/valuation/scoreboard.ts.
- */
-export const QUALITY_ANCHORS: ReadonlyArray<readonly [score: number, multiplier: number]> = [
-  [100, 0.65],
-  [300, 0.8],
-  [500, 0.95],
-  [700, 1.2],
-  [900, 1.45],
-];
-
-export function qualityMultiplier(score: number): number {
-  const a = QUALITY_ANCHORS;
-  const s = Math.max(0, Math.min(1000, Number.isFinite(score) ? score : 0));
-  const first = a[0];
-  const last = a[a.length - 1];
-  if (s <= first[0]) return first[1];
-  if (s >= last[0]) return last[1];
-  for (let i = 1; i < a.length; i++) {
-    const [x0, y0] = a[i - 1];
-    const [x1, y1] = a[i];
-    if (s <= x1) return y0 + ((s - x0) / (x1 - x0)) * (y1 - y0);
-  }
-  return last[1];
-}
+// ── There is no second valuation here ────────────────────────────────────────
+//
+// `qualityMultiplier()` and `roiqFairValue()` used to live at this spot: suburb
+// $/m² × a condition multiplier × floor area, the map's own way of pricing a
+// house. It was a rival to the report's land + improvements figure and it lost.
+// Same property, two answers — 230 Sewell Street was $697,648 in the report and
+// $657,233 on the map — and because it had no land term at all, a 342m²
+// building on the West Coast came out at $1.17m against a $659,000 asking
+// price. A pin now carries the report's valuation or none.
+//
+// Don't reintroduce a shortcut here. lib/scoring/property-value.ts is the only
+// place a property gets a value.
 
 /**
  * Did the analysis actually assess anything?
@@ -105,20 +69,6 @@ export function isScorable(score: number | null | undefined): score is number {
   return typeof score === "number" && Number.isFinite(score) && score > 0;
 }
 
-/**
- * Tectara fair value = suburb median $/m² × quality multiplier × floor area.
- *
- * Null when the analysis assessed nothing. No score, no valuation — the same
- * rule as no suburb median and no floor area.
- */
-export function roiqFairValue(
-  medianPerSqm: number,
-  score: number,
-  floorAreaSqm: number
-): number | null {
-  if (!isScorable(score)) return null;
-  return Math.round(medianPerSqm * qualityMultiplier(score) * floorAreaSqm);
-}
 
 /** Compound a price forward at an annual rate for N years. */
 export function projectValue(price: number, annualRatePct: number, years: number): number {

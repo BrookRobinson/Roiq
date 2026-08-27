@@ -37,8 +37,8 @@ export function realValuation(valuation: number | null, askingPrice: number | nu
 /**
  * A stored valuation, checked against the score it was built from.
  *
- * Every valuation is `median $/m² × qualityMultiplier(score) × floor area`, so
- * one built on a score that doesn't qualify has no foundation — and the rows
+ * A valuation only exists because an analysis produced one, so a row whose
+ * score doesn't qualify cannot have a valuation worth keeping — and the rows
  * are already in the table. 244 Upper Kokatahi Road scored zero because nothing
  * in it could be assessed, and $242,028 was written against a $699,000 asking
  * price before anything stopped it. Refusing only on the write path would leave

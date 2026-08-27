@@ -43,6 +43,7 @@ registerHooks({
   },
 });
 const { computeListing, realValuation, valuationForScore } = await import(join(root, "lib/map/calc.ts"));
+const { isScorable } = await import(join(root, "lib/scoring/investment.ts"));
 const { DEFAULT_VARIABLES } = await import(join(root, "lib/map/variables.ts"));
 
 let failures = 0;
@@ -84,6 +85,18 @@ check("a dollar off the asking price is a real one", realValuation(800_001, 800_
 // Road scored zero — nothing in it could be assessed — and $242,028 was written
 // against a $699,000 asking price. Refusing only on the write path would leave
 // that figure sitting on the map forever.
+// 244 Upper Kokatahi Road: 27 photos read, 62 sub-items produced, every one
+// unassessable, byCategory empty, total 0. The house is fine; the analysis of
+// it isn't, and a zero must never be read as a grade.
+console.log("\nisScorable — zero means we assessed nothing, not that it's worthless");
+check("a real score", isScorable(650), true);
+check("the lowest real score there is", isScorable(1), true);
+check("zero is not a score", isScorable(0), false);
+check("null", isScorable(null), false);
+check("undefined", isScorable(undefined), false);
+check("NaN", isScorable(NaN), false);
+check("a negative is not a score", isScorable(-10), false);
+
 console.log("\nvaluationForScore — no score, no valuation, on the way out too");
 check("a real score keeps its valuation", valuationForScore(900_000, 800_000, 650), 900_000);
 check("score 0 withholds it", valuationForScore(242_028, 699_000, 0), null);
