@@ -7,6 +7,7 @@ import { persistMapListing } from "@/lib/map/persist";
 import { computeRepairAllowance } from "@/lib/map/repair-allowance";
 import { valueProperty } from "@/lib/scoring/property-value";
 import type { ReportContribution } from "@/lib/map/contribution";
+import { whyIncomplete, INCOMPLETE_REASON } from "@/lib/map/report-completeness";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // Claude vision can take a while
@@ -63,7 +64,20 @@ export async function POST(req: NextRequest) {
           extraDwellings: result.extraDwellings,
           suburbValue: result.suburbValue,
         })?.total ?? null,
+      completeness: {
+        photosAnalysed: result.photosAnalysed ?? 0,
+        assessedPoints: result.scores.buyer.assessedPoints,
+        unassessedPoints: result.scores.buyer.unassessedPoints,
+        score: Math.round(result.scores.buyer.base),
+      },
     };
+
+    const incomplete = whyIncomplete(contribution.completeness);
+    if (incomplete) {
+      return NextResponse.json({
+        ok: false, added: false, reason: "incomplete_analysis", detail: INCOMPLETE_REASON[incomplete],
+      });
+    }
 
     const built = await buildMapListing(contribution, `manual-${Date.now()}`);
     const local = await addUserListing(built.listing);

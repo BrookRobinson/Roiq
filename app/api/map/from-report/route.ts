@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { buildMapListing } from "@/lib/map/from-analysis";
 import { isPublicListing, type ReportContribution } from "@/lib/map/contribution";
+import { whyIncomplete, INCOMPLETE_REASON } from "@/lib/map/report-completeness";
 import { addUserListing } from "@/lib/map/user-listings";
 import { persistMapListing } from "@/lib/map/persist";
 
@@ -37,6 +38,21 @@ export async function POST(req: NextRequest) {
   // a decision to leave to a caller we don't control.
   if (!isPublicListing(c.listing)) {
     return NextResponse.json({ ok: false, added: false, reason: "not_a_public_listing" });
+  }
+
+  // A grey pin says one honest thing — this property is for sale and nobody has
+  // analysed it. Replacing it with a half-finished analysis trades that for a
+  // score and a price that nothing stands behind. Leaving it grey costs nothing:
+  // it was already true, and the user still has their report either way.
+  const incomplete = c.completeness ? whyIncomplete(c.completeness) : "no-score";
+  if (incomplete) {
+    console.warn(`[map/from-report] not added — ${INCOMPLETE_REASON[incomplete]}`);
+    return NextResponse.json({
+      ok: false,
+      added: false,
+      reason: "incomplete_analysis",
+      detail: INCOMPLETE_REASON[incomplete],
+    });
   }
 
   try {

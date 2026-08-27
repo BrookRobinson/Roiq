@@ -28,6 +28,7 @@ npm run verify:title         # title scored from tenure, and the warnings a buye
 npm run verify:map-valuation # when the map may show a valuation, and what it must say when it can't
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
+npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
 npm run verify:quality-curve # score → value multiplier: no cliffs, no invented sixth number
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
@@ -156,6 +157,30 @@ $242,028 on the map forever. `MapListing.roiqScore` is nullable, and null is not
 "not analysed": a report exists and somebody paid for it. The sheet says so.
 Investor mode still shows everything, because the rent, repairs and projections
 come from the asking price and real feeds and never needed a score.
+
+**A grey pin only becomes a coloured one for a WHOLE report.** A grey pin says
+one honest thing: this property is for sale and nobody has analysed it. The
+moment it turns coloured it starts making claims — a score, a valuation, a
+verdict on the asking price — and those are only worth making if the analysis
+behind them happened. It doesn't always: 244 Upper Kokatahi Road had 27 photos
+read, 62 sub-items produced and every one unassessable, because the run was
+interrupted; a `max_tokens` truncation looks identical and is worse, because the
+SDK's partial-JSON parser returns the fragment looking clean. Both wrote a pin,
+and both then priced a $699,000 property at $242,028.
+
+`lib/map/report-completeness.ts` refuses three absolutes — no photographs read,
+no score, nothing assessed — and `/api/map/from-report` declines with a reason
+rather than an error. **Leaving the pin grey costs nothing**: it was already
+true, and the user keeps their report either way.
+
+**It deliberately does NOT pick a percentage.** "At least 60% of the points
+assessed" would be a number nobody chose, and there is no principled place for
+it — a bare-land report assesses only Land and Legal, and every real report
+leaves items unseen since Tier 3 stopped scoring. `assessedFraction()` is
+reported instead, so a threshold can be set later from evidence. **A missing
+valuation is not incompleteness either**: no land area or no comparable sales is
+a gap in the world, not in the analysis, and the pin may carry a score and admit
+it has no price.
 
 **The map shows the valuation and NOT the score.** A number out of 1,000 sitting
 directly above a dollar figure reads as though the two track each other, and

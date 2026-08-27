@@ -15,6 +15,7 @@ import type { ScrapedListing } from "@/lib/scraper/types";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
 import { computeRepairAllowance } from "./repair-allowance";
 import { valueProperty } from "@/lib/scoring/property-value";
+import type { CompletenessSignal } from "./report-completeness";
 
 export interface ReportContribution {
   /** The report this came from, so the pin can link back to it. */
@@ -43,6 +44,11 @@ export interface ReportContribution {
    * not the sub-item prose it would take to recompute this server-side.
    */
   roiqValuation: number | null;
+  /**
+   * What the analysis actually managed. A grey pin only turns into a coloured
+   * one when there is a whole report behind it — see report-completeness.ts.
+   */
+  completeness: CompletenessSignal;
 }
 
 /**
@@ -98,6 +104,13 @@ export function contributionFrom(report: StoredReport): ReportContribution {
         extraDwellings: report.extraDwellings,
         suburbValue: report.suburbValue,
       })?.total ?? null,
+    completeness: {
+      photosAnalysed: report.photosAnalysed ?? 0,
+      assessedPoints: report.scores.buyer.assessedPoints,
+      unassessedPoints: report.scores.buyer.unassessedPoints,
+      score: Math.round(report.scores.buyer.base),
+      landOnly: report.landOnly,
+    },
   };
 }
 
