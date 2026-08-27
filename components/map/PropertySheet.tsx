@@ -150,31 +150,44 @@ export function PropertySheet({
                 </div>
               ) : mode === "homebuyer" ? (
                 <div className="space-y-2.5">
-                  {/* An analysis that assessed nothing has no score and, because
-                      the score drives it, no valuation either. One explanation,
-                      not two. */}
-                  {l.roiqScore == null ? (
-                    <Unscored />
-                  ) : (
-                  <>
-                  <Row label={`${PRODUCT_SHORT_NAME} Score`} value={`${l.roiqScore}/1000`} />
+                  {/* NO SCORE HERE, deliberately.
+                      A score out of 1,000 sitting directly above a dollar
+                      figure reads as though the two track each other, and they
+                      do not: a 900/1000 twenty-square-metre house is worth less
+                      than an 850/1000 five-hundred-square-metre one. The score
+                      is a condition verdict, not a price, and it belongs in the
+                      report where there is room to say so. The map shows what
+                      it is for — what we think the property is worth. */}
                   {c.roiqValuation == null || c.valuationGapPct == null ? (
-                    /* The report couldn't value it either — this pin carries
-                       the report's figure and has no fallback of its own. It
-                       needs a building AND land: a floor area to cost the
-                       building from, and a land area plus nearby sales to price
-                       the ground. Say which half is missing. */
+                    /* This pin carries the report's figure and has no fallback
+                       of its own, so when the report couldn't value it, neither
+                       can the map. A valuation needs both halves: a floor area
+                       to cost the building from, and a land area plus nearby
+                       sales to price the ground. Say which one is missing —
+                       and, when the analysis assessed nothing at all, say that
+                       instead.
+
+                       Only two of these are things the PIN can actually see: a
+                       listing with no floor area and a listing with no land
+                       area. Anything else — thin comparable sales, a report the
+                       server can no longer read — is invisible from here, so
+                       the last branch names no cause at all. It used to say
+                       "not enough recent sales", which was a guess, and it was
+                       wrong for 230 Sewell Street. */
                     <>
                       <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
                         No valuation for this one.{" "}
-                        {!l.floorAreaSqm
-                          ? "This listing gives no floor area, so there's nothing to cost the building from."
-                          : !l.landAreaSqm
-                            ? "This listing gives no land area, so there's nothing to price the ground from."
-                            : `We couldn't find enough recent sales near ${l.suburb ?? "here"} to price the land.`}
+                        {l.roiqScore == null
+                          ? "The analysis ran but couldn't assess anything, so there was nothing to value."
+                          : !l.floorAreaSqm
+                            ? "This listing gives no floor area, so there's nothing to cost the building from."
+                            : !l.landAreaSqm
+                              ? "This listing gives no land area, so there's nothing to price the ground from."
+                              : "The full report says what was missing."}
                       </p>
                       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        The score, the repair allowances and the investor projections don&apos;t depend on it.
+                        The full report still has the condition findings, the repair costs and the
+                        investor projections.
                       </p>
                     </>
                   ) : (
@@ -193,19 +206,12 @@ export function PropertySheet({
                       </p>
                     </>
                   )}
-                  </>
-                  )}
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {/* The figures below come from the asking price, the rent feed
-                      and the growth rate — none of them needs a score, so an
-                      unscored analysis still gets a full investor view. */}
-                  {l.roiqScore == null ? (
-                    <Unscored compact />
-                  ) : (
-                    <Row label={`${PRODUCT_SHORT_NAME} Score`} value={`${l.roiqScore}/1000`} />
-                  )}
+                  {/* No score here either, for the same reason — and these
+                      figures never needed one: they come from the asking price,
+                      the rent feed and the growth rate. */}
                   <Row label="Adjusted buy-in" value={money(c.adjustedBuyIn)} hint="asking + repairs" />
                   <Row label="Est. weekly rent" value={`${money(c.weeklyRent)}/wk`} />
                   <Row label="Annual cashflow" value={signed(c.annualCashflow)} valueColor={c.annualCashflow >= 0 ? "var(--good)" : "var(--bad)"} />
@@ -273,37 +279,6 @@ export function PropertySheet({
         )}
       </div>
     </>
-  );
-}
-
-/**
- * Analysed, but nothing in it could be graded.
- *
- * This is not a bad property and it is not an un-analysed one — a report exists
- * and somebody paid for it. Every item came back unassessable. The old
- * behaviour published "0/1000" against the address, which reads as the worst
- * house in the country.
- *
- * The copy deliberately does NOT say WHY. It could be photographs that show
- * too little, an analysis that was interrupted, or a response truncated at
- * max_tokens — 244 Upper Kokatahi Road looked like unclear photos and was
- * actually an interrupted run. All three land here identically and we cannot
- * tell them apart from this side, so naming one would be a guess about our own
- * failure dressed up as a finding about the house.
- */
-function Unscored({ compact = false }: { compact?: boolean }) {
-  return (
-    <div>
-      <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-        This one didn&apos;t score. The analysis ran but couldn&apos;t assess anything, so there&apos;s
-        no score and no valuation to show.
-      </p>
-      {!compact && (
-        <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-          Running it again is worth a try. The report lists what couldn&apos;t be assessed.
-        </p>
-      )}
-    </div>
   );
 }
 

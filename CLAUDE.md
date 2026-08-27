@@ -157,6 +157,22 @@ $242,028 on the map forever. `MapListing.roiqScore` is nullable, and null is not
 Investor mode still shows everything, because the rent, repairs and projections
 come from the asking price and real feeds and never needed a score.
 
+**The map shows the valuation and NOT the score.** A number out of 1,000 sitting
+directly above a dollar figure reads as though the two track each other, and
+they don't: a 900/1000 twenty-square-metre house is worth less than an 850/1000
+five-hundred-square-metre one. The score is a condition verdict, not a price. It
+belongs in the report, where there is room to say what it means. `roiqScore` is
+still on the pin — the sheet reads it to know whether the analysis assessed
+anything — but it is never displayed.
+
+**Never tell a reader WHY something is missing unless the thing telling them can
+see it.** This has been got wrong twice in one day. The unscored copy blamed the
+listing photos, when the real cause was an interrupted run. The no-valuation
+copy blamed thin comparable sales, when the real cause was a report the server
+could no longer read. A pin can see two things: a listing with no floor area and
+a listing with no land area. Everything else is invisible from there, so the
+fall-through names no cause at all.
+
 **One property, one valuation, one place it comes from.** There were two. The
 report added an itemised building value to a land value; the map ran its own
 `suburb $/m² × condition × floor area`, with no land term in it at all. Same
