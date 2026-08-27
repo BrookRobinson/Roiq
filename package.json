@@ -18,6 +18,7 @@
     "verify:farm": "node --no-warnings scripts/verify-farm.mjs",
     "verify:foundation": "node --no-warnings scripts/verify-foundation.mjs",
     "verify:healthy-homes": "node --no-warnings scripts/verify-healthy-homes.mjs",
+    "verify:estimated-value": "node --no-warnings scripts/verify-estimated-value.mjs",
     "verify:viewing": "node --no-warnings scripts/verify-viewing.mjs",
     "verify:title": "node --no-warnings scripts/verify-title.mjs",
     "verify:floor-area": "node --no-warnings scripts/verify-floor-area.mjs",

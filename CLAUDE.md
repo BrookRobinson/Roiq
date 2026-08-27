@@ -27,6 +27,8 @@ npm run verify:foundation    # foundation scoring from type, era and visible mov
 npm run verify:viewing       # the gate on the agent letter, and what it may claim about each item
 npm run verify:title         # title scored from tenure, and the warnings a buyer must not miss
 npm run verify:map-valuation # when the map may show a valuation, and what it must say when it can't
+npm run verify:estimated-value # valuing what the photos couldn't show, without inventing it
+npm run verify:healthy-homes # the five legal standards, and when we may not claim compliance
 npm run verify:valuation-method # which method fits which property — tenure decides, not the label
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
@@ -185,6 +187,27 @@ app is for, while missing a small farm costs one analysis, so erring high is the
 right direction. Three boundaries now tell one story: **up to 1,650m²** a normal
 section with its land value published; **up to 20ha** analysed with the land
 value withheld; **beyond** farmland, refused before anything is spent.
+
+**A component nobody could see is ESTIMATED from the building it sits on — and
+labelled.** Leaving it at zero was its own distortion: a roof absent from the
+photographs is still up there, and on a house finished last year it is almost
+certainly a new roof, so dropping it understated the property by the price of a
+reroof and read on the map as a worse deal than it was.
+
+The estimator is the building itself, never a table of assumptions — the
+RCN-weighted condition of every component that WAS assessed. Same house, same
+age, same owner, same maintenance: if thirty-five components present at 8/10,
+the four nobody photographed are most likely near 8/10 too, and a tired house
+estimates its unseen parts as tired. **Nothing assessed means nothing
+estimated**, because then there is no building to reason from and anything
+produced is invention. **Capped at the `modern` spec tier** however well the
+rest presents — full marks need evidence that premium materials were used, and
+an unphotographed component cannot supply it.
+
+`confirmedValue` and `estimatedValue` are reported separately and the Financial
+tab draws the split as a donut, with every estimated component nameable. Both
+halves are real money; a valuation that quietly blends them is the thing this
+app exists not to be.
 
 **A grey pin only becomes a coloured one for a WHOLE report.** A grey pin says
 one honest thing: this property is for sale and nobody has analysed it. The

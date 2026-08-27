@@ -2184,18 +2184,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
           phantom value — which is right and completely invisible unless it is
           said. Weighted by replacement cost: missing the roof is not the same
           as missing the letterbox. */}
-      <div className="mt-3 rounded-lg p-2.5" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-        <div className="text-[11px] font-semibold" style={{ color: "var(--text-secondary)" }}>What this is based on</div>
-        <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
-          {improvementValuation.coverage.valued} of {improvementValuation.coverage.possible} building components
-          could be assessed from the photos — {Math.round(improvementValuation.coverage.byCost * 100)}% of the
-          building by replacement cost. Anything not visible is left out of the valuation rather than guessed
-          at, so the more of the building we could see, the tighter this figure is.
-          {suburbValue?.sampleSize
-            ? ` The land half comes from ${suburbValue.sampleSize} recent nearby sales.`
-            : ""}
-        </p>
-      </div>
+      <ConfirmedVsEstimated valuation={improvementValuation} sampleSize={suburbValue?.sampleSize ?? null} />
 
       <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
         Land value is an <strong style={{ color: "var(--text-secondary)" }}>estimate</strong> from suburb comparable sales until a live sold-sales feed is connected. Always obtain a registered valuation before purchasing.
@@ -2224,6 +2213,88 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
             <div className="mono" style={{ color: "var(--text-secondary)" }}>vs asking {fmt(asking)} → {diff >= 0 ? "under" : "over"} by {fmt(Math.abs(diff))}</div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * How much of the building valuation was seen, and how much was estimated.
+ *
+ * Both halves are real money and the reader is entitled to know the mix. A roof
+ * that isn't in the photographs is still up there — on a house finished last
+ * year it is almost certainly a new roof, and leaving it at zero understated the
+ * property by the price of a reroof. But an estimate is not a measurement, and
+ * a valuation that quietly blends the two is the thing this whole app exists
+ * not to be.
+ */
+function ConfirmedVsEstimated({ valuation, sampleSize }: {
+  valuation: ImprovementValueResult; sampleSize: number | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const total = valuation.confirmedValue + valuation.estimatedValue;
+  if (total <= 0) return null;
+  const confirmedPct = Math.round((valuation.confirmedValue / total) * 100);
+  const estimatedPct = 100 - confirmedPct;
+
+  // A donut, drawn with one stroke-dasharray rather than a chart library.
+  const R = 26, C = 2 * Math.PI * R;
+  const seen = (confirmedPct / 100) * C;
+  const fmt = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
+
+  return (
+    <div className="mt-3 rounded-lg p-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+      <div className="text-[11px] font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
+        What this is based on
+      </div>
+      <div className="flex items-center gap-4">
+        <svg width="68" height="68" viewBox="0 0 68 68" role="img" aria-label={`${confirmedPct}% confirmed, ${estimatedPct}% estimated`} className="flex-shrink-0">
+          <circle cx="34" cy="34" r={R} fill="none" stroke="var(--border)" strokeWidth="11" />
+          <circle
+            cx="34" cy="34" r={R} fill="none" stroke="var(--good)" strokeWidth="11"
+            strokeDasharray={`${seen} ${C - seen}`} strokeDashoffset={C / 4} transform="rotate(-90 34 34)"
+          />
+          <text x="34" y="38" textAnchor="middle" className="mono" style={{ fontSize: 13, fontWeight: 700, fill: "var(--text-primary)" }}>
+            {confirmedPct}%
+          </text>
+        </svg>
+        <div className="min-w-0 text-[11px]" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+          <div>
+            <strong style={{ color: "var(--good)" }}>{confirmedPct}% confirmed</strong> — {valuation.coverage.valued} components
+            read directly from the photos ({fmt(valuation.confirmedValue)}).
+          </div>
+          {valuation.estimatedValue > 0 && (
+            <div className="mt-1">
+              <strong style={{ color: "var(--text-primary)" }}>{estimatedPct}% estimated</strong> — {valuation.estimatedItems.length} components
+              nobody could see ({fmt(valuation.estimatedValue)}), valued at the condition the rest of this building
+              presents. A roof that isn&apos;t in the photos is still up there, and on a well-kept house it is
+              probably well kept too — but nobody has looked, and a viewing may move it either way.
+            </div>
+          )}
+          {sampleSize ? <div className="mt-1" style={{ color: "var(--text-muted)" }}>The land half comes from {sampleSize} recent nearby sales.</div> : null}
+        </div>
+      </div>
+      {valuation.estimatedItems.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="mt-2 text-[11px] cursor-pointer"
+            style={{ color: "var(--brand)" }}
+          >
+            {open ? "Hide what was estimated" : `Show the ${valuation.estimatedItems.length} estimated components`}
+          </button>
+          {open && (
+            <div className="mt-2 space-y-1">
+              {[...valuation.estimatedItems].sort((a, b) => b.valueNow - a.valueNow).map((e) => (
+                <div key={e.id} className="flex items-center justify-between gap-3 text-[11px]">
+                  <span style={{ color: "var(--text-secondary)" }}>{e.label} <span style={{ color: "var(--text-muted)" }}>· {e.category}</span></span>
+                  <span className="mono" style={{ color: "var(--text-muted)" }}>{fmt(e.valueNow)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

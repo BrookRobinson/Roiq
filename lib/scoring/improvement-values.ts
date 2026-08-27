@@ -144,6 +144,33 @@ export interface ImprovementValueResult {
     /** Share of the building's replacement cost that was assessed, 0–1. */
     byCost: number;
   };
+  /** Shell + components somebody actually looked at. */
+  confirmedValue: number;
+  /**
+   * Components nobody could see, valued at the condition the REST of this
+   * building presents.
+   *
+   * Leaving them at zero was its own distortion. A roof that isn't in the
+   * photographs is still up there, and on a house finished last year it is
+   * almost certainly a new roof — dropping it understated the property by the
+   * price of a reroof, and on the map that reads as a worse deal than it is.
+   *
+   * The estimator is the building itself, not a table of assumptions: the
+   * RCN-weighted condition of every component that WAS assessed. Same house,
+   * same age, same owner, same maintenance — if thirty-five components present
+   * at 8/10, the four nobody photographed are most likely near 8/10 too. A
+   * tired house estimates its unseen parts as tired, which is equally right.
+   *
+   * Capped at the "modern" spec tier however well the rest presents, because
+   * top marks require evidence that premium materials were used and an
+   * unphotographed component cannot supply it.
+   *
+   * Zero when nothing at all was assessed — there is no building to reason
+   * from, and that is a guess rather than an estimate.
+   */
+  estimatedValue: number;
+  /** Components behind `estimatedValue`, for the report to name. */
+  estimatedItems: { id: string; label: string; category: string; rcnNew: number; valueNow: number }[];
 }
 
 function sizeFor(scale: ScaleBasis, floor: number, baths: number): number {
@@ -211,13 +238,40 @@ export function valueImprovementItems(args: {
   const shellCondFactor = wRcn > 0 ? wRcnCond / wRcn : conditionFactor(6);
   const shellValue = floor > 0 ? Math.round(BASE_SHELL_RATE * floor * shellCondFactor) : 0;
 
-  const buildingValue = shellValue + componentsValue;
+  // ── What we could not see, estimated from what we could ──────────────────
+  // Only ever from a building that was actually assessed. With nothing to
+  // reason from, nothing is estimated.
+  const estimatedItems: ImprovementValueResult["estimatedItems"] = [];
+  let estimatedValue = 0;
+  if (wRcn > 0 && items.length > 0) {
+    const blendedSpec = Math.min(
+      items.reduce((sum, i) => sum + SPEC_MULTIPLIER[i.tier] * i.rcnNew, 0) / wRcn,
+      SPEC_MULTIPLIER.modern // never luxury without evidence
+    );
+    for (const [id, spec] of Object.entries(IMPROVEMENT_BASE_COSTS)) {
+      const meta = ITEM_META.get(id);
+      if (!meta) continue;
+      const seen = byId.get(id);
+      if (seen && seen.score != null) continue; // already valued for real
+      const rcnNew = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths));
+      if (rcnNew <= 0) continue;
+      const valueNow = Math.round(rcnNew * blendedSpec * shellCondFactor);
+      estimatedItems.push({ id, label: meta.label, category: meta.category, rcnNew, valueNow });
+      estimatedValue += valueNow;
+    }
+  }
+
+  const confirmedValue = shellValue + componentsValue;
+  const buildingValue = confirmedValue + estimatedValue;
   return {
     items,
     componentsValue,
     shellValue,
     buildingValue,
     totalValueGap,
+    confirmedValue,
+    estimatedValue,
+    estimatedItems,
     coverage: {
       valued: items.length,
       possible,
