@@ -84,10 +84,12 @@ export function qualityMultiplier(score: number): number {
  * Did the analysis actually assess anything?
  *
  * A score of zero is not a bad property. It is what comes back when EVERY item
- * landed in `unassessed` — nothing was visible enough to grade — because Tier 3
- * items stopped scoring. 244 Upper Kokatahi Road is one: 27 photos read, 62
- * sub-items produced, `byCategory` empty, total 0. The house is fine; the
- * analysis of it isn't.
+ * landed in `unassessed`, and there are at least three ways to get there:
+ * photographs that show too little (Tier 3 items no longer score), an analysis
+ * interrupted part-way, or a response truncated at max_tokens, which the SDK's
+ * partial-JSON parser hands back looking like a clean result. They are
+ * indistinguishable from here — 244 Upper Kokatahi Road looked like the first
+ * and turned out to be the second — so nothing downstream may name a cause.
  *
  * Left unguarded that zero flows straight into a price. It multiplied the
  * suburb rate by the bottom of the quality curve and valued a $699,000 property

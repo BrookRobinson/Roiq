@@ -133,14 +133,20 @@ the demo, so only non-uuid ids (`rpt_*`, `sample-*`) may do that. A real id that
 isn't found says so. Map pins publish report ids — rendering 14 Ferndale Rd under
 someone else's address is the failure mode this guards against.
 
-**A score of zero is not a score.** It is what comes back when every item
-landed in `unassessed` — nothing visible enough to grade — since Tier 3 items
-stopped scoring. 244 Upper Kokatahi Road is one: 27 photos read, 62 sub-items
-produced, `byCategory` empty, total 0. The house is fine; the analysis of it
-isn't. Unguarded that zero multiplied the suburb rate by the bottom of the
-quality curve and valued a $699,000 property at $242,028, and published
-"0/1000" against a real address — which reads as the worst house in New Zealand,
-not as "we couldn't see enough". `isScorable()` refuses zero and nothing else:
+**A score of zero is not a score.** It is what comes back when every item landed
+in `unassessed`, and there are at least three ways to get there: photographs
+that show too little (Tier 3 items no longer score), an analysis interrupted
+part-way, or a response truncated at `max_tokens`, which the SDK's partial-JSON
+parser hands back looking like a clean result. **They are indistinguishable from
+our side, so nothing downstream may name a cause** — 244 Upper Kokatahi Road
+looked exactly like unclear photographs and was actually an interrupted run, and
+copy blaming the listing would have been a guess about our own failure dressed
+up as a finding about somebody's house.
+
+Unguarded, that zero multiplied the suburb rate by the bottom of the quality
+curve and valued a $699,000 property at $242,028, and published "0/1000" against
+a real address — which reads as the worst house in New Zealand, not as "this
+didn't score". `isScorable()` refuses zero and nothing else:
 anything above it means at least one item was graded, and a floor above zero
 would be a number nobody chose.
 

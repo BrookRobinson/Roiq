@@ -280,20 +280,27 @@ export function PropertySheet({
  * Analysed, but nothing in it could be graded.
  *
  * This is not a bad property and it is not an un-analysed one — a report exists
- * and somebody paid for it. Every item came back unassessable, usually because
- * the listing photos didn't show enough. The old behaviour published "0/1000"
- * against the address, which reads as the worst house in the country.
+ * and somebody paid for it. Every item came back unassessable. The old
+ * behaviour published "0/1000" against the address, which reads as the worst
+ * house in the country.
+ *
+ * The copy deliberately does NOT say WHY. It could be photographs that show
+ * too little, an analysis that was interrupted, or a response truncated at
+ * max_tokens — 244 Upper Kokatahi Road looked like unclear photos and was
+ * actually an interrupted run. All three land here identically and we cannot
+ * tell them apart from this side, so naming one would be a guess about our own
+ * failure dressed up as a finding about the house.
  */
 function Unscored({ compact = false }: { compact?: boolean }) {
   return (
     <div>
       <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-        We analysed this one, but the listing photos didn&apos;t show enough of it to score.
+        This one didn&apos;t score. The analysis ran but couldn&apos;t assess anything, so there&apos;s
+        no score and no valuation to show.
       </p>
       {!compact && (
         <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-          Without a score there&apos;s no valuation either. The full report lists what couldn&apos;t
-          be assessed and what to look for at a viewing.
+          Running it again is worth a try. The report lists what couldn&apos;t be assessed.
         </p>
       )}
     </div>
