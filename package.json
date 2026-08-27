@@ -21,6 +21,7 @@
     "verify:map-valuation": "node --no-warnings scripts/verify-map-valuation.mjs",
     "verify:delisting": "node --no-warnings scripts/verify-delisting.mjs",
     "verify:scoreboard": "node --no-warnings scripts/verify-scoreboard.mjs",
+    "verify:quality-curve": "node --no-warnings scripts/verify-quality-curve.mjs",
     "build:zoning": "node --no-warnings scripts/build-zoning-registry.mjs"
   },
   "dependencies": {

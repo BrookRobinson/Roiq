@@ -28,6 +28,7 @@ npm run verify:title         # title scored from tenure, and the warnings a buye
 npm run verify:map-valuation # when the map may show a valuation, and what it must say when it can't
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
+npm run verify:quality-curve # score → value multiplier: no cliffs, no invented sixth number
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 ```
 
@@ -131,6 +132,22 @@ caught showing $0.
 the demo, so only non-uuid ids (`rpt_*`, `sample-*`) may do that. A real id that
 isn't found says so. Map pins publish report ids — rendering 14 Ferndale Rd under
 someone else's address is the failure mode this guards against.
+
+**No staircase may set a price.** `qualityMultiplier()` was
+`score < 600 ? 0.95 : 1.20` — one point out of a thousand moved a valuation 26%.
+230 Sewell Street scores 592; eight points the other way took it from $586,264
+to $740,545, on a model that cannot tell 592 from 600 to anything like that
+precision. It interpolates between the five anchors now, and the anchors are
+pinned to the MIDDLE of the band each used to cover, so a property scoring 300
+or 500 or 700 gets exactly what it always got and only the arbitrary band edges
+move. Ends stay flat rather than extrapolating, because a sixth number would be
+one nobody chose.
+
+Smoothing did not make those five numbers right — they are still five values
+somebody picked, and the scoreboard is what will eventually replace them with a
+curve fitted to real sales. It only stopped the model claiming a precision it
+hasn't got. If you add another threshold ladder to anything that ends up in a
+price, give it the same treatment and the same verify script.
 
 **The app grades itself, and a run of bad calls is not yet a bias.** Every
 property we valued that later sells is a scored prediction; until
