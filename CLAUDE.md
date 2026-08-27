@@ -167,13 +167,23 @@ dairy unit on the state of its kitchen. `lib/property/farm.ts` refuses it in
 `/api/analyze` before a cent is spent, with a 422 and a reason the person who
 pasted the link actually sees.
 
-**The signal is the portal's own classification and nothing else.** There is no
-hectare figure separating a farm from a lifestyle block that somebody didn't
-just choose, and a lifestyle block is squarely in scope — a house on a few
-hectares is exactly the customer. Its oversized land figure is already handled
-by `LAND_VALUE_MAX_SQM`, not by turning the person away. A farm that arrives
-untyped isn't caught here and falls through to the dwelling and land-cap checks;
-that is a known gap rather than a silent one.
+**The signal is the LAND AREA, not the label.** The first real farm anybody
+tried went straight through a label-only check: 217 Poerua Valley Road, 489
+hectares, advertised by OneRoof as "Rural & Lifestyle" with 17 mentions of
+dairy — typed `house` by the scraper, analysed as one, scored 607/1000 on the
+state of its rooms. Three things were already wrong together:
+`detectPropertyType` maps "rural" AND "lifestyle" to `lifestyle`, so
+**`PropertyType.rural` is a value nothing in the scraper ever assigns**; JSON-LD
+said "House" before the rural wording was reached; and with the type wrong the
+dwelling check assumed a building on a property with no floor area at all. A
+number the listing states cannot be got wrong by a mistyped category.
+
+`FARM_LAND_SQM` is a line somebody drew and the code says so. It is drawn far
+out on purpose — refusing a lifestyle block turns away the exact customer this
+app is for, while missing a small farm costs one analysis, so erring high is the
+right direction. Three boundaries now tell one story: **up to 1,650m²** a normal
+section with its land value published; **up to 20ha** analysed with the land
+value withheld; **beyond** farmland, refused before anything is spent.
 
 **A grey pin only becomes a coloured one for a WHOLE report.** A grey pin says
 one honest thing: this property is for sale and nobody has analysed it. The

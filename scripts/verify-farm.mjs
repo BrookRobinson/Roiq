@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const { assessFarm } = await import(join(root, "lib/property/farm.ts"));
+const { assessFarm, FARM_LAND_SQM } = await import(join(root, "lib/property/farm.ts"));
 
 let failures = 0;
 const check = (label, got, want) => {
@@ -28,6 +28,30 @@ const check = (label, got, want) => {
   else { console.error(`  ✗ ${label} — got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`); failures++; }
 };
 const isFarm = (propertyType) => assessFarm({ propertyType }).isFarm;
+const byLand = (landAreaSqm, propertyType = "house") => assessFarm({ propertyType, landAreaSqm }).isFarm;
+const ha = (h) => h * 10_000;
+
+// ── The one that got through ────────────────────────────────────────────
+// 217 Poerua Valley Road, Harihari: 489 hectares, advertised by OneRoof as
+// "Rural & Lifestyle", 17 mentions of dairy — typed `house` by the scraper,
+// analysed as one, scored 607/1000 on the state of its rooms. The label was
+// wrong; the land area never is.
+console.log("\n217 Poerua Valley Road — the farm that got analysed");
+check("489 hectares, typed 'house', is still a farm", byLand(4_893_866, "house"), true);
+check("…and it says how much land, in hectares",
+  /489 hectares/.test(assessFarm({ propertyType: "house", landAreaSqm: 4_893_866 }).reason), true);
+// Its floor area was null too — the label being wrong cascaded into the
+// dwelling check assuming a building. Land area doesn't care.
+check("…even with no floor area on the listing",
+  assessFarm({ propertyType: "house", landAreaSqm: 4_893_866, floorAreaSqm: null }).isFarm, true);
+
+console.log("\nland area is the primary signal");
+check(`${FARM_LAND_SQM / 10_000}ha exactly is not yet a farm`, byLand(FARM_LAND_SQM), false);
+check("a square metre over is", byLand(FARM_LAND_SQM + 1), true);
+check("40 hectares", byLand(ha(40)), true);
+check("a 900m² suburban section is never a farm", byLand(900), false);
+check("no land area stated doesn't refuse", byLand(null), false);
+check("a nonsense land area doesn't refuse", byLand(NaN), false);
 
 console.log("\nrefused");
 check("rural", isFarm("rural"), true);
@@ -40,6 +64,12 @@ for (const t of ["house", "townhouse", "unit", "apartment", "section", "commerci
 }
 
 console.log("\nthe one that must never be refused");
+// A house on a few hectares is the customer. These must all pass, whatever
+// the portal happens to call them.
+check("2ha lifestyle block", byLand(ha(2), "lifestyle"), false);
+check("5ha lifestyle block", byLand(ha(5), "lifestyle"), false);
+check("10ha lifestyle block", byLand(ha(10), "lifestyle"), false);
+check("…even typed as a house", byLand(ha(8), "house"), false);
 // A house on a few hectares is the customer, not the exception. Its oversized
 // land figure is handled by the land-value cap, not by turning the person away.
 check("lifestyle is NOT a farm", isFarm("lifestyle"), false);

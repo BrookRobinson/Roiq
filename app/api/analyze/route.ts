@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
     //
     // A lifestyle block is NOT a farm and is not refused: a house on a few
     // hectares is exactly what this app is for.
-    const farm = assessFarm(listing);
+    const farm = assessFarm({ propertyType: listing.propertyType, landAreaSqm: listing.landAreaSqm });
     if (farm.isFarm) {
       return NextResponse.json(
         {
