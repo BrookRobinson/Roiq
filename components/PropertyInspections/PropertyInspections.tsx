@@ -157,7 +157,6 @@ export function PropertyInspections({
 
   return (
     <div className="space-y-3">
-      {!town && development && <DevelopmentPotentialCard dev={development} persona={persona} onAddStructure={onAddStructure} addedStructureIds={addedStructureIds} />}
       <div className="card p-4 text-sm flex items-start gap-2" style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
         <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
         {town
@@ -188,6 +187,20 @@ export function PropertyInspections({
           />
         );
       })}
+
+      {/* Sits BELOW Land and Legal deliberately. It is the one thing on this tab
+          that looks forward rather than reporting what is: everything above is
+          what the property IS, and this is what could be done with it. Reading
+          the findings first and then being offered the section to build on is
+          the order the decision is actually made in. */}
+      {!town && development && (
+        <DevelopmentPotentialCard
+          dev={development}
+          persona={persona}
+          onAddStructure={onAddStructure}
+          addedStructureIds={addedStructureIds}
+        />
+      )}
     </div>
   );
 }
