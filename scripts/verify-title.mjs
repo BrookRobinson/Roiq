@@ -215,6 +215,20 @@ ok("and it says the terms aren't readable", /NOT its terms|not public|paid downl
 ok("a clean title explains what it checked", /memorials/i.test(assessEasements([]).rationale));
 ok("a caveat tells the reader what to do about it", /solicitor/i.test(assessEncumbrances(k("caveat")).rationale));
 
+console.log("\nAN UNPUBLISHED REGISTER IS NOT A CLEAN TITLE");
+// Roughly 17% of LIVE titles carry no memorial rows at all — CB390/291 is live,
+// freehold and 1,960m² with none. From out here that is indistinguishable from
+// a title with nothing registered, and reading the absence of DATA as an absence
+// of ENCUMBRANCES is how a buyer ends up reassured about a covenant nobody
+// looked for. The report leaves the item unscored instead; these assert the flag
+// that lets it tell the two apart.
+const unpublished = { live: [], historicCount: 0, memorialsFound: 0 };
+const clean = { live: [{ kind: "mortgage" }], historicCount: 4, memorialsFound: 5 };
+ok("an unpublished register is flagged by memorialsFound", unpublished.memorialsFound === 0);
+ok("a register that WAS read is not", clean.memorialsFound > 0);
+// Both have an empty burden list; only one of them is an all-clear.
+check("both look identically empty of burdens", burdens(unpublished).length, burdens(clean).length);
+
 console.log("\nclassifying LINZ's own wording");
 // The code list is 525 long and grows; classifying by LINZ's description rather
 // than by a hand-written code map is what stops it rotting.

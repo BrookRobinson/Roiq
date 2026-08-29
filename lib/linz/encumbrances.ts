@@ -67,6 +67,16 @@ export interface Encumbrance {
 }
 
 export interface TitleEncumbrances {
+  /**
+   * How many memorials LINZ publishes for this title, current and historic.
+   *
+   * ZERO IS NOT A CLEAN TITLE. Roughly 17% of live titles carry no memorial
+   * rows at all — CB390/291 is live, freehold and 1,960m² with none — and from
+   * out here an unpublished register and an unencumbered one look identical.
+   * The caller must not read an empty `live` list as an all-clear unless this
+   * is above zero.
+   */
+  memorialsFound: number;
   /** Current instruments only. Never anything flagged HIST. */
   live: Encumbrance[];
   /**
@@ -126,7 +136,10 @@ export async function lookupEncumbrances(
     `ttl_title_no = '${titleNo.replace(/'/g, "''")}'`,
     250
   );
-  if (memorials.length === 0) return null;
+  // Reported rather than treated as a failure. The query SUCCEEDED and returned
+  // nothing, which is a different fact from the query not running, and the
+  // report needs to tell those apart to know whether it may say "clear".
+  if (memorials.length === 0) return { live: [], historicCount: 0, memorialsFound: 0 };
 
   const current = new Set<number>();
   let historic = 0;
@@ -135,7 +148,7 @@ export async function lookupEncumbrances(
     if (m.curr_hist_flag === "CURR") current.add(m.act_tin_id_crt);
     else historic++;
   }
-  if (current.size === 0) return { live: [], historicCount: historic };
+  if (current.size === 0) return { live: [], historicCount: historic, memorialsFound: memorials.length };
 
   const ids = [...current].join(",");
   const instruments = await wfs<{
@@ -166,7 +179,7 @@ export async function lookupEncumbrances(
   const ORDER: EncumbranceKind[] = ["caveat", "covenant", "easement", "statutory", "lease", "mortgage", "other"];
   live.sort((a, b) => ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind) || a.instrumentNo.localeCompare(b.instrumentNo));
 
-  return { live, historicCount: historic };
+  return { live, historicCount: historic, memorialsFound: memorials.length };
 }
 
 /**

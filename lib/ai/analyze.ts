@@ -623,6 +623,16 @@ function publicRecordFacts(listing: ScrapedListing): (string | null)[] {
 function encumbranceFact(listing: ScrapedListing): string | null {
   const enc = listing.encumbrances;
   if (!enc) return null;
+  // The query ran and LINZ published no register for this title — roughly 17%
+  // of live titles. Saying nothing is registered would be reading an absence of
+  // data as an absence of encumbrances, which is how a buyer ends up reassured
+  // about a covenant nobody looked for.
+  if (enc.memorialsFound === 0) {
+    return fact(
+      "Registered against the title",
+      "LINZ publishes no memorial record for this title, so what is registered against it could NOT be established. Do not state or imply the title is clear."
+    );
+  }
   if (enc.live.length === 0) {
     return fact(
       "Registered against the title (LINZ — CONFIRMED)",

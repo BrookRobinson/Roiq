@@ -1014,10 +1014,16 @@ and an EMPTY register scores 10 — absence is the strong, checkable finding her
 A mortgage (discharged on settlement) and, on a cross lease, the flat leases are
 never counted as burdens, or every ordinary house would look encumbered.
 
-**A register we couldn't read is not a clear title.** `listing.encumbrances`
-absent means the lookup never ran; an empty `live` list means it ran and found
-nothing. Only the second is an all-clear, and the items are left to the model
-rather than scored when the first is true.
+**A register we couldn't read is not a clear title, and there are TWO ways not to
+read one.** `listing.encumbrances` absent means the lookup never ran.
+`memorialsFound === 0` means it ran and LINZ publishes no register for that title
+— **roughly 17% of live titles**, measured over a 300-title sample; CB390/291 is
+live, freehold and 1,960m² with none. From out here an unpublished register and
+an unencumbered one are identical, so only `memorialsFound > 0` with an empty
+`live` list is an all-clear. The other two leave the items UNSCORED, and the
+model is told in as many words not to imply the title is clear — reading an
+absence of data as an absence of encumbrances is how a buyer ends up reassured
+about a covenant nobody looked for.
 
 **A property with no building gets a LAND report, not a condition report.** The
 1,000 points all describe a dwelling, so a bare section scored as a house is

@@ -399,7 +399,12 @@ export function RealReportView({
         // answer is at least honest about being an inference, where an invented
         // "nothing registered" would be a false all-clear.
         if (s.id === "leg_encumbrances" || s.id === "leg_easements") {
-          const live = report.listing.encumbrances?.live;
+          // memorialsFound === 0 means LINZ published NO register for this
+          // title — about 17% of live titles. From out here that is
+          // indistinguishable from a clean title, so the item is left unscored
+          // rather than handed an all-clear it hasn't earned.
+          const enc = report.listing.encumbrances;
+          const live = enc && enc.memorialsFound > 0 ? enc.live : null;
           if (live) {
             const t = s.id === "leg_encumbrances" ? assessEncumbrances(live) : assessEasements(live);
             if (t) {
