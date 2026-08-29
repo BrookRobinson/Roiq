@@ -31,6 +31,7 @@ npm run verify:estimated-value # valuing what the photos couldn't show, without 
 npm run verify:healthy-homes # the five legal standards, and when we may not claim compliance
 npm run verify:valuation-method # which method fits which property — tenure decides, not the label
 npm run verify:cross-lease   # what a shared title costs, and the band it may never leave
+npm run verify:development   # the dwelling-you-could-add figure, and what the title says about it
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
 npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
@@ -911,6 +912,35 @@ LINZ title, the district-plan zone and the rating valuation into PROPERTY FACTS
 marked CONFIRMED, so the analysis stops writing "order a title to confirm freehold
 tenure" about a title type printed above the paragraph. `leg_title` carries no
 `verifyAgainst` any more for the same reason.
+
+**A covenant on the title withholds the development BONUS, not the valuation.**
+The Land tab puts real money on adding a dwelling — "+$122,000–$217,000
+potential value · +6 to your buyer score" — and `assessDevelopment` had never
+heard of a covenant, so it could show six figures of upside on a property whose
+own title may forbid it. No-second-dwelling and no-further-subdivision covenants
+are common on subdivision titles, and that is the same register the report now
+reads.
+
+**The valuation is deliberately NOT discounted for easements or covenants**, and
+the reason is not squeamishness. We can't read the terms — one covenant requires
+a letterbox, another bans a minor dwelling, and a flat percentage for "a
+covenant exists" is invented weight. More decisively, **most NZ titles carry an
+easement**, and the land value is extracted from suburb comparable sales that
+carry them too, so the ordinary easement is ALREADY in that number and
+discounting again would double-count it. That is exactly why cross lease is
+different: it is a minority tenure priced against predominantly freehold
+comparables, so its discount corrects a real mismatch. An easement is not a
+mismatch, it is the norm. (A live caveat is a third thing again — a transaction
+risk, not a change in what the house is worth.)
+
+**So the bonus goes and the range stays.** The score bonus is WITHHELD entirely
+— the Tier 3 rule applied to an opportunity, since we no longer know the
+development is permitted, and halving it would be a number nobody chose. The
+indicative value range is kept, because "this might be worth $122,000, go and
+read covenant 5638539.1" is useful where silence is not. Confidence can no
+longer read "likely", the instrument number is named in the summary and the
+blockers, and the badge SAYS the bonus was withheld rather than letting the
+points quietly vanish.
 
 **Never tell the reader to go and look something up.** The development-potential
 finding used to end "confirm zoning and coverage before you rely on it", which

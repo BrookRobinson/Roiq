@@ -456,6 +456,17 @@ export function RealReportView({
   // THE SCORE: re-runs scoreProperty() for the chosen persona + verified docs.
   // Pure + instant — drives the dial, bars, grade, and gating. Recomputes the
   // moment a document is uploaded (auto-rescore).
+  // What the register says could bear on building here. Empty when there is
+  // nothing registered; empty ALSO when LINZ publishes no memorials for this
+  // title, which is why `memorialsFound` gates it — see lib/linz/encumbrances.ts.
+  const titleRestrictions = useMemo(() => {
+    const enc = report.listing.encumbrances;
+    if (!enc || enc.memorialsFound === 0) return null;
+    return enc.live
+      .filter((e) => e.kind === "covenant" || e.kind === "easement")
+      .map((e) => ({ instrumentNo: e.instrumentNo, label: e.label, kind: e.kind as "covenant" | "easement" }));
+  }, [report.listing.encumbrances]);
+
   // Development potential — can you add a tiny home / dwelling / subdivide (Land tab).
   const development = useMemo(
     () =>
@@ -467,14 +478,18 @@ export function RealReportView({
         // was run, so the finding states the zone instead of asking the reader
         // to go and look it up.
         zone: report.listing.zoning ?? null,
+        // Covenants and easements off the record of title. Only when LINZ
+        // actually published a register for it — an unread register is not a
+        // clear one, and this finding must not read as though it were.
+        titleRestrictions: titleRestrictions,
       }),
-    [report.listing.landAreaSqm, report.listing.floorAreaSqm, report.listing.zoning, report.suburbValue]
+    [report.listing.landAreaSqm, report.listing.floorAreaSqm, report.listing.zoning, report.suburbValue, titleRestrictions]
   );
 
   const scored: ScoreResult = useMemo(
     () =>
       scoreFor(
-        { subItems: effectiveSubItems, extraDwellings: report.extraDwellings, context: report.context, penalties: report.penalties, developmentTier: development.tier },
+        { subItems: effectiveSubItems, extraDwellings: report.extraDwellings, context: report.context, penalties: report.penalties, developmentTier: development.restrictedByTitle ? "none" : development.tier },
         persona
       ),
     [persona, effectiveSubItems, report.extraDwellings, report.context, report.penalties, development.tier]

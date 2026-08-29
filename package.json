@@ -26,6 +26,7 @@
     "verify:cross-lease": "node --no-warnings scripts/verify-cross-lease.mjs",
     "verify:valuation-method": "node --no-warnings scripts/verify-valuation-method.mjs",
     "verify:completeness": "node --no-warnings scripts/verify-completeness.mjs",
+    "verify:development": "node --no-warnings scripts/verify-development.mjs",
     "verify:delisting": "node --no-warnings scripts/verify-delisting.mjs",
     "verify:scoreboard": "node --no-warnings scripts/verify-scoreboard.mjs",
     "build:instruments": "node scripts/build-instrument-types.mjs",

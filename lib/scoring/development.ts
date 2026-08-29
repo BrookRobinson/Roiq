@@ -38,6 +38,15 @@ export const DEV_TIERS: Record<DevTier, DevTierMeta> = {
 
 export const DEV_TIER_ORDER: DevTier[] = ["none", "minor_dwelling", "second_dwelling", "subdivision"];
 
+/** An instrument on the title that could bear on what may be built here. */
+export interface TitleRestriction {
+  /** LINZ's instrument number — the thing a solicitor can actually look up. */
+  instrumentNo: string;
+  /** LINZ's own description, e.g. "Land Transfer Plan Land Covenant". */
+  label: string;
+  kind: "covenant" | "easement";
+}
+
 export interface DevelopmentPotential {
   tier: DevTier;
   confidence: "likely" | "possible" | "unlikely";
@@ -49,10 +58,45 @@ export interface DevelopmentPotential {
   blockers: string[];
   summary: string;
   isEstimate: boolean; // always true until council zoning data is wired
+  /**
+   * Covenants and easements registered against the title, from LINZ.
+   *
+   * A no-second-dwelling or no-further-subdivision covenant is common on
+   * subdivision titles and is precisely the thing that stops this — and until
+   * the register was being read, this finding had never heard of one. An
+   * easement matters too: a right of way across the back of the section is why
+   * the minor dwelling can't go there.
+   */
+  titleRestrictions: TitleRestriction[];
+  /**
+   * True when something is registered that could forbid this and we cannot read
+   * its terms — which is always, because the wording is a paid download.
+   *
+   * The score bonus is WITHHELD while this is true. That is the Tier 3 rule
+   * applied to an opportunity: the bonus is awarded for a development we can no
+   * longer confirm is permitted, and a number nobody can stand behind should not
+   * be adding to a property's score. The indicative VALUE range is still shown,
+   * because "this might be worth $122,000 — go and read covenant 5638539.1" is
+   * useful where silence is not.
+   */
+  restrictedByTitle: boolean;
 }
 
-/** Persona-weighted score bonus for a development tier. */
-export function developmentBonus(tier: DevTier, persona: "buyer" | "investor"): number {
+/**
+ * Persona-weighted score bonus for a development tier.
+ *
+ * WITHHELD ENTIRELY when the title carries a covenant or easement whose terms we
+ * cannot read. Halving it would be an invented number; zero is the same rule
+ * Tier 3 improvements follow — we do not know this development is permitted, so
+ * it does not score. The Land tab says so rather than the points quietly
+ * vanishing.
+ */
+export function developmentBonus(
+  tier: DevTier,
+  persona: "buyer" | "investor",
+  restrictedByTitle = false
+): number {
+  if (restrictedByTitle) return 0;
   const m = DEV_TIERS[tier];
   return persona === "investor" ? m.bonusInvestor : m.bonusBuyer;
 }
@@ -78,12 +122,23 @@ function locationFactor(suburbPerSqm: number | null | undefined): number {
  *
  * Deliberately conservative and flagged isEstimate.
  */
+/** "an easement instrument", "a building line restriction". */
+function article(label: string): string {
+  return /^[aeiou]/i.test(label.trim()) ? "an" : "a";
+}
+
 export function assessDevelopment(args: {
   landAreaSqm: number | null;
   floorAreaSqm: number | null;
   suburbMedianPerSqm?: number | null;
   /** The district-plan zone, when the council publishes one we can query. */
   zone?: { zone: string; group: string | null; council: string; rulesUrl: string | null } | null;
+  /**
+   * Covenants and easements on the title, from LINZ. Undefined means the
+   * register was never read — which is NOT the same as a clear title, and the
+   * finding must not read as though it were.
+   */
+  titleRestrictions?: TitleRestriction[] | null;
 }): DevelopmentPotential {
   const land = args.landAreaSqm && args.landAreaSqm > 0 ? args.landAreaSqm : null;
   // Approx ground footprint: assume mostly single-level (conservative). Falls back
@@ -98,11 +153,20 @@ export function assessDevelopment(args: {
     else if (land >= 450 && spare >= 130) tier = "minor_dwelling";
   }
 
+  const restrictions = (args.titleRestrictions ?? []).filter(
+    (r) => r.kind === "covenant" || r.kind === "easement"
+  );
+  const restrictedByTitle = tier !== "none" && restrictions.length > 0;
+
   // Confidence: comfortably past the threshold → likely; near it → possible.
   let confidence: DevelopmentPotential["confidence"] = "unlikely";
   if (tier !== "none" && land && spare) {
     const margins: Record<DevTier, number> = { none: 0, minor_dwelling: 130, second_dwelling: 380, subdivision: 550 };
     confidence = spare >= margins[tier] * 1.4 ? "likely" : "possible";
+    // The section is big enough — that was never the question. Something is
+    // registered that could forbid it outright, so "likely" is a claim the
+    // register no longer supports.
+    if (restrictedByTitle) confidence = "possible";
   }
 
   const meta = DEV_TIERS[tier];
@@ -125,6 +189,15 @@ export function assessDevelopment(args: {
       ? "Site coverage, setbacks and density come from the zone's rule tables, which we don't read yet — the zone itself is above"
       : "The zone couldn't be retrieved for this property, so it isn't in this report"
   );
+  if (restrictedByTitle) {
+    const covenants = restrictions.filter((r) => r.kind === "covenant");
+    const named = restrictions.map((r) => r.instrumentNo).join(", ");
+    blockers.push(
+      covenants.length
+        ? `The title carries ${covenants.length === 1 ? "a covenant" : `${covenants.length} covenants`} (${named}) — no-second-dwelling and no-further-subdivision covenants are common, and we can't read the wording`
+        : `The title carries an easement (${named}) — where it runs may rule out the part of the section this would go on`
+    );
+  }
 
   // The zone either is or isn't known, and the sentence says which. What it
   // never does is tell the reader to go and find out.
@@ -139,10 +212,22 @@ export function assessDevelopment(args: {
     ? " The zone's site-coverage and setback rules sit in the plan text, which this report doesn't read."
     : "";
 
+  // Said in the summary, not only in the blockers list. The uplift figure is the
+  // most quotable number on the Land tab, and a caveat further down the card
+  // loses to a dollar range every time.
+  const restrictionSentence = restrictedByTitle
+    ? ` NOTE: the record of title carries ${restrictions.map((r) => `${article(r.label)} ${r.label.toLowerCase()} (${r.instrumentNo})`).join(" and ")}. The wording of a registered instrument isn't public, so we can't tell you whether it permits this — the value above is what the section could support, not what the title allows. Give those numbers to your solicitor before you count on it.`
+    : "";
+
   const summary =
     tier === "none"
       ? `On the numbers alone this section is unlikely to take an additional dwelling${land ? ` (~${spare}m² spare)` : ""}. ${zoneSentence}${rulesSentence}`
-      : `${meta.label.replace(/ possible$/, "")} looks feasible on section size (~${spare}m² spare of ${land}m²). ${meta.blurb} ${zoneSentence} Confidence: ${confidence}.${rulesSentence}`;
+      : `${meta.label.replace(/ possible$/, "")} looks feasible on section size (~${spare}m² spare of ${land}m²). ${meta.blurb} ${zoneSentence} Confidence: ${confidence}.${rulesSentence}${restrictionSentence}`;
 
-  return { tier, confidence, landAreaSqm: land, spareAreaSqm: spare, valueUpliftLow, valueUpliftHigh, enablers, blockers, summary, isEstimate: true };
+  return {
+    tier, confidence, landAreaSqm: land, spareAreaSqm: spare,
+    valueUpliftLow, valueUpliftHigh, enablers, blockers, summary, isEstimate: true,
+    titleRestrictions: restrictions,
+    restrictedByTitle,
+  };
 }

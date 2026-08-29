@@ -23,7 +23,7 @@ const DEV_TIER_COLOR: Record<string, string> = { none: "var(--text-muted)", mino
 function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential; persona: Persona }) {
   const meta = DEV_TIERS[dev.tier];
   const c = DEV_TIER_COLOR[dev.tier];
-  const bonus = developmentBonus(dev.tier, persona);
+  const bonus = developmentBonus(dev.tier, persona, dev.restrictedByTitle);
   const has = dev.tier !== "none";
   return (
     <div className="rounded-2xl p-5" style={{ border: `1px solid ${has ? c + "55" : "var(--border)"}`, background: "var(--surface)" }}>
@@ -41,6 +41,14 @@ function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential;
           <span className="text-sm mono" style={{ color: "var(--good)" }}>+{fmtNZD(dev.valueUpliftLow)}–{fmtNZD(dev.valueUpliftHigh)} potential value</span>
         )}
         {bonus > 0 && <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>+{bonus} to your {persona === "investor" ? "investor" : "buyer"} score</span>}
+        {/* Withheld, and SAID rather than silently absent. The points are
+            awarded for a development we can no longer confirm is permitted, and
+            a bonus that just disappears reads as a bug. */}
+        {has && dev.restrictedByTitle && (
+          <span className="text-xs mono" style={{ color: "var(--warn)" }}>
+            score bonus withheld — {dev.titleRestrictions.length === 1 ? "an instrument is" : `${dev.titleRestrictions.length} instruments are`} registered on the title
+          </span>
+        )}
       </div>
 
       <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>{dev.summary}</p>
