@@ -188,5 +188,49 @@ ok("the flats-plan warning survives the grading", /flats plan/i.test(assessTitle
 ok("and the rationale says what it saw", /driveway/i.test(assessTitleType("cross_lease", { coOwners: 2, sharing: SEPARATE }).rationale));
 ok("or admits it saw nothing", /didn't show/.test(assessTitleType("cross_lease", { coOwners: 2 }).rationale));
 
+console.log("\nWhat is registered against the title — read, not guessed");
+// This item came back 2/2 "Low concern", badged "Confirmed from the public
+// record", against a record nobody had read. LINZ publishes the instruments, so
+// it is scored from them now.
+const { assessEncumbrances, assessEasements } = await import(join(root, "lib/scoring/title.ts"));
+const { classifyInstrument, burdens } = await import(join(root, "lib/linz/encumbrances.ts"));
+const k = (...kinds) => kinds.map((kind) => ({ kind }));
+
+check("a clean title is a real finding, and scores like one", assessEncumbrances([]).score, 10);
+check("a caveat is the serious one", assessEncumbrances(k("caveat")).score, 2);
+check("a statutory charge sits between", assessEncumbrances(k("statutory")).score, 6);
+// A mortgage is discharged on settlement; on a cross lease the flat lease IS
+// the tenure. Counting either would make every ordinary house look encumbered.
+check("a mortgage is not the buyer's burden", assessEncumbrances(k("mortgage")).score, 10);
+check("nor is a flat lease", assessEncumbrances(k("lease", "lease")).score, 10);
+
+check("no easements or covenants scores full", assessEasements([]).score, 10);
+check("one easement is the ordinary case", assessEasements(k("easement")).score, 8);
+check("two is worth a closer read", assessEasements(k("easement", "covenant")).score, 7);
+// FLOORED AT 6. "There is a covenant here and we cannot read it" is a caution,
+// not a fault — it might ban a second dwelling or specify a letterbox, and
+// scoring as though we knew which would be invention.
+check("many still floors at 6, because we can't read them", assessEasements(k("covenant","covenant","covenant","easement","easement")).score, 6);
+ok("and it says the terms aren't readable", /NOT its terms|not public|paid download|not on the register/i.test(assessEasements(k("covenant")).rationale));
+ok("a clean title explains what it checked", /memorials/i.test(assessEasements([]).rationale));
+ok("a caveat tells the reader what to do about it", /solicitor/i.test(assessEncumbrances(k("caveat")).rationale));
+
+console.log("\nclassifying LINZ's own wording");
+// The code list is 525 long and grows; classifying by LINZ's description rather
+// than by a hand-written code map is what stops it rotting.
+check("Easement Instrument", classifyInstrument("Easement Instrument"), "easement");
+check("Land Transfer Plan Land Covenant", classifyInstrument("Land Transfer Plan Land Covenant"), "covenant");
+check("Building Line Restriction", classifyInstrument("Building Line Restriction"), "covenant");
+check("Caveat", classifyInstrument("Caveat against dealings"), "caveat");
+check("Mortgage", classifyInstrument("Mortgage"), "mortgage");
+check("Lease", classifyInstrument("Lease"), "lease");
+// A removal must land in the same family as the thing it removes, or the
+// counting stops being honest.
+check("Discharge of Mortgage is still a mortgage instrument", classifyInstrument("Discharge of Mortgage"), "mortgage");
+check("Partial Withdrawal of Caveat is still a caveat instrument", classifyInstrument("Partial Withdrawal of Caveat"), "caveat");
+
+check("burdens exclude mortgages and leases",
+  burdens({ live: [{ kind: "mortgage" }, { kind: "lease" }, { kind: "easement" }], historicCount: 0 }).length, 1);
+
 if (failures) { console.error(`\n${failures} title check(s) FAILED.\n`); process.exit(1); }
 console.log("\nAll title checks passed.\n");

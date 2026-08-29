@@ -199,3 +199,107 @@ export function resolveTenure(sources: {
   if (known(sources.page)) return sources.page;
   return "unknown";
 }
+
+// ── What is registered against the title ────────────────────────────────────
+//
+// These two items — "Encumbrances / caveats" and "Easements & covenants on
+// title" — were the model's to guess at, and it guessed 2/2 "Low concern",
+// badged "Confirmed from the public record", against a record nobody had read.
+// LINZ publishes the instruments (lib/linz/encumbrances.ts), so they are scored
+// from them here, the same arrangement the tenure and the foundation use: the
+// fact comes from the register, the report does the arithmetic.
+//
+// THE LIMIT IS LOAD-BEARING. We get an instrument's TYPE, number and date. We do
+// NOT get its TEXT — the wording of a covenant is inside the instrument
+// document, a paid Landonline download. So we know a land covenant exists and
+// cannot know whether it bans a minor dwelling or specifies a letterbox.
+//
+// That is why there is no severity staircase here. Grading "3 covenants = 4/10"
+// would be inventing weight for documents nobody has read, which is the same
+// mistake as the condition multiplier this codebase has already deleted twice.
+// What IS knowable is presence and absence, and absence is the strong finding:
+// a title with nothing registered against it is a real, checkable result.
+
+/** One instrument, as far as scoring cares. */
+export interface RegisteredInstrument {
+  kind: "easement" | "covenant" | "caveat" | "lease" | "mortgage" | "statutory" | "other";
+}
+
+/**
+ * "Encumbrances / caveats" — a live caveat, or a charge imposed by statute.
+ *
+ * A caveat is the one thing here that is unambiguously serious without reading
+ * a word of it: somebody has registered a claim against this land and nothing
+ * can be dealt with until it is removed or lapses. On a property being actively
+ * marketed that is a dispute, a debt or a deal that fell over.
+ */
+export function assessEncumbrances(instruments: RegisteredInstrument[]): TitleAssessment | null {
+  const caveats = instruments.filter((i) => i.kind === "caveat").length;
+  const statutory = instruments.filter((i) => i.kind === "statutory").length;
+
+  if (caveats > 0) {
+    return {
+      score: 2,
+      confidenceTier: 1,
+      finding: `${caveats === 1 ? "A caveat is" : `${caveats} caveats are`} registered against this title`,
+      rationale:
+        "A caveat is a formal claim by somebody other than the owner, and while it stands nothing can be registered against the title that conflicts with it — including the transfer to you. It has to be removed or lapse before settlement. It usually means a dispute, an unregistered lender, a relationship-property claim or a deal that fell through. Your solicitor needs the caveat and the vendor's plan for removing it before you go unconditional.",
+    };
+  }
+  if (statutory > 0) {
+    return {
+      score: 6,
+      confidenceTier: 1,
+      finding: `${statutory === 1 ? "A statutory charge or notice is" : `${statutory} statutory charges or notices are`} registered`,
+      rationale:
+        "Something imposed by legislation is noted against this title — a statutory land charge, a settlement-act certificate or similar. It stays with the land and binds you. We can name the instrument and its number but not read its terms, because the wording sits inside the instrument document rather than on the register. Give the number to your solicitor.",
+    };
+  }
+  return {
+    score: 10,
+    confidenceTier: 1,
+    finding: "No caveats or statutory charges on the title",
+    rationale:
+      "We read the current memorials on the record of title and found no caveat and no statutory charge. Mortgages and, on a cross lease, the flat leases are not counted here: a mortgage is discharged on settlement and the lease IS the tenure. This is what the register says today; a caveat can be lodged at any time, so your solicitor will check it again immediately before settlement.",
+  };
+}
+
+/**
+ * "Easements & covenants on title" — the burdens that stay with the land.
+ *
+ * Scored on presence, never on severity. One easement is the ordinary case for
+ * a suburban section (drainage, power, a shared accessway) and is not a defect;
+ * several is a reason to read them all. Floored at 6, because "there is a
+ * covenant here and we cannot read it" is a caution and not a fault — the
+ * covenant might ban a second dwelling or it might require a letterbox, and
+ * scoring it as though we knew which would be invention.
+ */
+export function assessEasements(instruments: RegisteredInstrument[]): TitleAssessment | null {
+  const items = instruments.filter((i) => i.kind === "easement" || i.kind === "covenant");
+  const easements = items.filter((i) => i.kind === "easement").length;
+  const covenants = items.filter((i) => i.kind === "covenant").length;
+
+  if (items.length === 0) {
+    return {
+      score: 10,
+      confidenceTier: 1,
+      finding: "No easements or covenants registered",
+      rationale:
+        "We read the current memorials on the record of title and found no easement and no covenant. Nobody else holds a registered right over this land, and nothing on the register restricts what you may build on it. Any restriction therefore comes from the district plan rather than the title.",
+    };
+  }
+
+  const parts: string[] = [];
+  if (easements) parts.push(`${easements} easement${easements > 1 ? "s" : ""}`);
+  if (covenants) parts.push(`${covenants} covenant${covenants > 1 ? "s" : ""}`);
+  const score = items.length === 1 ? 8 : items.length === 2 ? 7 : 6;
+
+  return {
+    score,
+    confidenceTier: 1,
+    finding: `${parts.join(" and ")} registered against this title`,
+    rationale:
+      `The register carries ${parts.join(" and ")}, and they stay with the land — you inherit them. An easement is somebody else's right over your property, most often drainage, power or a shared accessway; a covenant restricts what may be built or done here, and can rule out a second dwelling, a particular cladding or a further subdivision. ` +
+      "We can name each instrument and its number, but NOT its terms: the wording is inside the instrument document, which is a paid download from Landonline and not on the register itself. So this score reflects that they exist, not how heavy they are. Give the instrument numbers to your solicitor and ask specifically whether anything blocks what you intend to do with the place.",
+  };
+}

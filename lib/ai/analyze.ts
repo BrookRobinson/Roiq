@@ -601,8 +601,39 @@ function publicRecordFacts(listing: ScrapedListing): (string | null)[] {
     v?.landValue ? fact("Rating valuation — land value", nzd(v.landValue)) : null,
     v?.improvementsValue ? fact("Rating valuation — improvements", nzd(v.improvementsValue)) : null,
     v?.floorAreaSqm ? fact("Floor area (valuation roll)", `${v.floorAreaSqm} m²`) : null,
+    encumbranceFact(listing),
     floorAreaFact(listing),
   ];
+}
+
+/**
+ * What is registered against the title, handed over as a CONFIRMED fact so the
+ * model stops inferring it from photographs.
+ *
+ * `leg_encumbrances` and `leg_easements` are scored from the register in the
+ * report itself, so this is here to stop the model contradicting that — it was
+ * writing "no encumbrances apparent" about titles carrying a building line
+ * restriction, and telling readers to order a title search for a register we
+ * had already read.
+ *
+ * Silence is NOT an all-clear, and says so. An absent lookup and an empty
+ * register are different findings, and the second one is the only one that
+ * means the title is clear.
+ */
+function encumbranceFact(listing: ScrapedListing): string | null {
+  const enc = listing.encumbrances;
+  if (!enc) return null;
+  if (enc.live.length === 0) {
+    return fact(
+      "Registered against the title (LINZ — CONFIRMED)",
+      "nothing currently registered — no easement, covenant, caveat or charge"
+    );
+  }
+  const list = enc.live.map((e) => `${e.label} (${e.instrumentNo})`).join("; ");
+  return fact(
+    "Registered against the title (LINZ — CONFIRMED, terms NOT readable)",
+    `${list}. These are the instrument TYPES and numbers from the register. Their WORDING is not public, so do not state or guess what any covenant or easement requires.`
+  );
 }
 
 /**

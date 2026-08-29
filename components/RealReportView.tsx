@@ -25,7 +25,7 @@ import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scorin
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
 import { assessSectionSize, assessTopography, assessShape, assessTrees, assessAspect, assessFrontage } from "@/lib/scoring/land-quality";
-import { assessTitleType } from "@/lib/scoring/title";
+import { assessTitleType, assessEncumbrances, assessEasements } from "@/lib/scoring/title";
 import { valueExtraDwellings, dwellingComplianceWork, type ExtraDwellingValueResult, type DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
 import { SendReportDialog } from "@/components/SendReportDialog";
@@ -390,6 +390,29 @@ export function RealReportView({
               evidenceSource: "LINZ record of title",
               aiSummary: t.rationale,
             };
+          }
+        }
+        // The two title-instrument items are scored from the REGISTER, not from
+        // a model reading photographs. They used to come back 2/2 "Low concern"
+        // badged "Confirmed from the public record" against a record nobody had
+        // read. Skipped entirely when the register wasn't read: the model's
+        // answer is at least honest about being an inference, where an invented
+        // "nothing registered" would be a false all-clear.
+        if (s.id === "leg_encumbrances" || s.id === "leg_easements") {
+          const live = report.listing.encumbrances?.live;
+          if (live) {
+            const t = s.id === "leg_encumbrances" ? assessEncumbrances(live) : assessEasements(live);
+            if (t) {
+              return {
+                ...s,
+                score: t.score as typeof s.score,
+                urgencyLabel: urgencyLabel(t.score as never),
+                confidenceTier: t.confidenceTier,
+                finding: t.finding,
+                evidenceSource: "LINZ record of title",
+                aiSummary: t.rationale,
+              };
+            }
           }
         }
         // Section size is scored objectively vs a typical lot, not the AI's guess.

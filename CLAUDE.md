@@ -36,6 +36,7 @@ npm run verify:scoreboard    # grading our own valuations, and when a run of bad
 npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
 npm run verify:quality-curve # score → value multiplier: no cliffs, no invented sixth number
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
+npm run build:instruments    # regenerate lib/linz/instrument-types.ts from LINZ
 ```
 
 **There are almost no tests.** Verification is `tsc`, the health endpoints, and
@@ -983,6 +984,40 @@ And the address lookup must use **exact matches on `full_address_number` and
 against ~1.0s, which was the difference between fitting the 15s budget and not.
 Like the geocoder, an address that could mean more than one property returns
 NOTHING: a wrong record is the wrong-house failure with an official stamp on it.
+
+**What is registered against the title is READ, not guessed.** "Encumbrances /
+caveats" came back 2 out of 2, "Low concern", badged **"T1 — Confirmed from the
+public record"**, against a record nobody had read — the free feed gives the
+title's type, estate, share and area, and the instruments live somewhere else
+entirely. They are published on the same key: `Title Memorial` (52006) →
+`Title Instrument` (52012) → `Transaction Type` (52009), the last of which is
+GENERATED into `lib/linz/instrument-types.ts` (525 rows, `npm run
+build:instruments`) rather than fetched, so a report never waits on a catalogue
+to name what burdens a property.
+
+**`curr_hist_flag` is the whole safety of it.** A title's memorial list is a
+HISTORY, not a state — NA89C/519 carries fifteen memorials of which five are
+current, the rest mostly mortgages long since discharged. Reporting those as
+live would tell a buyer a house is mortgaged to three lenders and hand them a
+negotiating point that does not exist. Only `CURR` is ever reported, and an
+instrument whose code doesn't decode is dropped rather than printed raw.
+
+**Presence is scored; severity is not.** We get an instrument's TYPE, number and
+date. We do NOT get its TEXT — a covenant's wording is inside the instrument
+document, a paid Landonline download — so we know a covenant exists and cannot
+know whether it bans a minor dwelling or specifies a letterbox. "3 covenants =
+4/10" would be inventing weight for documents nobody has read, which is the
+condition multiplier all over again. So easements/covenants floor at **6**
+("there is one and we can't read it" is a caution, not a fault), a live
+**caveat** scores 2 because it is unambiguously serious without reading a word,
+and an EMPTY register scores 10 — absence is the strong, checkable finding here.
+A mortgage (discharged on settlement) and, on a cross lease, the flat leases are
+never counted as burdens, or every ordinary house would look encumbered.
+
+**A register we couldn't read is not a clear title.** `listing.encumbrances`
+absent means the lookup never ran; an empty `live` list means it ran and found
+nothing. Only the second is an all-clear, and the items are left to the model
+rather than scored when the first is true.
 
 **A property with no building gets a LAND report, not a condition report.** The
 1,000 points all describe a dwelling, so a bare section scored as a house is

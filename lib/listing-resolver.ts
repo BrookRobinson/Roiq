@@ -186,6 +186,11 @@ async function enrichFromLinz(listing: ScrapedListing): Promise<ScrapedListing> 
   // of it; on a cross lease it is a share, and the portal publishes the whole
   // site regardless — a two-flat cross lease on 1,200m² lists as 1,200m² of
   // land on both OneRoof and the title, when 600m² is what is being bought.
+  // Read once, carried whole. An absent value means the register was never
+  // read; an empty list means it WAS read and nothing is registered — the
+  // second is a real finding and the first must never be rendered as one.
+  if (record.encumbrances) listing.encumbrances = record.encumbrances;
+
   if (record.title?.shareFraction != null) {
     listing.landShareFraction = record.title.shareFraction;
     listing.landCoOwners = record.title.shareDenominator;

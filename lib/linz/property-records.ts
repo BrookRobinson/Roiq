@@ -25,6 +25,8 @@
 // licence condition — see the map footer.
 // ============================================================
 
+import { lookupEncumbrances, type TitleEncumbrances } from "./encumbrances";
+
 const ADDRESS_LAYER = process.env.LINZ_ADDRESS_LAYER?.trim() || "123113";
 
 /** Address → property. */
@@ -115,6 +117,13 @@ export interface LinzPropertyRecord {
   territorialAuthority: string | null;
   title: LinzTitle | null;
   valuation: LinzValuation | null;
+  /**
+   * What is currently registered against the title — easements, covenants,
+   * caveats. Null means we could not read the register, which is a very
+   * different statement from "the title is clear" and must never be rendered as
+   * one. See lib/linz/encumbrances.ts.
+   */
+  encumbrances: TitleEncumbrances | null;
 }
 
 export const hasLinzKey = (): boolean => !!process.env.LINZ_API_KEY?.trim();
@@ -465,6 +474,19 @@ async function resolveRecord(
   ]);
   if (!valuation && !title) return null;
 
+  // The instruments, once we know the title number. Two more calls, so it runs
+  // only when there IS a title, and a failure is null rather than a throw — the
+  // rest of the record is worth having without it, and "we couldn't read the
+  // register" must never be rendered as "the title is clear".
+  const encumbrances = title
+    ? await lookupEncumbrances(title.titleNo, (table, cql, count) =>
+        wfs(table, cql, count, signal)
+      ).catch((err) => {
+        console.warn("[linz] encumbrances failed:", (err as Error)?.message);
+        return null;
+      })
+    : null;
+
   return {
     address: hit.full,
     lat: hit.lat,
@@ -472,5 +494,6 @@ async function resolveRecord(
     territorialAuthority: hit.ta,
     title,
     valuation,
+    encumbrances,
   };
 }

@@ -1,3 +1,4 @@
+import type { TitleEncumbrances } from "@/lib/linz/encumbrances";
 export type PriceMethod =
   | "fixed"
   | "enquiries_over"
@@ -75,6 +76,12 @@ export interface ScrapedListing {
    * three.
    */
   landCoOwners: number | null;
+  /**
+   * What LINZ says is currently registered against the title. Undefined means
+   * we never read the register; an empty `live` list means we read it and found
+   * nothing. Those are different findings and the report says so.
+   */
+  encumbrances?: TitleEncumbrances;
   buildYear: number | null;
 
   // Listing details
