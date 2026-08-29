@@ -30,6 +30,8 @@ registerHooks({
 });
 
 const { assessDevelopment, developmentBonus } = await import(join(root, "lib/scoring/development.ts"));
+const { readSiteLayout } = await import(join(root, "lib/scoring/site-layout.ts"));
+const rect = (x, y, w, h) => [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }];
 
 let failures = 0;
 const check = (label, got, want) => {
@@ -89,6 +91,53 @@ const tiny = assessDevelopment({ landAreaSqm: 300, floorAreaSqm: 180, titleRestr
 check("tier is none", tiny.tier, "none");
 check("nothing flagged", tiny.restrictedByTitle, false);
 check("no bonus to withhold", developmentBonus(tiny.tier, "buyer", tiny.restrictedByTitle), 0);
+
+console.log("\nWHERE the house sits, not just how much land is left over");
+// The complaint that started this: "land minus footprint" writes the same
+// sentence on every large section. A 20m × 35m section with a 12m × 10m house
+// has ~500m² spare wherever that house stands — and only one arrangement can
+// take a second dwelling.
+const PARCEL = rect(0, 0, 20, 35);
+const ROAD = { x: 10, y: -5 };
+const layoutOf = (bld) => readSiteLayout({ parcel: PARCEL, buildings: bld, roadPoint: ROAD });
+
+const front = layoutOf([rect(4, 2, 12, 10)]);
+const middle = layoutOf([rect(4, 12, 12, 11)]);
+const crowded = layoutOf([rect(4, 2, 12, 10), rect(2, 15, 16, 17)]);
+
+check("house at the front reads as at the front", front.housePosition, "toward the front of the section, near the road");
+check("house in the middle reads as central", middle.housePosition, "centrally on the section");
+// Distance-to-a-road-POINT put a dead-centre house at 0.377 of the range and
+// called it "toward the front", because the far corners of the section are
+// further from the road than the middle of the back fence. It projects now.
+ok("the two are not described the same way", front.housePosition !== middle.housePosition);
+
+check("the front-house back yard takes a dwelling", front.unitFits, true);
+check("and it goes behind the house", front.placement, "behind the house, away from the road");
+// The middle house still fits one — in the FRONT yard, which is the honest
+// answer and one a buyer reads very differently from "in the back yard".
+check("the middle house only leaves the front yard", middle.placement, "between the house and the road");
+check("a section built out end to end fits nothing", crowded.unitFits, false);
+
+console.log("\nthe geometry OVERRIDES the area arithmetic");
+// 700m² clears every area threshold in the table. It is not the question.
+const big = { landAreaSqm: 700, floorAreaSqm: 120, suburbMedianPerSqm: 5200 };
+const byArea = assessDevelopment(big);
+const byGeometry = assessDevelopment({ ...big, layout: crowded });
+ok("on area alone it finds potential", byArea.tier !== "none");
+check("with the real layout it does not", byGeometry.tier, "none");
+check("and no money is put on it", byGeometry.valueUpliftHigh, 0);
+check("nor any score bonus", developmentBonus(byGeometry.tier, "investor", byGeometry.restrictedByTitle), 0);
+
+console.log("\nand the reader is told which of the two it was");
+check("measured, when the parcel was read", byGeometry.measured, true);
+check("estimated, when it wasn't", byArea.measured, false);
+ok("the measured summary names the largest clear piece", /largest unbroken piece/i.test(byGeometry.summary));
+ok("and says the spare-area figure is misleading here", /misleading/i.test(byGeometry.summary));
+ok("and states the margins as OUR assumptions", /our assumptions, not the council/i.test(byGeometry.summary));
+ok("the fitting case says where it goes", /behind the house/.test(assessDevelopment({ ...big, layout: front }).summary));
+// The old sentence was true of every large section in the country.
+ok("the generic 'feasible on section size' line is gone when measured", !/feasible on section size/.test(byGeometry.summary));
 
 console.log(failures === 0 ? "\nDevelopment potential holds.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);

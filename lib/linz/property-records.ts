@@ -26,6 +26,7 @@
 // ============================================================
 
 import { lookupEncumbrances, type TitleEncumbrances } from "./encumbrances";
+import { lookupSiteGeometry, type SiteGeometry } from "./site-geometry";
 
 const ADDRESS_LAYER = process.env.LINZ_ADDRESS_LAYER?.trim() || "123113";
 
@@ -124,6 +125,12 @@ export interface LinzPropertyRecord {
    * one. See lib/linz/encumbrances.ts.
    */
   encumbrances: TitleEncumbrances | null;
+  /**
+   * The parcel boundary and what stands on it. Null when the address point
+   * doesn't land in a parcel — which is not "an empty section", so nothing
+   * downstream may read it as one.
+   */
+  site: SiteGeometry | null;
 }
 
 export const hasLinzKey = (): boolean => !!process.env.LINZ_API_KEY?.trim();
@@ -350,6 +357,13 @@ function parseShare(share: string): { fraction: number; denominator: number } | 
   return { fraction: num / den, denominator: den };
 }
 
+/** "230 Sewell Street, Hokitika" → "Sewell Street", for the road-frontage lookup. */
+function roadNameOf(address: string): string | null {
+  const first = address.split(",")[0]?.trim() ?? "";
+  const m = /^[0-9]+[A-Za-z]?\s+(.+)$/.exec(first);
+  return m ? m[1].trim() : null;
+}
+
 async function fetchTitle(propertyId: string, signal?: AbortSignal): Promise<LinzTitle | null> {
   const refs = await wfs<{ title_no?: string }>(
     PROPERTY_TITLE_TABLE,
@@ -487,6 +501,19 @@ async function resolveRecord(
       })
     : null;
 
+  // The section's real shape. Needs the address point, so it runs only when we
+  // have one; best-effort like the rest, because a report is far better off
+  // without a layout than delayed by one.
+  const site =
+    hit.lat != null && hit.lng != null
+      ? await lookupSiteGeometry(hit.lat, hit.lng, roadNameOf(address), (layer, cql, count) =>
+          wfs(layer, cql, count, signal)
+        ).catch((err) => {
+          console.warn("[linz] site geometry failed:", (err as Error)?.message);
+          return null;
+        })
+      : null;
+
   return {
     address: hit.full,
     lat: hit.lat,
@@ -495,5 +522,6 @@ async function resolveRecord(
     title,
     valuation,
     encumbrances,
+    site,
   };
 }

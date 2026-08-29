@@ -10,6 +10,7 @@ import { lookupPropertyAreas } from "@/lib/ai/property-areas";
 import { assessDwelling, identifiesOneProperty } from "@/lib/property/dwelling";
 import { lookupLinzPropertyRecord } from "@/lib/linz/property-records";
 import { lookupZone } from "@/lib/zoning/district-plan";
+import { readSiteLayout } from "@/lib/scoring/site-layout";
 import type { TitleType } from "@/lib/scraper/types";
 
 export class ListingNotFoundError extends Error {
@@ -190,6 +191,20 @@ async function enrichFromLinz(listing: ScrapedListing): Promise<ScrapedListing> 
   // read; an empty list means it WAS read and nothing is registered — the
   // second is a real finding and the first must never be rendered as one.
   if (record.encumbrances) listing.encumbrances = record.encumbrances;
+
+  // Computed here rather than carried as polygons: the report needs the answer,
+  // not a few hundred coordinate pairs in every stored report.
+  if (record.site && record.site.parcel.length >= 3) {
+    listing.siteLayout = readSiteLayout({
+      parcel: record.site.parcel,
+      buildings: record.site.buildings,
+      roadPoint: record.site.roadPoint,
+    });
+    // The surveyed parcel area beats a scraped one, the same way the title's does.
+    if (listing.landAreaSqm == null && record.site.parcelAreaSqm) {
+      listing.landAreaSqm = record.site.parcelAreaSqm;
+    }
+  }
 
   if (record.title?.shareFraction != null) {
     listing.landShareFraction = record.title.shareFraction;

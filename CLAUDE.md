@@ -913,6 +913,47 @@ marked CONFIRMED, so the analysis stops writing "order a title to confirm freeho
 tenure" about a title type printed above the paragraph. `leg_title` carries no
 `verifyAgainst` any more for the same reason.
 
+**Development potential is MEASURED off the parcel, not subtracted from it.** It
+used to be land area minus the house footprint, which writes the same sentence
+on every large section and is wrong about many of them: it cannot tell a house
+at the FRONT of a 700m² section with one clear back yard from the same house in
+the MIDDLE ringed by 4m strips. Both have "427m² spare"; only one can take a
+dwelling. 230 Sewell Street proved it — 811m², reported "minor dwelling
+possible · likely", and on its actual geometry it carries THREE buildings, 224m²
+of genuinely clear ground, and a largest unbroken rectangle of 5m × 8m. Nothing
+fits.
+
+LINZ publishes the pieces free: **NZ Primary Parcels** (50772) for the boundary,
+**NZ Building Outlines** (101290, 3.2m footprints) for what stands on it, and
+**NZ Addresses: Roads** (123110) so "the front of the section" means something.
+`lib/linz/site-geometry.ts` fetches and projects them to metres;
+`lib/scoring/site-layout.ts` is pure and does the geometry, so `verify:development`
+asserts it against squares it draws itself.
+
+**Two traps, both silent.** The building layer serves NZTM by default, so a
+lat/lng bbox matches NOTHING — zero rows, no error, indistinguishable from a
+bare section. `srsName=EPSG:4326` is not optional. And the CQL BBOX takes **lat
+first** under the urn-form CRS; reversed, same silent zero.
+
+**The biggest rectangle is not the one that fits.** A 20m × 3m strip down a
+boundary beats a 7m × 10m corner on area and holds nothing, so every maximal
+rectangle is tested rather than only the largest. Axis-aligned is a real limit
+and it errs toward "doesn't fit", which is the right direction under a
+six-figure number. Only a footprint whose CENTRE is inside the parcel counts —
+the bbox catches the neighbour's garage.
+
+**And "front" needs projecting, not measuring.** A house dead-centre on a 20 ×
+35m parcel read as "toward the front" using straight-line distance from the road
+point, because the far corners are further away than the middle of the back
+fence. It projects onto the road→section axis now.
+
+**The margins are OURS and the copy says so** — 1.5m to boundaries, 2m clear of
+what's built. The district plan's rule table (site coverage, height to boundary,
+real yards) is still unread, so the finding says what physically fits, never
+what a council will consent. The card's footnote used to read "must be confirmed
+with the council / LIM", which was both wrong once measured and the homework
+rule failing.
+
 **A covenant on the title withholds the development BONUS, not the valuation.**
 The Land tab puts real money on adding a dwelling — "+$122,000–$217,000
 potential value · +6 to your buyer score" — and `assessDevelopment` had never

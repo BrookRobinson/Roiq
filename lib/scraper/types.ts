@@ -1,3 +1,4 @@
+import type { SiteLayout } from "@/lib/scoring/site-layout";
 import type { TitleEncumbrances } from "@/lib/linz/encumbrances";
 export type PriceMethod =
   | "fixed"
@@ -82,6 +83,12 @@ export interface ScrapedListing {
    * nothing. Those are different findings and the report says so.
    */
   encumbrances?: TitleEncumbrances;
+  /**
+   * What the parcel geometry says about putting another dwelling on this
+   * section. Absent means we couldn't read the boundary — which is NOT "there's
+   * no room", and the finding falls back to the area arithmetic saying so.
+   */
+  siteLayout?: SiteLayout;
   buildYear: number | null;
 
   // Listing details

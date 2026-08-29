@@ -482,8 +482,11 @@ export function RealReportView({
         // actually published a register for it — an unread register is not a
         // clear one, and this finding must not read as though it were.
         titleRestrictions: titleRestrictions,
+        // The section's real shape — where the buildings stand, and whether
+        // anything actually fits beside them.
+        layout: report.listing.siteLayout ?? null,
       }),
-    [report.listing.landAreaSqm, report.listing.floorAreaSqm, report.listing.zoning, report.suburbValue, titleRestrictions]
+    [report.listing.landAreaSqm, report.listing.floorAreaSqm, report.listing.zoning, report.suburbValue, titleRestrictions, report.listing.siteLayout]
   );
 
   const scored: ScoreResult = useMemo(

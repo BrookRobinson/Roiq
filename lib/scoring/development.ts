@@ -17,6 +17,8 @@
 // many residential/rural/mixed sites without a resource or building consent.
 // ============================================================
 
+import type { SiteLayout } from "./site-layout";
+
 export type DevTier = "none" | "minor_dwelling" | "second_dwelling" | "subdivision";
 
 export interface DevTierMeta {
@@ -80,6 +82,12 @@ export interface DevelopmentPotential {
    * useful where silence is not.
    */
   restrictedByTitle: boolean;
+  /**
+   * True when this came from the parcel geometry rather than from land area
+   * minus a footprint. The card's footnote says which, because "measured" and
+   * "estimated" are very different claims to put under a six-figure number.
+   */
+  measured: boolean;
 }
 
 /**
@@ -139,12 +147,25 @@ export function assessDevelopment(args: {
    * finding must not read as though it were.
    */
   titleRestrictions?: TitleRestriction[] | null;
+  /**
+   * The section's REAL layout — where the buildings stand and whether anything
+   * fits beside them. When present it replaces the subtraction entirely, because
+   * "land minus footprint" cannot tell a house at the front of a section with a
+   * clear back yard from one in the middle ringed by 4m strips, and puts the
+   * same six-figure sentence on both.
+   */
+  layout?: SiteLayout | null;
 }): DevelopmentPotential {
+  const layout = args.layout ?? null;
   const land = args.landAreaSqm && args.landAreaSqm > 0 ? args.landAreaSqm : null;
   // Approx ground footprint: assume mostly single-level (conservative). Falls back
   // to 20% site coverage when the floor area is unknown.
   const footprint = args.floorAreaSqm && args.floorAreaSqm > 0 ? args.floorAreaSqm : land ? Math.round(land * 0.2) : 0;
-  const spare = land ? Math.max(0, land - footprint) : null;
+  // MEASURED clear ground where we have the parcel geometry, subtraction only
+  // as the fallback. They are not the same number and not the same claim: on 230
+  // Sewell Street subtraction says 427m² spare, and the geometry says 224m² of
+  // it is actually clear — in pieces no bigger than 5m × 8m.
+  const spare = layout ? layout.clearAreaSqm : land ? Math.max(0, land - footprint) : null;
 
   let tier: DevTier = "none";
   if (land && spare) {
@@ -152,6 +173,12 @@ export function assessDevelopment(args: {
     else if (land >= 750 && spare >= 380) tier = "second_dwelling";
     else if (land >= 450 && spare >= 130) tier = "minor_dwelling";
   }
+
+  // THE GATE. A section can be huge and still have nowhere to put anything —
+  // 230 Sewell Street is 811m² with three buildings on it and no contiguous
+  // 7m × 10m rectangle anywhere. Where the geometry says nothing fits, there is
+  // no development potential to report, whatever the area thresholds said.
+  if (layout && !layout.unitFits) tier = "none";
 
   const restrictions = (args.titleRestrictions ?? []).filter(
     (r) => r.kind === "covenant" || r.kind === "easement"
@@ -180,10 +207,34 @@ export function assessDevelopment(args: {
   const enablers: string[] = [];
   const blockers: string[] = [];
   if (zoneLine) enablers.push(zoneLine);
-  if (land) enablers.push(`Section is ${land.toLocaleString("en-NZ")}m²${spare ? `, with ~${spare.toLocaleString("en-NZ")}m² clear of the existing house` : ""}`);
+  if (land) {
+    enablers.push(
+      layout
+        ? `Section is ${land.toLocaleString("en-NZ")}m², measured on the parcel boundary — ${layout.builtAreaSqm}m² built on, ${layout.clearAreaSqm}m² genuinely clear`
+        : `Section is ${land.toLocaleString("en-NZ")}m²${spare ? `, with ~${spare.toLocaleString("en-NZ")}m² clear of the existing house` : ""}`
+    );
+  }
+  if (layout?.largestClear && tier !== "none") {
+    enablers.push(
+      `The largest unbroken clear area is ${layout.largestClear.width}m × ${layout.largestClear.length}m${layout.placement ? `, ${layout.placement}` : ""}`
+    );
+  }
   if (tier === "minor_dwelling") enablers.push("Granny-flat rules allow a ≤70m² standalone dwelling — often no consent required");
   if (tier === "second_dwelling" || tier === "subdivision") enablers.push("Enough room for more than a minor unit, subject to the zone's density rules");
-  if (tier === "none") blockers.push(land ? "Limited spare land once the existing house is accounted for" : "Land area unknown — can't gauge spare space");
+  if (tier === "none") {
+    blockers.push(
+      layout
+        ? layout.largestClear
+          ? `Measured on the parcel: the largest clear rectangle is ${layout.largestClear.width}m × ${layout.largestClear.length}m — too small for a ${layout.assumed.unit.width}m × ${layout.assumed.unit.length}m dwelling`
+          : "Measured on the parcel: no clear buildable ground once the existing buildings and boundary setbacks are allowed for"
+        : land
+          ? "Limited spare land once the existing house is accounted for"
+          : "Land area unknown — can't gauge spare space"
+    );
+    if (layout && layout.buildingCount > 1) {
+      blockers.push(`${layout.buildingCount} structures already stand on this section, covering ${layout.builtAreaSqm}m²`);
+    }
+  }
   blockers.push(
     zone
       ? "Site coverage, setbacks and density come from the zone's rule tables, which we don't read yet — the zone itself is above"
@@ -219,15 +270,28 @@ export function assessDevelopment(args: {
     ? ` NOTE: the record of title carries ${restrictions.map((r) => `${article(r.label)} ${r.label.toLowerCase()} (${r.instrumentNo})`).join(" and ")}. The wording of a registered instrument isn't public, so we can't tell you whether it permits this — the value above is what the section could support, not what the title allows. Give those numbers to your solicitor before you count on it.`
     : "";
 
+  // Written from THIS property's geometry where we have it. The old sentence —
+  // "looks feasible on section size (~427m² spare of 612m²)" — is true of every
+  // large section in the country and told a reader nothing about theirs.
+  const houseLine = layout?.housePosition ? ` The existing house sits ${layout.housePosition}.` : "";
+  const marginLine = layout
+    ? ` Measured off the parcel boundary and LINZ's building footprints, allowing ${layout.assumed.boundarySetback}m to the boundaries and ${layout.assumed.buildingGap}m clear of what's already built — our assumptions, not the council's rules.`
+    : "";
+
   const summary =
     tier === "none"
-      ? `On the numbers alone this section is unlikely to take an additional dwelling${land ? ` (~${spare}m² spare)` : ""}. ${zoneSentence}${rulesSentence}`
-      : `${meta.label.replace(/ possible$/, "")} looks feasible on section size (~${spare}m² spare of ${land}m²). ${meta.blurb} ${zoneSentence} Confidence: ${confidence}.${rulesSentence}${restrictionSentence}`;
+      ? layout
+        ? `There is nowhere on this section to put another dwelling.${houseLine} Of its ${land ?? layout.parcelAreaSqm}m², ${layout.builtAreaSqm}m² is already built on${layout.buildingCount > 1 ? ` across ${layout.buildingCount} structures` : ""} and ${layout.clearAreaSqm}m² is clear — but the largest unbroken piece of it is ${layout.largestClear ? `${layout.largestClear.width}m × ${layout.largestClear.length}m` : "too small to measure"}, and a ${layout.assumed.unit.width}m × ${layout.assumed.unit.length}m minor dwelling needs more than that in ONE piece. Spare area on its own is misleading here.${marginLine} ${zoneSentence}${rulesSentence}`
+        : `On the numbers alone this section is unlikely to take an additional dwelling${land ? ` (~${spare}m² spare)` : ""}. ${zoneSentence}${rulesSentence}`
+      : layout
+        ? `${meta.label.replace(/ possible$/, "")} looks feasible on this section's actual layout.${houseLine} That leaves a clear area of ${layout.largestClear?.width}m × ${layout.largestClear?.length}m${layout.placement ? `, ${layout.placement}` : ""} — enough for a ${layout.assumed.unit.width}m × ${layout.assumed.unit.length}m dwelling. ${meta.blurb} ${zoneSentence} Confidence: ${confidence}.${marginLine}${rulesSentence}${restrictionSentence}`
+        : `${meta.label.replace(/ possible$/, "")} looks feasible on section size (~${spare}m² spare of ${land}m²). ${meta.blurb} ${zoneSentence} Confidence: ${confidence}.${rulesSentence}${restrictionSentence}`;
 
   return {
     tier, confidence, landAreaSqm: land, spareAreaSqm: spare,
     valueUpliftLow, valueUpliftHigh, enablers, blockers, summary, isEstimate: true,
     titleRestrictions: restrictions,
     restrictedByTitle,
+    measured: !!layout,
   };
 }

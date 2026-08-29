@@ -68,7 +68,14 @@ function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential;
         </div>
       )}
       <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
-        Indicative — estimated from the section size vs the house footprint. Zoning, coverage and access must be confirmed with the council / LIM. (Live council geodata is a later build.)
+        {/* This used to read "estimated from the section size vs the house
+            footprint … must be confirmed with the council / LIM" — wrong on
+            both counts once the parcel geometry is measured, and the second
+            half is the homework rule failing: telling the reader to go and
+            find out is the job they came here to avoid. */}
+        {dev.measured
+          ? <>Measured from the LINZ parcel boundary and building footprints. What we can&apos;t read is the district plan&apos;s rule table — site coverage, setbacks and height to boundary — so this says what physically fits, not what the council will consent.</>
+          : <>Indicative — estimated from the section size against the house footprint. We couldn&apos;t retrieve this property&apos;s parcel boundary, so where the buildings actually sit isn&apos;t in this figure.</>}
       </p>
     </div>
   );
