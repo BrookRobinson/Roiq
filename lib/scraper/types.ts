@@ -51,6 +51,14 @@ export interface ScrapedListing {
   landAreaSqm: number | null;
   propertyType: PropertyType;
   titleType: TitleType;
+  /**
+   * The owner's undivided share of the land, from LINZ — 0.5 on a two-flat
+   * cross lease, 1 on a freehold section. Null means we could not read it,
+   * which is deliberately not the same as 1: `landAreaSqm` on a cross lease is
+   * the WHOLE site, shared with the other flats, and only this fraction says
+   * how much of it is actually being bought.
+   */
+  landShareFraction: number | null;
   buildYear: number | null;
 
   // Listing details
@@ -129,6 +137,7 @@ export function emptyListing(url: string, portal: SupportedPortal): ScrapedListi
     landAreaSqm: null,
     propertyType: "unknown",
     titleType: "unknown",
+    landShareFraction: null,
     buildYear: null,
     description: null,
     features: [],

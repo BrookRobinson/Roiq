@@ -41,6 +41,11 @@ export interface MethodInput {
   titleType?: string | null;
   floorAreaSqm?: number | null;
   landAreaSqm?: number | null;
+  /**
+   * The owner's undivided share of the land, from LINZ. Decides whether a cross
+   * lease can be valued as a house at all — see below.
+   */
+  landShareFraction?: number | null;
 }
 
 /** Tenures where the owner has no section of their own to value. */
@@ -74,10 +79,31 @@ export function methodFor(input: MethodInput): ValuationMethod {
   // is no land component to add.
   if (NO_LAND_OF_THEIR_OWN.has(title) || STACKED.has(type)) return "floor-area-comparables";
 
-  // A cross lease shares one title across several dwellings. The land exists but
-  // no part of it is exclusively this owner's to value, so pricing a share of it
-  // as though it were a section overstates what is being bought.
-  if (title === "cross_lease") return "floor-area-comparables";
+  // A cross lease is a HOUSE, and used to be sent down the apartment road here.
+  //
+  // That was wrong in the way that matters most: the apartment method applies no
+  // condition multiplier at all — deliberately, because nobody has measured what
+  // a condition point is worth per m² in an apartment market — so every
+  // cross-lease house in the country was valued with its condition ignored. A
+  // cross-lease house scoring 250/1000 and one scoring 850/1000 came back at the
+  // same figure. But a cross-lease flat is not stacked among others: it sits on
+  // the ground, it has its own roof and its own kitchen, and it wears out and is
+  // renovated exactly like the freehold house next door.
+  //
+  // So it is valued like a house — on the LAND ITS OWNER ACTUALLY HOLDS, which
+  // is the whole site times their share, and then discounted for the tenure.
+  // Both halves of that are in lib/scoring/cross-lease.ts and property-value.ts.
+  //
+  // Without the share we cannot do the first half. The portal publishes the
+  // whole site for a cross lease and so does the title — 1,200m² for a two-flat
+  // pair on 600m² each — so valuing it as a house without dividing it would hand
+  // this flat the other flat's land as well. That overstatement is far worse
+  // than the condition blindness it would fix, so where LINZ cannot tell us the
+  // share, the old method stands and the report says the condition isn't priced.
+  if (title === "cross_lease") {
+    const share = input.landShareFraction ?? null;
+    return share != null && share > 0 && land > 0 ? "land-and-building" : "floor-area-comparables";
+  }
 
   // Freehold with a section under it — a house, a freehold townhouse, a
   // lifestyle block. The land is genuinely theirs and carries real value.

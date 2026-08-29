@@ -16,6 +16,8 @@ import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { methodFor, comparablesMatch } from "@/lib/scoring/valuation-method";
+import { valueProperty, type PropertyValue } from "@/lib/scoring/property-value";
+import { explainCrossLeaseDiscount } from "@/lib/scoring/cross-lease";
 import { maintenanceBasis } from "@/lib/finance/maintenance";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { compareFloorArea } from "@/lib/property/floor-area-check";
@@ -461,6 +463,29 @@ export function RealReportView({
     [effectiveSubItems, report.listing.floorAreaSqm, report.listing.bathrooms]
   );
 
+  // THE valuation — the same lib/scoring/property-value.ts call the map pin
+  // makes. Computed once here and handed down, because the Finance tab used to
+  // rebuild it out of valueLand + roiqValuation and that is precisely how the
+  // report and the map came to disagree about 230 Sewell Street. Effective
+  // sub-items, not raw: a valuation must not claim a condition the report has
+  // withdrawn.
+  const propertyValue = useMemo(
+    () =>
+      valueProperty({
+        subItems: effectiveSubItems,
+        floorAreaSqm: report.listing.floorAreaSqm,
+        bathrooms: report.listing.bathrooms,
+        landAreaSqm: report.listing.landAreaSqm,
+        extraDwellings: report.extraDwellings,
+        suburbValue: report.suburbValue,
+        titleType: report.listing.titleType,
+        propertyType: report.listing.propertyType,
+        landShareFraction: report.listing.landShareFraction,
+        crossLeaseSharing: report.context?.crossLeaseSharing,
+      }),
+    [effectiveSubItems, report.listing, report.extraDwellings, report.suburbValue, report.context]
+  );
+
   const checklist = useMemo(
     () => buildViewingChecklist(report, effectiveSubItems, verifiedDocs),
     [report, effectiveSubItems, verifiedDocs]
@@ -774,7 +799,7 @@ export function RealReportView({
           {tab === "financial" && !locked && (
             <>
               <PurchasePriceBar value={askingPrice} priceText={listing.priceText} onChange={setAskingPrice} />
-              <FinanceTab key={askingPrice ?? "none"} listing={{ ...listing, askingPrice }} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} improvementValuation={improvementValuation} dwellingAdded={dwellingValue.addedValue} landOnly={landOnly} />
+              <FinanceTab key={askingPrice ?? "none"} listing={{ ...listing, askingPrice }} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} improvementValuation={improvementValuation} dwellingAdded={dwellingValue.addedValue} landOnly={landOnly} propertyValue={propertyValue} />
               <div className="mt-4"><LocationFactCard subItems={effectiveSubItems} ids={["loc_growth"]} title="Suburb growth & demand" /></div>
             </>
           )}
@@ -2103,12 +2128,17 @@ function FinSection({ title, children }: { title: string; children: React.ReactN
 // ── Tectara Value Verdict (Change 1) — the headline number, top of the Finance tab.
 // Suburb median $/m² (scraped) × condition multiplier (the hidden quality score)
 // × floor area = Tectara fair value; compared against asking + selected renovations.
-function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, dwellingAdded = 0, listing }: {
+function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, dwellingAdded = 0, listing, value = null }: {
   asking: number; improvementValuation: ImprovementValueResult; landAreaSqm: number | null; suburbValue?: SuburbValue; dwellingAdded?: number;
   listing?: StoredReport["listing"];
+  /** THE valuation, from lib/scoring/property-value.ts. Never recomputed here. */
+  value?: PropertyValue | null;
 }) {
   const [open, setOpen] = useState(false);
-  const land = valueLand({ landAreaSqm, suburbValue });
+  // The land the OWNER holds, which on a cross lease is their share of the site
+  // and not the whole thing. Same function and same argument valueProperty used,
+  // so the working shown here is the working that produced the number.
+  const land = valueLand({ landAreaSqm: value?.landAreaValuedSqm ?? landAreaSqm, suburbValue });
 
   // An apartment, a unit, or anything on a title that gives its owner no
   // section of their own. There is no land line to add because the land is
@@ -2119,6 +2149,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
     titleType: listing?.titleType,
     floorAreaSqm: improvementValuation.floorAreaSqm || listing?.floorAreaSqm,
     landAreaSqm,
+    landShareFraction: listing?.landShareFraction,
   });
   if (method === "floor-area-comparables") {
     return (
@@ -2132,7 +2163,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
     );
   }
 
-  if (!asking || improvementValuation.buildingValue <= 0 || !land || !suburbValue) {
+  if (!asking || improvementValuation.buildingValue <= 0 || !land || !suburbValue || !value) {
     const why = !asking
       ? "Add a purchase price to see the verdict."
       : improvementValuation.buildingValue <= 0
@@ -2148,7 +2179,8 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
     );
   }
 
-  const rv = roiqValuation(improvementValuation.buildingValue + dwellingAdded, land);
+  const rv = value;
+  const xl = value.crossLease;
   const verdict = asking > rv.high ? "over" : asking < rv.low ? "under" : "fair";
   const diff = rv.total - asking; // + = under (good), − = over
   const VC = verdict === "over" ? "var(--bad)" : verdict === "under" ? "var(--good)" : "var(--warn)";
@@ -2158,10 +2190,13 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
       <div className="text-[11px] uppercase tracking-widest mb-3" style={{ color: "var(--brand)" }}>{PRODUCT_SHORT_NAME} Value Verdict</div>
 
       <div className="space-y-1.5 text-sm">
-        <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Land value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· est.</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(land.landValue)}</span></div>
+        <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Land value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· est.{xl ? ` · this flat's ${land.landAreaSqm}m² share` : ""}</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(land.landValue)}</span></div>
         <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Improvement value <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· itemised</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>+{fmt(rv.buildingValue - dwellingAdded)}</span></div>
         {dwellingAdded > 0 && (
           <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Extra dwelling <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· depreciated, less compliance</span></span><span className="mono" style={{ color: "var(--text-primary)" }}>+{fmt(dwellingAdded)}</span></div>
+        )}
+        {xl && (
+          <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Cross-lease adjustment <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>· −{xl.pct}% · {xl.coOwners} flats share the title</span></span><span className="mono" style={{ color: "var(--bad)" }}>−{fmt(xl.deduction ?? 0)}</span></div>
         )}
         <div className="flex items-center justify-between font-bold pt-1.5" style={{ borderTop: "1px solid var(--border)" }}><span style={{ color: "var(--text-primary)" }}>{PRODUCT_SHORT_NAME} value</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(rv.total)}</span></div>
         <div className="flex items-center justify-between"><span className="text-[11px]" style={{ color: "var(--text-muted)" }}>Likely range</span><span className="mono text-[11px]" style={{ color: "var(--text-muted)" }}>{fmt(rv.low)} – {fmt(rv.high)}</span></div>
@@ -2178,6 +2213,12 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
           {verdict === "fair" && `The asking price sits inside ${PRODUCT_NAME}'s estimated value range for this property.`}
         </p>
       </div>
+
+      {xl && (
+        <p className="text-xs mt-3 rounded-lg p-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+          {explainCrossLeaseDiscount(xl)}
+        </p>
+      )}
 
       {/* What the figure rests on, stated with the figure rather than buried in
           the working. Components nobody could see are skipped entirely — no
@@ -2209,7 +2250,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
           </div>
           <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="font-semibold" style={{ color: "var(--text-primary)" }}>{PRODUCT_SHORT_NAME} value &amp; verdict</div>
-            <div className="mono" style={{ color: "var(--text-secondary)" }}>land {fmt(land.landValue)} + improvements {fmt(rv.buildingValue)} = {fmt(rv.total)} (range {fmt(rv.low)}–{fmt(rv.high)})</div>
+            <div className="mono" style={{ color: "var(--text-secondary)" }}>land {fmt(land.landValue)} + improvements {fmt(rv.buildingValue)}{xl ? ` − cross lease ${xl.pct}% (${fmt(xl.deduction ?? 0)})` : ""} = {fmt(rv.total)} (range {fmt(rv.low)}–{fmt(rv.high)})</div>
             <div className="mono" style={{ color: "var(--text-secondary)" }}>vs asking {fmt(asking)} → {diff >= 0 ? "under" : "over"} by {fmt(Math.abs(diff))}</div>
           </div>
         </div>
@@ -2388,7 +2429,7 @@ function ByComparables({ asking, floorAreaSqm, suburbValue, propertyType, titleT
   );
 }
 
-function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles, score, suburbValue, improvementValuation, dwellingAdded = 0, landOnly = false }: {
+function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, renoToggles, score, suburbValue, improvementValuation, dwellingAdded = 0, landOnly = false, propertyValue = null }: {
   listing: StoredReport["listing"];
   persona: Persona;
   /** Bare section — there is nothing to let, so there is no rent and no yield. */
@@ -2401,6 +2442,8 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   suburbValue?: SuburbValue;
   improvementValuation: ImprovementValueResult;
   dwellingAdded?: number;
+  /** THE valuation, computed once by the parent. Never rebuilt down here. */
+  propertyValue?: PropertyValue | null;
 }) {
   const { holdYears, withinHold } = useHoldPeriod();
   const renoTotal = selectedRenoCost(renoLines, renoToggles, withinHold);
@@ -2447,7 +2490,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   return (
     <div className="space-y-4">
       {/* Tectara Value Verdict — the most important thing a buyer needs to know. */}
-      <ValueVerdict asking={price} improvementValuation={improvementValuation} landAreaSqm={listing.landAreaSqm} suburbValue={suburbValue} dwellingAdded={dwellingAdded} listing={listing} />
+      <ValueVerdict asking={price} improvementValuation={improvementValuation} landAreaSqm={listing.landAreaSqm} suburbValue={suburbValue} dwellingAdded={dwellingAdded} listing={listing} value={propertyValue} />
 
       {/* Section 9 — THE FINAL ANSWER */}
       <div className="card p-5" style={{ border: "1px solid var(--brand)", background: "linear-gradient(180deg, var(--accent-wash), transparent)" }}>

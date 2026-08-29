@@ -30,6 +30,7 @@ npm run verify:map-valuation # when the map may show a valuation, and what it mu
 npm run verify:estimated-value # valuing what the photos couldn't show, without inventing it
 npm run verify:healthy-homes # the five legal standards, and when we may not claim compliance
 npm run verify:valuation-method # which method fits which property — tenure decides, not the label
+npm run verify:cross-lease   # what a shared title costs, and the band it may never leave
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
 npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
@@ -254,12 +255,59 @@ applied to everything — land + the building on it — which is right for a hou
 on its own section and silently wrong for an apartment, which has no land at
 all. Every apartment in the country came back unvalued with no explanation.
 `lib/scoring/valuation-method.ts` chooses: **land-and-building** for freehold
-with a section, **floor-area-comparables** for anything on a unit title,
-cross lease, leasehold or licence to occupy (and for apartments and units
-whatever the title says), **land-only** for a bare section, **none** when there
-is neither a measurement nor ground. A "townhouse" may be either — freehold on
-its own section is a house for valuing purposes, unit title is an apartment with
-stairs — and only LINZ can tell you which.
+with a section **and for a cross lease whose land share we know**,
+**floor-area-comparables** for anything on a unit title, leasehold or licence to
+occupy (and for apartments and units whatever the title says), **land-only** for
+a bare section, **none** when there is neither a measurement nor ground. A
+"townhouse" may be either — freehold on its own section is a house for valuing
+purposes, unit title is an apartment with stairs — and only LINZ can tell you
+which.
+
+**A cross lease is a HOUSE, and it is worth less than the freehold next door.**
+It used to go down the apartment road — which applies NO condition multiplier,
+deliberately — so a cross-lease house scoring 250/1000 and one scoring 850/1000
+came back at the same figure if they shared a floor area and a suburb. The
+product stopped touching the money the moment the title said cross lease. But a
+cross-lease flat is not stacked among others: it sits on the ground, has its own
+roof and kitchen, and wears out and is renovated exactly like the house over the
+fence. Two things then have to happen, in order, and they are not the same thing.
+
+**First the land is divided, and that is a correctness fix rather than a
+discount.** OneRoof and the record of title both publish the WHOLE site — 1,200m²
+for a two-flat pair — so valuing this flat on 1,200m² hands it the neighbour's
+land as well. LINZ gives the share, and `lib/linz/property-records.ts` had been
+throwing it away: a cross-lease title carries two or more estates, LINZ returns
+the **Leasehold one first**, and the lookup asked for `count = 1` and took it. So
+every cross lease in the country read back `share: "1/1", area: null`. It now
+fetches all of them and takes the **Fee Simple** estate, which is the one that
+owns ground. The share is applied to the AREA, not to the finished land value, so
+the diminishing-size curve still sees a section-sized parcel — half of 1,200m² is
+a 600m² section to its owner, not half of what 1,200m² fetches.
+
+**Then the tenure is discounted, and the band is held.** Trade Me Property
+measures 5–10% below equivalent freehold and the Property Institute puts it up to
+7.5%, so `lib/scoring/cross-lease.ts` never returns a figure outside 5–10% — 2,673
+combinations are asserted inside it. What moves it within the band is how
+entangled the arrangement actually is, because two flats side by side with their
+own driveways are a different property from a rear flat up a shared right-of-way,
+and both are "cross lease, 1/2". The base comes from the co-owner count (the
+research finding is that the discount grows with the number of owners); observed
+separateness pulls it down, observed sharing pushes it up.
+
+**An unobserved factor scores nothing** — the Tier 3 rule, applied to the money. A
+driveway nobody photographed must not be read as a shared one because shared is
+the safer guess, so the analysis is told to OMIT rather than answer, and the
+questions are asked only when the title is actually a cross lease.
+
+**And without a share we do not guess one.** No fraction means no way to divide
+the site, and valuing it as a house anyway would overstate it by far more than
+the discount would ever correct — so the old method stands and the report says
+the condition isn't priced. **The parts stay gross on purpose**: `landValue` and
+`buildingValue` do not add up to `total`, and `crossLease.deduction` is the
+difference, shown as its own line. Scaling the two halves down instead would
+leave a reader looking at a land value quietly 8% under the section across the
+fence with nothing on the page saying why — and the arithmetic would still add
+up, which is exactly what would stop anyone asking.
 
 **A house median may never value an apartment.** They are different markets in
 the same street. `SuburbValue` records the type its comparables were filtered to

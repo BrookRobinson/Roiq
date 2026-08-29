@@ -65,6 +65,8 @@ export async function POST(req: NextRequest) {
           suburbValue: result.suburbValue,
           titleType: listing.titleType,
           propertyType: listing.propertyType,
+          landShareFraction: listing.landShareFraction,
+          crossLeaseSharing: result.context?.crossLeaseSharing,
         })?.total ?? null,
       completeness: {
         photosAnalysed: result.photosAnalysed ?? 0,

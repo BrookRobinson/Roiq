@@ -11,6 +11,7 @@ import {
   type RawReplacementCost,
   type RawRemediation,
   type RawDwellingHealthyHomes,
+  type RawCrossLeaseSharing,
 } from "./tool-schema";
 import { prepareImages, type PreparedImage } from "./images";
 
@@ -21,6 +22,7 @@ import { fetchMarketData, type MarketResult } from "./market";
 import { fetchSuburbValue } from "./comparables";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
 import type { PropertyContext, ScoreResult, PenaltyInput } from "@/lib/scoring/engine";
+import type { CrossLeaseSharing } from "@/lib/scoring/cross-lease";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import type {
   SubItem,
@@ -431,7 +433,29 @@ function buildContext(raw: RawAnalysis, listing: ScrapedListing, subItems: SubIt
     hasRetainingWalls: Boolean(rc.has_retaining_walls) || has("out_retaining"),
     hasPool: Boolean(rc.has_pool) || has("out_pool"),
     hasBodyCorporate: Boolean(rc.has_body_corporate) || has("leg_bodycorp") || titleType === "unit_title",
+    // Only carried on a cross lease, and only for the fields the model actually
+    // answered. `normSharing` drops anything non-boolean rather than coercing
+    // it — an absent observation must stay absent all the way to the discount.
+    crossLeaseSharing: titleType === "cross_lease" ? normSharing(rc.cross_lease_sharing) : undefined,
   };
+}
+
+/** Keep the tri-state. Anything that isn't a real boolean is left out. */
+function normSharing(raw: RawCrossLeaseSharing | undefined): CrossLeaseSharing | undefined {
+  if (!raw) return undefined;
+  const out: CrossLeaseSharing = {};
+  const keys = [
+    ["separate_driveway", "separateDriveway"],
+    ["detached", "detached"],
+    ["exclusive_yard", "exclusiveYard"],
+    ["shared_structures", "sharedStructures"],
+    ["rear_flat", "rearFlat"],
+  ] as const;
+  for (const [from, to] of keys) {
+    const v = (raw as Record<string, unknown>)[from];
+    if (typeof v === "boolean") out[to] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 function buildAssessment(
@@ -978,9 +1002,24 @@ ${idsFor(insp)}
 Return sub_items only; leave extra_dwellings, information_gaps, and property_context empty — those are handled separately. Assess every non-conditional sub-item; include a conditional sub-item only if it is genuinely present.`;
 }
 
+/**
+ * The cross-lease sharing questions, asked ONLY of a cross lease.
+ *
+ * On any other tenure they are noise that invites the model to answer anyway —
+ * and a "shared driveway" reported against a freehold section would sit in the
+ * stored context waiting to be misread. The answers size the tenure discount in
+ * lib/scoring/cross-lease.ts, so an invented one moves the valuation: the
+ * instruction to OMIT rather than guess is the load-bearing half of it.
+ */
+function crossLeaseAsk(listing: ScrapedListing): string {
+  if (listing.titleType !== "cross_lease") return "";
+  return `
+- property_context.cross_lease_sharing: THIS IS A CROSS LEASE. From the photos, the aerial/site shots and the description, report how SEPARATE this flat is from the other(s) on the site: separate_driveway, detached, exclusive_yard, shared_structures, rear_flat. OMIT ANY FIELD THE LISTING DOES NOT SHOW — omitting is not "false", and these answers change the property's valuation, so a guess is worse than a gap.`;
+}
+
 function metaInstruction(listing: ScrapedListing, photoCount: number): string {
   return `For this New Zealand property, call ${ANALYSIS_TOOL_NAME} but return sub_items as an EMPTY array. Populate ONLY:
-- property_context: title_type, has_chimney, has_solar, has_retaining_walls, has_pool, has_body_corporate (infer from photos + facts).
+- property_context: title_type, has_chimney, has_solar, has_retaining_walls, has_pool, has_body_corporate (infer from photos + facts).${crossLeaseAsk(listing)}
 - extra_dwellings: any separate sleepout, minor dwelling, pole shed, or standalone garage of material value (with replacement_cost and a 1-10 condition score).
 - location_penalties: objective location NEGATIVES for THIS exact address (busy road/motorway, flight path, rail, industry, pylons, no sun), each with a severity 0-10 scaled by proximity. Include only those that genuinely apply; omit the rest.
 - information_gaps: material facts that cannot be determined from the listing or photos.

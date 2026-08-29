@@ -179,6 +179,14 @@ async function enrichFromLinz(listing: ScrapedListing): Promise<ScrapedListing> 
     listing.landAreaSqm = record.title.areaSqm;
   }
 
+  // How much of that land is actually theirs. On a freehold section it is all
+  // of it; on a cross lease it is a share, and the portal publishes the whole
+  // site regardless — a two-flat cross lease on 1,200m² lists as 1,200m² of
+  // land on both OneRoof and the title, when 600m² is what is being bought.
+  if (record.title?.shareFraction != null) {
+    listing.landShareFraction = record.title.shareFraction;
+  }
+
   const v = record.valuation;
   if (v) {
     if (listing.landAreaSqm == null && v.landAreaSqm != null) listing.landAreaSqm = v.landAreaSqm;

@@ -103,6 +103,22 @@ export interface RawPropertyContext {
   has_retaining_walls?: boolean;
   has_pool?: boolean;
   has_body_corporate?: boolean;
+  cross_lease_sharing?: RawCrossLeaseSharing;
+}
+
+/**
+ * How separate a cross-lease flat is from the others on its title.
+ *
+ * Every field is OPTIONAL and tri-state — omit it when the listing doesn't show
+ * it. Omitted is not "false": a driveway nobody photographed must not be read
+ * as a shared one just because shared is the safer guess.
+ */
+export interface RawCrossLeaseSharing {
+  separate_driveway?: boolean;
+  detached?: boolean;
+  exclusive_yard?: boolean;
+  shared_structures?: boolean;
+  rear_flat?: boolean;
 }
 
 // v4 — objective location negatives detected for THIS address. Subtract only.
@@ -226,6 +242,34 @@ const propertyContextSchema = {
     has_retaining_walls: { type: "boolean", description: "Retaining walls are visible or on the site plan." },
     has_pool: { type: "boolean", description: "A pool or spa is present." },
     has_body_corporate: { type: "boolean", description: "An active body corporate applies (unit title, or cross-lease with one)." },
+    cross_lease_sharing: {
+      type: "object",
+      description:
+        "ONLY when the title is cross lease. How separate this flat is from the others sharing the site — it sets how much the shared title costs the property. OMIT ANY FIELD YOU CANNOT SEE. Omitting is not the same as false, and a guess here moves the valuation.",
+      properties: {
+        separate_driveway: {
+          type: "boolean",
+          description: "True if this flat reaches the street on its own driveway; false if it shares a driveway or right-of-way with the other flat(s).",
+        },
+        detached: {
+          type: "boolean",
+          description: "True if this flat is a standalone building; false if it is joined to the neighbouring flat (a shared wall, a duplex pair).",
+        },
+        exclusive_yard: {
+          type: "boolean",
+          description: "True if there is a defined outdoor area for this flat alone — fenced, walled or hedged; false if the grounds are visibly shared or undefined.",
+        },
+        shared_structures: {
+          type: "boolean",
+          description: "True if a garage block, laundry or other structure visibly serves more than one flat.",
+        },
+        rear_flat: {
+          type: "boolean",
+          description: "True if this flat sits BEHIND another and is reached past it — a rear-section flat up a shared drive.",
+        },
+      },
+      required: [],
+    },
   },
   required: [],
 } as const;

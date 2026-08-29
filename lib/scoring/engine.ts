@@ -17,6 +17,7 @@ import {
   type Inspection,
 } from "./model";
 import type { SpecTier } from "@/lib/property-tab/types";
+import type { CrossLeaseSharing } from "./cross-lease";
 import { DEV_TIERS, developmentBonus, type DevTier } from "./development";
 
 export interface PropertyContext {
@@ -26,6 +27,12 @@ export interface PropertyContext {
   hasRetainingWalls: boolean;
   hasPool: boolean;
   hasBodyCorporate: boolean;
+  /**
+   * Only on a cross lease: how separate this flat actually is from the others
+   * sharing its title. Scores nothing — it sizes the tenure discount in
+   * lib/scoring/cross-lease.ts. Absent fields mean the listing didn't show it.
+   */
+  crossLeaseSharing?: CrossLeaseSharing;
 }
 
 export interface SubItemResult {

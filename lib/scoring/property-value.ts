@@ -23,6 +23,7 @@ import { valueImprovementItems } from "./improvement-values";
 import { valueExtraDwellings } from "./extra-dwelling-value";
 import { valueLand, roiqValuation, type RoiqValuation } from "./valuation";
 import { methodFor, comparablesMatch, type ValuationMethod } from "./valuation-method";
+import { crossLeaseDiscount, type CrossLeaseSharing, type CrossLeaseDiscount } from "./cross-lease";
 import type { SuburbValue } from "./investment";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { ExtraDwelling } from "@/lib/property-tab/types";
@@ -44,6 +45,15 @@ export interface PropertyValueInput {
   suburbValue?: SuburbValue | null;
   /** LINZ's tenure. The thing that decides whether there is land to value. */
   titleType?: string | null;
+  /**
+   * The owner's undivided share of the land, from the LINZ title — 0.5 on a
+   * two-flat cross lease. `landAreaSqm` is the WHOLE site on a cross lease, on
+   * the portal and on the title alike, so without this the flat is valued with
+   * its neighbour's land included.
+   */
+  landShareFraction?: number | null;
+  /** What the analysis could see about how a cross-lease site is shared. */
+  crossLeaseSharing?: CrossLeaseSharing | null;
   /** The portal's label — weak evidence, used only where tenure is silent. */
   propertyType?: string | null;
 }
@@ -67,6 +77,24 @@ export interface PropertyValue extends RoiqValuation {
    * is sourced and the caveat is printed.
    */
   typicalForType?: boolean;
+  /**
+   * Set on a cross lease: the tenure discount applied to the total, and the
+   * observed sharing that sized it. The report prints it — a figure that
+   * quietly shaved 8% off with no explanation is one the reader cannot argue
+   * with, and an unarguable number is what this app exists to replace.
+   *
+   * On a cross lease the parts DON'T add up to the total, by design: `landValue`
+   * and `buildingValue` are gross and `crossLease.deduction` is the difference.
+   * Any consumer printing a breakdown has to show that line, or its arithmetic
+   * will look broken.
+   */
+  crossLease?: CrossLeaseDiscount;
+  /**
+   * The land actually valued, where that is less than the title's area. On a
+   * cross lease this is the owner's share of the site, and the report says so
+   * rather than appearing to have got the section size wrong.
+   */
+  landAreaValuedSqm?: number;
 }
 
 /**
@@ -83,6 +111,7 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
     titleType: input.titleType,
     floorAreaSqm: input.floorAreaSqm,
     landAreaSqm: input.landAreaSqm,
+    landShareFraction: input.landShareFraction,
   });
 
   if (method === "floor-area-comparables") return valueByFloorArea(input, method);
@@ -90,12 +119,30 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
   // what it was built from, and on a land report that IS the whole answer.
   if (method !== "land-and-building") return null;
 
+  const isCrossLease = (input.titleType ?? "").trim().toLowerCase() === "cross_lease";
+
+  // THE LAND THIS OWNER ACTUALLY HOLDS.
+  //
+  // On a freehold section the share is 1 and this is a no-op. On a cross lease
+  // it is the correction that makes the house method usable at all: OneRoof and
+  // the record of title both publish the WHOLE site — 1,200m² for a two-flat
+  // pair — and valuing this flat on 1,200m² hands it the neighbour's land too.
+  //
+  // The share is applied to the AREA and not to the finished land value, so the
+  // diminishing-size curve in valueLand still sees a section-sized parcel. Half
+  // of a 1,200m² site is a 600m² section as far as its owner is concerned, and
+  // it is worth what a 600m² section is worth — not half of what 1,200m² fetches,
+  // which the curve has already discounted for being oversized.
+  const share = isCrossLease ? input.landShareFraction ?? 1 : 1;
+  const titleArea = input.landAreaSqm ?? 0;
+  const ownedLandSqm = titleArea > 0 ? Math.round(titleArea * share) : titleArea;
+
   const improvements = valueImprovementItems({
     subItems: input.subItems,
     floorAreaSqm: input.floorAreaSqm,
     bathrooms: input.bathrooms,
   });
-  const land = valueLand({ landAreaSqm: input.landAreaSqm, suburbValue: input.suburbValue });
+  const land = valueLand({ landAreaSqm: ownedLandSqm, suburbValue: input.suburbValue });
 
   // Both halves are required. A building with no land under it, or land with an
   // unvalued house on it, is not a property valuation.
@@ -106,6 +153,40 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
     : 0;
 
   const rv = roiqValuation(improvements.buildingValue + extra, land);
+
+  // The tenure discount, and only now — after the land is right.
+  //
+  // These are two separate things and both are needed. Dividing the site stops
+  // the flat being valued as though it owned the whole section; the discount
+  // prices what is left, because even with identical land a cross lease sells
+  // below the freehold next door. It applies to the TOTAL rather than the land
+  // alone: the published 5–10% is measured on sale prices, and what is being
+  // discounted is the marketability of the whole property — needing consent to
+  // alter a footprint, a flats plan that can be defective, a thinner pool of
+  // buyers and lenders. None of that stops at the boundary of the land.
+  if (isCrossLease && share > 0 && share < 1) {
+    const discount = crossLeaseDiscount(Math.round(1 / share), input.crossLeaseSharing);
+    const factor = 1 - discount.pct / 100;
+
+    // `landValue` and `buildingValue` stay GROSS, and the discount is a line of
+    // its own. Scaling the two parts down instead would leave a reader looking
+    // at a land value quietly 8% below what the same section is worth across the
+    // fence, with nothing on the page saying why — the parts would still add up,
+    // which is exactly what would stop anyone asking. The deduction is the
+    // finding here, so it is shown as one.
+    return {
+      ...rv,
+      total: Math.round(rv.total * factor),
+      low: Math.round(rv.low * factor),
+      high: Math.round(rv.high * factor),
+      mainBuildingValue: improvements.buildingValue,
+      extraDwellingValue: extra,
+      method,
+      crossLease: { ...discount, deduction: rv.total - Math.round(rv.total * factor) },
+      landAreaValuedSqm: ownedLandSqm,
+    };
+  }
+
   return {
     ...rv,
     mainBuildingValue: improvements.buildingValue,

@@ -105,6 +105,8 @@ export function contributionFrom(report: StoredReport): ReportContribution {
         suburbValue: report.suburbValue,
         titleType: report.listing.titleType,
         propertyType: report.listing.propertyType,
+        landShareFraction: report.listing.landShareFraction,
+        crossLeaseSharing: report.context?.crossLeaseSharing,
       })?.total ?? null,
     completeness: {
       photosAnalysed: report.photosAnalysed ?? 0,

@@ -23,6 +23,7 @@
     "verify:title": "node --no-warnings scripts/verify-title.mjs",
     "verify:floor-area": "node --no-warnings scripts/verify-floor-area.mjs",
     "verify:map-valuation": "node --no-warnings scripts/verify-map-valuation.mjs",
+    "verify:cross-lease": "node --no-warnings scripts/verify-cross-lease.mjs",
     "verify:valuation-method": "node --no-warnings scripts/verify-valuation-method.mjs",
     "verify:completeness": "node --no-warnings scripts/verify-completeness.mjs",
     "verify:delisting": "node --no-warnings scripts/verify-delisting.mjs",

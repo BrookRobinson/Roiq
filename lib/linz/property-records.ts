@@ -66,8 +66,17 @@ export interface LinzTitle {
   type: string | null;
   status: string | null;
   estate: string | null;
+  /** LINZ's own wording for the undivided share, e.g. "1/1", "1/2", "1/3". */
   share: string | null;
+  /**
+   * That share as a fraction — 0.5 for "1/2". On a cross lease this is the part
+   * of the site the owner actually holds, and the denominator is how many flats
+   * hold it with them. Null when LINZ words the share in a way we can't parse,
+   * which is not the same as 1: a share we can't read is a share we don't know.
+   */
+  shareFraction: number | null;
   legalDescription: string | null;
+  /** The area of the WHOLE parcel on the title — shared, on a cross lease. */
   areaSqm: number | null;
   /** Cross-lease and unit titles share their spatial extent with the other flats. */
   sharedExtents: boolean | null;
@@ -305,6 +314,22 @@ async function fetchValuation(propertyId: string, signal?: AbortSignal): Promise
   };
 }
 
+/**
+ * "1/2" → 0.5. Null for anything that isn't a plain fraction of one.
+ *
+ * Null rather than 1 on purpose. A share we cannot read is a share we do not
+ * know, and defaulting it to the whole title would hand a cross-lease flat the
+ * entire site — the exact overstatement this field exists to prevent.
+ */
+function shareFraction(share: string): number | null {
+  const m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(share);
+  if (!m) return null;
+  const num = Number(m[1]);
+  const den = Number(m[2]);
+  if (!num || !den || num > den) return null;
+  return num / den;
+}
+
 async function fetchTitle(propertyId: string, signal?: AbortSignal): Promise<LinzTitle | null> {
   const refs = await wfs<{ title_no?: string }>(
     PROPERTY_TITLE_TABLE,
@@ -336,13 +361,28 @@ async function fetchTitle(propertyId: string, signal?: AbortSignal): Promise<Lin
   if (types.size > 1) return null;
 
   const { row, titleNo } = live[0];
+
+  // EVERY estate on the title, not the first one LINZ happens to hand back.
+  //
+  // A cross lease carries two or more: a Fee Simple share in the whole site,
+  // and a Leasehold estate in the flat itself. LINZ returns the leasehold row
+  // FIRST, so asking for one row and taking it meant every cross-lease in the
+  // country read back as `share: "1/1", area: null` — the ½ share and the site
+  // area discarded before anything downstream could see them. NA89C/519:
+  //
+  //   Leasehold,  1/1, area —,    Flat 2 Deposited Plan 148763      ← we took this
+  //   Fee Simple, 1/2, area 1200, Lot 39 Deposited Plan 134051      ← the land
+  //
+  // The fee simple estate is the one that owns ground, so it is the one that
+  // can answer "how much land is this?" and "what fraction of it is theirs?".
+  // A freehold title has exactly one, share 1/1, and is unaffected.
   const estates = await wfs<Record<string, unknown>>(
     TITLE_ESTATES_TABLE,
     `title_no = ${q(titleNo)}`,
-    1,
+    10,
     signal
   );
-  const e = estates[0];
+  const e = estates.find((r) => String(r.type ?? "").toLowerCase() === "fee simple") ?? estates[0];
 
   return {
     titleNo,
@@ -350,6 +390,7 @@ async function fetchTitle(propertyId: string, signal?: AbortSignal): Promise<Lin
     status: typeof row.status === "string" ? row.status : null,
     estate: e && typeof e.type === "string" ? e.type : null,
     share: e && typeof e.share === "string" ? e.share : null,
+    shareFraction: e && typeof e.share === "string" ? shareFraction(e.share) : null,
     legalDescription: e && typeof e.legal_description === "string" ? e.legal_description : null,
     areaSqm: e ? positive(e.area) : null,
     sharedExtents: typeof row.spatial_extents_shared === "boolean" ? row.spatial_extents_shared : null,
