@@ -57,6 +57,8 @@ export interface SiteInput {
   boundarySetback?: number;
   /** Assumed clearance to the existing buildings, in metres. */
   buildingGap?: number;
+  /** Where the metre frame sits on earth, so imagery can be aligned to it. */
+  anchor?: { lat: number; lng: number; mPerDegLat: number; mPerDegLon: number } | null;
 }
 
 export interface SiteLayout {
@@ -123,6 +125,12 @@ export interface SiteLayout {
     road: Pt | null;
     /** Bounding extent in metres, so a viewBox can be built without re-scanning. */
     extent: { width: number; length: number };
+    /**
+     * Where the plan's (0,0) actually is on earth, and how many metres a degree
+     * is worth here. Without it the drawing is a diagram; with it, aerial
+     * imagery can be laid underneath and the boundary will sit on the fences.
+     */
+    anchor?: { lat: number; lng: number; mPerDegLat: number; mPerDegLon: number };
   };
 }
 
@@ -413,6 +421,89 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
       clearArea: clearRect ? clearRect.map(shift) : null,
       road: road ? shift(road) : null,
       extent: { width: r1(Math.max(...xs) - minX), length: r1(Math.max(...ys) - minY) },
+      // Shifted with everything else: the plan's origin is the parcel's
+      // south-west corner, not the centroid the geometry arrived in.
+      anchor: input.anchor
+        ? {
+            lat: input.anchor.lat + minY / input.anchor.mPerDegLat,
+            lng: input.anchor.lng + minX / input.anchor.mPerDegLon,
+            mPerDegLat: input.anchor.mPerDegLat,
+            mPerDegLon: input.anchor.mPerDegLon,
+          }
+        : undefined,
     },
   };
+}
+
+
+/**
+ * May a rectangle of this size sit here?
+ *
+ * Exported for the DRAG. The user moves a footprint over the section and the
+ * answer has to come back per frame, so this tests the four corners and the
+ * edge midpoints rather than rasterising: a footprint is convex and the parcel
+ * is nearly always convex too, and the boundary test is a distance to the ring
+ * either way. It is deliberately the same predicate the fit search uses, so a
+ * footprint the report said fits can always actually be placed.
+ *
+ * `setback` and `gap` come from lib/scoring/buildable-structures.ts, which
+ * decides them from what is being built and how big — a 5m² woodshed may sit on
+ * the boundary, a 25m² sleepout needs 1m, a granny flat 2m.
+ */
+export function canPlace(
+  plan: SiteLayout["plan"],
+  rect: { x: number; y: number; width: number; length: number },
+  setback: number,
+  gap: number
+): boolean {
+  const { x, y, width: w, length: l } = rect;
+  const corners: Pt[] = [
+    { x, y }, { x: x + w, y }, { x: x + w, y: y + l }, { x, y: y + l },
+    { x: x + w / 2, y }, { x: x + w / 2, y: y + l }, { x, y: y + l / 2 }, { x: x + w, y: y + l / 2 },
+  ];
+  for (const c of corners) {
+    if (!pointInRing(c, plan.parcel)) return false;
+    if (setback > 0 && distToRing(c, plan.parcel) < setback) return false;
+  }
+  // Against what is already built. The rectangle must not overlap a footprint,
+  // and must keep its gap from one — tested both ways round, because a small
+  // shed entirely inside a large building's gap has no corner near its ring.
+  for (const b of plan.buildings) {
+    for (const c of corners) {
+      if (pointInRing(c, b)) return false;
+      if (gap > 0 && distToRing(c, b) < gap) return false;
+    }
+    for (const bp of b) {
+      if (bp.x > x && bp.x < x + w && bp.y > y && bp.y < y + l) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Somewhere this footprint legally goes, or null.
+ *
+ * Used to drop a newly chosen structure onto the section rather than landing it
+ * on the house and asking the user to sort it out. Steps a coarse grid — 1m is
+ * finer than anyone will drag to.
+ */
+export function firstFit(
+  plan: SiteLayout["plan"],
+  size: { width: number; length: number },
+  setback: number,
+  gap: number
+): { x: number; y: number } | null {
+  const { width: W, length: H } = plan.extent;
+  let best: { x: number; y: number; d: number } | null = null;
+  const cx = W / 2, cy = H / 2;
+  for (let x = 0; x <= W - size.width; x += 1) {
+    for (let y = 0; y <= H - size.length; y += 1) {
+      if (!canPlace(plan, { x, y, ...size }, setback, gap)) continue;
+      // Nearest the middle of the section, so it lands somewhere sensible
+      // rather than jammed into whichever corner was scanned first.
+      const d = Math.hypot(x + size.width / 2 - cx, y + size.length / 2 - cy);
+      if (!best || d < best.d) best = { x, y, d };
+    }
+  }
+  return best ? { x: best.x, y: best.y } : null;
 }

@@ -41,6 +41,8 @@ const M_PER_DEG_LAT = 110_540;
 const M_PER_DEG_LON_EQ = 111_320;
 
 export interface SiteGeometry {
+  /** Where the metre frame is centred, so imagery can be aligned to it. */
+  anchor: { lat: number; lng: number; mPerDegLat: number; mPerDegLon: number };
   /** LINZ's appellation for the parcel, e.g. "Lot 9 DP 1195". */
   appellation: string | null;
   /** The parcel's own surveyed area, which beats anything the listing says. */
@@ -159,6 +161,7 @@ export async function lookupSiteGeometry(
 
   const props = parcelFeature?.properties ?? {};
   return {
+    anchor: { lat: lat0, lng: lon0, mPerDegLat: M_PER_DEG_LAT, mPerDegLon: mPerLon },
     appellation: typeof props.appellation === "string" ? props.appellation : null,
     parcelAreaSqm: typeof props.calc_area === "number" ? Math.round(props.calc_area) : null,
     parcel,

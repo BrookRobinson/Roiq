@@ -9,7 +9,7 @@ import type { Inspection, Persona } from "@/lib/scoring/model";
 import { INSPECTION_META, ITEM_BY_ID } from "@/lib/scoring/catalog";
 import { isFactsOnly } from "@/lib/scoring/model";
 import { DEV_TIERS, developmentBonus, type DevelopmentPotential } from "@/lib/scoring/development";
-import { SitePlan } from "./SitePlan";
+import { AddStructure, type PlacedStructure } from "./AddStructure";
 import {
   landBandLabel, sectionSizeStat, topographyStat, shapeStat, treesStat, aspectStat, frontageStat,
 } from "@/lib/scoring/land-quality";
@@ -21,7 +21,12 @@ const fmtNZD = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 const DEV_TIER_COLOR: Record<string, string> = { none: "var(--text-muted)", minor_dwelling: "var(--brand)", second_dwelling: "var(--good)", subdivision: "var(--warn)" };
 
 // Headline "can you add a dwelling?" card — a positive opportunity on the Land tab.
-function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential; persona: Persona }) {
+function DevelopmentPotentialCard({ dev, persona, onAddStructure, addedStructureIds }: {
+  dev: DevelopmentPotential;
+  persona: Persona;
+  onAddStructure?: (s: PlacedStructure) => void;
+  addedStructureIds?: string[];
+}) {
   const meta = DEV_TIERS[dev.tier];
   const c = DEV_TIER_COLOR[dev.tier];
   const bonus = developmentBonus(dev.tier, persona, dev.restrictedByTitle);
@@ -31,7 +36,7 @@ function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential;
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <Home size={16} style={{ color: "var(--brand)" }} />
-          <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Add a dwelling? — development potential</h3>
+          <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Add a structure — what this section will take</h3>
         </div>
         <span className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: `${c}1f`, color: c, border: `1px solid ${c}55` }}>{meta.short}</span>
       </div>
@@ -68,7 +73,13 @@ function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential;
           ))}
         </div>
       )}
-      {dev.layout && <SitePlan layout={dev.layout} />}
+      {/* Measured, so the reader can place their own. The static plan is only
+          drawn when there is no geometry to drive the interactive one. */}
+      {dev.layout ? (
+        <div className="mt-4">
+          <AddStructure layout={dev.layout} onAdd={onAddStructure} added={addedStructureIds} />
+        </div>
+      ) : null}
 
       {/* This used to read "estimated from the section size vs the house
           footprint … must be confirmed with the council / LIM" — wrong on both
@@ -113,6 +124,8 @@ export function PropertyInspections({
   development,
   persona = "buyer",
   landAreaSqm,
+  onAddStructure,
+  addedStructureIds,
 }: {
   scored: ScoreResult;
   subItems: SubItem[];
@@ -123,6 +136,9 @@ export function PropertyInspections({
   development?: DevelopmentPotential;
   persona?: Persona;
   landAreaSqm?: number | null;
+  /** A structure the reader placed on their own section, bound for Renovations. */
+  onAddStructure?: (s: PlacedStructure) => void;
+  addedStructureIds?: string[];
 }) {
   const town = mode === "town";
   const SECTIONS = town ? TOWN_SECTIONS : ADDRESS_SECTIONS;
@@ -141,7 +157,7 @@ export function PropertyInspections({
 
   return (
     <div className="space-y-3">
-      {!town && development && <DevelopmentPotentialCard dev={development} persona={persona} />}
+      {!town && development && <DevelopmentPotentialCard dev={development} persona={persona} onAddStructure={onAddStructure} addedStructureIds={addedStructureIds} />}
       <div className="card p-4 text-sm flex items-start gap-2" style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
         <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
         {town

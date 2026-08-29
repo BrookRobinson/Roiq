@@ -32,6 +32,7 @@ npm run verify:healthy-homes # the five legal standards, and when we may not cla
 npm run verify:valuation-method # which method fits which property — tenure decides, not the label
 npm run verify:cross-lease   # what a shared title costs, and the band it may never leave
 npm run verify:development   # the dwelling-you-could-add figure, and what the title says about it
+npm run verify:structures    # what you could build, what it costs, and where the rules let you drag it
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
 npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
@@ -912,6 +913,48 @@ LINZ title, the district-plan zone and the rating valuation into PROPERTY FACTS
 marked CONFIRMED, so the analysis stops writing "order a title to confirm freehold
 tenure" about a title type printed above the paragraph. `leg_title` carries no
 `verifyAgainst` any more for the same reason.
+
+**"Add a structure" — the reader places it themselves, and the rules stop them.**
+The card answered one question about the largest and hardest structure a buyer
+might add. A section with no room for a granny flat very often has room for a
+double garage and always has room for a woodshed, so the reader now picks from
+eleven structures, sizes it, sees an indicative build range, and DRAGS the
+footprint over aerial imagery of their own section.
+
+**The drag IS the rule.** The footprint cannot be moved anywhere it may not be
+built — `canPlace()` is checked per frame against the parcel, the existing
+footprints, and the setback THAT structure at THAT size must keep. Someone who
+drags a shed into a corner and feels it stop has learnt the setback better than
+a paragraph teaches it. An illegal move is refused rather than allowed-and-
+coloured-red, because a footprint that can be left sitting somewhere illegal is
+one a reader will screenshot and take to a builder; it slides along a boundary
+it's pressed against so corners stay reachable.
+
+**THERE IS NO SINGLE SETBACK**, which is the whole reason this is worth doing:
+
+| | | |
+|---|---|---|
+| ≤10m² accessory | **0m** | Schedule 1, as amended **23 October 2025** |
+| 10–30m² accessory | **1m** | same amendment (was "no closer than its own height") |
+| self-contained unit ≤70m² | **2m** | NES-DMRU, in force **15 January 2026** |
+| past the exemption | 1m | drawing guide only — the district plan governs |
+
+**Costs carry a fixed share, not just $/m².** A 5m² woodshed is not a fifteenth
+of a 75m² one — pricing purely per square metre makes the small end nonsense, so
+every structure is `baseCost + perSqm × size`, anchored to
+`lib/scoring/structures.ts` so what this tab prices you to BUILD and what the
+report values on a neighbour's property cannot drift apart. Resale uses that
+module's retention factors for the same reason: cost is not value.
+
+**The imagery needs its own key, and the LINZ data key is NOT it.** LINZ
+Basemaps is much better imagery for NZ (5–10cm urban against Mapbox's ~50cm) and
+free under CC BY, but `basemaps.linz.govt.nz` wants a key registered separately —
+the data key returns **"API Key Invalid: malformed"**, and it took a *cached*
+tile to notice, because some tiles also serve anonymously and looked like the key
+working. `app/api/tiles/aerial` tries LINZ where `LINZ_BASEMAP_KEY` is set and
+falls back to Mapbox, and it PROXIES both so a server key never reaches a
+browser. Attribution follows the source actually served — crediting LINZ for a
+Mapbox photograph is a licensing problem, not a wording one.
 
 **Development potential is MEASURED off the parcel, not subtracted from it.** It
 used to be land area minus the house footprint, which writes the same sentence

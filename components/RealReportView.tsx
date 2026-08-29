@@ -24,6 +24,7 @@ import { compareFloorArea } from "@/lib/property/floor-area-check";
 import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
+import type { PlacedStructure } from "@/components/PropertyInspections/AddStructure";
 import { assessSectionSize, assessTopography, assessShape, assessTrees, assessAspect, assessFrontage } from "@/lib/scoring/land-quality";
 import { assessTitleType, assessEncumbrances, assessEasements } from "@/lib/scoring/title";
 import { valueExtraDwellings, dwellingComplianceWork, type ExtraDwellingValueResult, type DwellingValue } from "@/lib/scoring/extra-dwelling-value";
@@ -579,7 +580,33 @@ export function RealReportView({
   // Renovation include/exclude toggles (lifted so the header price + yield read
   // the same selection). Default: every line included at full cost.
   const [renoToggles, setRenoToggles] = useState<Record<string, RenoToggle>>({});
-  const renoLines = useMemo(() => buildRenoLines(report.subItems, report.listing, persona, report.extraDwellings), [report.subItems, report.listing, persona, report.extraDwellings]);
+
+  // Structures the reader chose to add on the Land tab. They are a plan for the
+  // future rather than a defect found in the present, so they live beside the
+  // remediation lines rather than inside them — and they are included by
+  // default, because somebody who has just placed a garage on their section has
+  // said what they want more clearly than a checkbox would.
+  const [addedStructures, setAddedStructures] = useState<PlacedStructure[]>([]);
+  const renoLines = useMemo(() => {
+    const found = buildRenoLines(report.subItems, report.listing, persona, report.extraDwellings);
+    const chosen: RenoLine[] = addedStructures.map((st) => ({
+      key: `add_${st.id}`,
+      name: st.label,
+      detail: `New build on the section · about ${fmt(st.resale)} of it comes back at resale`,
+      badge: "You added",
+      low: Math.round(st.cost * 0.82),
+      high: Math.round(st.cost * 1.18),
+      urgencyYears: 0,
+      detailColor: "var(--brand)",
+      uplift: st.resale,
+      notes: "Indicative build range, not a quote. Placed within the setbacks on the Land tab — the district plan's own rules still apply.",
+      // Ticked on arrival: placing a garage on your own section is a clearer
+      // statement of intent than any checkbox, and an added structure that
+      // silently contributed nothing would just look broken.
+      autoInclude: true,
+    }));
+    return [...chosen, ...found];
+  }, [report.subItems, report.listing, persona, report.extraDwellings, addedStructures]);
   function setRenoToggle(key: string, patch: Partial<RenoToggle>) {
     setRenoToggles((prev) => ({
       ...prev,
@@ -846,7 +873,9 @@ export function RealReportView({
           )}
           {tab === "address" && (
             <div className="space-y-4">
-              <PropertyInspections mode="address" scored={scored} subItems={effectiveSubItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} development={development} persona={persona} landAreaSqm={listing.landAreaSqm} />
+              <PropertyInspections mode="address" scored={scored} subItems={effectiveSubItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} development={development} persona={persona} landAreaSqm={listing.landAreaSqm}
+                onAddStructure={(st) => setAddedStructures((prev) => (prev.some((p) => p.id === st.id) ? prev : [...prev, st]))}
+                addedStructureIds={addedStructures.map((st) => st.id)} />
               <LocationFactCard subItems={subItems} ids={["loc_noise", "loc_views"]} title="Noise & outlook" />
             </div>
           )}
