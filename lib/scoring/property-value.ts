@@ -52,6 +52,16 @@ export interface PropertyValueInput {
    * its neighbour's land included.
    */
   landShareFraction?: number | null;
+  /**
+   * How many flats share the title — the DENOMINATOR of the LINZ share.
+   *
+   * Passed rather than derived, because `1 / landShareFraction` only recovers it
+   * when the numerator is 1. Shares of 2/3, 3/4, 2/5 and 2/7 are all common: an
+   * owner holding two of five flats has a 0.4 share, and 1 / 0.4 rounds to three
+   * — understating the very thing the discount measures, how many parties must
+   * agree before anything changes.
+   */
+  landCoOwners?: number | null;
   /** What the analysis could see about how a cross-lease site is shared. */
   crossLeaseSharing?: CrossLeaseSharing | null;
   /** The portal's label — weak evidence, used only where tenure is silent. */
@@ -165,7 +175,10 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
   // alter a footprint, a flats plan that can be defective, a thinner pool of
   // buyers and lenders. None of that stops at the boundary of the land.
   if (isCrossLease && share > 0 && share < 1) {
-    const discount = crossLeaseDiscount(Math.round(1 / share), input.crossLeaseSharing);
+    const discount = crossLeaseDiscount(
+      input.landCoOwners ?? Math.round(1 / share),
+      input.crossLeaseSharing
+    );
     const factor = 1 - discount.pct / 100;
 
     // `landValue` and `buildingValue` stay GROSS, and the discount is a line of

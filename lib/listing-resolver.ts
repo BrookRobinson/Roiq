@@ -188,6 +188,7 @@ async function enrichFromLinz(listing: ScrapedListing): Promise<ScrapedListing> 
   // land on both OneRoof and the title, when 600m² is what is being bought.
   if (record.title?.shareFraction != null) {
     listing.landShareFraction = record.title.shareFraction;
+    listing.landCoOwners = record.title.shareDenominator;
   }
 
   const v = record.valuation;

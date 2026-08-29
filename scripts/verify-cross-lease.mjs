@@ -169,6 +169,26 @@ const tired = valueProperty({
 });
 ok("a tired cross lease is worth less than a smart one", tired.total < xlease.total);
 
+console.log("\nthe flat count comes from LINZ, never from 1 / share");
+// The bug this exists to stop. Shares of 2/3, 3/4, 2/5 and 2/7 are all common in
+// the register, and `1 / fraction` only recovers the denominator when the
+// numerator is 1. An owner holding two of five flats has a 0.4 share, and
+// 1 / 0.4 rounds to THREE — understating the very thing the discount measures.
+const twoOfFive = valueProperty({
+  ...base, landAreaSqm: 1000, titleType: "cross_lease",
+  landShareFraction: 0.4, landCoOwners: 5,
+});
+check("five flats, not the three that 1/0.4 rounds to", twoOfFive.crossLease.coOwners, 5);
+check("and it holds two fifths of the land", twoOfFive.landAreaValuedSqm, 400);
+// What the old arithmetic would have produced, for the record.
+const inferred = crossLeaseDiscount(Math.round(1 / 0.4)).pct;
+ok("the inferred count would have discounted less", inferred < twoOfFive.crossLease.pct);
+// A plain 1/n share still works with no denominator passed at all.
+const oneOfFive = valueProperty({
+  ...base, landAreaSqm: 1000, titleType: "cross_lease", landShareFraction: 0.2,
+});
+check("a 1/5 share still reads as five without help", oneOfFive.crossLease.coOwners, 5);
+
 console.log("\nwithout a share we do not guess one");
 // The published land area is the WHOLE site. Valuing it as a house without
 // dividing it would hand this flat the neighbour's land as well, so the old

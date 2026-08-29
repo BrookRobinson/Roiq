@@ -377,7 +377,7 @@ export function RealReportView({
           // discount, so the score and the money can't disagree about a house.
           const share = report.listing.landShareFraction;
           const t = assessTitleType(report.listing.titleType, {
-            coOwners: share && share > 0 ? Math.round(1 / share) : null,
+            coOwners: report.listing.landCoOwners ?? (share && share > 0 ? Math.round(1 / share) : null),
             sharing: report.context?.crossLeaseSharing,
           });
           if (t) {
@@ -490,6 +490,7 @@ export function RealReportView({
         titleType: report.listing.titleType,
         propertyType: report.listing.propertyType,
         landShareFraction: report.listing.landShareFraction,
+        landCoOwners: report.listing.landCoOwners,
         crossLeaseSharing: report.context?.crossLeaseSharing,
       }),
     [effectiveSubItems, report.listing, report.extraDwellings, report.suburbValue, report.context]

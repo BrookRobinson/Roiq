@@ -68,6 +68,13 @@ export interface ScrapedListing {
    * how much of it is actually being bought.
    */
   landShareFraction: number | null;
+  /**
+   * How many parts the land is divided into — the "5" in "1/5" or "2/5", and on
+   * a cross lease the number of flats sharing the title. Never inferred from
+   * the fraction: 2/5 is a 0.4 share of a FIVE-flat site, and 1 / 0.4 says
+   * three.
+   */
+  landCoOwners: number | null;
   buildYear: number | null;
 
   // Listing details
@@ -148,6 +155,7 @@ export function emptyListing(url: string, portal: SupportedPortal): ScrapedListi
     titleType: "unknown",
     titleTypeFromRegister: false,
     landShareFraction: null,
+    landCoOwners: null,
     buildYear: null,
     description: null,
     features: [],

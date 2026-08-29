@@ -284,6 +284,14 @@ owns ground. The share is applied to the AREA, not to the finished land value, s
 the diminishing-size curve still sees a section-sized parcel — half of 1,200m² is
 a 600m² section to its owner, not half of what 1,200m² fetches.
 
+**The flat count comes from LINZ, never from `1 / share`.** Shares of 2/3, 3/4,
+2/5 and 2/7 are all common in the register, and dividing one into 1 only recovers
+the denominator when the numerator happens to be 1 — an owner holding two of
+five flats has a 0.4 share, and `1 / 0.4` rounds to THREE, understating the very
+thing the discount measures. `landCoOwners` carries the denominator itself. The
+land share and the co-owner count are separate facts off the same string and
+neither is derivable from the other.
+
 **Then the tenure is discounted, and the band is held.** Trade Me Property
 measures 5–10% below equivalent freehold and the Property Institute puts it up to
 7.5%, so `lib/scoring/cross-lease.ts` never returns a figure outside 5–10% — 2,673

@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
           titleType: listing.titleType,
           propertyType: listing.propertyType,
           landShareFraction: listing.landShareFraction,
+        landCoOwners: listing.landCoOwners,
           crossLeaseSharing: result.context?.crossLeaseSharing,
         })?.total ?? null,
       completeness: {

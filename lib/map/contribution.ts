@@ -106,6 +106,7 @@ export function contributionFrom(report: StoredReport): ReportContribution {
         titleType: report.listing.titleType,
         propertyType: report.listing.propertyType,
         landShareFraction: report.listing.landShareFraction,
+        landCoOwners: report.listing.landCoOwners,
         crossLeaseSharing: report.context?.crossLeaseSharing,
       })?.total ?? null,
     completeness: {

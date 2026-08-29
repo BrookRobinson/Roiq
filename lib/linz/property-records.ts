@@ -75,6 +75,17 @@ export interface LinzTitle {
    * which is not the same as 1: a share we can't read is a share we don't know.
    */
   shareFraction: number | null;
+  /**
+   * The DENOMINATOR of that share — how many parts the land is divided into,
+   * which on a cross lease is how many flats sit on it.
+   *
+   * Carried rather than reconstructed, because `1 / shareFraction` only gives
+   * it back when the numerator is 1, and it very often isn't: 2/3, 3/4, 2/5 and
+   * 2/7 are all common. An owner holding two of five flats has a 0.4 share, and
+   * 1 / 0.4 rounds to 3 — understating the number of parties whose consent they
+   * need, which is exactly what the discount is measuring.
+   */
+  shareDenominator: number | null;
   legalDescription: string | null;
   /** The area of the WHOLE parcel on the title — shared, on a cross lease. */
   areaSqm: number | null;
@@ -321,13 +332,13 @@ async function fetchValuation(propertyId: string, signal?: AbortSignal): Promise
  * know, and defaulting it to the whole title would hand a cross-lease flat the
  * entire site — the exact overstatement this field exists to prevent.
  */
-function shareFraction(share: string): number | null {
+function parseShare(share: string): { fraction: number; denominator: number } | null {
   const m = /^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(share);
   if (!m) return null;
   const num = Number(m[1]);
   const den = Number(m[2]);
   if (!num || !den || num > den) return null;
-  return num / den;
+  return { fraction: num / den, denominator: den };
 }
 
 async function fetchTitle(propertyId: string, signal?: AbortSignal): Promise<LinzTitle | null> {
@@ -390,7 +401,8 @@ async function fetchTitle(propertyId: string, signal?: AbortSignal): Promise<Lin
     status: typeof row.status === "string" ? row.status : null,
     estate: e && typeof e.type === "string" ? e.type : null,
     share: e && typeof e.share === "string" ? e.share : null,
-    shareFraction: e && typeof e.share === "string" ? shareFraction(e.share) : null,
+    shareFraction: e && typeof e.share === "string" ? parseShare(e.share)?.fraction ?? null : null,
+    shareDenominator: e && typeof e.share === "string" ? parseShare(e.share)?.denominator ?? null : null,
     legalDescription: e && typeof e.legal_description === "string" ? e.legal_description : null,
     areaSqm: e ? positive(e.area) : null,
     sharedExtents: typeof row.spatial_extents_shared === "boolean" ? row.spatial_extents_shared : null,
