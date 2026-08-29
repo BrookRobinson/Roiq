@@ -370,7 +370,16 @@ export function RealReportView({
         // — not visible in the listing" on another with the same known freehold
         // tenure. A tenure is a category; it is not the model's to forget.
         if (s.id === "leg_title") {
-          const t = assessTitleType(report.listing.titleType);
+          // A cross lease is the one tenure whose burden genuinely varies
+          // between properties, so it gets the site with it: how many flats
+          // share the title (the LINZ share denominator) and how separate the
+          // analysis could see they are. Same model that sizes the valuation
+          // discount, so the score and the money can't disagree about a house.
+          const share = report.listing.landShareFraction;
+          const t = assessTitleType(report.listing.titleType, {
+            coOwners: share && share > 0 ? Math.round(1 / share) : null,
+            sharing: report.context?.crossLeaseSharing,
+          });
           if (t) {
             return {
               ...s,

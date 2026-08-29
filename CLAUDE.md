@@ -1030,6 +1030,25 @@ which the land report would have printed in its header. When the portal itself
 says there is no building, bedrooms/bathrooms/carParks are set to NULL, not
 zero: null is "no such thing here", zero reads as a measured fact.
 
+**A cross lease is graded on how shared the site actually IS.** Every cross
+lease in the country used to score a flat 5/10 — the well-separated pair with
+their own driveways and the rear flat up a shared right-of-way, identical. The
+VALUATION had already learned to tell those apart (5% against 8%), so the
+headline number a buyer actually reads was the less informed of the two, off
+data already in hand. `assessTitleType` takes an optional cross-lease context
+(the LINZ share denominator, and what the analysis could see of the sharing) and
+reads `crossLeaseDiscount` rather than re-deriving anything — two expressions of
+one finding cannot then tell different stories about the same house.
+
+**It never leaves its lane: 4 to 6, asserted over every combination.** However
+tangled, the owner still holds a share of the fee simple where a leaseholder
+owns no land at all, so it floors above leasehold's 3. However tidy, the flats
+plan can still be defective and every footprint change still needs the
+neighbours' signatures, so it caps below unit title's 7 — those restrictions
+ARE the tenure and no amount of fencing removes them. **Two flats with nothing
+observed still scores 5**, exactly as before, so the change only ever moves a
+property the evidence actually describes.
+
 **The title is scored from its TENURE, not by the model.** `leg_title` was the
 AI's to judge and it would not do it consistently: 9/10 tier 1 "Freehold" on one
 property, "Not assessed — not visible in the listing" and no score on another

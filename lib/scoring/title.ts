@@ -36,6 +36,7 @@
 // ============================================================
 
 import type { TitleType } from "@/lib/scraper/types";
+import { crossLeaseDiscount, type CrossLeaseSharing } from "./cross-lease";
 
 export interface TitleAssessment {
   /** 1–10, the same scale every other sub-item uses. */
@@ -87,15 +88,81 @@ const TITLES: Record<Exclude<TitleType, "unknown">, TitleAssessment> = {
 };
 
 /**
+ * What we know about a cross-lease site, where we know anything.
+ *
+ * `coOwners` is the denominator of the LINZ share — the "2" in "Fee Simple,
+ * 1/2". `sharing` is what the analysis could see of how separate the flats
+ * are. Both optional: without them the tenure scores at its flat base, which is
+ * what it has always done.
+ */
+export interface CrossLeaseContext {
+  coOwners?: number | null;
+  sharing?: CrossLeaseSharing | null;
+}
+
+/** Cross-lease can move within this range, and never outside it. */
+const CROSS_LEASE_BEST = 6;
+const CROSS_LEASE_WORST = 4;
+
+/**
+ * The cross-lease score, positioned by the SAME model that sizes the valuation
+ * discount — deliberately, because they are two expressions of one finding and
+ * had started telling different stories about the same house.
+ *
+ * The valuation already grades how entangled a site is: two flats side by side
+ * with their own driveways discount at 5%, a rear flat up a shared right-of-way
+ * at 8%. The score meanwhile handed every cross lease in the country a flat 5,
+ * so the headline number — the one a buyer actually reads — was the LESS
+ * informed of the two, off data already in hand.
+ *
+ * Reading the discount rather than re-deriving anything means they cannot
+ * disagree. The mapping keeps 5 where it has always been for the ordinary case:
+ *
+ *   5%     the most separate arrangement a cross lease manages     → 6
+ *   6%     two flats, nothing observed — today's default           → 5
+ *   7.5%   the Property Institute's headline figure                → 5
+ *   8–10%  shared drive, shared grounds, a rear flat               → 4
+ *
+ * It is FLOORED AT 4, above leasehold's 3. However tangled a cross lease is,
+ * the owner still holds a share of the fee simple; a leaseholder owns no land
+ * at all and faces ground-rent reviews that have moved by multiples. And capped
+ * at 6, below unit title's 7: the flats plan can still be defective, and every
+ * footprint change still needs the neighbours' signatures. Those restrictions
+ * are the tenure and no amount of fencing removes them.
+ */
+function crossLeaseAssessment(ctx: CrossLeaseContext): TitleAssessment {
+  const base = TITLES.cross_lease;
+  if (!ctx.coOwners || ctx.coOwners < 2) return base;
+
+  const d = crossLeaseDiscount(ctx.coOwners, ctx.sharing);
+  const score = d.pct <= 5.5 ? CROSS_LEASE_BEST : d.pct <= 7.5 ? base.score : CROSS_LEASE_WORST;
+
+  const flats = d.coOwners === 2 ? "two flats" : `${d.coOwners} flats`;
+  const observed = d.factors.length
+    ? ` Here the site is shared between ${flats}: ${d.factors.map((f) => f.label.toLowerCase()).join(", ")}.`
+    : ` Here the site is shared between ${flats}, and the listing didn't show enough to tell how separate they really are.`;
+
+  return { ...base, score, rationale: base.rationale + observed };
+}
+
+/**
  * Score the title from its tenure.
  *
  * Returns null when the tenure is genuinely unknown — the register did not
  * answer and the listing did not say. That leaves the item unscored, which is
  * correct: an unknown tenure is a real gap and belongs on the viewing checklist,
  * not scored as though it were freehold.
+ *
+ * A cross lease takes an optional second argument, because it is the one tenure
+ * whose burden genuinely varies between properties. Everything else is the
+ * category and nothing more.
  */
-export function assessTitleType(titleType: TitleType | null | undefined): TitleAssessment | null {
+export function assessTitleType(
+  titleType: TitleType | null | undefined,
+  crossLease?: CrossLeaseContext | null
+): TitleAssessment | null {
   if (!titleType || titleType === "unknown") return null;
+  if (titleType === "cross_lease" && crossLease) return crossLeaseAssessment(crossLease);
   return TITLES[titleType] ?? null;
 }
 

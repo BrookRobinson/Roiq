@@ -219,7 +219,14 @@ export function InspectionCard({
                   <CheckCircle2 size={12} /> Verify against: <span style={{ color: "var(--text-secondary)" }}>{item.verifyAgainst}</span>
                 </div>
               )}
-              {isTitle && <TitleVerify itemId={item.id} onVerified={onVerified} />}
+              {/* Only when the register DIDN'T answer. The badge above already
+                  makes this distinction (`item.score == null` → "Indicative",
+                  otherwise "From the register"); this block did not, so a card
+                  reading "T1 — Confirmed from the public record" went on to say
+                  the score was inferred from the listing and the reader should
+                  go and buy a title search. Both halves wrong, and the second
+                  is the homework rule failing on a fact we already hold. */}
+              {isTitle && item.score == null && <TitleVerify itemId={item.id} onVerified={onVerified} />}
               {rem && (
                 <div className="rounded-lg p-3" style={{ background: "var(--surface)", border: "1px solid var(--accent-wash)" }}>
                   <div className="flex items-start justify-between gap-3">
@@ -298,8 +305,8 @@ function TitleVerify({ itemId, onVerified }: { itemId: string; onVerified?: (doc
   return (
     <div className="rounded-lg p-3" style={{ background: "var(--surface)", border: "1px dashed var(--border)" }}>
       <div className="text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
-        The score above is <strong style={{ color: "var(--text-secondary)" }}>indicative</strong> — inferred from the listing&apos;s stated title type.
-        An official title can&apos;t be scraped freely (Toitū Te Whenua LINZ title searches are a paid Landonline service).
+        The register didn&apos;t return a tenure for this property, so this item is <strong style={{ color: "var(--text-secondary)" }}>unscored</strong> rather than guessed at.
+        A full title search is a paid Landonline service (Toitū Te Whenua LINZ).
         Order one, then upload the PDF here for a <strong style={{ color: "var(--text-secondary)" }}>verified</strong> score.
       </div>
       {onVerified && <div className="mt-2.5"><DocUpload itemId={itemId} label="Upload title search PDF" onVerified={onVerified} /></div>}

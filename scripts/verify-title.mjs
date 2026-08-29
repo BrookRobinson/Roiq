@@ -41,6 +41,7 @@ const check = (label, got, want) => {
   else { console.error(`  ✗ ${label} — got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`); failures++; }
 };
 const score = (t) => assessTitleType(t)?.score ?? null;
+const ok = (label, cond) => check(label, !!cond, true);
 
 console.log("\nThe ordering — what you actually acquire");
 check("freehold is the top of the range", score("freehold"), 10);
@@ -130,6 +131,62 @@ check("an unscored item shows no points", scoredItemPoints("leg_title", null, "b
 check("a zero score shows no points", scoredItemPoints("leg_title", 0, "buyer"), null);
 // Improvements have their own tiered arithmetic and must not come through here.
 check("improvements are left to their own helper", scoredItemPoints("ext_roof", 8, "buyer"), null);
+
+console.log("\nA cross lease is graded on how shared the site actually is");
+// It used to hand every cross lease in the country a flat 5 — the well-separated
+// pair with their own driveways and the rear flat up a shared right-of-way,
+// identical. The valuation had already learned to tell them apart (5% against
+// 8%), so the HEADLINE number was the less informed of the two, off data
+// already in hand.
+const xl = (coOwners, sharing) => assessTitleType("cross_lease", { coOwners, sharing }).score;
+const SEPARATE = { separateDriveway: true, detached: true, exclusiveYard: true };
+const TANGLED = { separateDriveway: false, detached: false, exclusiveYard: false };
+
+check("the most separate two-flat pair scores best", xl(2, SEPARATE), 6);
+check("two flats, nothing observed, is unchanged at 5", xl(2), 5);
+check("a shared drive, shared grounds and a shared wall drops it", xl(2, TANGLED), 4);
+check("more flats sharing the title is worse", xl(6, SEPARATE) <= xl(2, SEPARATE), true);
+ok("separate always beats tangled at the same flat count", xl(3, SEPARATE) > xl(3, TANGLED));
+
+console.log("\nand it never leaves its lane");
+// Whatever is observed, a cross lease stays strictly between the two tenures
+// either side of it. However tangled, the owner still holds a share of the fee
+// simple, where a leaseholder owns no land at all. However tidy, the flats plan
+// can still be defective and every footprint change still needs the neighbours.
+const FIELDS = ["separateDriveway", "detached", "exclusiveYard", "sharedStructures", "rearFlat"];
+let out = 0, seen = new Set();
+for (let n = 2; n <= 12; n++) {
+  for (let mask = 0; mask < 3 ** FIELDS.length; mask++) {
+    const sharing = {}; let m = mask;
+    for (const f of FIELDS) { const v = m % 3; m = Math.floor(m / 3); if (v === 1) sharing[f] = true; if (v === 2) sharing[f] = false; }
+    const sc = xl(n, sharing);
+    seen.add(sc);
+    if (sc <= assessTitleType("leasehold").score || sc >= assessTitleType("unit_title").score) out++;
+  }
+}
+check("no arrangement reaches leasehold or unit title", out, 0);
+check("the full range is used", [...seen].sort().join(","), "4,5,6");
+
+console.log("\nthe score and the valuation discount tell ONE story");
+// Two expressions of the same finding. If they can disagree, one of them is
+// lying to a reader looking at both on the same page.
+const { crossLeaseDiscount } = await import(join(root, "lib/scoring/cross-lease.ts"));
+for (const [label, sharing] of [["separate", SEPARATE], ["tangled", TANGLED], ["unobserved", undefined]]) {
+  const a = xl(2, sharing), b = xl(2, sharing === SEPARATE ? TANGLED : SEPARATE);
+  const da = crossLeaseDiscount(2, sharing).pct;
+  const db = crossLeaseDiscount(2, sharing === SEPARATE ? TANGLED : SEPARATE).pct;
+  // A bigger discount must never come with a better score.
+  if ((da < db && a < b) || (da > db && a > b)) { console.error(`  ✗ ${label}: discount and score disagree`); failures++; }
+}
+check("a bigger discount never comes with a better score", true, true);
+
+// The unknown-share case: no LINZ share means no co-owner count, and the score
+// falls back to the flat base rather than guessing at how shared the site is.
+check("no share known falls back to the base", assessTitleType("cross_lease", { coOwners: null }).score, 5);
+check("no context at all is the base", assessTitleType("cross_lease").score, 5);
+ok("the flats-plan warning survives the grading", /flats plan/i.test(assessTitleType("cross_lease", { coOwners: 2, sharing: SEPARATE }).rationale));
+ok("and the rationale says what it saw", /driveway/i.test(assessTitleType("cross_lease", { coOwners: 2, sharing: SEPARATE }).rationale));
+ok("or admits it saw nothing", /didn't show/.test(assessTitleType("cross_lease", { coOwners: 2 }).rationale));
 
 if (failures) { console.error(`\n${failures} title check(s) FAILED.\n`); process.exit(1); }
 console.log("\nAll title checks passed.\n");
