@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const { assessTitleType } = await import(join(root, "lib/scoring/title.ts"));
+const { assessTitleType, resolveTenure } = await import(join(root, "lib/scoring/title.ts"));
 
 let failures = 0;
 const check = (label, got, want) => {
@@ -56,6 +56,25 @@ check(
   new Set([0, 1, 2, 3, 4].map(() => score("freehold"))).size,
   1
 );
+
+console.log("\nWhose answer about the tenure wins");
+// The register used to LOSE this, and to the weakest source in the app: the
+// model's read was taken first, so a LINZ Record of Title saying cross lease
+// was overruled by a guess made from marketing photographs. The resolved tenure
+// decides which conditional items are scored, what the header prints, and —
+// since a cross lease became a house — which valuation method runs at all.
+check("LINZ beats the model", resolveTenure({ register: "cross_lease", model: "freehold", page: "freehold" }), "cross_lease");
+check("LINZ beats the page scan", resolveTenure({ register: "cross_lease", page: "freehold" }), "cross_lease");
+// The page scan matches the word "freehold" ANYWHERE in the HTML — a related
+// listing, or a line about the other sections this agency has for sale, will
+// satisfy it. A model that actually read the listing outranks that.
+check("the model beats the page scan where the register is silent", resolveTenure({ model: "cross_lease", page: "freehold" }), "cross_lease");
+check("the page scan is used when it is all there is", resolveTenure({ page: "freehold" }), "freehold");
+check("nothing known stays unknown", resolveTenure({}), "unknown");
+// "unknown" is an absence, not an answer, and must not block a real one.
+check("an unknown register does not outrank a known model", resolveTenure({ register: "unknown", model: "cross_lease" }), "cross_lease");
+check("an unknown model does not outrank a known page scan", resolveTenure({ register: null, model: "unknown", page: "leasehold" }), "leasehold");
+check("every source unknown is still unknown", resolveTenure({ register: "unknown", model: "unknown", page: "unknown" }), "unknown");
 
 if (failures) { console.error(`\n${failures} title check(s) FAILED.\n`); process.exit(1); }
 console.log("\nAll title checks passed.\n");

@@ -939,6 +939,27 @@ valuation roll — free and openly licensed, attribution being the only conditio
 the "Indicative" label: it used to be inferred from the word "freehold" appearing
 somewhere in the listing HTML.
 
+**And "the register wins" is now enforced rather than asserted.** It didn't. The
+analysis built its property context by taking the MODEL's `title_type` first and
+falling back to the listing — so a LINZ Record of Title saying cross lease was
+overruled by a guess made from marketing photographs, in the one place that
+decides whether the cross-lease and body-corporate items are scored at all.
+`resolveTenure()` in `lib/scoring/title.ts` holds the order, dependency-free so
+`verify:title` can assert it: **LINZ, then the model, then the page scan.** The
+page scan is last for a reason — `detectTitleType` matches the word "freehold"
+ANYWHERE in the HTML, which a related listing or a line about the other sections
+this agency has for sale will satisfy, so it must not outrank a model that
+actually read the listing. `titleTypeFromRegister` on the listing is what makes
+the three distinguishable; without it "the listing wins" would have handed the
+keyword scan the same authority as the register.
+
+**One tenure, everywhere.** The resolved answer is written back onto the listing
+when it beats the page scan, because `context.titleType` decides which
+conditional items score while `listing.titleType` drives the header, the title
+score, the viewing checklist and — since a cross lease became a house — the
+valuation method. Two different answers is how a report comes to score the
+cross-lease flats-plan item while valuing the property as a freehold section.
+
 **The two halves have very different coverage, and this decides how each may be
 used.** Titles are national — 2.45m titles against 2.4m addresses. The valuation
 roll is **287k rows, roughly 12% of properties**, so "no valuation" is the normal

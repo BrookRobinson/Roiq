@@ -172,7 +172,10 @@ async function enrichFromLinz(listing: ScrapedListing): Promise<ScrapedListing> 
 
   const linzType = record.title?.type?.trim().toLowerCase();
   const mapped = linzType ? LINZ_TITLE_TYPES[linzType] : undefined;
-  if (mapped) listing.titleType = mapped;
+  if (mapped) {
+    listing.titleType = mapped;
+    listing.titleTypeFromRegister = true;
+  }
 
   // The title's own area is a survey figure and beats a scraped one.
   if (listing.landAreaSqm == null && record.title?.areaSqm != null) {

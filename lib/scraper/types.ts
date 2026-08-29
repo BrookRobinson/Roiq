@@ -52,6 +52,15 @@ export interface ScrapedListing {
   propertyType: PropertyType;
   titleType: TitleType;
   /**
+   * True when `titleType` came from the LINZ register rather than from the
+   * page. The two are not remotely equal evidence: the register reads the
+   * Record of Title, while the page fallback scans the whole HTML for the word
+   * "freehold" — which any related listing, or a line about the OTHER sections
+   * this agent has for sale, will satisfy. Anything deciding whose answer wins
+   * has to be able to tell them apart.
+   */
+  titleTypeFromRegister: boolean;
+  /**
    * The owner's undivided share of the land, from LINZ — 0.5 on a two-flat
    * cross lease, 1 on a freehold section. Null means we could not read it,
    * which is deliberately not the same as 1: `landAreaSqm` on a cross lease is
@@ -137,6 +146,7 @@ export function emptyListing(url: string, portal: SupportedPortal): ScrapedListi
     landAreaSqm: null,
     propertyType: "unknown",
     titleType: "unknown",
+    titleTypeFromRegister: false,
     landShareFraction: null,
     buildYear: null,
     description: null,

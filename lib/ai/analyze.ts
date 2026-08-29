@@ -18,6 +18,7 @@ import { prepareImages, type PreparedImage } from "./images";
 import { SCORING_MODEL, LOCATION_PENALTIES, usesSpecTier, SIZE_ITEM_IDS, type ScoringSubItem, type Inspection } from "@/lib/scoring/model";
 import { buildCatalog, INSPECTION_META, SOURCE_TAXONOMY, type CatalogInspection } from "@/lib/scoring/catalog";
 import { scoreBoth, type Assessment } from "@/lib/scoring/report";
+import { resolveTenure } from "@/lib/scoring/title";
 import { fetchMarketData, type MarketResult } from "./market";
 import { fetchSuburbValue } from "./comparables";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
@@ -419,9 +420,22 @@ function placeholderSubItem(item: ScoringSubItem, hadPhotos: boolean, ctx: SubIt
 
 function buildContext(raw: RawAnalysis, listing: ScrapedListing, subItems: SubItem[]): PropertyContext {
   const rc = raw.property_context ?? {};
-  const listingTitle = mapTitle(listing.titleType);
-  const titleType =
-    rc.title_type && rc.title_type !== "unknown" ? rc.title_type : listingTitle;
+
+  // THE REGISTER WINS. It used to lose, and to the weakest source in the app:
+  // the model's read was taken first, so a LINZ Record of Title saying cross
+  // lease was overruled by a guess made from marketing photographs. The
+  // precedence lives in lib/scoring/title.ts, dependency-free, so verify:title
+  // can assert it without loading the analysis.
+  // mapTitle collapses licence_to_occupy, which PropertyContext has no case for
+  // — the same narrowing this function has always done, just applied after the
+  // precedence rather than before it.
+  const titleType = mapTitle(
+    resolveTenure({
+      register: listing.titleTypeFromRegister ? listing.titleType : null,
+      model: rc.title_type,
+      page: listing.titleType,
+    })
+  );
   const has = (id: string) => subItems.some((s) => s.id === id);
 
   // Keep context consistent with which conditional items the AI actually scored,
@@ -522,6 +536,21 @@ function buildAssessment(
     .filter((p) => p.severity > 0);
 
   const context = buildContext(raw, listing, subItems);
+
+  // ONE TENURE, everywhere. `context.titleType` decides which conditional items
+  // are scored, while `listing.titleType` drives the header, the title score,
+  // the viewing checklist and — since the cross-lease work — the valuation
+  // method itself. Letting the two hold different answers is how a report comes
+  // to score the cross-lease flats-plan item while valuing the property as a
+  // freehold section, and it costs nothing to keep them the same.
+  //
+  // Only ever an UPGRADE off the page scan: the register already agrees where it
+  // spoke, and where it didn't, the model reading the listing beats a keyword
+  // match against the whole HTML.
+  if (!listing.titleTypeFromRegister && context.titleType !== "unknown") {
+    listing.titleType = context.titleType;
+  }
+
   return { subItems, extraDwellings, context, penalties };
 }
 

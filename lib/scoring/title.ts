@@ -98,3 +98,37 @@ export function assessTitleType(titleType: TitleType | null | undefined): TitleA
   if (!titleType || titleType === "unknown") return null;
   return TITLES[titleType] ?? null;
 }
+
+/**
+ * Which of three answers about the tenure to believe.
+ *
+ * The register used to LOSE this, and to the weakest source in the app. The
+ * model's read was taken first, so a LINZ Record of Title saying cross lease
+ * was overruled by a guess made from marketing photographs — and the resolved
+ * tenure decides whether the cross-lease and body-corporate items are scored,
+ * what the header prints, and (since a cross lease became a house) which
+ * valuation method runs at all.
+ *
+ * In the order they deserve:
+ *
+ *   1. `register` — LINZ read the actual title. Nothing overrules it.
+ *   2. `model` — it read the facts panel, the description and the photographs,
+ *      and applied judgement to them.
+ *   3. `page` — `detectTitleType` matches the word "freehold" ANYWHERE in the
+ *      HTML, which a related listing or a line about the other sections this
+ *      agency has for sale will satisfy. A last resort, and it must never
+ *      outrank a model that actually read the page.
+ *
+ * Pure and dependency-light so verify:title can assert it with plain node.
+ */
+export function resolveTenure(sources: {
+  register?: TitleType | null;
+  model?: TitleType | null;
+  page?: TitleType | null;
+}): TitleType {
+  const known = (t: TitleType | null | undefined): t is TitleType => !!t && t !== "unknown";
+  if (known(sources.register)) return sources.register;
+  if (known(sources.model)) return sources.model;
+  if (known(sources.page)) return sources.page;
+  return "unknown";
+}
