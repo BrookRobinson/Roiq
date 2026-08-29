@@ -9,6 +9,7 @@ import type { Inspection, Persona } from "@/lib/scoring/model";
 import { INSPECTION_META, ITEM_BY_ID } from "@/lib/scoring/catalog";
 import { isFactsOnly } from "@/lib/scoring/model";
 import { DEV_TIERS, developmentBonus, type DevelopmentPotential } from "@/lib/scoring/development";
+import { SitePlan } from "./SitePlan";
 import {
   landBandLabel, sectionSizeStat, topographyStat, shapeStat, treesStat, aspectStat, frontageStat,
 } from "@/lib/scoring/land-quality";
@@ -67,15 +68,29 @@ function DevelopmentPotentialCard({ dev, persona }: { dev: DevelopmentPotential;
           ))}
         </div>
       )}
+      {dev.layout && <SitePlan layout={dev.layout} />}
+
+      {/* This used to read "estimated from the section size vs the house
+          footprint … must be confirmed with the council / LIM" — wrong on both
+          counts once the parcel is measured, and the second half is the
+          homework rule failing: telling the reader to go and find out is the
+          job they came here to avoid. */}
       <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
-        {/* This used to read "estimated from the section size vs the house
-            footprint … must be confirmed with the council / LIM" — wrong on
-            both counts once the parcel geometry is measured, and the second
-            half is the homework rule failing: telling the reader to go and
-            find out is the job they came here to avoid. */}
-        {dev.measured
-          ? <>Measured from the LINZ parcel boundary and building footprints. What we can&apos;t read is the district plan&apos;s rule table — site coverage, setbacks and height to boundary — so this says what physically fits, not what the council will consent.</>
-          : <>Indicative — estimated from the section size against the house footprint. We couldn&apos;t retrieve this property&apos;s parcel boundary, so where the buildings actually sit isn&apos;t in this figure.</>}
+        {dev.measured ? (
+          <>
+            Measured from the LINZ parcel boundary and building footprints, against the{" "}
+            <strong style={{ color: "var(--text-secondary)" }}>National Environmental Standards for Detached Minor Residential Units</strong>{" "}
+            (in force 15 January 2026): 70m² maximum, 2m from boundaries and from other buildings, 50% maximum site
+            coverage in residential zones. The NES does not override the district plan&apos;s hazard rules, a covenant on
+            the title, or a cross-lease or unit-title arrangement — so this says what fits and what the national
+            standard permits, never that a council has agreed to it.
+          </>
+        ) : (
+          <>
+            Indicative — estimated from the section size against the house footprint. We couldn&apos;t retrieve this
+            property&apos;s parcel boundary, so where the buildings actually sit isn&apos;t in this figure.
+          </>
+        )}
       </p>
     </div>
   );

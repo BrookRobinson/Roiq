@@ -947,12 +947,35 @@ the bbox catches the neighbour's garage.
 point, because the far corners are further away than the middle of the back
 fence. It projects onto the road→section axis now.
 
-**The margins are OURS and the copy says so** — 1.5m to boundaries, 2m clear of
-what's built. The district plan's rule table (site coverage, height to boundary,
-real yards) is still unread, so the finding says what physically fits, never
-what a council will consent. The card's footnote used to read "must be confirmed
-with the council / LIM", which was both wrong once measured and the homework
-rule failing.
+**The rules are the NES-DMRU's, not ours.** The first version used an invented
+1.5m setback — not a number anybody could check. The **National Environmental
+Standards for Detached Minor Residential Units** have been in force since **15
+January 2026** and are national: **70m²** maximum, **2m** from boundaries and
+from other buildings, **50%** maximum site coverage in residential / mixed-use /
+Māori-purpose zones (no maximum rural; rural setbacks are 10m front and 5m
+side/rear, which `NES_RURAL_SETBACK_M` names but does not yet model).
+
+**Fitting is not the same as being allowed.** 570 Wairakei Road has an 8m × 17m
+clear area and 521m² of building on 896m² — adding 70m² takes it to 66% and the
+cap refuses it. Coverage is checked independently of whether the thing
+physically fits.
+
+**What the NES does NOT displace, and the copy says so:** district-plan hazard
+rules, a covenant on the title, and cross-lease or unit-title arrangements. The
+finding says what fits and what the national standard permits, never that a
+council has agreed. The card's footnote used to read "must be confirmed with the
+council / LIM" — wrong once measured, and the homework rule failing in the same
+breath.
+
+**And it is DRAWN.** `components/PropertyInspections/SitePlan.tsx` renders the
+parcel to scale with its boundary runs measured, the footprints where they
+actually stand, and the unit at its true 7m × 10m inside the clear envelope it
+would sit in. A sentence about a 19m × 51m back yard has to be taken on trust; a
+plan can be held against the aerial shot in the listing. Two bugs worth
+remembering: the padding is in METRES like everything else in the viewBox (a
+fixed 26 left the section occupying 40% of the canvas), and the drawn unit must
+be the UNIT — it was first drawn as the whole clear rectangle with "7×10m"
+written across a 16m × 19m box.
 
 **A covenant on the title withholds the development BONUS, not the valuation.**
 The Land tab puts real money on adding a dwelling — "+$122,000–$217,000

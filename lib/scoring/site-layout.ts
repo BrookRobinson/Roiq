@@ -79,17 +79,79 @@ export interface SiteLayout {
   largestClear: { width: number; length: number } | null;
   /** True when `unit` fits inside one contiguous piece of clear ground. */
   unitFits: boolean;
+  /**
+   * Site coverage once the unit is added, as a fraction. The NES caps it at 50%
+   * in residential zones — a real constraint independent of whether the thing
+   * physically fits, and one a large house on a modest section fails while
+   * having plenty of lawn.
+   */
+  coverageWithUnit: number;
+  /** True when adding the unit would breach the NES coverage cap. */
+  coverageExceeded: boolean;
   /** Where it fits, in plain words — "behind the house", "beside the house". */
   placement: string | null;
   /** Where the existing house sits — "at the front", "centrally", "at the rear". */
   housePosition: string | null;
   /** The margins this assumed, so the report can state rather than imply them. */
   assumed: { boundarySetback: number; buildingGap: number; unit: { width: number; length: number } };
+  /**
+   * Everything needed to DRAW the section, in metres, origin at the parcel's
+   * south-west corner.
+   *
+   * A site plan is the honest form for this finding. "The largest unbroken clear
+   * area is 19m × 51m, behind the house" is a sentence a reader has to take on
+   * trust; the same thing drawn to scale, with the house where it actually
+   * stands, is a claim they can check against the aerial photo in the listing.
+   * Rounded to 0.1m — the source footprints are aerial-derived and nothing here
+   * is accurate to a centimetre.
+   */
+  plan: {
+    parcel: Pt[];
+    buildings: Pt[][];
+    /**
+     * The unit itself, at its TRUE size — not the clear area it sits in.
+     *
+     * These were the same rectangle at first, so a 16m × 19m back yard was drawn
+     * and labelled "7×10m". Drawing a dwelling four times its real footprint,
+     * with its real dimensions written across it, is the kind of error that
+     * makes a reader stop believing the rest of the page.
+     */
+    unit: Pt[] | null;
+    /** The clear envelope it sits in, so the drawing shows the room around it. */
+    clearArea: Pt[] | null;
+    /** Direction of the street, for orienting the drawing. */
+    road: Pt | null;
+    /** Bounding extent in metres, so a viewBox can be built without re-scanning. */
+    extent: { width: number; length: number };
+  };
 }
 
-const DEFAULT_UNIT = { width: 7, length: 10 }; // ≈70m², the granny-flat ceiling
-const DEFAULT_SETBACK = 1.5;
-const DEFAULT_GAP = 2;
+// ── The National Environmental Standards for Detached Minor Residential Units
+// (NES-DMRU), in force 15 January 2026. These are the ACTUAL permitted-activity
+// standards, not our guesses — the first version of this module used an invented
+// 1.5m boundary setback, which is not a number anybody can check.
+//
+//   70m²   maximum floor area
+//   2m     from side and front boundaries, residential zones
+//   2m     from other buildings
+//   50%    maximum building coverage (residential / mixed use / Māori purpose;
+//          no maximum in rural)
+//   one    detached unit per site
+//
+// Rural zones are 10m front and 5m side/rear, which this does not yet model —
+// RURAL_SETBACK is here so the gap is visible rather than silently wrong.
+//
+// What the NES does NOT displace, and the report says so: district-plan hazard
+// rules, covenants on the title, and cross-lease or unit-title arrangements.
+export const NES_MAX_FLOOR_SQM = 70;
+export const NES_BOUNDARY_SETBACK_M = 2;
+export const NES_BUILDING_GAP_M = 2;
+export const NES_MAX_COVERAGE = 0.5;
+export const NES_RURAL_SETBACK_M = { front: 10, side: 5 };
+
+const DEFAULT_UNIT = { width: 7, length: 10 }; // 70m², the NES ceiling exactly
+const DEFAULT_SETBACK = NES_BOUNDARY_SETBACK_M;
+const DEFAULT_GAP = NES_BUILDING_GAP_M;
 /** Grid resolution. 0.5m is finer than any of this pretends to be accurate to. */
 const STEP = 0.5;
 
@@ -291,7 +353,13 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
   const largestClear = largest
     ? { width: Math.round(largest.w * STEP), length: Math.round(largest.h * STEP) }
     : null;
-  const unitFits = !!fitting;
+  const unitArea = unit.width * unit.length;
+  const coverageWithUnit = parcelAreaSqm > 0 ? (builtAreaSqm + unitArea) / parcelAreaSqm : 0;
+  const coverageExceeded = coverageWithUnit > NES_MAX_COVERAGE;
+  // Physically fitting is not the same as being allowed. A big house on a modest
+  // section can have a clear back lawn and still be over 50% built the moment
+  // anything is added to it.
+  const unitFits = !!fitting && !coverageExceeded;
   const rect = fitting ?? largest;
 
   // The biggest building is taken as the house — a garage does not decide where
@@ -302,6 +370,30 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
   const road = input.roadPoint ?? null;
   const spot = rect ? { x: minX + rect.cx * STEP, y: minY + rect.cy * STEP } : null;
 
+  const r1 = (n: number) => Math.round(n * 10) / 10;
+  const shift = (pt: Pt): Pt => ({ x: r1(pt.x - minX), y: r1(pt.y - minY) });
+  const boxAt = (cx: number, cy: number, w: number, h: number): Pt[] => [
+    { x: r1(cx - w / 2), y: r1(cy - h / 2) },
+    { x: r1(cx + w / 2), y: r1(cy - h / 2) },
+    { x: r1(cx + w / 2), y: r1(cy + h / 2) },
+    { x: r1(cx - w / 2), y: r1(cy + h / 2) },
+  ];
+
+  let unitRect: Pt[] | null = null;
+  let clearRect: Pt[] | null = null;
+  if (unitFits && fitting) {
+    const fx = fitting.cx * STEP;
+    const fy = fitting.cy * STEP;
+    const fw = fitting.w * STEP;
+    const fh = fitting.h * STEP;
+    clearRect = boxAt(fx, fy, fw, fh);
+    // Orient the dwelling the way it actually fits in that envelope.
+    const upright = fw >= unit.width && fh >= unit.length;
+    const uw = upright ? unit.width : unit.length;
+    const uh = upright ? unit.length : unit.width;
+    unitRect = boxAt(fx, fy, uw, uh);
+  }
+
   return {
     parcelAreaSqm,
     builtAreaSqm,
@@ -309,8 +401,18 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
     clearAreaSqm: Math.round(freeCells * STEP * STEP),
     largestClear,
     unitFits,
+    coverageWithUnit: Math.round(coverageWithUnit * 1000) / 1000,
+    coverageExceeded,
     placement: unitFits && spot ? describePlacement(spot, house, road) : null,
     housePosition: describeHousePosition(house, parcel, road),
     assumed,
+    plan: {
+      parcel: parcel.map(shift),
+      buildings: buildings.map((b) => b.map(shift)),
+      unit: unitRect ? unitRect.map(shift) : null,
+      clearArea: clearRect ? clearRect.map(shift) : null,
+      road: road ? shift(road) : null,
+      extent: { width: r1(Math.max(...xs) - minX), length: r1(Math.max(...ys) - minY) },
+    },
   };
 }

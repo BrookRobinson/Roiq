@@ -88,6 +88,8 @@ export interface DevelopmentPotential {
    * "estimated" are very different claims to put under a six-figure number.
    */
   measured: boolean;
+  /** The measured layout, so the card can draw the section rather than describe it. */
+  layout: SiteLayout | null;
 }
 
 /**
@@ -231,6 +233,11 @@ export function assessDevelopment(args: {
           ? "Limited spare land once the existing house is accounted for"
           : "Land area unknown — can't gauge spare space"
     );
+    if (layout?.coverageExceeded) {
+      blockers.push(
+        `Adding a 70m² unit would take building coverage to ${Math.round(layout.coverageWithUnit * 100)}% — the NES caps it at 50% in residential zones`
+      );
+    }
     if (layout && layout.buildingCount > 1) {
       blockers.push(`${layout.buildingCount} structures already stand on this section, covering ${layout.builtAreaSqm}m²`);
     }
@@ -293,5 +300,6 @@ export function assessDevelopment(args: {
     titleRestrictions: restrictions,
     restrictedByTitle,
     measured: !!layout,
+    layout,
   };
 }

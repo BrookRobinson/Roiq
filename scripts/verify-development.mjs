@@ -30,7 +30,8 @@ registerHooks({
 });
 
 const { assessDevelopment, developmentBonus } = await import(join(root, "lib/scoring/development.ts"));
-const { readSiteLayout } = await import(join(root, "lib/scoring/site-layout.ts"));
+const { readSiteLayout, NES_BOUNDARY_SETBACK_M, NES_MAX_COVERAGE, NES_MAX_FLOOR_SQM } =
+  await import(join(root, "lib/scoring/site-layout.ts"));
 const rect = (x, y, w, h) => [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }];
 
 let failures = 0;
@@ -138,6 +139,46 @@ ok("and states the margins as OUR assumptions", /our assumptions, not the counci
 ok("the fitting case says where it goes", /behind the house/.test(assessDevelopment({ ...big, layout: front }).summary));
 // The old sentence was true of every large section in the country.
 ok("the generic 'feasible on section size' line is gone when measured", !/feasible on section size/.test(byGeometry.summary));
+
+console.log("\nthe rules are the NES-DMRU's, not ours");
+// The first version used an invented 1.5m setback — not a number anybody can
+// check. The National Environmental Standards for Detached Minor Residential
+// Units have been in force since 15 January 2026 and say 70m², 2m from
+// boundaries and buildings, 50% maximum coverage in residential zones.
+check("the boundary setback is the NES 2m", NES_BOUNDARY_SETBACK_M, 2);
+check("the coverage cap is the NES 50%", NES_MAX_COVERAGE, 0.5);
+check("the unit is the NES 70m² ceiling", NES_MAX_FLOOR_SQM, 70);
+const std = layoutOf([rect(4, 2, 12, 10)]);
+check("and the layout reports them back", std.assumed.boundarySetback, 2);
+check("70m² exactly, not a rounder number", std.assumed.unit.width * std.assumed.unit.length, NES_MAX_FLOOR_SQM);
+
+console.log("\nFITTING IS NOT THE SAME AS BEING ALLOWED");
+// A big house on a modest section can have a clear back lawn and still be over
+// 50% built the moment anything is added. 570 Wairakei Road is real: 896m² with
+// a single 521m² building, an 8m x 17m clear area, and no room under the rule.
+const heavy = readSiteLayout({
+  parcel: rect(0, 0, 20, 35),            // 700m²
+  buildings: [rect(1, 1, 18, 17)],       // 306m², plus 70 = 53.7%
+  roadPoint: ROAD,
+});
+ok("there is physically space for it", !!heavy.largestClear && heavy.largestClear.length >= 10);
+check("coverage would breach the cap", heavy.coverageExceeded, true);
+check("so it does NOT fit", heavy.unitFits, false);
+check("and nothing is drawn where it can't go", heavy.plan.unit, null);
+const light = readSiteLayout({ parcel: rect(0, 0, 20, 35), buildings: [rect(4, 2, 12, 10)], roadPoint: ROAD });
+check("a normal house stays well under", light.coverageExceeded, false);
+
+console.log("\nthe drawing is the finding, so it has to be there");
+ok("the parcel is drawn", light.plan.parcel.length >= 4);
+ok("so is the house", light.plan.buildings.length === 1);
+ok("and the unit, where it fits", !!light.plan.unit);
+check("the drawn unit is the right size", [
+  Math.round(light.plan.unit[1].x - light.plan.unit[0].x),
+  Math.round(light.plan.unit[2].y - light.plan.unit[1].y),
+].sort((a, b) => a - b), [7, 10]);
+ok("the extent matches the section", Math.round(light.plan.extent.width) === 20 && Math.round(light.plan.extent.length) === 35);
+// Origin at the south-west corner, so a viewBox needs no second pass.
+ok("coordinates start at zero", Math.min(...light.plan.parcel.map((p) => p.x)) === 0);
 
 console.log(failures === 0 ? "\nDevelopment potential holds.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);
