@@ -132,6 +132,41 @@ export function getMaxPoints(item: ScoringSubItem, persona: Persona): number {
 const ITEM_BY_ID = new Map(SCORING_MODEL.map((i) => [i.id, i]));
 
 /**
+ * The most an item can earn under the active persona, by id.
+ *
+ * The Legal cards print points rather than a mark out of ten, because out of
+ * ten is not the scale anything is actually decided on: the title is worth 28
+ * of the buyer's 1,000 points and 30 of the investor's, and "5/10" tells a
+ * reader neither of those. It also hid the persona — the same cross lease costs
+ * an investor more than a buyer, and the /10 was identical for both.
+ */
+export function itemMaxPoints(id: string, persona: Persona): number | null {
+  const item = ITEM_BY_ID.get(id);
+  return item ? getMaxPoints(item, persona) : null;
+}
+
+/**
+ * What a NON-improvements item earns, out of its own points, for the per-card
+ * display. Mirrors the engine's own branch — condition scaled across the max —
+ * so a card can never print a figure the score didn't use.
+ *
+ * Null when the item isn't scored at all. A Tier 3 item and an unscored one both
+ * belong to the unassessed pile, and printing "0/28" against them would read as
+ * a property that failed rather than a question nobody could answer.
+ */
+export function scoredItemPoints(
+  id: string,
+  condition: number | null,
+  persona: Persona
+): { earned: number; max: number } | null {
+  const item = ITEM_BY_ID.get(id);
+  if (!item || item.inspection === "improvements") return null;
+  if (condition == null || condition <= 0) return null;
+  const max = getMaxPoints(item, persona);
+  return { earned: Math.round((condition / 10) * max), max };
+}
+
+/**
  * Points an Improvements item earns for the active persona — for the per-card
  * "Dated · 4/13" display. Mirrors the engine: tiered → band positioned by
  * condition; untiered-but-scored → condition × max; otherwise not applicable.

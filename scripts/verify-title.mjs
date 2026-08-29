@@ -10,10 +10,29 @@
 //
 // Imports the TypeScript module directly; needs Node 22.6+ for type stripping.
 
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
+import { existsSync } from "node:fs";
+import { registerHooks } from "node:module";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+
+// title.ts is dependency-free, but the points helpers live in the engine, which
+// imports its rubric. Teach the loader the app's two module conventions so the
+// card's arithmetic can be checked against the engine's rather than eyeballed.
+registerHooks({
+  resolve(spec, ctx, next) {
+    const from = ctx.parentURL ? dirname(fileURLToPath(ctx.parentURL)) : root;
+    const target = spec.startsWith("@/") ? join(root, spec.slice(2)) : spec.startsWith(".") ? join(from, spec) : null;
+    if (target && !/\.[a-z]+$/i.test(target)) {
+      for (const ext of [".ts", ".tsx"]) {
+        if (existsSync(target + ext)) return { url: pathToFileURL(target + ext).href, shortCircuit: true };
+      }
+    }
+    if (target && existsSync(target)) return { url: pathToFileURL(target).href, shortCircuit: true };
+    return next(spec, ctx);
+  },
+});
 const { assessTitleType, resolveTenure } = await import(join(root, "lib/scoring/title.ts"));
 
 let failures = 0;
@@ -75,6 +94,42 @@ check("nothing known stays unknown", resolveTenure({}), "unknown");
 check("an unknown register does not outrank a known model", resolveTenure({ register: "unknown", model: "cross_lease" }), "cross_lease");
 check("an unknown model does not outrank a known page scan", resolveTenure({ register: null, model: "unknown", page: "leasehold" }), "leasehold");
 check("every source unknown is still unknown", resolveTenure({ register: "unknown", model: "unknown", page: "unknown" }), "unknown");
+
+console.log("\nLegal cards print POINTS, and they must be the engine's points");
+// Out of ten was never the scale anything is decided on. The title carries 28 of
+// a buyer's 1,000 and 30 of an investor's, and "5/10" states neither — it also
+// printed the SAME number for two readers the item is worth different amounts
+// to. The card does the arithmetic itself, so it is checked against the engine
+// here: a card that disagrees with the score beside it is worse than no card.
+const { itemMaxPoints, scoredItemPoints } = await import(join(root, "lib/scoring/engine.ts"));
+
+check("the title is 28 points to a buyer", itemMaxPoints("leg_title", "buyer"), 28);
+check("and 30 to an investor — the /10 hid this", itemMaxPoints("leg_title", "investor"), 30);
+check("an unknown id has no points", itemMaxPoints("not_an_item", "buyer"), null);
+
+for (const [tenure, buyerPts] of [["freehold", 28], ["unit_title", 20], ["cross_lease", 14], ["leasehold", 8]]) {
+  const score = assessTitleType(tenure).score;
+  check(`${tenure} → ${buyerPts}/28`, scoredItemPoints("leg_title", score, "buyer").earned, buyerPts);
+}
+
+// The rounding has to match the engine's, or the cards won't sum to the bar
+// above them. Every tenure score, both personas, against the engine's own sum.
+for (const persona of ["buyer", "investor"]) {
+  for (let score = 1; score <= 10; score++) {
+    const p = scoredItemPoints("leg_title", score, persona);
+    const engineWay = Math.round((score / 10) * itemMaxPoints("leg_title", persona));
+    if (p.earned !== engineWay) { console.error(`  ✗ ${persona} ${score}/10 → ${p.earned}, engine says ${engineWay}`); failures++; }
+  }
+}
+check("every score, both personas, matches the engine", true, true);
+
+// Unassessed is not zero. A Tier 3 item and one nobody scored belong to the
+// unassessed pile, and "0 of 28" would read as a property that failed rather
+// than a question nobody could answer.
+check("an unscored item shows no points", scoredItemPoints("leg_title", null, "buyer"), null);
+check("a zero score shows no points", scoredItemPoints("leg_title", 0, "buyer"), null);
+// Improvements have their own tiered arithmetic and must not come through here.
+check("improvements are left to their own helper", scoredItemPoints("ext_roof", 8, "buyer"), null);
 
 if (failures) { console.error(`\n${failures} title check(s) FAILED.\n`); process.exit(1); }
 console.log("\nAll title checks passed.\n");

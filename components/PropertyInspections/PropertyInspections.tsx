@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { DocAnalysis } from "@/lib/report-store";
 import type { ScoreResult } from "@/lib/scoring/engine";
+import { itemMaxPoints } from "@/lib/scoring/engine";
 import type { Inspection, Persona } from "@/lib/scoring/model";
 import { INSPECTION_META, ITEM_BY_ID } from "@/lib/scoring/catalog";
 import { isFactsOnly } from "@/lib/scoring/model";
@@ -137,6 +138,7 @@ export function PropertyInspections({
             verifiedDocs={verifiedDocs}
             onVerified={onVerified}
             landAreaSqm={landAreaSqm}
+            persona={persona}
           />
         );
       })}
@@ -156,6 +158,7 @@ function Section({
   verifiedDocs,
   onVerified,
   landAreaSqm,
+  persona,
 }: {
   inspection: Inspection;
   items: SubItem[];
@@ -168,6 +171,8 @@ function Section({
   verifiedDocs?: Record<string, DocAnalysis>;
   onVerified?: (itemId: string, doc: DocAnalysis) => void;
   landAreaSqm?: number | null;
+  /** Legal points are persona-weighted — the title is 28 to a buyer, 30 to an investor. */
+  persona: Persona;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const meta = INSPECTION_META[inspection];
@@ -231,6 +236,11 @@ function Section({
                     ? frontageStat(item.accessType, item.homesOnAccess) ?? undefined
                     : undefined
                 }
+                // Legal items print POINTS rather than a mark out of ten. The
+                // title is worth 28 of a buyer's 1,000 and 30 of an investor's,
+                // and "5/10" says neither — nor does it say that the same cross
+                // lease costs the two readers different amounts.
+                pointsMax={inspection === "legal" ? itemMaxPoints(item.id, persona) : null}
                 onSeeRenovations={onSeeRenovations}
                 verifiedDoc={verifiedDocs?.[item.id]}
                 onVerified={onVerified ? (doc) => onVerified(item.id, doc) : undefined}

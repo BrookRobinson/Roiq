@@ -36,6 +36,7 @@ export function InspectionCard({
   inspectionLabel,
   bandLabel,
   statOverride,
+  pointsMax,
   onSeeRenovations,
   verifiedDoc,
   onVerified,
@@ -45,6 +46,17 @@ export function InspectionCard({
   bandLabel?: string;
   /** Show a real-world measurement in the badge instead of a 1–10 score (e.g. section size in m²). */
   statOverride?: { value: string; unit: string; note?: string };
+  /**
+   * Show POINTS in the badge instead of a mark out of ten — "14" over "of 28".
+   *
+   * Out of ten was never the scale this is decided on. The title carries 28 of
+   * a buyer's 1,000 points and 30 of an investor's, and "5/10" states neither —
+   * it also hides the persona entirely, printing the same number for two
+   * readers the item is worth different amounts to. The card computes the
+   * earned half from its OWN displayed score, so a verified document that
+   * re-graded the item moves the points with it.
+   */
+  pointsMax?: number | null;
   onSeeRenovations: () => void;
   verifiedDoc?: DocAnalysis;
   onVerified?: (doc: DocAnalysis) => void;
@@ -151,11 +163,18 @@ export function InspectionCard({
               <span className={`${statOverride.value.length > 4 ? "text-xs" : "text-sm"} font-bold mono leading-none`} style={{ color }}>{statOverride.value}</span>
               <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>{statOverride.unit}</span>
             </div>
+          ) : pointsMax && displayScore !== null ? (
+            // Points, not a mark out of ten. Rounded the same way the engine
+            // rounds it, so the card and the section total can't disagree.
+            <div className="flex-shrink-0 min-w-[2.75rem] h-11 px-1.5 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
+              <span className="text-sm font-bold mono leading-none" style={{ color }}>{Math.round((displayScore / 10) * pointsMax)}</span>
+              <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>of {pointsMax}</span>
+            </div>
           ) : (
             <div className="flex-shrink-0 w-11 h-11 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
               <span className="text-sm font-bold mono leading-none" style={{ color }}>{displayScore ?? "—"}</span>
               <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>
-                {displayScore === null && notVisible ? "n/a" : "/10"}
+                {displayScore === null && notVisible ? "n/a" : pointsMax ? `of ${pointsMax}` : "/10"}
               </span>
             </div>
           )}
@@ -178,7 +197,7 @@ export function InspectionCard({
       {open && (
         <div className="px-4 pb-4 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
           {isDoc && !verified ? (
-            <UploadPrompt itemId={item.id} onVerified={onVerified} />
+            <UploadPrompt itemId={item.id} onVerified={onVerified} pointsMax={pointsMax} />
           ) : verified ? (
             <VerifiedView doc={verified} itemId={item.id} onVerified={onVerified} />
           ) : (
@@ -223,14 +242,14 @@ export function InspectionCard({
   );
 }
 
-function UploadPrompt({ itemId, onVerified }: { itemId: string; onVerified?: (doc: DocAnalysis) => void }) {
+function UploadPrompt({ itemId, onVerified, pointsMax }: { itemId: string; onVerified?: (doc: DocAnalysis) => void; pointsMax?: number | null }) {
   return (
     <div className="pt-3 rounded-lg p-3 mt-3" style={{ background: "var(--surface)", border: "1px dashed var(--warn-wash)" }}>
       <div className="flex items-start gap-2 mb-3">
         <FileSearch size={15} className="mt-0.5 flex-shrink-0" style={{ color: "var(--warn)" }} />
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           This item isn&apos;t scored from a guess. Upload {DOC_NAME[itemId]} and {PRODUCT_NAME} will read the whole document,
-          summarise it in plain English, give it a verified 1–10 score, and update your overall property score.
+          summarise it in plain English, and score it{pointsMax ? ` — it's worth ${pointsMax} points` : ""}. Until then it counts for nothing either way.
         </p>
       </div>
       {onVerified && <DocUpload itemId={itemId} onVerified={onVerified} />}

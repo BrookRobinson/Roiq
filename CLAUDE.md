@@ -1050,6 +1050,22 @@ takes the item's source and says "Confirmed from the public record" for anything
 record-sourced. Tier 1 means established — how it was established depends on the
 item.
 
+**Legal cards print POINTS, not a mark out of ten.** Out of ten was never the
+scale anything is decided on: the title carries **28 of a buyer's 1,000 points
+and 30 of an investor's**, and "5/10" states neither. Worse, it printed the SAME
+number for two readers the item is worth different amounts to — the persona
+toggle re-weights the whole report, and this one badge sat there unmoved.
+`itemMaxPoints` / `scoredItemPoints` in `lib/scoring/engine.ts` mirror the
+engine's own branch (condition scaled across the max, same rounding), and
+`verify:title` asserts every score against it for both personas — a card that
+disagrees with the section bar above it is worse than no card. The Improvements
+tab has done this for a while via `improvementItemPoints`; Legal had not.
+
+**Unassessed is not zero.** A Tier 3 item and one nobody scored show "n/a" and a
+dash, never "0 of 28" — which reads as a property that failed rather than a
+question nobody could answer. Document items keep their padlock until the
+document is read, and the upload prompt now names what the document is worth.
+
 **Never put a document on the checklist for a fact the report already holds.**
 The title TYPE comes from the LINZ register and is printed in the report's own
 header, so asking the buyer to obtain a record of title to confirm it is the
