@@ -598,7 +598,17 @@ export function RealReportView({
       high: Math.round(st.cost * 1.18),
       urgencyYears: 0,
       detailColor: "var(--brand)",
-      uplift: st.resale,
+      // `uplift` is WEEKLY RENT — it renders as "+$X/wk rent" in investor mode —
+      // and the resale figure is capital. Putting one in the other's field had a
+      // $160,000 granny flat advertising "+$144000/wk rent". A new structure
+      // would genuinely let for something, but we have no rent evidence for a
+      // building that doesn't exist yet, and inventing one is the habit this
+      // codebase keeps having to break.
+      uplift: 0,
+      // `valueGap` IS the capital field — "value reclaimed if brought to modern
+      // & as-new". For something being built rather than restored, that is what
+      // it is worth once it stands.
+      valueGap: st.resale,
       notes: "Indicative build range, not a quote. Placed within the setbacks on the Land tab — the district plan's own rules still apply.",
       // Ticked on arrival: placing a garage on your own section is a clearer
       // statement of intent than any checkbox, and an added structure that
