@@ -9,6 +9,7 @@ import { emptyListing } from "@/lib/scraper/types";
 import { SCORING_MODEL, usesSpecTier } from "./model";
 import { SOURCE_TAXONOMY } from "./catalog";
 import { scoreBoth, type Assessment } from "./report";
+import { readSiteLayout } from "./site-layout";
 
 // Hand-tuned 1–10 scores telling a coherent story: prime Remuera location, sunny
 // north aspect, renovated kitchen — but an aging iron roof, no ceiling insulation,
@@ -418,6 +419,40 @@ function buildDemoAssessment(): Assessment {
   };
 }
 
+/**
+ * The demo section — INVENTED, like its address, and deliberately carrying no
+ * geographic anchor.
+ *
+ * 14 Ferndale Road is fictional (see the demo-address rule): every street name
+ * in the demo and sample data was checked against the LINZ address layer and
+ * matches nothing in the country. That is what makes it safe to publish a
+ * detailed condition report against it.
+ *
+ * Anchoring it would undo that in one step. The aerial layer would fetch
+ * whatever really stands at those coordinates and draw somebody's actual roof
+ * under an invented report titled "14 Ferndale Road, Remuera" — the same false
+ * claim about a real home the fictional addresses exist to prevent. So the demo
+ * shows the drawn section, and imagery appears on real reports where the
+ * property genuinely is the one being described.
+ *
+ * The shape is built from the demo's OWN stated figures — 612m² of land, a
+ * 185m² floor area on a single-storey 1975 house — so the plan agrees with the
+ * header above it rather than being a decorative rectangle.
+ */
+const DEMO_SITE = (() => {
+  const rect = (x: number, y: number, w: number, h: number) => [
+    { x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h },
+  ];
+  return readSiteLayout({
+    parcel: rect(0, 0, 17, 36),          // 612m², a normal Auckland front-site
+    buildings: [
+      rect(2.5, 3, 12, 15.4),            // the house — 185m², matching the header
+      rect(10.8, 27, 6, 6),              // the separate studio the listing mentions, back corner
+    ],
+    roadPoint: { x: 8.5, y: -6 },        // the street, so "front" and "back" mean something
+  });
+})();
+
 export function buildDemoReport(): StoredReport {
   const assessment = buildDemoAssessment();
   const scores = scoreBoth(assessment);
@@ -440,6 +475,7 @@ export function buildDemoReport(): StoredReport {
     propertyType: "house" as const,
     titleType: "freehold" as const,
     buildYear: 1975,
+    siteLayout: DEMO_SITE,
     description: "Sun-drenched 1970s family home in the double-grammar zone, renovated kitchen, separate studio.",
     daysOnMarket: 68,
     photoUrls: Array.from({ length: 18 }, (_, i) => `demo-photo-${i + 1}`),

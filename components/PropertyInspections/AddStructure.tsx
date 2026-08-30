@@ -67,7 +67,29 @@ export function AddStructure({
   added?: string[];
 }) {
   const { plan } = layout;
-  const [choiceId, setChoiceId] = useState(BUILDABLE[0].id);
+
+  // OPEN ON SOMETHING THAT ACTUALLY FITS, in list order — so the granny flat
+  // still leads on a section that can take one, and a tight site opens on the
+  // sleepout or the garage instead.
+  //
+  // Opening on the granny flat regardless was worse than it sounds. On the demo
+  // section — 612m², a 185m² house and a studio — a 60m² unit has exactly ONE
+  // legal position once the 2m setbacks are honoured, so the footprint appeared,
+  // refused every drag, and read as a broken control rather than as a section
+  // with no room. The refusal is right; leading with it is not.
+  const initialId = useMemo(() => {
+    for (const b of BUILDABLE) {
+      const sb = setbacksFor(regimeFor(b, b.defaultSqm));
+      const f = footprintFor(b, b.defaultSqm);
+      // Room to move, not just room to sit: a metre of slack either way, so the
+      // first thing a reader touches responds to being dragged.
+      const slack = { width: f.width + 2, length: f.length + 2 };
+      if (firstFit(plan, slack, sb.boundary, sb.building)) return b.id;
+    }
+    return BUILDABLE[BUILDABLE.length - 1].id;
+  }, [plan]);
+
+  const [choiceId, setChoiceId] = useState(initialId);
   const choice = BUILDABLE_BY_ID.get(choiceId) as BuildableStructure;
   const [sqm, setSqm] = useState(choice.defaultSqm);
 
@@ -101,14 +123,29 @@ export function AddStructure({
   const ring = (r: { x: number; y: number }[]) =>
     r.map((p, i) => `${i === 0 ? "M" : "L"}${px(p).join(" ")}`).join(" ") + " Z";
 
-  /** Pointer → metres in the plan's frame. */
+  /**
+   * Pointer → metres in the plan's frame.
+   *
+   * Via the SVG's OWN matrix, not by scaling the bounding box. The element is a
+   * tall section in a wide card with `maxHeight` clamping it, so
+   * preserveAspectRatio letterboxes the drawing — roughly 180px of dead space
+   * each side. Dividing by the element width therefore mapped every pointer to
+   * a point far off the section, `canPlace` refused all of them, and the
+   * footprint sat there ignoring the mouse: the drag looked broken when the
+   * only thing wrong was the arithmetic pointing at it.
+   *
+   * getScreenCTM knows about the viewBox, the letterboxing and any transform
+   * above it, so this cannot drift out of step with the layout again.
+   */
   function toMetres(e: React.PointerEvent): { x: number; y: number } | null {
     const svg = svgRef.current;
-    if (!svg) return null;
-    const r = svg.getBoundingClientRect();
-    const vx = ((e.clientX - r.left) / r.width) * vw;
-    const vy = ((e.clientY - r.top) / r.height) * vh;
-    return { x: vx - PAD, y: H - (vy - PAD) };
+    const ctm = svg?.getScreenCTM();
+    if (!svg || !ctm) return null;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const p = pt.matrixTransform(ctm.inverse());
+    return { x: p.x - PAD, y: H - (p.y - PAD) };
   }
 
   function onDown(e: React.PointerEvent) {
