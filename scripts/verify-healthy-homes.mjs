@@ -110,6 +110,24 @@ const heatSeen = get([{ id: "liv_heating", specTier: "modern", score: 8 }], 2025
 check("a heat pump that WAS seen scores", heatSeen.earned > 0, true);
 check("…as observed", heatSeen.basis, "observed");
 
+console.log("\nCOMPLIANCE IS THE REQUIREMENT, NOT THE SPEC TIER");
+// 156 Buchanans Road: a bathroom with an openable window and no extractor fan
+// rates "dated" — serviceable, just old — so `tier !== "deteriorated"` badged it
+// **Compliant** on the very report whose Improvements tab said "no extractor fan
+// visible". A landlord reading that could tenant a house they legally may not.
+const dated = [{ id: "bath_ventilation", specTier: "dated", score: 5 }];
+const absent = assessHealthyHomes(dated, 1975, [{ standard: "ventilation", status: "absent", note: "Openable window only, no extractor fan" }]);
+check("the analysis saying 'absent' beats a serviceable tier", absent.find((h) => h.key === "hh_ventilation").compliant, false);
+const met = assessHealthyHomes(dated, 1975, [{ standard: "ventilation", status: "met" }]);
+check("and 'met' is honoured too", met.find((h) => h.key === "hh_ventilation").compliant, true);
+// Looked at, couldn't tell. NULL — "we didn't establish it" and "it complies"
+// are different sentences, and only one of them is safe to print.
+const unseen = assessHealthyHomes(dated, 1975, [{ standard: "ventilation", status: "not_visible" }]);
+check("not_visible is null, never true", unseen.find((h) => h.key === "hh_ventilation").compliant, null);
+// Nothing asked: a serviceable tier no longer asserts compliance on its own.
+const noAsk = assessHealthyHomes(dated, 1975);
+check("an unasked standard does not claim compliance", noAsk.find((h) => h.key === "hh_ventilation").compliant, null);
+
 console.log("\nall five standards are always returned");
 check("five results", assessHealthyHomes(NOTHING_SEEN, 2025).length, 5);
 

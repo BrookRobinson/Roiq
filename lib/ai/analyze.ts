@@ -451,6 +451,9 @@ function buildContext(raw: RawAnalysis, listing: ScrapedListing, subItems: SubIt
     // answered. `normSharing` drops anything non-boolean rather than coercing
     // it — an absent observation must stay absent all the way to the discount.
     crossLeaseSharing: titleType === "cross_lease" ? normSharing(rc.cross_lease_sharing) : undefined,
+    // Assessed against the requirement, not inferred from how nice the fitting
+    // is. normDwellingHH already keeps only valid standard/status pairs.
+    healthyHomes: normDwellingHH(rc.healthy_homes).map((h) => ({ standard: h.standard, status: h.status, note: h.note })),
   };
 }
 
@@ -1084,6 +1087,7 @@ Return sub_items only; leave extra_dwellings, information_gaps, and property_con
 function crossLeaseAsk(listing: ScrapedListing): string {
   if (listing.titleType !== "cross_lease") return "";
   return `
+- property_context.healthy_homes: the five Healthy Homes standards for THIS HOUSE (heating, insulation, ventilation, moisture, draught). 'met' ONLY on clear visible evidence the REQUIREMENT is satisfied — an extractor fan ducted outside, not merely a window that opens. 'absent' when the required feature clearly isn't there. 'not_visible' whenever the photos can't settle it, which for insulation, ground moisture barriers and draught stopping is nearly always the honest answer.
 - property_context.cross_lease_sharing: THIS IS A CROSS LEASE. From the photos, the aerial/site shots and the description, report how SEPARATE this flat is from the other(s) on the site: separate_driveway, detached, exclusive_yard, shared_structures, rear_flat. OMIT ANY FIELD THE LISTING DOES NOT SHOW — omitting is not "false", and these answers change the property's valuation, so a guess is worse than a gap.`;
 }
 

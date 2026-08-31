@@ -588,7 +588,7 @@ export function RealReportView({
   // said what they want more clearly than a checkbox would.
   const [addedStructures, setAddedStructures] = useState<PlacedStructure[]>([]);
   const renoLines = useMemo(() => {
-    const found = buildRenoLines(report.subItems, report.listing, persona, report.extraDwellings);
+    const found = buildRenoLines(report.subItems, report.listing, persona, report.extraDwellings, report.context?.healthyHomes);
     const chosen: RenoLine[] = addedStructures.map((st) => ({
       key: `add_${st.id}`,
       name: st.label,
@@ -616,7 +616,7 @@ export function RealReportView({
       autoInclude: true,
     }));
     return [...chosen, ...found];
-  }, [report.subItems, report.listing, persona, report.extraDwellings, addedStructures]);
+  }, [report.subItems, report.listing, persona, report.extraDwellings, report.context, addedStructures]);
   function setRenoToggle(key: string, patch: Partial<RenoToggle>) {
     setRenoToggles((prev) => ({
       ...prev,
@@ -878,7 +878,7 @@ export function RealReportView({
           {tab === "improvements" && (
             <div className="space-y-4">
               <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={[listing.city, listing.region].filter(Boolean).join(", ") || undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
-              {persona === "investor" && <HealthyHomesSection subItems={effectiveSubItems} buildYear={listing.buildYear} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} />}
+              {persona === "investor" && <HealthyHomesSection subItems={effectiveSubItems} buildYear={listing.buildYear} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} hhAssessed={report.context?.healthyHomes} />}
             </div>
           )}
           {tab === "address" && (
@@ -1673,8 +1673,15 @@ interface RenoLine {
 
 // Unified renovation list: Improvement replacement costs + Location/Land/Legal
 // remediation line items, both obeying the hold-period rule.
-function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], persona: Persona, extraDwellings: ExtraDwelling[] = []): RenoLine[] {
+function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], persona: Persona, extraDwellings: ExtraDwelling[] = [], hhAssessed?: { standard: string; status: "met" | "not_visible" | "absent"; note?: string }[]): RenoLine[] {
   const lines: RenoLine[] = [];
+  // Which Healthy Homes standards we have established are NOT met. Only ever
+  // consulted for the pre-tick — see the autoInclude below.
+  const legallyRequired = new Set(
+    assessHealthyHomes(subItems, listing.buildYear, hhAssessed)
+      .filter((h) => h.compliant === false && h.renoKey)
+      .map((h) => h.renoKey)
+  );
   const ctx = {
     floorSqm: listing.floorAreaSqm ?? null,
     bedrooms: listing.bedrooms ?? null,
@@ -1708,7 +1715,16 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         category,
         photoRefs: s.photoReferences,
         costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low, high } }),
-        autoInclude: s.score !== null && frac <= 0.30,
+        // Pre-ticked when it's bad enough to be urgent, OR when it's one of
+        // the five Healthy Homes standards and we have ESTABLISHED it doesn't
+        // meet the requirement. Those are not opinions about condition — they
+        // are legal obligations before the property can be tenanted, so leaving
+        // a landlord to notice and tick them is the wrong default.
+        //
+        // `=== false` on purpose: unknown is not a failure. Ticking work nobody
+        // has established is needed would put money in a plan for a problem
+        // that may not exist.
+        autoInclude: (s.score !== null && frac <= 0.30) || legallyRequired.has(s.id),
         valueGap: v?.valueGap,
         observedDefect: s.observedDefect,
         legal: HH_RENO_KEYS.has(s.id),
@@ -1778,7 +1794,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
   // era), what we don't (whether it actually leaks), and leaves the tick to the
   // buyer once they've been.
   if (persona === "investor") {
-    const draught = assessHealthyHomes(subItems, listing.buildYear).find((h) => h.key === "hh_draught");
+    const draught = assessHealthyHomes(subItems, listing.buildYear, hhAssessed).find((h) => h.key === "hh_draught");
     if (draught) {
       const era = listing.buildYear ? `A ${listing.buildYear} house ` : "A house of this era ";
       lines.push({
@@ -2811,10 +2827,12 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 const HH_TIER_COLOR: Record<string, string> = { deteriorated: "var(--bad)", dated: "var(--text-muted)", modern: "var(--brand)", luxury: "var(--warn)" };
 const hhPointsColor = (f: number): string => (f >= 0.7 ? "var(--good)" : f >= 0.4 ? "var(--warn)" : "var(--bad)");
 
-function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovations }: {
+function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovations, hhAssessed }: {
   subItems: SubItem[]; buildYear: number | null; renoControls: RenoControls; onOpenRenovations: () => void;
+  /** The analysis's own read of each standard, against the requirement. */
+  hhAssessed?: { standard: string; status: "met" | "not_visible" | "absent"; note?: string }[];
 }) {
-  const results = assessHealthyHomes(subItems, buildYear);
+  const results = assessHealthyHomes(subItems, buildYear, hhAssessed);
   // Only what we've actually established fails. Unknown is not a failure and it
   // is certainly not a pass.
   const toFix = results.filter((r) => r.compliant === false).length;

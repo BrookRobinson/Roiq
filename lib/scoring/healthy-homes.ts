@@ -111,8 +111,17 @@ function fromEra(era: EraRule, buildYear: number | null): { tier: SpecTier; scor
 }
 
 /** Assess all 5 standards from the property's existing item scores + build era. */
-export function assessHealthyHomes(subItems: SubItem[], buildYear: number | null): HHResult[] {
+export function assessHealthyHomes(
+  subItems: SubItem[],
+  buildYear: number | null,
+  /** What the analysis said about each standard, assessed against the requirement. */
+  hhAssessed?: { standard: string; status: "met" | "not_visible" | "absent"; note?: string }[] | null
+): HHResult[] {
   const byId = new Map(subItems.map((s) => [s.id, s]));
+  const assessed = hhAssessed?.length
+    ? new Map(hhAssessed.map((h) => [h.standard, h]))
+    : null;
+  const basisOf = (obs: unknown) => (obs ? "observed" : "build-era");
   return HH_STANDARDS.map((std) => {
     // What was actually SEEN wins over what the era implies. A 2024 build with a
     // visibly failed extractor fan is not compliant because it is new.
@@ -145,13 +154,40 @@ export function assessHealthyHomes(subItems: SubItem[], buildYear: number | null
     const fraction = tierBandFraction(tier, score);
     // "Non-existing" = deteriorated AND at the very bottom of the band (score ≤1).
     const present = !(tier === "deteriorated" && score <= 1);
+
+    // COMPLIANCE IS THE REQUIREMENT, NOT THE SPEC TIER.
+    //
+    // It used to be `tier !== "deteriorated"`, which asks how nice the fitting
+    // is rather than whether the standard is met. 156 Buchanans Road is the
+    // case: a bathroom with an openable window and NO extractor fan rates
+    // "dated" — perfectly serviceable, just old — so it came back badged
+    // **Compliant** on the very same report whose Improvements tab said "no
+    // extractor fan visible". A landlord reading that could tenant a house they
+    // legally may not.
+    //
+    // The analysis is now asked the question directly, against the requirement,
+    // and its answer wins. The tier is only a fallback for standards nobody
+    // asked about.
+    const direct = assessed?.get(std.key.replace(/^hh_/, ""));
+    const compliant =
+      direct?.status === "met" ? true
+      : direct?.status === "absent" ? false
+      // Directly looked at and couldn't tell. Null, not true — "we didn't
+      // establish it" and "it complies" are different sentences.
+      : direct?.status === "not_visible" ? null
+      // Built under the current Code, so it meets the requirement by law. That
+      // is a fact about the building rather than a read of a photograph.
+      : basisOf(observed) === "build-era" && tier === "modern" ? true
+      : tier === "deteriorated" ? false
+      : null;
+
     return {
       ...std,
       tier,
       score,
       earned: Math.round(fraction * std.maxPoints),
       fraction,
-      compliant: tier !== "deteriorated",
+      compliant,
       present,
       assessed: true,
       basis: observed ? ("observed" as const) : ("build-era" as const),

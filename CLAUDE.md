@@ -1398,6 +1398,28 @@ route to their own reno kinds. They used to fall through to `kitchen`, so
 clicking Splashback offered "Re-paint doors, replace handles, new tap and a
 benchtop resurface" and a $14,149 flat-pack kitchen.
 
+**Healthy Homes compliance is the REQUIREMENT, not the spec tier.** It was
+`tier !== "deteriorated"`, which asks how nice a fitting is rather than whether
+the standard is met. 156 Buchanans Road: a bathroom with an openable window and
+NO extractor fan rates "dated" — serviceable, just old — so it came back badged
+**Compliant** on the very same report whose Improvements tab said "no extractor
+fan visible". A landlord reading that could tenant a house they legally may not.
+
+The five standards are now put to the analysis directly, against the
+requirement, in the same `met / not_visible / absent` shape already used for
+extra dwellings — the main dwelling had simply never been asked. Its answer wins;
+the build era still establishes compliance where a house was put up under the
+current Code (a fact about the building, not a read of a photograph); and
+**`not_visible` is null, never true**, because "we didn't establish it" and "it
+complies" are different sentences and only one is safe to print.
+
+**An established failure pre-ticks itself into the renovation plan.** These are
+not opinions about condition, they are legal obligations before the property can
+be tenanted, so leaving a landlord to notice and tick them is the wrong default.
+Gated on `compliant === false` on purpose: unknown is not a failure, and ticking
+work nobody has established is needed puts money in a plan for a problem that
+may not exist.
+
 **Healthy Homes draught-stopping is derived from the build era and nothing else.**
 No photograph shows a draught. It must never be stated as a finding or pre-ticked
 into the renovation plan — it was asserting "Below the draught-stopping standard

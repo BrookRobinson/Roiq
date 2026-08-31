@@ -33,6 +33,12 @@ export interface PropertyContext {
    * lib/scoring/cross-lease.ts. Absent fields mean the listing didn't show it.
    */
   crossLeaseSharing?: CrossLeaseSharing;
+  /**
+   * What the analysis could see about each Healthy Homes standard for THIS
+   * house. Directly assessed against the requirement, rather than inferred
+   * from a spec tier — see lib/scoring/healthy-homes.ts.
+   */
+  healthyHomes?: { standard: string; status: "met" | "not_visible" | "absent"; note?: string }[];
 }
 
 export interface SubItemResult {

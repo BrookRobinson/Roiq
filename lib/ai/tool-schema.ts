@@ -104,6 +104,16 @@ export interface RawPropertyContext {
   has_pool?: boolean;
   has_body_corporate?: boolean;
   cross_lease_sharing?: RawCrossLeaseSharing;
+  /**
+   * The five Healthy Homes standards for the MAIN dwelling.
+   *
+   * Only ever asked for an extra dwelling before, and the main house inferred
+   * compliance from a spec TIER instead — which is a quality band, not a legal
+   * test. A bathroom with an openable window and no extractor fan rates "dated"
+   * rather than "deteriorated", so it came back badged **Compliant** on the same
+   * report whose Improvements tab said "no extractor fan visible".
+   */
+  healthy_homes?: RawDwellingHealthyHomes[];
 }
 
 /**
@@ -242,6 +252,20 @@ const propertyContextSchema = {
     has_retaining_walls: { type: "boolean", description: "Retaining walls are visible or on the site plan." },
     has_pool: { type: "boolean", description: "A pool or spa is present." },
     has_body_corporate: { type: "boolean", description: "An active body corporate applies (unit title, or cross-lease with one)." },
+    healthy_homes: {
+      type: "array",
+      description:
+        "The five Healthy Homes standards for THIS HOUSE. One entry per standard. A standard is 'met' only on clear visible evidence that the REQUIREMENT is satisfied — an extractor fan ducted outside, not merely a window that opens; a fixed heater in the living room, not a portable one. 'absent' when the required feature is clearly not there. 'not_visible' whenever the photos can't settle it, which for insulation, ground moisture barriers and draught stopping is almost always the honest answer. DO NOT GUESS: a wrong 'met' here tells a landlord they may tenant a house that they legally may not.",
+      items: {
+        type: "object",
+        properties: {
+          standard: { type: "string", enum: ["heating", "insulation", "ventilation", "moisture", "draught"] },
+          status: { type: "string", enum: ["met", "not_visible", "absent"] },
+          note: { type: "string", description: "Short reason, e.g. 'Openable window only, no extractor fan visible'." },
+        },
+        required: ["standard", "status"],
+      },
+    },
     cross_lease_sharing: {
       type: "object",
       description:
