@@ -284,6 +284,7 @@ const FOUNDATION_TYPES: readonly FoundationType[] = [
   "concrete_slab",
   "concrete_piles",
   "timber_piles",
+  "perimeter_piles",
   "mixed",
   "unknown",
 ];
@@ -605,8 +606,28 @@ function publicRecordFacts(listing: ScrapedListing): (string | null)[] {
     v?.improvementsValue ? fact("Rating valuation — improvements", nzd(v.improvementsValue)) : null,
     v?.floorAreaSqm ? fact("Floor area (valuation roll)", `${v.floorAreaSqm} m²`) : null,
     encumbranceFact(listing),
+    aspectFact(listing),
     floorAreaFact(listing),
   ];
+}
+
+/**
+ * Which way the section faces, MEASURED off the LINZ parcel and road geometry.
+ *
+ * The model was working this out from "the street layout, the map orientation,
+ * and where shadows fall" — none of which a listing photo carries. On 156
+ * Buchanans Road it wrote "Buchanans Road running roughly north-south past the
+ * property" and reasoned a south-west aspect off it. The road runs east-west and
+ * the section faces NORTH, which in New Zealand is the best aspect there is: it
+ * turned the property's biggest natural advantage into a mark against it.
+ */
+function aspectFact(listing: ScrapedListing): string | null {
+  const a = listing.siteLayout?.aspect;
+  if (!a) return null;
+  return fact(
+    "Section orientation (LINZ parcel + road geometry — CONFIRMED)",
+    `the section faces ${a.direction.replace(/_/g, "-")}, and ${listing.address?.split(",")[0] ?? "the street"} runs ${a.roadBearing}. This is MEASURED from the surveyed boundary and the road centreline — do not re-derive it from the photographs or contradict it.`
+  );
 }
 
 /**

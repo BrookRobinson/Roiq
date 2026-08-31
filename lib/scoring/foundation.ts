@@ -31,6 +31,14 @@ export type FoundationType =
   | "concrete_slab"
   | "concrete_piles"
   | "timber_piles"
+  /**
+   * A concrete perimeter footing with piles under the middle — the standard
+   * 1960s–80s brick-veneer bungalow, and the type most easily mistaken for a
+   * slab. The brickwork runs to ground level so there is no height gap under
+   * the cladding, which is the tell everyone looks for; the vents in the base
+   * course are the real evidence, because a slab has no subfloor to ventilate.
+   */
+  | "perimeter_piles"
   | "mixed"
   | "unknown";
 
@@ -91,6 +99,13 @@ function baseFor(type: FoundationType, buildYear: number | null): { score: numbe
       // houses on piles with no stated era are 1970s or older, but "1970s" as a
       // stated fact is exactly the kind of small confident lie being removed.
       return { score: 5, band: buildYear != null ? "Timber piles, 1970s" : "Timber piles, era not stated" };
+    case "perimeter_piles":
+      // Better than bare timber piles — the perimeter is a continuous footing
+      // and the exterior walls don't move on it — and below a full slab, which
+      // has no subfloor to settle, rot or flood at all.
+      if (modern) return { score: 8, band: "Perimeter footing with interior piles, post-2011 standard" };
+      if (engineered) return { score: 7, band: "Perimeter footing with interior piles, engineered era" };
+      return { score: 6, band: buildYear != null ? "Perimeter footing with interior piles, pre-1978" : "Perimeter footing with interior piles, era not stated" };
     case "mixed":
       return { score: 5, band: "Mixed foundation types" };
     default:

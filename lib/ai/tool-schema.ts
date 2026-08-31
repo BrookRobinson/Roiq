@@ -393,9 +393,9 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
             },
             foundation_type: {
               type: "string",
-              enum: ["concrete_slab", "concrete_piles", "timber_piles", "mixed", "unknown"],
+              enum: ["concrete_slab", "concrete_piles", "timber_piles", "perimeter_piles", "mixed", "unknown"],
               description:
-                "ext_foundation ONLY — REQUIRED for it. What the house sits on, read from the PERIMETER: a base board / skirting with a height gap between the ground and where the cladding starts, or visible subfloor vents, means timber_piles. A continuous solid concrete base at ground level with no vents means concrete_slab. Round or square concrete stubs mean concrete_piles. Use \"unknown\" only when the perimeter genuinely isn't visible in any photo. Do NOT score the foundation yourself — this, the build year and the symptoms below determine the score.",
+                "ext_foundation ONLY — REQUIRED for it. What the house sits on, read from the PERIMETER.\n\nVENTS ARE DECISIVE AND OUTRANK EVERYTHING ELSE HERE. Small regularly-spaced vents in the base course mean there is a SUSPENDED FLOOR with a subfloor void — a concrete slab has nothing to ventilate, so vents rule a slab out completely. Do not weigh them against anything.\n\nThe trap: on a brick-veneer house the brickwork runs to ground level, so there is NO height gap under the cladding even though the floor is suspended on piles. \"No visible gap\" is therefore NOT evidence of a slab. A 1960s–80s brick-veneer bungalow with vents in the base course is perimeter_piles — a concrete perimeter footing with piles under the middle — and that is one of the most common foundations in the country.\n\n  perimeter_piles = vents in a solid base course that runs to ground level\n  timber_piles    = a height gap under the cladding, or piles visible\n  concrete_slab   = a continuous solid base at ground level with NO vents anywhere\n  concrete_piles  = round or square concrete stubs visible\n\nUse \"unknown\" only when the perimeter genuinely isn't visible in any photo. Do NOT score the foundation yourself — this, the build year and the symptoms below determine the score.",
             },
             foundation_symptoms: {
               type: "array",

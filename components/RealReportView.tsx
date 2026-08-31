@@ -421,6 +421,16 @@ export function RealReportView({
             }
           }
         }
+        // Aspect is MEASURED off the parcel and the road centreline, not read
+        // off a photograph. On 156 Buchanans Road the analysis wrote "Buchanans
+        // Road running roughly north-south" and scored a south-west aspect at
+        // 5/10 — the road runs east-west and the section faces NORTH, which is
+        // the best aspect in the country. It turned the property's biggest
+        // natural advantage into a mark against it, from an aerial image that
+        // carries no compass.
+        if (s.id === "land_aspect" && report.listing.siteLayout?.aspect) {
+          return { ...s, aspectDirection: report.listing.siteLayout.aspect.direction as typeof s.aspectDirection };
+        }
         // Section size is scored objectively vs a typical lot, not the AI's guess.
         if (s.id === "land_size") return { ...s, score: assessSectionSize(report.listing.landAreaSqm).score as typeof s.score };
         // Topography is derived from the gradient band + usable share, for the same

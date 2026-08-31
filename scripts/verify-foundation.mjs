@@ -78,6 +78,21 @@ check("mid-band rather than a guess at the extremes", unknown.score, 6);
 check("says the type couldn't be established", /could not be established/.test(unknown.rationale), true);
 check("and admits the build year is missing", /build year not stated/.test(unknown.rationale), true);
 
+console.log("\nVENTS RULE OUT A SLAB — the brick-veneer trap");
+// 156 Buchanans Road, a 1975 brick-veneer bungalow. The analysis SAW the vents
+// and reasoned past them: "a continuous brick veneer base running to ground
+// level with small regularly-spaced vents but no elevated timber baseboard or
+// height gap under the cladding — consistent with a concrete slab". The missing
+// gap is what brick veneer always looks like; the vents are the real evidence,
+// because a slab has no subfloor to ventilate.
+const per = assessFoundation({ type: "perimeter_piles", buildYear: 1975, symptoms: [] });
+const slab = assessFoundation({ type: "concrete_slab", buildYear: 1975, symptoms: [] });
+const timber = assessFoundation({ type: "timber_piles", buildYear: 1975, symptoms: [] });
+check("a perimeter footing with interior piles is its own type", !!per, true);
+check("it rates below a full slab", per.score < slab.score, true);
+check("and above bare timber piles", per.score > timber.score, true);
+check("and says what it is", /perimeter footing/i.test(per.band), true);
+
 console.log("\nNothing claims anyone looked underneath");
 for (const [label, a] of [
   ["clean timber piles", assessFoundation({ type: "timber_piles", buildYear: 1975 })],

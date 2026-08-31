@@ -30,6 +30,15 @@
 // setback" — rather than implying a council has agreed to anything.
 // ============================================================
 
+/** The eight compass points the land model scores an aspect on. */
+export type AspectDirection =
+  | "north" | "north_east" | "north_west" | "east"
+  | "west" | "south_east" | "south_west" | "south";
+
+const COMPASS: AspectDirection[] = [
+  "north", "north_east", "east", "south_east", "south", "south_west", "west", "north_west",
+];
+
 /** A point in metres, local to the parcel. */
 export interface Pt {
   x: number;
@@ -94,6 +103,21 @@ export interface SiteLayout {
   placement: string | null;
   /** Where the existing house sits — "at the front", "centrally", "at the rear". */
   housePosition: string | null;
+  /**
+   * Which way the section faces, MEASURED off the LINZ parcel and road geometry
+   * rather than inferred from photographs.
+   *
+   * 156 Buchanans Road is why. The analysis wrote "Buchanans Road running
+   * roughly north-south past the property" and reasoned a south-west aspect off
+   * it — from an aerial image with no compass on it. The road runs east-west.
+   * A listing photo carries no orientation, and the aerial in a listing is not
+   * reliably north-up, so this was never a thing the model could see; the
+   * geometry has known north (+y) and the real road position, so it is.
+   *
+   * Null when no road was resolved — an unmeasured aspect is left to the model
+   * rather than replaced by a second guess.
+   */
+  aspect: { direction: AspectDirection; roadBearing: string } | null;
   /** The margins this assumed, so the report can state rather than imply them. */
   assumed: { boundarySetback: number; buildingGap: number; unit: { width: number; length: number } };
   /**
@@ -402,6 +426,23 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
     unitRect = boxAt(fx, fy, uw, uh);
   }
 
+  // The section faces AWAY from the street: stand on the road, look in, and
+  // that is the direction the rear yard and its outdoor living look toward.
+  // +y is north because the metre frame is built off latitude.
+  let aspect: SiteLayout["aspect"] = null;
+  if (road) {
+    const mid = centroid(parcel);
+    const dx = mid.x - road.x, dy = mid.y - road.y;
+    if (Math.hypot(dx, dy) > 1) {
+      const idx = Math.round((Math.atan2(dx, dy) * 4) / Math.PI + 8) % 8;
+      // The street runs across that line, so its bearing is the perpendicular.
+      const roadIdx = (idx + 2) % 8;
+      const axis = COMPASS[roadIdx].replace(/_/g, "-");
+      const opposite = COMPASS[(roadIdx + 4) % 8].replace(/_/g, "-");
+      aspect = { direction: COMPASS[idx], roadBearing: `${axis}–${opposite}` };
+    }
+  }
+
   return {
     parcelAreaSqm,
     builtAreaSqm,
@@ -413,6 +454,7 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
     coverageExceeded,
     placement: unitFits && spot ? describePlacement(spot, house, road) : null,
     housePosition: describeHousePosition(house, parcel, road),
+    aspect,
     assumed,
     plan: {
       parcel: parcel.map(shift),
