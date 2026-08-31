@@ -89,7 +89,7 @@ function dbLine(name: string, level: "budget" | "premium", qty: number): MatLine
 export type RenoKind =
   | "cladding" | "exterior_paint" | "roof" | "gutters" | "soffits" | "windows" | "foundation"
   | "decking" | "insulation" | "flooring_vinyl" | "flooring_carpet" | "flooring_tile"
-  | "kitchen" | "splashback" | "benchtop" | "kitchen_tap"
+  | "kitchen" | "kitchen_cabinetry" | "kitchen_appliances" | "splashback" | "benchtop" | "kitchen_tap"
   | "bathroom" | "heating" | "hotwater" | "ventilation" | "driveway" | "fencing" | "generic";
 
 export function kindForItem(id: string, category?: string, name?: string): RenoKind {
@@ -119,7 +119,15 @@ export function kindForItem(id: string, category?: string, name?: string): RenoK
     if (/splashback/.test(hay)) return "splashback";
     if (/benchtop/.test(hay)) return "benchtop";
     if (/sink|tapware|\btap\b/.test(hay)) return "kitchen_tap";
-    // Cabinetry and layout genuinely ARE the kitchen.
+    // NOR ARE THESE, and they were the two worst of the lot. Clicking
+    // "Appliances (oven, cooktop, rangehood, dishwasher)" returned a $14,149
+    // flat-pack kitchen at budget and a $66,339 custom kitchen at premium —
+    // cabinetry, benchtop, sink and splashback for somebody who asked what an
+    // oven costs. And "Cabinetry" priced the whole room too, when replacing the
+    // cabinets is exactly the job people mean.
+    if (/appliance|oven|cooktop|hob|rangehood|dishwash/.test(hay)) return "kitchen_appliances";
+    if (/cabinet|joinery|cupboard|drawer/.test(hay)) return "kitchen_cabinetry";
+    // Layout genuinely IS the kitchen — moving it is a whole refit.
     return "kitchen";
   }
   if (category === "Bathroom") {
@@ -405,6 +413,36 @@ const RECIPES: Partial<Record<RenoKind, Recipe>> = {
     patchInline: [{ name: "Cabinet repaint kit", description: "2-pack cabinet primer + enamel", qty: () => 1, unit: "per kit", unitPrice: 180, source: "Mitre 10" }],
     patchDb: [{ db: "Kitchen tap", qty: () => 1 }, { db: "Kitchen handles", qty: () => 12 }],
     patchLabour: [{ trade: "carpenter", hours: () => 8 }],
+  },
+  kitchen_cabinetry: {
+    scopeBudget: "New flat-pack cabinetry — carcasses, doors and drawers, existing benchtop and appliances refitted.",
+    scopePremium: "Custom-built painted cabinetry with soft-close hardware, existing benchtop refitted.",
+    scopePatch: "Re-paint the doors and drawer fronts, replace the handles and adjust the hinges.",
+    bom: [
+      { db: "Kitchen cabinetry 3m run", qty: a },
+      { db: "Kitchen handles", qty: () => 12 },
+    ],
+    labour: [{ trade: "carpenter", hours: () => 12 }],
+    patchInline: [{ name: "Cabinet repaint kit", description: "2-pack cabinet primer + enamel", qty: () => 1, unit: "per kit", unitPrice: 180, source: "Mitre 10" }],
+    patchDb: [{ db: "Kitchen handles", qty: () => 12 }],
+    patchLabour: [{ trade: "carpenter", hours: () => 8 }],
+  },
+  kitchen_appliances: {
+    scopeBudget: "Replace the oven, cooktop, rangehood and dishwasher with mid-range equivalents.",
+    scopePremium: "Replace with premium integrated appliances.",
+    scopePatch: "Replace whichever single appliance has failed; service the rest.",
+    bom: [
+      { db: "Oven", qty: () => 1 },
+      { db: "Cooktop", qty: () => 1 },
+      { db: "Rangehood", qty: () => 1 },
+      { db: "Dishwasher", qty: () => 1 },
+    ],
+    // Fitting appliances, not building a kitchen: an electrician for the oven
+    // and hob, a plumber for the dishwasher connection. No carpenter.
+    labour: [{ trade: "electrician", hours: () => 4 }, { trade: "plumber", hours: () => 2 }],
+    patchInline: [],
+    patchDb: [{ db: "Oven", qty: () => 1 }],
+    patchLabour: [{ trade: "electrician", hours: () => 2 }],
   },
   bathroom: {
     scopeBudget: "Full budget refit — acrylic shower, new toilet, vanity, tapware and tiled floor.",
