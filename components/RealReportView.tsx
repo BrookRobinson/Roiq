@@ -1675,6 +1675,7 @@ interface RenoLine {
   photoRefs?: number[]; // listing photo numbers for this item's room
   costing?: ThreeTierCost; // Patch Up / Replace Budget / Replace High End
   autoInclude: boolean; // pre-ticked into the plan (score ≤30% / flagged remedy)
+  wholeRoom?: boolean; // a full strip-out and rebuild — never recommended as a patch
   valueGap?: number; // renovation upside — value reclaimed if brought to modern & as-new
   observedDefect?: string; // what's visible in THIS property's photos — keeps the plan specific
   scopeHint?: string; // real scope for compliance/paperwork lines, which have no costing recipe
@@ -1805,6 +1806,43 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
   // wall insulation and a heat pump. The honest version says what we know (the
   // era), what we don't (whether it actually leaks), and leaves the tick to the
   // buyer once they've been.
+  // ── The whole room, as one job ────────────────────────────────────────────
+  //
+  // Every kitchen and bathroom line prices ONE component — cabinetry, or the
+  // shower, or the benchtop. Nobody renovating a 1975 bathroom replaces the
+  // vanity and leaves the waterproofing, and adding six lines up does not give
+  // the number a builder would quote: a full refit strips back to the framing,
+  // reworks the plumbing and re-waterproofs, and shares one lot of labour and
+  // one lot of making good across the whole room.
+  //
+  // Offered rather than pre-ticked, and it never auto-includes: choosing to gut
+  // a room is the reader's call, not a conclusion from a condition score.
+  for (const [cat, label, id] of [
+    ["Kitchen", "Whole kitchen — full refit", "room_kitchen"],
+    ["Bathroom", "Whole bathroom — full refit", "room_bathroom"],
+  ] as const) {
+    const roomItems = subItems.filter((s) => ITEM_BY_ID[s.id]?.category === cat && s.score !== null);
+    if (roomItems.length < 2) continue;
+    const worst = Math.min(...roomItems.map((s) => s.score as number));
+    const costing = costThreeTier({ id, name: label, category: cat, ...ctx });
+    lines.push({
+      key: id,
+      name: label,
+      detail: `Strip out and rebuild — replaces every ${cat.toLowerCase()} line below in one job`,
+      badge: "Whole room",
+      low: Math.round(costing.budget.tradieTotal * 0.85),
+      high: Math.round(costing.premium.tradieTotal),
+      urgencyYears: worst <= 3 ? 2 : 5,
+      detailColor: "var(--brand)",
+      uplift: 0,
+      notes: "A full refit rather than the sum of the individual items — one lot of labour, one lot of making good. Tick this OR the separate lines, not both.",
+      category: cat,
+      costing,
+      autoInclude: false,
+      wholeRoom: true,
+    });
+  }
+
   if (persona === "investor") {
     const draught = assessHealthyHomes(subItems, listing.buildYear, hhAssessed).find((h) => h.key === "hh_draught");
     if (draught) {

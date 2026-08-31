@@ -49,6 +49,8 @@ export interface PlanInput {
   inferred?: boolean;
   legal?: boolean;
   nonExisting?: boolean;
+  /** A full strip-out and rebuild of a room — never recommended as a patch. */
+  wholeRoom?: boolean;
   /** Used ONLY to break ties within a priority band — never shown to the user. */
   valueGap?: number;
   category?: string;
@@ -96,6 +98,11 @@ export interface BudgetPlan {
  * replacement; everything else starts at a patch.
  */
 function chooseTier(input: PlanInput): Tier {
+  // A line that IS the replacement cannot be recommended as a patch. The
+  // whole-room refits came back "We'd do — Patch Up: re-seal, re-grout, replace
+  // tap and vanity" on a line called "Whole bathroom — full refit", which is
+  // the recommendation contradicting the item's own name.
+  if (input.wholeRoom) return "budget";
   return input.nonExisting || input.legal ? "budget" : "patch";
 }
 

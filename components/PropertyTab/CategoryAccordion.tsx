@@ -21,6 +21,10 @@ interface Props {
 }
 
 export function CategoryAccordion({ category, defaultOpen = false, region, floorSqm, persona = "buyer", renoControls, onOpenRenovations }: Props) {
+  // Only the two rooms that are genuinely gutted as a unit. A "whole Exterior"
+  // or "whole Bedrooms" is not a job anybody quotes.
+  const roomKey =
+    category.name === "Kitchen" ? "room_kitchen" : category.name === "Bathroom" ? "room_bathroom" : null;
   const [open, setOpen] = useState(defaultOpen);
   const worst = worstSubItemScore(category);
   const accentColor = conditionScoreColor(worst);
@@ -123,6 +127,39 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
           style={{ borderTop: "1px solid var(--border)" }}
         >
           <div className="pt-4" />
+
+          {/* THE WHOLE ROOM, as one job.
+              Every line below prices one component — cabinetry, or the shower,
+              or the benchtop. Nobody renovating a 1975 bathroom replaces the
+              vanity and leaves the waterproofing, and adding the individual
+              lines up is not the number a builder quotes: a full refit strips
+              back to the framing, reworks the plumbing and re-waterproofs, and
+              shares one lot of labour and one lot of making good.
+              Offered, never pre-ticked — gutting a room is the reader's call. */}
+          {roomKey && renoControls?.has(roomKey) && (
+            <label
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 cursor-pointer"
+              style={{
+                background: renoControls.included(roomKey) ? "var(--accent-wash)" : "var(--surface-2)",
+                border: `1px solid ${renoControls.included(roomKey) ? "var(--brand)" : "var(--border)"}`,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={renoControls.included(roomKey)}
+                onChange={(e) => renoControls.toggle(roomKey, e.target.checked)}
+                className="cursor-pointer"
+              />
+              <span className="text-sm min-w-0" style={{ color: "var(--text-primary)" }}>
+                <strong>Replace the whole {category.name.toLowerCase()}</strong>
+                <span className="block text-xs" style={{ color: "var(--text-secondary)" }}>
+                  A full strip-out and rebuild instead of the individual items below — tick this OR the separate lines,
+                  not both.
+                </span>
+              </span>
+            </label>
+          )}
+
           {category.subItems.map((item) => (
             <SubItemCard key={item.id} item={item} region={region} floorSqm={floorSqm} persona={persona} renoControls={renoControls} onOpenRenovations={onOpenRenovations} />
           ))}
