@@ -33,6 +33,7 @@ npm run verify:valuation-method # which method fits which property — tenure de
 npm run verify:cross-lease   # what a shared title costs, and the band it may never leave
 npm run verify:development   # the dwelling-you-could-add figure, and what the title says about it
 npm run verify:structures    # what you could build, what it costs, and where the rules let you drag it
+npm run verify:regions       # which region a listing resolves to, and what its labour costs
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
 npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
@@ -1048,6 +1049,37 @@ read covenant 5638539.1" is useful where silence is not. Confidence can no
 longer read "likely", the instrument number is named in the summary and the
 blockers, and the badge SAYS the bonus was withheld rather than letting the
 points quietly vanish.
+
+**Materials are flat nationwide; only LABOUR carries a regional multiplier.**
+Gib is Gib in Gore and in Remuera, and NZ buys from a handful of national
+suppliers — so `costItem` multiplies the labour line and leaves materials alone.
+**Build cost must never track land value.** A $3m Queenstown section does not
+make the timber on it cost more, and deriving one from the other would be the
+same class of mistake as the rival valuation formulas already deleted twice.
+What genuinely varies is the local labour market, which correlates with land
+prices without being caused by them.
+
+**Queenstown was filed as the CHEAPEST band in the country.** `queenstown`
+aliased to "Remote / Rural" at 0.77 — presumably reasoned as "tourist town, far
+from anywhere" — when Auckland and Queenstown Lakes are the two most expensive
+districts to build in, its cost of living driving trade rates and travel adding
+more. It has its own region at **1.05** now, with Wānaka, Arrowtown, Frankton and
+Glenorchy mapped to it. Cromwell and Alexandra are deliberately NOT included:
+they are Central Otago, and inventing a multiplier for a district nobody has
+priced is the invented-number habit in a new place. Erring high is also the safer
+direction — understating labour makes a renovation look cheaper than it is, and a
+buyer budgets off that figure.
+
+**The town beats the region behind it.** `resolveRegion` used to read only the
+LAST token, so "Queenstown, Otago" resolved on "otago" and priced Dunedin — which
+would have left the fix above completely inert, since a listing's region field
+says Otago. It now scans **leftmost position first, longest phrase at that
+position**, so the town wins over the region it sits in while "Bay of Plenty" and
+"New Plymouth" still resolve whole. The call site passes city AND region joined,
+because neither alone is enough: region-only loses Queenstown, city-only loses
+every Auckland suburb. Unknown still falls to the national median and never to
+Auckland — pricing a Hokitika reroof at metropolitan rates is the expensive
+direction to be wrong in.
 
 **Never tell the reader to go and look something up.** The development-potential
 finding used to end "confirm zoning and coverage before you rely on it", which

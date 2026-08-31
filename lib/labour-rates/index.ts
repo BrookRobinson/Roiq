@@ -29,6 +29,17 @@ export interface LabourRate {
 
 // ── Regional multipliers (Auckland base = 1.0) ────────────────────────────
 export const REGIONAL_MULTIPLIERS: Record<string, number> = {
+  // Queenstown Lakes is at or ABOVE Auckland, and used to be filed under
+  // "Remote / Rural" at 0.77 — the cheapest band in the table, for one of the
+  // two most expensive places in the country to build. The reasoning behind
+  // that was presumably "tourist town, far from anywhere, therefore remote",
+  // which reads the geography and misses the labour market entirely: trades
+  // there carry the district's cost of living and the travel to get to it.
+  // Industry cost guides put Auckland and Queenstown together at the top.
+  //
+  // Erring slightly high is also the safer direction. Understating labour makes
+  // a renovation look cheaper than it is, and a buyer budgets off that number.
+  "Queenstown Lakes":          1.05,
   "Auckland":                  1.00,
   "Wellington":                0.92,
   "Christchurch":              0.85,
@@ -61,7 +72,13 @@ const REGION_ALIASES: Record<string, string> = {
   napier: "Hawke's Bay", hastings: "Hawke's Bay", "hawke's bay": "Hawke's Bay", "new plymouth": "Taranaki",
   taranaki: "Taranaki", whanganui: "Manawatū-Whanganui", "palmerston north": "Manawatū-Whanganui",
   "manawatū-whanganui": "Manawatū-Whanganui", gisborne: "Gisborne", northland: "Northland",
-  whangarei: "Northland", queenstown: "Remote / Rural",
+  whangarei: "Northland",
+  // Queenstown Lakes District. Only the places actually IN it — Cromwell and
+  // Alexandra are Central Otago, and guessing a multiplier for a district
+  // nobody has priced would be the invented-number habit in a new place.
+  queenstown: "Queenstown Lakes", wanaka: "Queenstown Lakes", "wānaka": "Queenstown Lakes",
+  arrowtown: "Queenstown Lakes", frankton: "Queenstown Lakes", glenorchy: "Queenstown Lakes",
+  "queenstown lakes": "Queenstown Lakes", "queenstown-lakes": "Queenstown Lakes",
 };
 
 // National median labour multiplier (median of the regional values ≈ 0.84) —
@@ -75,12 +92,32 @@ const NZ_MEDIAN_MULTIPLIER = 0.84;
  * and its multiplier. Unknown → national median (NOT Auckland).
  */
 export function resolveRegion(input?: string | null): { region: string; multiplier: number } {
-  if (input) {
-    const raw = input.trim();
-    if (REGIONAL_MULTIPLIERS[raw] != null) return { region: raw, multiplier: REGIONAL_MULTIPLIERS[raw] };
-    const key = raw.toLowerCase();
-    const mapped = REGION_ALIASES[key] ?? REGION_ALIASES[key.split(/[,\s]+/).pop() ?? ""];
-    if (mapped && REGIONAL_MULTIPLIERS[mapped] != null) return { region: mapped, multiplier: REGIONAL_MULTIPLIERS[mapped] };
+  if (!input) return { region: NZ_MEDIAN_REGION, multiplier: NZ_MEDIAN_MULTIPLIER };
+  const raw = input.trim();
+  if (REGIONAL_MULTIPLIERS[raw] != null) return { region: raw, multiplier: REGIONAL_MULTIPLIERS[raw] };
+
+  const hit = (name?: string) =>
+    name && REGIONAL_MULTIPLIERS[name] != null ? { region: name, multiplier: REGIONAL_MULTIPLIERS[name] } : null;
+
+  const key = raw.toLowerCase();
+  const whole = hit(REGION_ALIASES[key]);
+  if (whole) return whole;
+
+  // MOST SPECIFIC FIRST, which used to be exactly backwards: it took only the
+  // LAST token, so "Queenstown, Otago" resolved on "otago" and priced one of
+  // the most expensive districts in the country as Dunedin. The town is more
+  // specific than the region it sits in, and it is written first.
+  const tokens = key.split(/[,\s]+/).filter(Boolean);
+  // Two-word names before single words — "new plymouth" and "bay of plenty"
+  // must not be reached one word at a time.
+  // Leftmost position wins, longest phrase at that position. "Tauranga, Bay of
+  // Plenty" should resolve on the city, not the region behind it; scanning by
+  // phrase length first quietly reversed that.
+  for (let i = 0; i < tokens.length; i++) {
+    for (let n = Math.min(3, tokens.length - i); n >= 1; n--) {
+      const found = hit(REGION_ALIASES[tokens.slice(i, i + n).join(" ")]);
+      if (found) return found;
+    }
   }
   return { region: NZ_MEDIAN_REGION, multiplier: NZ_MEDIAN_MULTIPLIER };
 }
