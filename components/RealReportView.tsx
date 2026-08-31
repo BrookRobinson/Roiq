@@ -205,8 +205,10 @@ function parseOverPrice(text: string | null | undefined): number | null {
 }
 
 /** Editable purchase price — defaults to the listing/parsed price, commits on blur or Enter. */
-function PurchasePriceBar({ value, priceText, onChange }: {
+function PurchasePriceBar({ value, priceText, onChange, modelledPrice }: {
   value: number | null; priceText: string | null; onChange: (n: number | null) => void;
+  /** Our own valuation, used while the listing states no firm price. */
+  modelledPrice?: number | null;
 }) {
   const [text, setText] = useState(value ? String(value) : "");
   useEffect(() => { setText(value ? String(value) : ""); }, [value]);
@@ -222,7 +224,7 @@ function PurchasePriceBar({ value, priceText, onChange }: {
           <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Purchase price</div>
           <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
             {noFirm
-              ? `No firm price on the listing${priceText ? ` — it says “${priceText}”` : ""}. Enter a price to run the numbers.`
+              ? `No firm price on the listing${priceText ? ` — it says “${priceText}”` : ""}.${modelledPrice ? ` The numbers below run on ${PRODUCT_SHORT_NAME}'s own valuation of ${fmt(modelledPrice)} until you enter one.` : " Enter a price to run the numbers."}`
               : "Adjust to model a different offer — the whole financial report updates."}
           </div>
         </div>
@@ -903,7 +905,7 @@ export function RealReportView({
           {tab === "renovations" && !locked && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
           {tab === "financial" && !locked && (
             <>
-              <PurchasePriceBar value={askingPrice} priceText={listing.priceText} onChange={setAskingPrice} />
+              <PurchasePriceBar value={askingPrice} priceText={listing.priceText} onChange={setAskingPrice} modelledPrice={propertyValue?.total ?? null} />
               <FinanceTab key={askingPrice ?? "none"} listing={{ ...listing, askingPrice }} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} improvementValuation={improvementValuation} dwellingAdded={dwellingValue.addedValue} landOnly={landOnly} propertyValue={propertyValue} />
               <div className="mt-4"><LocationFactCard subItems={effectiveSubItems} ids={["loc_growth"]} title="Suburb growth & demand" /></div>
             </>
@@ -1835,6 +1837,23 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
 // Itemised material + labour breakdown for one tier (the "See breakdown" view).
 function TierBreakdown({ tier, labour }: { tier: TierCost; labour: LabourMode }) {
   const total = labour === "tradie" ? tier.tradieTotal : tier.diyTotal;
+/**
+ * "14 packs", "8 sheets", "113 m²" — the quantity with the unit it is counted in.
+ *
+ * The unit was in the data and never rendered, so an insulation line read
+ * "Bradford Gold R6.6 190mm ceiling 8.5m² · 14 × $185": the 8.5m² is what one
+ * PACK covers, and the reader has no way to tell that from the area of their
+ * own ceiling. A bare number times a price is not a working.
+ */
+function unitLabel(unit: string | undefined, qty: number): string {
+  if (!unit) return "";
+  const u = unit.replace(/^per\s+/i, "").trim();
+  if (!u || u === "each" || u === "unit") return "";
+  if (/^m2|^m²|sqm/i.test(u)) return "m²";
+  if (/^lm$|linear/i.test(u)) return "lm";
+  return ` ${u}${qty === 1 || /s$/.test(u) ? "" : "s"}`;
+}
+
   return (
     <div className="mt-2 rounded-md p-2.5 space-y-1" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
       <div className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>Materials</div>
@@ -1844,7 +1863,13 @@ function TierBreakdown({ tier, labour }: { tier: TierCost; labour: LabourMode })
             <span className="min-w-0" style={{ color: "var(--text-secondary)" }}>
               {m.description}<span style={{ color: "var(--text-muted)" }}> · {m.source}</span>
             </span>
-            <span className="mono whitespace-nowrap flex-shrink-0" style={{ color: "var(--text-muted)" }}>{m.qty} × {fmt(m.unitPrice)} = {fmt(m.lineCost)}</span>
+            {/* The UNIT has to show. "Bradford Gold R6.6 190mm ceiling 8.5m² —
+                14 × $185" reads as though the job is 8.5m², when 8.5m² is what
+                one PACK covers and fourteen of them are being bought for a
+                113m² ceiling. The quantity meant nothing without its unit. */}
+            <span className="mono whitespace-nowrap flex-shrink-0" style={{ color: "var(--text-muted)" }}>
+              {m.qty}{unitLabel(m.unit, m.qty)} × {fmt(m.unitPrice)} = {fmt(m.lineCost)}
+            </span>
           </li>
         ))}
       </ul>
@@ -2583,11 +2608,23 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
     setInp((p) => ({ ...p, depositPct: persona === "investor" ? FINANCE_DEFAULTS.depositPctInvestor : FINANCE_DEFAULTS.depositPctBuyer, loanType: persona === "investor" ? "io" : "pi" }));
   }, [persona]);
 
-  if (!price) {
+  // OUR OWN VALUATION IS A PRICE. On a "By Negotiation" listing the whole tab
+  // used to sit behind "Enter a purchase price above to run the calculator" —
+  // on a report that had already worked out what the property is worth and
+  // printed it two tabs over. Refusing to compute anything while holding the
+  // number needed to compute it is the app declining to do its job.
+  //
+  // The reader can still type over it, and the panel says plainly which figure
+  // is being used, because running someone's mortgage off our estimate without
+  // saying so would be worse than the blank page.
+  const modelled = !price && propertyValue?.total ? propertyValue.total : null;
+  const effectivePrice = price || modelled || 0;
+
+  if (!effectivePrice) {
     return <div className="card p-6 text-sm" style={{ color: "var(--text-secondary)" }}>Enter a purchase price above to run the calculator{listing.priceText ? ` — the listing says “${listing.priceText}”` : ""}.</div>;
   }
 
-  const inputs: FinanceInputs = { ...inp, persona, holdYears, renoCost: renoTotal, price };
+  const inputs: FinanceInputs = { ...inp, persona, holdYears, renoCost: renoTotal, price: effectivePrice };
   const s = summarise(inputs);
   const set = (patch: Partial<FinanceInputs>) => setInp((p) => ({ ...p, ...patch }));
   const setCost = (k: PurchaseCostKey, v: number) => setInp((p) => ({ ...p, purchaseCosts: { ...p.purchaseCosts, [k]: v } }));

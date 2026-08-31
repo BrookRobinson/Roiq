@@ -257,7 +257,7 @@ export const MATERIALS_DB: MaterialItem[] = [
 
   { cat:"Insulation", name:"Ceiling insulation",
     budget:{ description:"Pink Batts R2.8 150mm ceiling 8.14m²", price:88, unit:"per pack", source:"Mitre 10", notes:"Minimum H1 compliance for most NZ zones." },
-    premium:{ description:"Bradford Gold R6.6 190mm ceiling 8.5m²", price:185, unit:"per pack", source:"Mitre 10", notes:"Double thermal performance. Recommended Zone 3 West Coast." }},
+    premium:{ description:"Bradford Gold R6.6 190mm ceiling — 8.5m² per pack", price:185, unit:"per pack", source:"Mitre 10", notes:"Double thermal performance. Recommended Zone 3 West Coast." }},
 
   { cat:"Insulation", name:"Wall insulation",
     budget:{ description:"Pink Batts R1.8 slimline wall 11.5m²", price:80, unit:"per pack", source:"Mitre 10", notes:"Suits 90mm stud. Minimum H1 Zone 1-2." },

@@ -202,12 +202,12 @@ export function InspectionCard({
             <VerifiedView doc={verified} itemId={item.id} onVerified={onVerified} />
           ) : (
             <>
-              {statOverride?.note && (
-                <div className="pt-3">
-                  <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>How it rates</div>
-                  <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.75 }}>{statOverride.note}</p>
-                </div>
-              )}
+              {/* "How it rates" is gone. It restated the scoring band in prose
+                  directly above the Reasoning that then explained the same
+                  finding again, so a Land card said the same thing twice in
+                  slightly different words and the reader had to work out which
+                  was the finding. The measurement is in the badge, the working
+                  is in Reasoning; the paragraph between them was in the way. */}
               {item.aiSummary && (
                 <div className="pt-3">
                   <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-muted)" }}>Reasoning</div>
