@@ -91,7 +91,14 @@ export interface Remediation {
 export interface SubItem {
   id: string;
   name: string;
-  material: string;
+  /**
+   * What the thing is made of, when that is a sensible question and we know the
+   * answer. Undefined for items where "material" means nothing — appliances are
+   * a brand and a type, heating is an appliance, layout is a shape — and for
+   * anything nobody could see, since the material of an unphotographed item is
+   * a guess.
+   */
+  material?: string;
   estimatedAge: string;
   condition: string;
   score: UrgencyScore | null;          // null = Tier 3 unscored

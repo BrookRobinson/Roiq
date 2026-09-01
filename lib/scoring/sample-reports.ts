@@ -70,6 +70,121 @@ interface ArchetypeSpec {
   strengths?: Record<string, UrgencyScore>;
 }
 
+// What each thing is made of, per archetype. These said "See assessment" on
+// every card — a chip that cost a line to tell the reader to read the rest of
+// the card — and the whole point of the samples is to demonstrate the format
+// somebody would be paying for.
+//
+// They are keyed to the archetype because a 1908 villa and a 2016 build do not
+// share a roof, and a sample that says otherwise stops reading as a real house.
+// The foundation line is derived from the archetype's own `foundation` field
+// rather than repeated, so the two cannot drift apart.
+//
+// ABSENCE IS DELIBERATE, on the same three rules as the demo report: appliances
+// and systems have a type rather than a material; a layout, a size or an aspect
+// is not a thing; and nothing invisible gets one, because the material of an
+// unphotographed item is a guess. An item missing here shows no Material chip.
+const FOUNDATION_MATERIAL: Record<FoundationType, string> = {
+  concrete_slab: "Concrete slab on grade",
+  concrete_piles: "Concrete piles",
+  timber_piles: "Timber piles",
+  perimeter_piles: "Concrete perimeter footing, piles under",
+  mixed: "Mixed — slab and piles",
+  unknown: "",
+};
+
+/** The envelope — what the archetype's era and story actually put on the house. */
+const ENVELOPE: Record<Archetype, Record<string, string>> = {
+  renovated: {
+    ext_roof: "Long-run coloursteel", ext_cladding: "Bevel-back weatherboard",
+    ext_windows: "Aluminium joinery, double glazed", ext_doors: "Aluminium slider, timber front door",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+  },
+  tired70s: {
+    ext_roof: "Long-run corrugated steel", ext_cladding: "Bevel-back weatherboard",
+    ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider, timber front door",
+    liv_ceiling: "Plasterboard with timber cornice", bed_ceiling: "Plasterboard",
+  },
+  newBuild: {
+    ext_roof: "Coloursteel tray roofing", ext_cladding: "Fibre-cement weatherboard on cavity",
+    ext_windows: "Thermally broken aluminium, double glazed", ext_doors: "Aluminium sliders, double glazed",
+    liv_ceiling: "Plasterboard, square-stopped", bed_ceiling: "Plasterboard, square-stopped",
+  },
+  leakyEra: {
+    ext_roof: "Concrete tile", ext_cladding: "Monolithic plaster, direct-fixed",
+    ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+  },
+  exRental: {
+    ext_roof: "Long-run corrugated steel", ext_cladding: "Bevel-back weatherboard",
+    ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+  },
+  villa: {
+    ext_roof: "Corrugated iron", ext_cladding: "Rusticated weatherboard",
+    ext_windows: "Timber double-hung sashes, single glazed", ext_doors: "Panelled timber front door",
+    liv_ceiling: "Lath and plaster with timber scotia", bed_ceiling: "Lath and plaster",
+  },
+  coastal: {
+    ext_roof: "Long-run coloursteel", ext_cladding: "Bevel-back weatherboard",
+    ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+  },
+  brickTile: {
+    ext_roof: "Concrete tile", ext_cladding: "Clay brick veneer",
+    ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+  },
+  apartment: {
+    ext_roof: "Membrane over concrete", ext_cladding: "Plaster over concrete block",
+    ext_windows: "Aluminium joinery, double glazed", ext_doors: "Aluminium slider",
+    liv_ceiling: "Plasterboard, square-stopped", bed_ceiling: "Plasterboard, square-stopped",
+  },
+};
+
+/** The fit-out follows the archetype's spec tier, not its era — a 1970s house
+ *  with a redone kitchen has a modern one. */
+const FIT_OUT: Record<"modern" | "dated", Record<string, string>> = {
+  modern: {
+    kit_cabinetry: "Melamine doors on MDF carcasses", kit_benchtop: "Engineered stone",
+    kit_sink: "Stainless steel, undermount", kit_splashback: "Toughened glass",
+    kit_flooring: "Vinyl plank", bath_shower: "Tiled shower, glass screen",
+    bath_vanity: "Wall-hung vanity, mixer tapware", bath_toilet: "Vitreous china, back-to-wall",
+    bath_flooring: "Porcelain tile", liv_flooring: "Engineered timber",
+    bed_flooring: "Wool-blend carpet",
+  },
+  dated: {
+    kit_cabinetry: "Melamine on particle board", kit_benchtop: "Laminate",
+    kit_sink: "Stainless steel, drop-in", kit_splashback: "Ceramic tile",
+    kit_flooring: "Sheet vinyl", bath_shower: "Framed shower over an acrylic bath",
+    bath_vanity: "Laminate top, chrome tapware", bath_toilet: "Vitreous china, close-coupled",
+    bath_flooring: "Ceramic floor tile", liv_flooring: "Carpet over timber floorboards",
+    bed_flooring: "Carpet over timber floorboards",
+  },
+};
+
+/** Things that look the same whatever the era. */
+const COMMON: Record<string, string> = {
+  ext_gutters: "PVC spouting and downpipes",
+  ext_soffits: "Painted fibre-cement lining",
+  ext_paint: "Acrylic",
+  gar_construction: "Timber frame on a concrete slab",
+  gar_door: "Sectional steel door",
+  gar_floor: "Concrete slab",
+  out_driveway: "Concrete",
+  out_fencing: "Timber paling",
+};
+
+function materialFor(itemId: string, spec: ArchetypeSpec, archetype: Archetype): string | undefined {
+  if (itemId === "ext_foundation") return FOUNDATION_MATERIAL[spec.foundation] || undefined;
+  // A brick-and-tile house does not have a weatherboard garage or a timber fence
+  // out the front, but neither claim is worth a table of its own — COMMON is
+  // last, so an archetype can override anything in it above.
+  return ENVELOPE[archetype][itemId]
+    ?? FIT_OUT[spec.fitOut === "modern" ? "modern" : "dated"][itemId]
+    ?? COMMON[itemId];
+}
+
 const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
   renovated: {
     story: "recently renovated to a good standard, little left to do",
@@ -618,7 +733,7 @@ function buildSubItems(profile: SampleProfile): SubItem[] {
     out.push({
       id: item.id,
       name: item.label,
-      material: "See assessment",
+      material: isImprovement ? materialFor(item.id, arch, profile.archetype) : undefined,
       estimatedAge: isImprovement ? age ?? `~${new Date().getFullYear() - profile.buildYear} years` : "—",
       condition: urgencyLabel(scored),
       score: scored,

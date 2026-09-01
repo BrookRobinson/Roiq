@@ -342,7 +342,7 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
   return {
     id: item.id,
     name: item.label,
-    material: raw.material?.trim() || "Not specified",
+    material: raw.material?.trim() || undefined,
     estimatedAge: ageBracket(raw.estimated_age, specTier, ctx.buildYear),
     condition: raw.condition?.trim() || "See assessment",
     score,

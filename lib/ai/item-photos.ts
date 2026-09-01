@@ -260,7 +260,7 @@ export async function analyseItemPhotos(
     score,
     confidenceTier: foundation ? foundation.confidenceTier : clampTier(raw.confidence_tier),
     condition: raw.condition?.trim() || (showsItem ? urgencyLabel(score) : "Not shown in these photos"),
-    material: raw.material?.trim() || "Not specified",
+    material: raw.material?.trim() || undefined,
     estimatedAge: raw.estimated_age?.trim() || "—",
     specTier: usesSpecTier(item) ? normSpec(raw.spec_tier) : undefined,
     observedDefect: raw.observed_defect?.trim() || undefined,

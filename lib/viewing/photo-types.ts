@@ -17,7 +17,8 @@ export interface ItemPhotoAnalysis {
   score: UrgencyScore | null;
   confidenceTier: ConfidenceTier;
   condition: string;
-  material: string;
+  /** Absent when the photos don't establish one — see SubItem.material. */
+  material?: string;
   estimatedAge: string;
   specTier?: SpecTier;
   observedDefect?: string;

@@ -90,6 +90,59 @@ const DEFECTS: Record<string, string> = {
  *  and therefore not scored at all — they go on the viewing checklist instead. */
 const NOT_VISIBLE = new Set(["liv_insulation", "bath_waterproof"]);
 
+// What each thing is actually made of. This used to read "See assessment" on
+// every card in the report — a chip that cost a line to tell the reader to read
+// the rest of the card, on items where the question makes no sense at all.
+//
+// Every entry here agrees with what DEFECTS above says the photos show, because
+// two descriptions of one item that disagree is worse than one that is missing:
+// the card would say laminate while the finding underneath described stone.
+//
+// ABSENCE IS DELIBERATE and means one of three things:
+//   · the item is an appliance or a system, which has a type and a brand rather
+//     than a material — appliances, heating, hot water, ventilation, power;
+//   · the item is a shape or a quality, not a thing — layout, size, natural
+//     light, sun, drainage falls, garage type, landscaping;
+//   · nobody could see it, so any material would be invention — insulation
+//     inside a ceiling, waterproofing behind tiling. Same rule as the score.
+// An item missing from this map simply shows no Material chip.
+const MATERIALS: Record<string, string> = {
+  // Exterior — a 1975 weatherboard house on the original iron roof.
+  ext_foundation: "Concrete perimeter footing, timber piles",
+  ext_roof: "Long-run corrugated steel",
+  ext_cladding: "Bevel-back weatherboard",
+  ext_windows: "Aluminium joinery, single glazed",
+  ext_decking: "Timber deck boards",
+  ext_gutters: "PVC spouting and downpipes",
+  ext_soffits: "Painted fibre-cement lining",
+  ext_doors: "Aluminium slider, timber front door",
+  ext_paint: "Acrylic on weatherboard",
+  ext_chimney: "Brick",
+  // Kitchen — the one part of the house that has been redone.
+  kit_cabinetry: "Melamine doors on MDF carcasses",
+  kit_benchtop: "Engineered stone",
+  kit_flooring: "Sheet vinyl",
+  kit_sink: "Stainless steel, undermount",
+  kit_splashback: "Toughened glass",
+  // Bathroom — original 1970s fit-out.
+  bath_shower: "Framed shower over an acrylic bath",
+  bath_vanity: "Laminate top, chrome tapware",
+  bath_toilet: "Vitreous china, close-coupled",
+  bath_flooring: "Ceramic floor tile",
+  // Living & bedrooms.
+  liv_flooring: "Carpet over timber floorboards",
+  liv_ceiling: "Plasterboard with timber cornice",
+  bed_windows: "Aluminium joinery, single glazed",
+  bed_flooring: "Carpet over timber floorboards",
+  bed_ceiling: "Plasterboard",
+  // Garage & grounds.
+  gar_construction: "Weatherboard on a concrete slab",
+  gar_door: "Timber tilt door",
+  gar_floor: "Concrete slab",
+  out_driveway: "Concrete",
+  out_fencing: "Timber paling",
+};
+
 // Photo numbers backing each observation above.
 const PHOTOS: Record<string, number[]> = {
   ext_roof: [4, 5], bath_ventilation: [6, 11], bath_flooring: [11], bath_hotwater: [14],
@@ -295,7 +348,7 @@ function buildSubItems(): SubItem[] {
     out.push({
       id: item.id,
       name: item.label,
-      material: "See assessment",
+      material: isImprovement ? MATERIALS[item.id] : undefined,
       estimatedAge: isImprovement ? (AGES[item.id] ?? "~51 years (original)") : "—",
       condition: urgencyLabel(score),
       score,

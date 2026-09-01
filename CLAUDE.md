@@ -868,6 +868,34 @@ because the wording is the part that would quietly drift. And its silence is not
 an all-clear: the roll covers ~12% of properties, so the check usually cannot run
 at all.
 
+**A data chip only earns its line if it says something.** Every sub-item card
+printed "Material: See assessment" — a chip whose content was an instruction to
+read the rest of the card — including on items where the question makes no sense
+at all. An oven has a brand and a type, not a material; so does a hot water
+cylinder, a heat pump and an extractor fan. A layout, a size, an aspect and a
+drainage fall are not things that are made of anything.
+
+`SubItem.material` is optional now and the chip is omitted when it is absent.
+Three rules decide, and they are the same in `demo.ts` and `sample-reports.ts`:
+an appliance or a system has a type rather than a material; a shape or a quality
+is not a thing; and **nothing invisible gets one**, because the material of an
+unphotographed item is a guess — the same rule as the score, applied to a chip.
+Absence from the materials map IS the answer, so nothing has to be listed twice.
+
+The samples key their materials to the ARCHETYPE, because a 1908 villa and a
+2016 build do not share a roof and a sample that says otherwise stops reading as
+a real house — rusticated weatherboard, corrugated iron and lath-and-plaster
+against fibre-cement on cavity, coloursteel tray and square-stopped plasterboard.
+The fit-out follows the archetype's spec tier instead of its era, so a 1970s
+house with a redone kitchen gets the modern one. The foundation line is derived
+from the archetype's own `foundation` field rather than repeated, so the two
+cannot drift. Every material also has to agree with what that report's DEFECTS
+text says the photos show: two descriptions of one item that disagree is worse
+than one that is missing.
+
+A real report does the same — `analyze.ts` returns `undefined` rather than "Not
+specified" when the model reads no material.
+
 **Never score what the analysis could not see.** A listing photographs the
 kitchen, not the piles under the floor. `confidence_tier` was already reported by
 the model (1 confirmed from photo · 2 probable · 3 not visible) and was **purely

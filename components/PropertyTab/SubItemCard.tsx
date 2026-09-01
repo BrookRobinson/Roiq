@@ -142,12 +142,16 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                 <a href="/report/upload" className="inline-flex items-center gap-0.5 font-medium hover:underline" style={{ color: "var(--brand)" }}>Add photos <ArrowRight size={11} /></a>
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap gap-2 mb-2 empty:mb-0">
                 {(SIZE_ITEM_IDS.has(item.id)
-                  ? [{ label: "Size", value: item.estimatedSqm ? `~${item.estimatedSqm} m²` : "See assessment" }]
+                  ? item.estimatedSqm ? [{ label: "Size", value: `~${item.estimatedSqm} m²` }] : []
                   : [
-                      { label: "Material", value: item.material },
-                      { label: "Age", value: item.estimatedAge },
+                      // A chip only earns its line if it says something. "Material:
+                      // See assessment" cost a line to tell the reader to read the
+                      // rest of the card, and sat on items where the question makes
+                      // no sense at all — an oven has a brand, not a material.
+                      ...(item.material ? [{ label: "Material", value: item.material }] : []),
+                      ...(item.estimatedAge && item.estimatedAge !== "—" ? [{ label: "Age", value: item.estimatedAge }] : []),
                     ]
                 ).map((pill) => (
                   <div
