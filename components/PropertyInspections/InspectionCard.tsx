@@ -172,7 +172,7 @@ export function InspectionCard({
             // A measurement beats a 1–10 here: "612m²" is the fact the buyer wants,
             // where "7/10 section size" means nothing on its own.
             <div className="flex-shrink-0 flex flex-col items-center">
-              <div className="min-w-[2.75rem] h-16 px-1.5 pt-1.5 pb-1.5 rounded-lg flex flex-col items-center justify-between" style={{ background: wash(color), border: `1px solid ${edge(color)}` }}>
+              <div className="min-w-[2.75rem] h-16 px-1.5 pt-1.5 pb-0.5 rounded-lg flex flex-col items-center justify-between" style={{ background: wash(color), border: `1px solid ${edge(color)}` }}>
                 <div className="flex flex-col items-center">
                   <span className={`${statOverride.value.length > 4 ? "text-xs" : "text-sm"} font-bold mono leading-none`} style={{ color }}>{statOverride.value}</span>
                   <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>{statOverride.unit}</span>
@@ -185,7 +185,7 @@ export function InspectionCard({
             // Points, not a mark out of ten. Rounded the same way the engine
             // rounds it, so the card and the section total can't disagree.
             <div className="flex-shrink-0 flex flex-col items-center">
-              <div className="min-w-[2.75rem] h-16 px-1.5 pt-1.5 pb-1.5 rounded-lg flex flex-col items-center justify-between" style={{ background: wash(color), border: `1px solid ${edge(color)}` }}>
+              <div className="min-w-[2.75rem] h-16 px-1.5 pt-1.5 pb-0.5 rounded-lg flex flex-col items-center justify-between" style={{ background: wash(color), border: `1px solid ${edge(color)}` }}>
                 <div className="flex flex-col items-center">
                   <span className="text-sm font-bold mono leading-none" style={{ color }}>{Math.round((displayScore / 10) * pointsMax)}</span>
                   <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>of {pointsMax}</span>
@@ -196,7 +196,7 @@ export function InspectionCard({
             </div>
           ) : (
             <div className="flex-shrink-0 flex flex-col items-center">
-              <div className="w-11 h-16 pt-1.5 pb-1.5 rounded-lg flex flex-col items-center justify-between" style={{ background: wash(color), border: `1px solid ${edge(color)}` }}>
+              <div className="w-11 h-16 pt-1.5 pb-0.5 rounded-lg flex flex-col items-center justify-between" style={{ background: wash(color), border: `1px solid ${edge(color)}` }}>
                 <div className="flex flex-col items-center">
                   <span className="text-sm font-bold mono leading-none" style={{ color }}>{displayScore ?? "—"}</span>
                   <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>

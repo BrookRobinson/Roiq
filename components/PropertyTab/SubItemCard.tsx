@@ -40,7 +40,7 @@ function StatBubble({ label, value, color, bg, border, title, tier }: {
       <div
         title={title}
         className="flex flex-col items-center rounded-lg"
-        style={{ background: bg, border: `1px solid ${border}`, padding: "2px 10px 4px", minWidth: 70 }}
+        style={{ background: bg, border: `1px solid ${border}`, padding: "2px 10px 2px", minWidth: 70 }}
       >
         <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>{label}</span>
         <span className="font-bold tabular-nums" style={{ color, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{value}</span>
