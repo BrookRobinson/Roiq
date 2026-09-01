@@ -6,7 +6,6 @@ import type { SubItem } from "@/lib/property-tab/types";
 import type { DocAnalysis } from "@/lib/report-store";
 import { urgencyColor } from "@/lib/property-tab/types";
 import { SOURCE_TYPE_LABEL, isVerifiedDocItem, TITLE_ITEM } from "@/lib/scoring/catalog";
-import { ConfidenceTierBadge } from "@/components/PropertyTab/ConfidenceTierBadge";
 import { ConfidenceBar, ConfidenceLabel } from "@/components/PropertyTab/ConfidenceBar";
 import { DocUpload } from "./DocUpload";
 import { useHoldPeriod } from "@/lib/hold-period/context";
@@ -145,15 +144,20 @@ export function InspectionCard({
                     <span style={{ color: "var(--text-muted)" }}>Finding: </span>{item.finding}
                   </div>
                 )}
-                <div className="flex items-center gap-3 flex-wrap mt-1.5">
-                  {item.source && (
+                {/* The "T2 — Probable, verify at inspection" pill is gone. The bar
+                    under the score now says the same thing in the same words, and
+                    two statements of one fact left the reader deciding which was
+                    the finding. The source line stays — WHERE it came from is a
+                    different fact from HOW SURE we are, and only the bar carries
+                    the second. */}
+                {item.source && (
+                  <div className="flex items-center gap-3 flex-wrap mt-1.5">
                     <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
                       {SourceIcon && <SourceIcon size={11} />}
                       <span>{item.sourceType && <span className="font-medium" style={{ color: "var(--text-secondary)" }}>{SOURCE_TYPE_LABEL[item.sourceType]}: </span>}{item.source}</span>
                     </span>
-                  )}
-                  <ConfidenceTierBadge tier={item.confidenceTier} source={item.evidenceSource || item.source} />
-                </div>
+                  </div>
+                )}
               </>
             )}
           </div>

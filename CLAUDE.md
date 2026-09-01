@@ -900,12 +900,24 @@ the `${color}1a` / `${color}40` trick that appends an alpha to a hex produced
 in `InspectionCard` use `color-mix` instead. Anywhere else that appends an alpha
 to one of these accents has the same bug.
 
-**Red means low CONFIDENCE, never bad condition.** The score badge beside it is
-already coloured by how the item rates, so two colour systems sit adjacent and
-must not be confusable: the meter is a distinct shape, both carry a title, and
-the tier text stays on the card. T3 moved from grey to red at the same time —
-grey read as "minor" next to an amber T2, when "we could not see this at all" is
-the least reliable thing on the card rather than the most forgettable.
+**Red means low CONFIDENCE, never bad condition.** The score badge AROUND it is
+coloured by how the item rates, so two colour systems now sit in one box and
+must not be confusable: the bar is a distinct shape, and the word underneath
+says which of the two it is. A green bar inside a red badge is not a
+contradiction — it reads "we are sure there is a problem here", which is the
+most useful thing that pairing can say.
+
+**`ConfidenceTierBadge` is deleted, not merely unused.** The pill —
+"T2 — Probable, verify at inspection" — said the same thing as the bar and its
+label, in the same words, a few centimetres away, leaving the reader to work out
+which was the finding. The SOURCE line stays, because where a fact came from
+("Record of title", "Listing photos", "Inference: build era + cladding") is a
+different question from how sure we are of it, and only the bar answers the
+second. Its one piece of real logic went with it: tier 1 read "Confirmed from
+photo" beside a LINZ record of title until the badge learned to say "Confirmed
+from the public record" instead. Nothing regressed, because the bar's own
+wording covers both and the source line names which — but if a tier caption ever
+comes back, it has to make that distinction again.
 
 **A measured item must not keep an inferred tier.** Section orientation carried
 "T3 — not visible" because it used to be read off photographs; it is computed

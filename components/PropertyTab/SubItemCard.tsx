@@ -8,7 +8,6 @@ import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import { improvementItemPoints } from "@/lib/scoring/engine";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
-import { ConfidenceTierBadge } from "./ConfidenceTierBadge";
 import { ConfidenceBar, ConfidenceLabel } from "./ConfidenceBar";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
@@ -192,7 +191,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
         {/* Confidence + photo refs — hidden for no-photo items (no T3 / source shown) */}
         {!item.noPhotoNotAssessed && (
           <div className="flex items-center gap-3 flex-wrap mt-1">
-            <ConfidenceTierBadge tier={item.confidenceTier} />
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>
               {item.evidenceSource}
             </span>
