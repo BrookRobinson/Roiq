@@ -174,32 +174,32 @@ export const SOURCE_TAXONOMY: Record<string, SourceRef> = {
   loc_safety: { source: "Area-level safety data for the suburb", sourceType: "market_data" },
   loc_future: { source: "Council district plan / zoning layer", sourceType: "council_data", verifyAgainst: "council district plan" },
   // Land (v4 — flood, liquefaction, coastal, soil, fault, wind erased)
-  land_size: { source: "Record of title / LINZ", sourceType: "linz" },
-  land_topography: { source: "Photos + topographic contours (LINZ)", sourceType: "linz" },
-  land_aspect: { source: "Section orientation on the map", sourceType: "map_poi" },
-  land_shape: { source: "Title diagram / aerial imagery", sourceType: "linz" },
+  land_size: { source: "LINZ record of title — title area", sourceType: "linz" },
+  land_topography: { source: "LINZ topographic contours + listing photos", sourceType: "linz" },
+  land_aspect: { source: "LINZ parcel boundary + road centreline", sourceType: "linz" },
+  land_shape: { source: "LINZ title diagram + parcel geometry", sourceType: "linz" },
   land_subdivision: { source: "Zoning + lot size + district-plan minimum-lot rules", sourceType: "council_data", verifyAgainst: "council district plan" },
-  land_frontage: { source: "Record of title / listing", sourceType: "title" },
-  land_trees: { source: "Listing photos", sourceType: "council_data" },
+  land_frontage: { source: "LINZ record of title + parcel and road geometry", sourceType: "title" },
+  land_trees: { source: "Listing photos", sourceType: "photo" },
   // Legal
   // No verifyAgainst: the record of title is retrieved from LINZ before the
   // analysis runs (lib/linz/property-records.ts), so the type, estate and legal
   // description are established fact. Telling the buyer to order a title to
   // confirm what the report already printed is the app declining to do its job.
-  leg_title: { source: "LINZ record of title", sourceType: "title" },
-  leg_weathertight: { source: "Build era + cladding type + leaky-era window (1994–2004)", sourceType: "inference", verifyAgainst: "LIM / building report" },
+  leg_title: { source: "LINZ record of title — estate and tenure", sourceType: "title" },
+  leg_weathertight: { source: "Inferred from build era and cladding type against the 1994–2004 window — no document read", sourceType: "inference", verifyAgainst: "LIM / building report" },
   // Councils do NOT publish consent records as queryable data — a handful offer a
   // human-facing search, the rest sell a property file on request. So the only
   // thing the app actually brings to this item is the photographs, plus a LIM the
   // user uploaded. Naming a council file we never opened would be inventing a source.
-  leg_unconsented: { source: "Listing photos + listing facts (no council file is retrieved)", sourceType: "lim", verifyAgainst: "LIM / council property file" },
-  leg_consents: { source: "Your uploaded LIM or CCC, when provided — consents aren't published as data", sourceType: "lim", verifyAgainst: "LIM" },
-  leg_eqc: { source: "Listing disclosure, and your uploaded EQC records when provided", sourceType: "council_data", verifyAgainst: "EQC claim history" },
-  leg_bodycorp: { source: "Body corporate minutes & disclosure (unit title)", sourceType: "title", verifyAgainst: "body corporate minutes" },
-  leg_easements: { source: "Record of title", sourceType: "title", verifyAgainst: "record of title" },
-  leg_crosslease: { source: "Flats plan vs current footprint (title)", sourceType: "title", verifyAgainst: "flats plan / record of title" },
-  leg_lim: { source: "LIM", sourceType: "lim", verifyAgainst: "LIM" },
-  leg_encumbrances: { source: "Record of title", sourceType: "title", verifyAgainst: "record of title" },
+  leg_unconsented: { source: "Listing photos and listing facts — no council file is retrieved", sourceType: "lim", verifyAgainst: "LIM / council property file" },
+  leg_consents: { source: "Your uploaded LIM or CCC — councils do not publish consents as data", sourceType: "lim", verifyAgainst: "LIM" },
+  leg_eqc: { source: "Listing disclosure, plus your uploaded EQC records", sourceType: "council_data", verifyAgainst: "EQC claim history" },
+  leg_bodycorp: { source: "Body corporate minutes and disclosure (unit title)", sourceType: "title", verifyAgainst: "body corporate minutes" },
+  leg_easements: { source: "LINZ record of title — registered instruments", sourceType: "title", verifyAgainst: "record of title" },
+  leg_crosslease: { source: "LINZ flats plan against the current footprint", sourceType: "title", verifyAgainst: "flats plan / record of title" },
+  leg_lim: { source: "Your uploaded LIM", sourceType: "lim", verifyAgainst: "LIM" },
+  leg_encumbrances: { source: "LINZ record of title — registered instruments", sourceType: "title", verifyAgainst: "record of title" },
 };
 
 // ── Document verification (v3.3) ─────────────────────────────────────────────

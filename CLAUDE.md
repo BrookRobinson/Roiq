@@ -868,6 +868,30 @@ because the wording is the part that would quietly drift. And its silence is not
 an all-clear: the roll covers ~12% of properties, so the check usually cannot run
 at all.
 
+**Land & Legal name their source on EVERY item, in a chip.** It was an
+unlabelled line under the finding, it read "LINZ: Record of title / LINZ"
+because the type prefix and the source repeated each other, and the three
+document items carried nothing at all — so the one tab whose entire claim is
+that it reads public records was the vaguest about which ones. `dataSourceOf()`
+in `InspectionCard` always returns a string and the chip always renders.
+
+**`evidenceSource` leads, `source` is only the catalogue's default.** Several
+items are re-scored after the analysis — from the register, or from the parcel
+geometry — and only `evidenceSource` moves with them. Section orientation was
+crediting "Section orientation on the map" while being computed from the
+surveyed boundary and the road centreline: a wrong attribution on the most
+certain item on the tab, and the same mistake as its stale Tier 3 badge.
+
+**An item with nothing behind it says exactly that.** A document nobody has
+uploaded has no source, and "Awaiting your LIM report — nothing read yet" is the
+honest answer where a blank space reads as though the question was never asked.
+Never fill this in with a plausible-sounding source: `leg_unconsented` says "no
+council file is retrieved" and `leg_consents` says "councils do not publish
+consents as data", because naming a council file we never opened would invent
+one. Easements and encumbrances credit the **register**, not "the memorials" —
+roughly 17% of live titles publish none, and naming a list we could not read
+would claim we had read it.
+
 **A data chip only earns its line if it says something.** Every sub-item card
 printed "Material: See assessment" — a chip whose content was an instruction to
 read the rest of the card — including on items where the question makes no sense

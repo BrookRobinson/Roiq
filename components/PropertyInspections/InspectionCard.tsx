@@ -35,6 +35,27 @@ const DOC_NAME: Record<string, string> = {
   leg_title: "the record of title / title search",
 };
 
+/**
+ * Exactly where this item's information came from — and EVERY item gets one.
+ *
+ * `evidenceSource` leads because it is the live answer and `source` is only the
+ * catalogue's default. Several items are re-scored after the analysis from the
+ * register or from the parcel geometry, and only `evidenceSource` moves with
+ * them: section orientation used to credit "Section orientation on the map"
+ * when it is computed from the surveyed boundary and the road centreline, which
+ * is a wrong attribution on the most certain item on the tab.
+ *
+ * An item with nothing behind it says so. A document item nobody has uploaded
+ * has no source, and "awaiting your LIM" is the exact and honest answer — far
+ * better than an empty space, which reads as though the question was never
+ * asked. Never fill this in with a plausible-sounding source.
+ */
+function dataSourceOf(item: SubItem, verified: DocAnalysis | null | undefined, isDoc: boolean): string {
+  if (verified) return `${verified.fileName}, read by ${PRODUCT_NAME}`;
+  if (isDoc) return `Awaiting ${DOC_NAME[item.id] ?? "your document"} — nothing read yet`;
+  return item.evidenceSource || item.source || "Not established from the listing or the public record";
+}
+
 const fmt = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 
 export function InspectionCard({
@@ -143,22 +164,27 @@ export function InspectionCard({
                     <span style={{ color: "var(--text-muted)" }}>Finding: </span>{item.finding}
                   </div>
                 )}
-                {/* The "T2 — Probable, verify at inspection" pill is gone. The bar
-                    under the score now says the same thing in the same words, and
-                    two statements of one fact left the reader deciding which was
-                    the finding. The source line stays — WHERE it came from is a
-                    different fact from HOW SURE we are, and only the bar carries
-                    the second. */}
-                {item.source && (
-                  <div className="flex items-center gap-3 flex-wrap mt-1.5">
-                    <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                      {SourceIcon && <SourceIcon size={11} />}
-                      <span>{item.sourceType && <span className="font-medium" style={{ color: "var(--text-secondary)" }}>{SOURCE_TYPE_LABEL[item.sourceType]}: </span>}{item.source}</span>
-                    </span>
-                  </div>
-                )}
               </>
             )}
+
+            {/* Where this came from — a chip on EVERY item, matching the
+                Material / Age chips on Improvements. It was an unlabelled line
+                that read "LINZ: Record of title / LINZ", and the document items
+                carried nothing at all, so the one tab whose whole claim is that
+                it reads public records was the vaguest about which ones. */}
+            <div className="mt-2">
+              <span
+                className="inline-flex items-start gap-1.5 text-xs rounded-md px-2 py-1"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                title={item.sourceType ? SOURCE_TYPE_LABEL[item.sourceType] : undefined}
+              >
+                {SourceIcon && <SourceIcon size={11} className="flex-shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }} />}
+                <span>
+                  <span style={{ color: "var(--text-muted)" }}>Data source: </span>
+                  <span className="font-medium" style={{ color: "var(--text-secondary)" }}>{dataSourceOf(item, verified, isDoc)}</span>
+                </span>
+              </span>
+            </div>
           </div>
 
           {/* Score badge on the RIGHT (matches the Improvements tab) — or a lock for
