@@ -450,6 +450,17 @@ const DEMO_SITE = (() => {
       rect(10.8, 27, 6, 6),              // the separate studio the listing mentions, back corner
     ],
     roadPoint: { x: 8.5, y: -6 },        // the street, so "front" and "back" mean something
+    // A council drainage easement crossing the back yard — the commonest kind
+    // there is, and placed where it actually teaches something: it sits in the
+    // obvious spot for a sleepout, so the footprint visibly refuses to go there
+    // and has to move behind it.
+    burdens: [rect(0, 20, 17, 3)],
+    // DP 900000 DOES NOT EXIST, and that is deliberate. Survey plan numbers
+    // currently run around the 630,000s, so this cannot collide with a real
+    // record — the same reason every street name in the demo matches no address
+    // in the country. Citing a genuine survey reference against an invented
+    // property would be the demo-address problem wearing a different hat.
+    burdenLabels: [{ kind: "Easement", appellation: "Area A DP 900000" }],
   });
 })();
 
