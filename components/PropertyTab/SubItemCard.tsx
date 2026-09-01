@@ -44,7 +44,11 @@ function StatBubble({ label, value, color, bg, border, title, tier }: {
       >
         <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>{label}</span>
         <span className="font-bold tabular-nums" style={{ color, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{value}</span>
-        {tier != null && <ConfidenceBar tier={tier} height={16} />}
+        {tier != null && (
+          <div style={{ marginTop: 5 }}>
+            <ConfidenceBar tier={tier} height={16} />
+          </div>
+        )}
       </div>
       {tier != null && <ConfidenceLabel tier={tier} />}
     </div>
