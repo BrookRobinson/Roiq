@@ -908,8 +908,10 @@ like a contradiction rather than "we are sure there is a problem here". They are
 two statements about the item and they get two places. The bar carries no box of
 its own, so nothing suggests it belongs to the score.
 
-The Improvements stat bubble still draws the bar inside itself; it is a
-different, smaller presentation and has not been asked to change.
+The Improvements stat bubble is the same: bar below the bubble, not in it.
+Both tabs draw the bar at ONE height, because the length is the encoding —
+two scales would make a T1 on Improvements shorter than a T2 on Land, which
+is the exact comparison the bar exists to make.
 
 **`ConfidenceTierBadge` is deleted, not merely unused.** The pill —
 "T2 — Probable, verify at inspection" — said the same thing as the bar and its

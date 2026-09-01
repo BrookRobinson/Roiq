@@ -32,7 +32,7 @@ export function pointsColor(frac: number): string {
 /** A small labelled stat bubble — a header word (e.g. "Condition" / "Item") over a value. */
 function StatBubble({ label, value, color, bg, border, title, tier }: {
   label: string; value: string; color: string; bg: string; border: string; title?: string;
-  /** Drawn under the number as a confidence meter — see ConfidenceBar. */
+  /** Drawn BELOW the bubble as a confidence meter — see ConfidenceBar. */
   tier?: ConfidenceTier;
 }) {
   return (
@@ -40,17 +40,23 @@ function StatBubble({ label, value, color, bg, border, title, tier }: {
       <div
         title={title}
         className="flex flex-col items-center rounded-lg"
-        style={{ background: bg, border: `1px solid ${border}`, padding: "2px 10px 2px", minWidth: 70 }}
+        style={{ background: bg, border: `1px solid ${border}`, padding: "2px 10px", minWidth: 70 }}
       >
         <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>{label}</span>
         <span className="font-bold tabular-nums" style={{ color, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{value}</span>
-        {tier != null && (
-          <div style={{ marginTop: 5 }}>
-            <ConfidenceBar tier={tier} height={16} />
-          </div>
-        )}
       </div>
-      {tier != null && <ConfidenceLabel tier={tier} />}
+      {/* Outside the bubble, as on the Land tab. The bubble is washed with how
+          the item RATES and the bar means how sure we are; sharing one box made
+          the two read as a single verdict. */}
+      {tier != null && (
+        <div className="flex flex-col items-center mt-1.5">
+          {/* Same height as the Land tab's. The bar's LENGTH is the encoding, so
+              two scales across two tabs would make a T1 here shorter than a T2
+              there — the one comparison the bar exists to make. */}
+          <ConfidenceBar tier={tier} />
+          <ConfidenceLabel tier={tier} />
+        </div>
+      )}
     </div>
   );
 }
