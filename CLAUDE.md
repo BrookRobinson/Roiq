@@ -882,8 +882,8 @@ than burying it: how many items, what they were worth, and what they were.
 text badge further down the card — "T2 — Probable, verify at inspection" — well
 away from the number it qualifies, so a reader took the number first and the
 caveat second if at all, and a 7/10 read off a build era looked exactly as solid
-as a 7/10 read off a photograph. `ConfidenceBar` sits INSIDE the score badge,
-rising from just above its floor: **one bar**, taller for more confidence, with
+as a 7/10 read off a photograph. `ConfidenceBar` sits directly BELOW the score
+badge and outside it: **one bar**, taller for more confidence, with
 the level named underneath in words — "Low confidence" — rather than left to the
 colour. **The height and the label each work alone**, because a meter carried by
 colour says nothing to a red-green colourblind reader, and that is roughly one
@@ -900,12 +900,16 @@ the `${color}1a` / `${color}40` trick that appends an alpha to a hex produced
 in `InspectionCard` use `color-mix` instead. Anywhere else that appends an alpha
 to one of these accents has the same bug.
 
-**Red means low CONFIDENCE, never bad condition.** The score badge AROUND it is
-coloured by how the item rates, so two colour systems now sit in one box and
-must not be confusable: the bar is a distinct shape, and the word underneath
-says which of the two it is. A green bar inside a red badge is not a
-contradiction — it reads "we are sure there is a problem here", which is the
-most useful thing that pairing can say.
+**Red means low CONFIDENCE, never bad condition** — which is why the bar is
+OUTSIDE the score badge on the Land tab. It was inside for a while, and the
+badge is washed with the colour of how the item RATES, so the two colour systems
+shared one box and read as a single verdict: a green bar in a red badge looked
+like a contradiction rather than "we are sure there is a problem here". They are
+two statements about the item and they get two places. The bar carries no box of
+its own, so nothing suggests it belongs to the score.
+
+The Improvements stat bubble still draws the bar inside itself; it is a
+different, smaller presentation and has not been asked to change.
 
 **`ConfidenceTierBadge` is deleted, not merely unused.** The pill —
 "T2 — Probable, verify at inspection" — said the same thing as the bar and its
