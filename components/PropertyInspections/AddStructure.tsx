@@ -282,26 +282,73 @@ export function AddStructure({
           </g>
         )}
 
+        {/* Ground tone under the drawing when there is no photograph. Presentation
+            only — a driveway or a lawn edge drawn here would be invention, and
+            nothing on this plan is allowed to be. */}
         <path d={ring(plan.parcel)} fill={tiles ? "none" : "var(--good-wash)"} stroke="var(--text-primary)" strokeWidth={0.9} />
 
         {/* REGISTERED BURDENS. Drawn under the buildings and over the imagery,
             hatched so they read as a restriction rather than a structure. The
             drag refuses to cross them — you cannot build over a right of way. */}
-        {(plan.burdens ?? []).map((b, i) => (
-          <path
-            key={`burden-${i}`}
-            d={ring(b.ring)}
-            fill="var(--warn)"
-            fillOpacity={0.22}
-            stroke="var(--warn)"
-            strokeWidth={0.7}
-            strokeDasharray="2 1.5"
-          />
-        ))}
+        {(plan.burdens ?? []).map((b, i) => {
+          const c = { x: b.ring.reduce((s2, q) => s2 + q.x, 0) / b.ring.length, y: b.ring.reduce((s2, q) => s2 + q.y, 0) / b.ring.length };
+          const bx = b.ring.map((q) => q.x), by = b.ring.map((q) => q.y);
+          const w = Math.max(...bx) - Math.min(...bx), h = Math.max(...by) - Math.min(...by);
+          const [lx, ly] = px(c);
+          // Written ALONG the strip, because an easement is nearly always long
+          // and thin and a horizontal label would overflow it.
+          const vertical = h > w * 1.4;
+          return (
+            <g key={`burden-${i}`}>
+              <path
+                d={ring(b.ring)}
+                fill="var(--warn)"
+                fillOpacity={0.22}
+                stroke="var(--warn)"
+                strokeWidth={0.7}
+                strokeDasharray="2 1.5"
+              />
+              {(() => {
+                // SIZED TO THE STRIP. "EASEMENT — NO BUILDING" at the plan's
+                // normal text size ran clean past both boundaries of a 17m band
+                // and out over the neighbours. The label is the KIND only — the
+                // legend and the banner below both already say you can't build
+                // there — and it shrinks to fit the shorter side of the strip,
+                // disappearing entirely when there is no room for it.
+                const label = b.kind.toUpperCase();
+                const along = vertical ? h : w;
+                const across = vertical ? w : h;
+                const size = Math.min(fs * 0.8, (along * 0.85) / (label.length * 0.58), across * 0.62);
+                if (size < 1.2) return null;
+                return (
+                  <text
+                    x={lx}
+                    y={ly}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize={size}
+                    fontWeight="bold"
+                    fill="var(--warn)"
+                    transform={vertical ? `rotate(-90 ${lx} ${ly})` : undefined}
+                    style={{ pointerEvents: "none" }}
+                  >
+                    {label}
+                  </text>
+                );
+              })()}
+            </g>
+          );
+        })}
 
         {/* What's already there — outlined, not filled, so the imagery shows through. */}
         {plan.buildings.map((b, i) => (
-          <path key={i} d={ring(b)} fill="var(--text-primary)" fillOpacity={tiles ? 0.18 : 0.4} stroke="var(--text-primary)" strokeWidth={0.5} strokeDasharray="1.5 1" />
+          <g key={i}>
+            {/* A soft offset shadow reads as a building standing on ground
+                rather than a hole cut in it. Offset south-east, which is where
+                a New Zealand shadow falls. */}
+            <path d={ring(b.map((q) => ({ x: q.x + 0.6, y: q.y - 0.6 })))} fill="#000" fillOpacity={0.16} />
+            <path d={ring(b)} fill="var(--text-primary)" fillOpacity={tiles ? 0.18 : 0.42} stroke="var(--text-primary)" strokeWidth={0.5} strokeDasharray="1.5 1" />
+          </g>
         ))}
 
         {/* The new structure. */}
@@ -328,6 +375,31 @@ export function AddStructure({
             </text>
           </g>
         )}
+
+        {/* North arrow. We know which way is up because the metre frame is built
+            off latitude — +y IS north — so this is measured, not decorative. */}
+        <g style={{ pointerEvents: "none" }}>
+          <line x1={vw - PAD * 0.55} y1={PAD * 1.25} x2={vw - PAD * 0.55} y2={PAD * 0.45}
+            stroke="var(--text-secondary)" strokeWidth={0.6} />
+          <path d={`M${vw - PAD * 0.55} ${PAD * 0.3} l${fs * 0.28} ${fs * 0.5} l${-fs * 0.56} 0 Z`} fill="var(--text-secondary)" />
+          <text x={vw - PAD * 0.55} y={PAD * 1.75} textAnchor="middle" fontSize={fs * 0.8}
+            fill="var(--text-secondary)" fontWeight="bold">N</text>
+        </g>
+
+        {/* Scale bar — a round number of metres, so the reader can measure
+            anything on the plan against it rather than trusting the labels. */}
+        {(() => {
+          const nice = [5, 10, 20, 50].find((n) => n <= W * 0.45) ?? 5;
+          const x0 = PAD, y0 = vh - PAD * 0.35;
+          return (
+            <g style={{ pointerEvents: "none" }}>
+              <line x1={x0} y1={y0} x2={x0 + nice} y2={y0} stroke="var(--text-secondary)" strokeWidth={0.7} />
+              <line x1={x0} y1={y0 - fs * 0.3} x2={x0} y2={y0 + fs * 0.3} stroke="var(--text-secondary)" strokeWidth={0.7} />
+              <line x1={x0 + nice} y1={y0 - fs * 0.3} x2={x0 + nice} y2={y0 + fs * 0.3} stroke="var(--text-secondary)" strokeWidth={0.7} />
+              <text x={x0 + nice / 2} y={y0 - fs * 0.55} textAnchor="middle" fontSize={fs * 0.75} fill="var(--text-secondary)">{nice}m</text>
+            </g>
+          );
+        })()}
 
         {/* Boundary runs. */}
         {plan.parcel.map((p, i) => {
