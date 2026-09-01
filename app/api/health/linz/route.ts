@@ -57,6 +57,13 @@ export async function GET(req: NextRequest) {
     // Null here means the register was NOT read, which is a different answer
     // from an empty `live` list — and only the second one means a clear title.
     encumbrances: record.encumbrances,
+    lat: record.lat,
+    lng: record.lng,
+    site: record.site
+      ? { appellation: record.site.appellation, parcelAreaSqm: record.site.parcelAreaSqm,
+          parcelPoints: record.site.parcel.length, buildings: record.site.buildings.length,
+          road: !!record.site.roadPoint }
+      : null,
     summary: record.valuation
       ? "Title and rating valuation both resolved."
       : "Title resolved. No rating valuation — normal, the roll covers roughly 12% of properties.",

@@ -974,10 +974,25 @@ LINZ publishes the pieces free: **NZ Primary Parcels** (50772) for the boundary,
 `lib/scoring/site-layout.ts` is pure and does the geometry, so `verify:development`
 asserts it against squares it draws itself.
 
-**Two traps, both silent.** The building layer serves NZTM by default, so a
-lat/lng bbox matches NOTHING — zero rows, no error, indistinguishable from a
-bare section. `srsName=EPSG:4326` is not optional. And the CQL BBOX takes **lat
-first** under the urn-form CRS; reversed, same silent zero.
+**THREE traps, all silent, all returning a plausible-looking nothing.** The
+building layer serves NZTM by default, so a lat/lng bbox matches NOTHING — zero
+rows, no error, indistinguishable from a bare section; `srsName=EPSG:4326` is not
+optional. The CQL BBOX takes **lat first** under the urn-form CRS; reversed, same
+silent zero. And **`wfs()` in property-records DISCARDS the geometry** — by
+design, because every table it was written for is attribute-only — so injecting
+it into the parcel lookup returned one row with no polygon on it, `outerRings`
+found nothing to read, and the section came back shapeless. Use `wfsFeatures`,
+with the CRS, for anything spatial.
+
+**Watch the TIMEOUT when adding calls.** The record lookup went from four calls
+to nine when the register instruments and the parcel geometry were added, and a
+15-second budget that fit the old shape silently truncated the new one — the
+timeout doesn't fail loudly, it returns whatever finished, so 156 Buchanans Road
+came back at 15,004ms with a **null title** and looked like a property LINZ had
+never heard of. It is 25s now, and everything that can run concurrently does: the
+site geometry starts on the address point without waiting for the title, and the
+encumbrances (which do need the title number) wait alongside it rather than
+after it. Back to ~6s.
 
 **The biggest rectangle is not the one that fits.** A 20m × 3m strip down a
 boundary beats a 7m × 10m corner on area and holds nothing, so every maximal

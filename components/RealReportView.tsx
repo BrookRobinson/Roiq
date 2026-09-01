@@ -17,6 +17,7 @@ import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { methodFor, comparablesMatch } from "@/lib/scoring/valuation-method";
 import { valueProperty, type PropertyValue } from "@/lib/scoring/property-value";
+import type { SiteLayout } from "@/lib/scoring/site-layout";
 import { explainCrossLeaseDiscount } from "@/lib/scoring/cross-lease";
 import { maintenanceBasis } from "@/lib/finance/maintenance";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
@@ -480,6 +481,30 @@ export function RealReportView({
       .map((e) => ({ instrumentNo: e.instrumentNo, label: e.label, kind: e.kind as "covenant" | "easement" }));
   }, [report.listing.encumbrances]);
 
+  // A report written before the parcel was fetched can still have its section
+  // drawn: the geometry is public record for an address, not something the
+  // analysis produced. Asking for it on open beats telling somebody to spend
+  // another allowance and four minutes re-running findings that were fine.
+  const [fetchedLayout, setFetchedLayout] = useState<SiteLayout | null>(null);
+  useEffect(() => {
+    if (report.listing.siteLayout || fetchedLayout) return;
+    const address = [report.listing.address, report.listing.suburb, report.listing.city]
+      .filter(Boolean)
+      .join(", ")
+      .trim();
+    if (!address) return;
+    let live = true;
+    fetch(`/api/site-geometry?address=${encodeURIComponent(address)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d?.layout) setFetchedLayout(d.layout as SiteLayout); })
+      // Best-effort throughout. No parcel means the plan falls back to its
+      // plain drawing, which is what an older report showed anyway.
+      .catch(() => {});
+    return () => { live = false; };
+  }, [report.listing.siteLayout, report.listing.address, report.listing.suburb, report.listing.city, fetchedLayout]);
+
+  const siteLayout = report.listing.siteLayout ?? fetchedLayout ?? null;
+
   // Development potential — can you add a tiny home / dwelling / subdivide (Land tab).
   const development = useMemo(
     () =>
@@ -497,9 +522,9 @@ export function RealReportView({
         titleRestrictions: titleRestrictions,
         // The section's real shape — where the buildings stand, and whether
         // anything actually fits beside them.
-        layout: report.listing.siteLayout ?? null,
+        layout: siteLayout,
       }),
-    [report.listing.landAreaSqm, report.listing.floorAreaSqm, report.listing.zoning, report.suburbValue, titleRestrictions, report.listing.siteLayout]
+    [report.listing.landAreaSqm, report.listing.floorAreaSqm, report.listing.zoning, report.suburbValue, titleRestrictions, siteLayout]
   );
 
   const scored: ScoreResult = useMemo(

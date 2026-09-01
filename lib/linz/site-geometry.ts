@@ -99,10 +99,15 @@ export async function lookupSiteGeometry(
   lat: number,
   lng: number,
   roadName: string | null,
-  wfs: <T>(layer: string, cql: string, count?: number) => Promise<T[]>
+  /**
+   * MUST request EPSG:4326. The parcel and building layers serve NZTM by
+   * default and answer a lat/lng filter with zero rows rather than an error —
+   * see the note on `wfs` in property-records.ts.
+   */
+  wfs: (layer: string, cql: string, count?: number) => Promise<Feature[]>
 ): Promise<SiteGeometry | null> {
   // CONTAINS takes lat first, matching the urn-form axis order used below.
-  const parcels = await wfs<Feature>(PARCELS_LAYER, `CONTAINS(shape, POINT(${lat} ${lng}))`, 3);
+  const parcels = await wfs(PARCELS_LAYER, `CONTAINS(shape, POINT(${lat} ${lng}))`, 3);
   const parcelFeature = parcels[0];
   const parcelRings = outerRings(parcelFeature?.geometry);
   if (parcelRings.length === 0) return null;
@@ -120,7 +125,7 @@ export async function lookupSiteGeometry(
   const bbox = (pad: number) =>
     `BBOX(shape,${minLat - pad},${minLon - pad},${maxLat + pad},${maxLon + pad},'urn:ogc:def:crs:EPSG::4326')`;
 
-  const buildingFeatures = await wfs<Feature>(BUILDINGS_LAYER, bbox(0), 60);
+  const buildingFeatures = await wfs(BUILDINGS_LAYER, bbox(0), 60);
   const buildings: Ring[] = [];
   for (const f of buildingFeatures) {
     for (const ring of outerRings(f.geometry)) {
@@ -142,7 +147,7 @@ export async function lookupSiteGeometry(
   let roadPoint: Pt | null = null;
   if (roadName) {
     const escaped = roadName.replace(/'/g, "''");
-    const roads = await wfs<Feature>(
+    const roads = await wfs(
       ROADS_LAYER,
       `full_road_name = '${escaped}' AND ${bbox(0.002)}`,
       5

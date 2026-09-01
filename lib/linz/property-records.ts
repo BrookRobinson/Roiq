@@ -55,8 +55,14 @@ const MAX_PLAUSIBLE_LAND_SQM = 50_000_000; // 5,000 ha
  * however long LINZ feels like taking. A prefix scan over 2.4 million addresses
  * has been seen to take tens of seconds, and no property report should wait
  * that long for data it can do without.
+ *
+ * Raised from 15s when the register instruments and the parcel geometry were
+ * added: the lookup now makes up to nine calls where it made four, and a budget
+ * that fit the old shape silently truncated the new one — the timeout doesn't
+ * fail loudly, it just returns whatever finished, so a slow address came back
+ * with no title at all and looked like a property LINZ had never heard of.
  */
-const TIMEOUT_MS = 15_000;
+const TIMEOUT_MS = 25_000;
 
 /** Addresses repeat constantly in one session — the same listing reopened, the
  *  same suburb analysed twice. The public record does not change hourly. */
@@ -152,13 +158,25 @@ interface AddressHit {
 /** CQL string literals escape a quote by doubling it. */
 const q = (v: string): string => `'${v.replace(/'/g, "''")}'`;
 
-async function wfs<T>(typeName: string, cql: string, count = 5, signal?: AbortSignal): Promise<T[]> {
+/**
+ * `srs` is not optional for the spatial layers, and forgetting it fails SILENTLY.
+ *
+ * The parcel and building layers serve NZTM by default. Ask them for a lat/lng
+ * point or bbox without `srsName=EPSG:4326` and they return ZERO ROWS — no
+ * error, no warning, indistinguishable from a property with no parcel and no
+ * buildings on it. That trap is written up in CLAUDE.md and it still caught this
+ * file, because `lookupSiteGeometry` was handed a `wfs` that had no way to say
+ * which CRS it wanted: the tables this module was written for have no geometry
+ * at all, so the parameter had never been needed.
+ */
+async function wfs<T>(typeName: string, cql: string, count = 5, signal?: AbortSignal, srs?: string): Promise<T[]> {
   const key = process.env.LINZ_API_KEY?.trim();
   if (!key) return [];
   const url =
     `https://data.linz.govt.nz/services;key=${key}/wfs` +
     `?service=WFS&version=2.0.0&request=GetFeature` +
     `&typeNames=${typeName}&outputFormat=json&count=${count}` +
+    (srs ? `&srsName=${srs}` : "") +
     `&cql_filter=${encodeURIComponent(cql)}`;
   try {
     const res = await fetch(url, { cache: "no-store", signal });
@@ -185,14 +203,16 @@ async function wfsFeatures<T>(
   typeName: string,
   cql: string,
   count = 5,
-  signal?: AbortSignal
-): Promise<{ properties: T; geometry?: { coordinates?: number[] } | null }[]> {
+  signal?: AbortSignal,
+  srs?: string
+): Promise<{ properties: T; geometry?: { type?: string; coordinates?: unknown } | null }[]> {
   const key = process.env.LINZ_API_KEY?.trim();
   if (!key) return [];
   const url =
     `https://data.linz.govt.nz/services;key=${key}/wfs` +
     `?service=WFS&version=2.0.0&request=GetFeature` +
     `&typeNames=${typeName}&outputFormat=json&count=${count}` +
+    (srs ? `&srsName=${srs}` : "") +
     `&cql_filter=${encodeURIComponent(cql)}`;
   try {
     const res = await fetch(url, { cache: "no-store", signal });
@@ -201,7 +221,7 @@ async function wfsFeatures<T>(
       return [];
     }
     const body = (await res.json()) as {
-      features?: { properties?: T; geometry?: { coordinates?: number[] } | null }[];
+      features?: { properties?: T; geometry?: { type?: string; coordinates?: unknown } | null }[];
     };
     return (body.features ?? [])
       .filter((f) => f.properties)
@@ -242,7 +262,7 @@ async function findAddressId(address: string, signal?: AbortSignal): Promise<Add
 
   type Row = AddressRow;
   const pick = (
-    features: { properties: Row; geometry?: { coordinates?: number[] } | null }[],
+    features: { properties: Row; geometry?: { type?: string; coordinates?: unknown } | null }[],
     expect: string | null
   ): AddressHit | null => {
     const usable = features.filter((f) => typeof f.properties?.address_id === "number");
@@ -258,13 +278,19 @@ async function findAddressId(address: string, signal?: AbortSignal): Promise<Add
     // Several candidates and nothing to tell them apart — decline.
     const p = chosen?.properties;
     if (p?.address_id == null) return null;
+    // The address layer serves a Point, so its coordinates are a flat [lng, lat]
+    // — narrowed here rather than in the fetcher's type, which had to widen to
+    // carry the parcel and building polygons as well.
     const coords = chosen?.geometry?.coordinates;
+    const pt = Array.isArray(coords) && coords.length >= 2 && typeof coords[0] === "number" && typeof coords[1] === "number"
+      ? (coords as number[])
+      : null;
     return {
       id: p.address_id,
       full: p.full_address ?? address,
       ta: p.territorial_authority ?? null,
-      lat: Array.isArray(coords) && coords.length >= 2 ? coords[1] : null,
-      lng: Array.isArray(coords) && coords.length >= 2 ? coords[0] : null,
+      lat: pt ? pt[1] : null,
+      lng: pt ? pt[0] : null,
     };
   };
 
@@ -482,37 +508,57 @@ async function resolveRecord(
   // site; picking one of them would be a guess.
   if (ids.length !== 1) return null;
 
-  const [valuation, title] = await Promise.all([
-    fetchValuation(ids[0], signal),
-    fetchTitle(ids[0], signal),
-  ]);
-  if (!valuation && !title) return null;
-
-  // The instruments, once we know the title number. Two more calls, so it runs
-  // only when there IS a title, and a failure is null rather than a throw — the
-  // rest of the record is worth having without it, and "we couldn't read the
-  // register" must never be rendered as "the title is clear".
-  const encumbrances = title
-    ? await lookupEncumbrances(title.titleNo, (table, cql, count) =>
-        wfs(table, cql, count, signal)
-      ).catch((err) => {
-        console.warn("[linz] encumbrances failed:", (err as Error)?.message);
-        return null;
-      })
-    : null;
-
-  // The section's real shape. Needs the address point, so it runs only when we
-  // have one; best-effort like the rest, because a report is far better off
-  // without a layout than delayed by one.
-  const site =
+  // EVERYTHING THAT CAN RUN AT ONCE, RUNS AT ONCE.
+  //
+  // These used to go in series: valuation+title, then encumbrances, then the
+  // site geometry. Each of the last two is two or three more round trips, and
+  // adding five sequential calls to a 15-second budget that had nothing spare
+  // pushed the WHOLE lookup over — 156 Buchanans Road came back at 15,004ms
+  // with a null title, so a change made to add a picture quietly cost the
+  // report its record of title.
+  //
+  // Only the encumbrances genuinely need the title number. The site geometry
+  // needs the address point, which we already have, so it starts immediately.
+  const sitePromise =
     hit.lat != null && hit.lng != null
-      ? await lookupSiteGeometry(hit.lat, hit.lng, roadNameOf(address), (layer, cql, count) =>
-          wfs(layer, cql, count, signal)
+      ? lookupSiteGeometry(hit.lat, hit.lng, roadNameOf(address), (layer, cql, count) =>
+          // wfsFeatures, NOT wfs. `wfs` discards the geometry — deliberately,
+          // because every table this module was written for is attribute-only —
+          // so injecting it handed the parcel lookup a row with no polygon on
+          // it. One row came back, `outerRings` found nothing to read, and the
+          // section silently had no shape. And EPSG:4326 explicitly, or the
+          // spatial layers answer in NZTM and match nothing at all.
+          wfsFeatures<Record<string, unknown>>(layer, cql, count, signal, "EPSG:4326")
         ).catch((err) => {
           console.warn("[linz] site geometry failed:", (err as Error)?.message);
           return null;
         })
-      : null;
+      : Promise.resolve(null);
+
+  const [valuation, title] = await Promise.all([
+    fetchValuation(ids[0], signal),
+    fetchTitle(ids[0], signal),
+  ]);
+  if (!valuation && !title) {
+    void sitePromise; // let it settle rather than leaving an unhandled rejection
+    return null;
+  }
+
+  // The instruments need the title number, so this is the one thing that has to
+  // wait — and it waits alongside the geometry rather than after it. A failure
+  // is null rather than a throw: the rest of the record is worth having without
+  // it, and "we couldn't read the register" must never render as "clear title".
+  const [encumbrances, site] = await Promise.all([
+    title
+      ? lookupEncumbrances(title.titleNo, (table, cql, count) => wfs(table, cql, count, signal)).catch(
+          (err) => {
+            console.warn("[linz] encumbrances failed:", (err as Error)?.message);
+            return null;
+          }
+        )
+      : Promise.resolve(null),
+    sitePromise,
+  ]);
 
   return {
     address: hit.full,
