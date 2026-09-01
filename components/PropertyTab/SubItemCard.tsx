@@ -3,12 +3,13 @@
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 
 import { useState } from "react";
-import type { SubItem, RenoControls } from "@/lib/property-tab/types";
+import type { ConfidenceTier, SubItem, RenoControls } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import { improvementItemPoints } from "@/lib/scoring/engine";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { ConfidenceTierBadge } from "./ConfidenceTierBadge";
+import { ConfidenceBar } from "./ConfidenceBar";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
 import {
@@ -30,8 +31,10 @@ export function pointsColor(frac: number): string {
 }
 
 /** A small labelled stat bubble — a header word (e.g. "Condition" / "Item") over a value. */
-function StatBubble({ label, value, color, bg, border, title }: {
+function StatBubble({ label, value, color, bg, border, title, tier }: {
   label: string; value: string; color: string; bg: string; border: string; title?: string;
+  /** Drawn under the number as a confidence meter — see ConfidenceBar. */
+  tier?: ConfidenceTier;
 }) {
   return (
     <div
@@ -41,6 +44,7 @@ function StatBubble({ label, value, color, bg, border, title }: {
     >
       <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>{label}</span>
       <span className="font-bold tabular-nums" style={{ color, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{value}</span>
+      {tier != null && <ConfidenceBar tier={tier} className="mt-0.5 mb-0.5" />}
     </div>
   );
 }
@@ -164,6 +168,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                     bg={`${color}1f`}
                     border={`${color}55`}
                     title="Points earned toward the score — the spec tier sets the band (its max), and condition positions the item within it."
+                    tier={item.confidenceTier}
                   />
                 ) : (
                   <StatBubble
@@ -173,6 +178,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                     bg={`${conditionScoreColor(item.score)}1f`}
                     border={`${conditionScoreColor(item.score)}55`}
                     title="Condition — how worn or new the item is (1–10)."
+                    tier={item.confidenceTier}
                   />
                 )}
               </>

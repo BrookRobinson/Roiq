@@ -878,6 +878,29 @@ the fraction** and returns it in `unassessed`, so the score means "of what could
 be seen, this is how it rates". The report shows the gap next to the score rather
 than burying it: how many items, what they were worth, and what they were.
 
+**And the tier is a METER under the score, not a caption below it.** It was a
+text badge further down the card — "T2 — Probable, verify at inspection" — well
+away from the number it qualifies, so a reader took the number first and the
+caveat second if at all, and a 7/10 read off a build era looked exactly as solid
+as a 7/10 read off a photograph. `ConfidenceBar` sits directly under the score:
+three segments filling upward, red / amber / green, so more filled means more
+confident without a legend. **The colour reinforces the fill rather than
+carrying it alone** — a meter that only used colour would say nothing to a
+red-green colourblind reader.
+
+**Red means low CONFIDENCE, never bad condition.** The score badge beside it is
+already coloured by how the item rates, so two colour systems sit adjacent and
+must not be confusable: the meter is a distinct shape, both carry a title, and
+the tier text stays on the card. T3 moved from grey to red at the same time —
+grey read as "minor" next to an amber T2, when "we could not see this at all" is
+the least reliable thing on the card rather than the most forgettable.
+
+**A measured item must not keep an inferred tier.** Section orientation carried
+"T3 — not visible" because it used to be read off photographs; it is computed
+from the surveyed parcel and the road centreline now, so it says T1 and cites
+the geometry. Leaving it red said the least reliable thing on the card about the
+most certain.
+
 Three parts have to agree or the change is cosmetic. `toResults()` must pass
 `confidenceTier` through — it used to drop it, which is why the engine was blind.
 The prompt must return **score null at Tier 3** rather than manufacturing a

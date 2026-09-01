@@ -327,6 +327,30 @@ export function RealReportView({
   // "Roof 5/10" with nothing to look at). Location/Land/Legal are fact-based and
   // keep their scores.
   const noPhotos = report.photosAnalysed === 0;
+  // A report written before the parcel was fetched can still have its section
+  // drawn: the geometry is public record for an address, not something the
+  // analysis produced. Asking for it on open beats telling somebody to spend
+  // another allowance and four minutes re-running findings that were fine.
+  const [fetchedLayout, setFetchedLayout] = useState<SiteLayout | null>(null);
+  useEffect(() => {
+    if (report.listing.siteLayout || fetchedLayout) return;
+    const address = [report.listing.address, report.listing.suburb, report.listing.city]
+      .filter(Boolean)
+      .join(", ")
+      .trim();
+    if (!address) return;
+    let live = true;
+    fetch(`/api/site-geometry?address=${encodeURIComponent(address)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d?.layout) setFetchedLayout(d.layout as SiteLayout); })
+      // Best-effort throughout. No parcel means the plan falls back to its
+      // plain drawing, which is what an older report showed anyway.
+      .catch(() => {});
+    return () => { live = false; };
+  }, [report.listing.siteLayout, report.listing.address, report.listing.suburb, report.listing.city, fetchedLayout]);
+
+  const siteLayout = report.listing.siteLayout ?? fetchedLayout ?? null;
+
   const effectiveSubItems = useMemo(
     () =>
       report.subItems.map((s) => {
@@ -431,8 +455,21 @@ export function RealReportView({
         // the best aspect in the country. It turned the property's biggest
         // natural advantage into a mark against it, from an aerial image that
         // carries no compass.
-        if (s.id === "land_aspect" && report.listing.siteLayout?.aspect) {
-          return { ...s, aspectDirection: report.listing.siteLayout.aspect.direction as typeof s.aspectDirection };
+        if (s.id === "land_aspect" && siteLayout?.aspect) {
+          const a = siteLayout.aspect;
+          return {
+            ...s,
+            aspectDirection: a.direction as typeof s.aspectDirection,
+            // AND THE TIER MOVES WITH IT. The aspect used to be inferred from
+            // photographs and carried "T3 — not visible" for exactly that
+            // reason. It is now measured off the surveyed parcel and the road
+            // centreline, so leaving it red said the least reliable thing on the
+            // card about the most certain: a bearing computed from geometry is
+            // established, not guessed.
+            confidenceTier: 1 as typeof s.confidenceTier,
+            evidenceSource: "LINZ parcel boundary + road centreline",
+            finding: `${a.direction.replace(/_/g, "-")}-facing section — the street runs ${a.roadBearing}`,
+          };
         }
         // Section size is scored objectively vs a typical lot, not the AI's guess.
         if (s.id === "land_size") return { ...s, score: assessSectionSize(report.listing.landAreaSqm).score as typeof s.score };
@@ -480,30 +517,6 @@ export function RealReportView({
       .filter((e) => e.kind === "covenant" || e.kind === "easement")
       .map((e) => ({ instrumentNo: e.instrumentNo, label: e.label, kind: e.kind as "covenant" | "easement" }));
   }, [report.listing.encumbrances]);
-
-  // A report written before the parcel was fetched can still have its section
-  // drawn: the geometry is public record for an address, not something the
-  // analysis produced. Asking for it on open beats telling somebody to spend
-  // another allowance and four minutes re-running findings that were fine.
-  const [fetchedLayout, setFetchedLayout] = useState<SiteLayout | null>(null);
-  useEffect(() => {
-    if (report.listing.siteLayout || fetchedLayout) return;
-    const address = [report.listing.address, report.listing.suburb, report.listing.city]
-      .filter(Boolean)
-      .join(", ")
-      .trim();
-    if (!address) return;
-    let live = true;
-    fetch(`/api/site-geometry?address=${encodeURIComponent(address)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (live && d?.layout) setFetchedLayout(d.layout as SiteLayout); })
-      // Best-effort throughout. No parcel means the plan falls back to its
-      // plain drawing, which is what an older report showed anyway.
-      .catch(() => {});
-    return () => { live = false; };
-  }, [report.listing.siteLayout, report.listing.address, report.listing.suburb, report.listing.city, fetchedLayout]);
-
-  const siteLayout = report.listing.siteLayout ?? fetchedLayout ?? null;
 
   // Development potential — can you add a tiny home / dwelling / subdivide (Land tab).
   const development = useMemo(

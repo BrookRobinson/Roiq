@@ -21,11 +21,18 @@ const tierConfig: Record<
     border: "var(--warn-wash)",
   },
   3: {
+    // Red, matching the confidence meter under the score. It was grey, which
+    // read as "minor" next to an amber T2 — but "we could not see this at all"
+    // is the LEAST reliable thing on the card, not the most forgettable.
+    //
+    // Red here means low CONFIDENCE, never bad condition. The score badge beside
+    // it already carries condition in its own colour, which is exactly why the
+    // meter is a distinct shape and both carry a title.
     label: "Not visible — inferred",
-    dotColor: "var(--text-muted)",
-    textColor: "var(--text-muted)",
-    bg: "var(--surface-2)",
-    border: "var(--border)",
+    dotColor: "var(--bad)",
+    textColor: "var(--bad)",
+    bg: "var(--bad-wash)",
+    border: "var(--bad-wash)",
   },
 };
 

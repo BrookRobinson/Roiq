@@ -7,6 +7,7 @@ import type { DocAnalysis } from "@/lib/report-store";
 import { urgencyColor } from "@/lib/property-tab/types";
 import { SOURCE_TYPE_LABEL, isVerifiedDocItem, TITLE_ITEM } from "@/lib/scoring/catalog";
 import { ConfidenceTierBadge } from "@/components/PropertyTab/ConfidenceTierBadge";
+import { ConfidenceBar } from "@/components/PropertyTab/ConfidenceBar";
 import { DocUpload } from "./DocUpload";
 import { useHoldPeriod } from "@/lib/hold-period/context";
 import {
@@ -162,6 +163,7 @@ export function InspectionCard({
             <div className="flex-shrink-0 min-w-[2.75rem] h-11 px-1.5 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
               <span className={`${statOverride.value.length > 4 ? "text-xs" : "text-sm"} font-bold mono leading-none`} style={{ color }}>{statOverride.value}</span>
               <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>{statOverride.unit}</span>
+              <ConfidenceBar tier={item.confidenceTier} className="mt-1" />
             </div>
           ) : pointsMax && displayScore !== null ? (
             // Points, not a mark out of ten. Rounded the same way the engine
@@ -169,6 +171,7 @@ export function InspectionCard({
             <div className="flex-shrink-0 min-w-[2.75rem] h-11 px-1.5 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
               <span className="text-sm font-bold mono leading-none" style={{ color }}>{Math.round((displayScore / 10) * pointsMax)}</span>
               <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>of {pointsMax}</span>
+              <ConfidenceBar tier={item.confidenceTier} className="mt-1" />
             </div>
           ) : (
             <div className="flex-shrink-0 w-11 h-11 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
@@ -176,6 +179,7 @@ export function InspectionCard({
               <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>
                 {displayScore === null && notVisible ? "n/a" : pointsMax ? `of ${pointsMax}` : "/10"}
               </span>
+              <ConfidenceBar tier={item.confidenceTier} className="mt-1" />
             </div>
           )}
 
