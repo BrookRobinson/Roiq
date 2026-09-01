@@ -9,7 +9,7 @@ import { conditionScoreColor } from "./ConditionScore";
 import { improvementItemPoints } from "@/lib/scoring/engine";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { ConfidenceTierBadge } from "./ConfidenceTierBadge";
-import { ConfidenceBar } from "./ConfidenceBar";
+import { ConfidenceBar, ConfidenceLabel } from "./ConfidenceBar";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
 import {
@@ -37,14 +37,17 @@ function StatBubble({ label, value, color, bg, border, title, tier }: {
   tier?: ConfidenceTier;
 }) {
   return (
-    <div
-      title={title}
-      className="inline-flex flex-col items-center rounded-lg"
-      style={{ background: bg, border: `1px solid ${border}`, padding: "2px 10px", minWidth: 70 }}
-    >
-      <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>{label}</span>
-      <span className="font-bold tabular-nums" style={{ color, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{value}</span>
-      {tier != null && <ConfidenceBar tier={tier} className="mt-0.5 mb-0.5" />}
+    <div className="inline-flex flex-col items-center">
+      <div
+        title={title}
+        className="flex flex-col items-center rounded-lg"
+        style={{ background: bg, border: `1px solid ${border}`, padding: "2px 10px 4px", minWidth: 70 }}
+      >
+        <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>{label}</span>
+        <span className="font-bold tabular-nums" style={{ color, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{value}</span>
+        {tier != null && <ConfidenceBar tier={tier} height={16} />}
+      </div>
+      {tier != null && <ConfidenceLabel tier={tier} />}
     </div>
   );
 }

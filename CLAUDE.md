@@ -882,11 +882,23 @@ than burying it: how many items, what they were worth, and what they were.
 text badge further down the card — "T2 — Probable, verify at inspection" — well
 away from the number it qualifies, so a reader took the number first and the
 caveat second if at all, and a 7/10 read off a build era looked exactly as solid
-as a 7/10 read off a photograph. `ConfidenceBar` sits directly under the score:
-three segments filling upward, red / amber / green, so more filled means more
-confident without a legend. **The colour reinforces the fill rather than
-carrying it alone** — a meter that only used colour would say nothing to a
-red-green colourblind reader.
+as a 7/10 read off a photograph. `ConfidenceBar` sits INSIDE the score badge,
+rising from just above its floor: **one bar**, taller for more confidence, with
+the level named underneath in words — "Low confidence" — rather than left to the
+colour. **The height and the label each work alone**, because a meter carried by
+colour says nothing to a red-green colourblind reader, and that is roughly one
+man in twelve. There is deliberately no track drawn behind the bar: a track is a
+second bar, and the comparison that matters is between cards, which a column
+chart makes without a scale behind every column. Tier 3 is drawn at ~32% rather
+than empty — the item was still reasoned about, and an empty track would read as
+"no answer" rather than "an answer we can't stand behind".
+
+**The badge's coloured wash had never actually rendered**, which only became
+visible once a bar had to sit inside the box. The accents are CSS VARIABLES, so
+the `${color}1a` / `${color}40` trick that appends an alpha to a hex produced
+`var(--good)1a` — invalid, and therefore silently transparent. `wash()` / `edge()`
+in `InspectionCard` use `color-mix` instead. Anywhere else that appends an alpha
+to one of these accents has the same bug.
 
 **Red means low CONFIDENCE, never bad condition.** The score badge beside it is
 already coloured by how the item rates, so two colour systems sit adjacent and

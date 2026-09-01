@@ -7,7 +7,7 @@ import type { DocAnalysis } from "@/lib/report-store";
 import { urgencyColor } from "@/lib/property-tab/types";
 import { SOURCE_TYPE_LABEL, isVerifiedDocItem, TITLE_ITEM } from "@/lib/scoring/catalog";
 import { ConfidenceTierBadge } from "@/components/PropertyTab/ConfidenceTierBadge";
-import { ConfidenceBar } from "@/components/PropertyTab/ConfidenceBar";
+import { ConfidenceBar, ConfidenceLabel } from "@/components/PropertyTab/ConfidenceBar";
 import { DocUpload } from "./DocUpload";
 import { useHoldPeriod } from "@/lib/hold-period/context";
 import {
@@ -16,6 +16,13 @@ import {
 } from "lucide-react";
 
 const accent = { green: "var(--good)", amber: "var(--warn)", red: "var(--bad)", muted: "var(--text-muted)" } as const;
+
+// The accents above are CSS VARIABLES, so the wash(color) / `${color}40` trick
+// that appends an alpha to a hex silently produced `var(--good)1a` — invalid,
+// and therefore transparent. The score badges have never had their wash or
+// their border; it only became obvious once a bar had to sit inside one.
+const wash = (c: string) => `color-mix(in srgb, ${c} 10%, transparent)`;
+const edge = (c: string) => `color-mix(in srgb, ${c} 26%, transparent)`;
 
 const SOURCE_ICON: Record<string, React.ElementType> = {
   photo: Camera, council_data: Landmark, linz: MapIcon, title: FileText, lim: ScrollText,
@@ -115,7 +122,7 @@ export function InspectionCard({
               <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{item.name}</span>
               <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--surface)", color: "var(--text-muted)" }}>{inspectionLabel}</span>
               {bandLabel && (
-                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ background: `${color}1a`, color, border: `1px solid ${color}40` }}>{bandLabel}</span>
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ background: wash(color), color, border: `1px solid ${edge(color)}` }}>{bandLabel}</span>
               )}
               {pill && (
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full" style={{ background: pill.bg, color: pill.fg }}>
@@ -160,26 +167,41 @@ export function InspectionCard({
           ) : statOverride ? (
             // A measurement beats a 1–10 here: "612m²" is the fact the buyer wants,
             // where "7/10 section size" means nothing on its own.
-            <div className="flex-shrink-0 min-w-[2.75rem] h-11 px-1.5 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
-              <span className={`${statOverride.value.length > 4 ? "text-xs" : "text-sm"} font-bold mono leading-none`} style={{ color }}>{statOverride.value}</span>
-              <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>{statOverride.unit}</span>
-              <ConfidenceBar tier={item.confidenceTier} className="mt-1" />
+            <div className="flex-shrink-0 flex flex-col items-center">
+              <div className="min-w-[2.75rem] h-16 px-1.5 pt-1.5 pb-1.5 rounded-lg flex flex-col items-center justify-between" style={{ background: wash(color), border: `1px solid ${edge(color)}` }}>
+                <div className="flex flex-col items-center">
+                  <span className={`${statOverride.value.length > 4 ? "text-xs" : "text-sm"} font-bold mono leading-none`} style={{ color }}>{statOverride.value}</span>
+                  <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>{statOverride.unit}</span>
+                </div>
+                <ConfidenceBar tier={item.confidenceTier} />
+              </div>
+              <ConfidenceLabel tier={item.confidenceTier} />
             </div>
           ) : pointsMax && displayScore !== null ? (
             // Points, not a mark out of ten. Rounded the same way the engine
             // rounds it, so the card and the section total can't disagree.
-            <div className="flex-shrink-0 min-w-[2.75rem] h-11 px-1.5 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
-              <span className="text-sm font-bold mono leading-none" style={{ color }}>{Math.round((displayScore / 10) * pointsMax)}</span>
-              <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>of {pointsMax}</span>
-              <ConfidenceBar tier={item.confidenceTier} className="mt-1" />
+            <div className="flex-shrink-0 flex flex-col items-center">
+              <div className="min-w-[2.75rem] h-16 px-1.5 pt-1.5 pb-1.5 rounded-lg flex flex-col items-center justify-between" style={{ background: wash(color), border: `1px solid ${edge(color)}` }}>
+                <div className="flex flex-col items-center">
+                  <span className="text-sm font-bold mono leading-none" style={{ color }}>{Math.round((displayScore / 10) * pointsMax)}</span>
+                  <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>of {pointsMax}</span>
+                </div>
+                <ConfidenceBar tier={item.confidenceTier} />
+              </div>
+              <ConfidenceLabel tier={item.confidenceTier} />
             </div>
           ) : (
-            <div className="flex-shrink-0 w-11 h-11 rounded-lg flex flex-col items-center justify-center" style={{ background: `${color}1a`, border: `1px solid ${color}40` }}>
-              <span className="text-sm font-bold mono leading-none" style={{ color }}>{displayScore ?? "—"}</span>
-              <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>
-                {displayScore === null && notVisible ? "n/a" : pointsMax ? `of ${pointsMax}` : "/10"}
-              </span>
-              <ConfidenceBar tier={item.confidenceTier} className="mt-1" />
+            <div className="flex-shrink-0 flex flex-col items-center">
+              <div className="w-11 h-16 pt-1.5 pb-1.5 rounded-lg flex flex-col items-center justify-between" style={{ background: wash(color), border: `1px solid ${edge(color)}` }}>
+                <div className="flex flex-col items-center">
+                  <span className="text-sm font-bold mono leading-none" style={{ color }}>{displayScore ?? "—"}</span>
+                  <span className="text-[9px] leading-none mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    {displayScore === null && notVisible ? "n/a" : pointsMax ? `of ${pointsMax}` : "/10"}
+                  </span>
+                </div>
+                <ConfidenceBar tier={item.confidenceTier} />
+              </div>
+              <ConfidenceLabel tier={item.confidenceTier} />
             </div>
           )}
 

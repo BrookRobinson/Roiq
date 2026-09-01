@@ -10,50 +10,86 @@ import type { ConfidenceTier } from "@/lib/property-tab/types";
 // the number first and the caveat second, if at all, and a 7/10 read off a
 // build era looked exactly as solid as a 7/10 read off a photograph.
 //
-// So it goes directly under the score, as a strength meter. THREE SEGMENTS,
-// FILLING UPWARD: more filled means more confident, which needs no legend. The
-// colour reinforces the same thing rather than carrying it alone — a bar that
-// only used colour would say nothing to a red-green colourblind reader, and
-// about 1 in 12 men are.
+// So it sits under the score, inside the same badge: ONE bar, rising from the
+// bottom of the box, with the level NAMED underneath it. A taller bar means
+// more confidence — the reading a column chart gets for free — and the words
+// carry it for anyone the colour doesn't reach. Roughly one man in twelve is
+// red-green colourblind, so the height and the label both work on their own.
 //
 // ── This is confidence, NOT condition ───────────────────────────────────────
 //
-// The score badge beside it is already coloured by how the item RATES, so two
-// colour systems sit next to each other and they must not be confusable. A red
+// The score directly above is already coloured by how the item RATES, so two
+// colour systems sit in the same badge and they must not be confusable. A red
 // bar does not mean a bad roof; it means we could not see the roof. That is why
-// the meter is a distinct shape, why it carries a title, and why the tier text
-// stays on the card underneath it.
+// the level is spelled out in words rather than left to the colour, and why the
+// tier text stays on the card as well.
 // ============================================================
 
-const TIERS: Record<ConfidenceTier, { filled: number; color: string; label: string }> = {
-  1: { filled: 3, color: "var(--good)", label: "High confidence — established from a photo or the public record" },
-  2: { filled: 2, color: "var(--warn)", label: "Medium confidence — probable, worth verifying at the inspection" },
-  3: { filled: 1, color: "var(--bad)", label: "Low confidence — not visible, inferred rather than seen" },
+const TIERS: Record<ConfidenceTier, { pct: number; color: string; short: string; full: string }> = {
+  1: {
+    pct: 100,
+    color: "var(--good)",
+    short: "High confidence",
+    full: "High confidence — established from a photograph or the public record",
+  },
+  2: {
+    pct: 62,
+    color: "var(--warn)",
+    short: "Medium confidence",
+    full: "Medium confidence — probable, worth verifying at the inspection",
+  },
+  3: {
+    // Deliberately not zero. The item was still reasoned about — from a build
+    // era, a material, a type — and an empty track would read as "no answer"
+    // rather than "an answer we can't stand behind".
+    pct: 32,
+    color: "var(--bad)",
+    short: "Low confidence",
+    full: "Low confidence — not visible in the photographs, inferred rather than seen",
+  },
 };
 
-export function ConfidenceBar({ tier, className }: { tier: ConfidenceTier; className?: string }) {
+export function confidenceMeta(tier: ConfidenceTier) {
+  return TIERS[tier];
+}
+
+/** The bar itself. Sits INSIDE the score badge, rising from just above its floor. */
+export function ConfidenceBar({ tier, height = 24 }: { tier: ConfidenceTier; height?: number }) {
   const cfg = TIERS[tier];
   return (
+    // ONE bar, and no track behind it. A track would draw a second bar of its
+    // own, and the comparison that matters is between cards — a column chart
+    // reads that way without a scale drawn behind every column. The wrapper
+    // still reserves the full height so the badge doesn't change size between
+    // tiers and the bars all rise from the same line.
     <div
-      className={`flex items-center gap-[2px] ${className ?? ""}`}
-      title={cfg.label}
+      title={cfg.full}
       role="img"
-      aria-label={cfg.label}
+      aria-label={cfg.full}
+      style={{ width: 5, height, display: "flex", alignItems: "flex-end" }}
     >
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          style={{
-            width: 7,
-            height: 3,
-            borderRadius: 1,
-            display: "inline-block",
-            // The unfilled segments stay visible so the meter reads as "one of
-            // three" rather than as a single stub of colour.
-            background: i < cfg.filled ? cfg.color : "var(--border)",
-          }}
-        />
-      ))}
+      <div
+        style={{
+          width: "100%",
+          height: `${cfg.pct}%`,
+          background: cfg.color,
+          borderRadius: "2px 2px 1px 1px",
+        }}
+      />
     </div>
+  );
+}
+
+/** The words under the bar. Outside the badge, directly beneath it. */
+export function ConfidenceLabel({ tier }: { tier: ConfidenceTier }) {
+  const cfg = TIERS[tier];
+  return (
+    <span
+      title={cfg.full}
+      className="text-center leading-tight"
+      style={{ fontSize: 8.5, marginTop: 3, color: cfg.color, fontWeight: 600, maxWidth: 54 }}
+    >
+      {cfg.short}
+    </span>
   );
 }
