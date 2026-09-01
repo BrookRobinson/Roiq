@@ -54,6 +54,17 @@ export interface SiteInput {
   /** Every building footprint standing on it — house, garage, sleepout, shed. */
   buildings: Ring[];
   /**
+   * Surveyed easement and covenant areas over the section.
+   *
+   * You generally cannot build over a right of way or a drainage easement, so
+   * these come OUT of the buildable ground and the drag refuses to cross them —
+   * a garage placed on somebody's registered right of access is not a plan, it
+   * is a dispute. Absent is not clear: many easements have no surveyed extent.
+   */
+  burdens?: Ring[];
+  /** What each burden IS, index-matched to `burdens`, for the drawing's legend. */
+  burdenLabels?: { kind: string; appellation: string | null }[];
+  /**
    * A point on the street the property fronts, in the same metre frame. Lets the
    * finding say "behind the house" rather than "to the north-east", which is how
    * a buyer actually thinks about a section. Optional: without it the answer is
@@ -77,6 +88,8 @@ export interface SiteLayout {
   builtAreaSqm: number;
   /** How many separate structures stand on the parcel. */
   buildingCount: number;
+  /** Ground inside a surveyed easement or covenant area, m². */
+  burdenedAreaSqm: number;
   /**
    * Ground that is genuinely available — inside the parcel, clear of every
    * building and its gap, and inside the boundary setback.
@@ -145,6 +158,8 @@ export interface SiteLayout {
     unit: Pt[] | null;
     /** The clear envelope it sits in, so the drawing shows the room around it. */
     clearArea: Pt[] | null;
+    /** Easement and covenant areas, drawn over the section and blocked to build on. */
+    burdens: { kind: string; appellation: string | null; ring: Pt[] }[];
     /** Direction of the street, for orienting the drawing. */
     road: Pt | null;
     /** Bounding extent in metres, so a viewBox can be built without re-scanning. */
@@ -351,6 +366,8 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
   const assumed = { boundarySetback: setback, buildingGap: gap, unit };
 
   const parcel = input.parcel;
+  const burdens = (input.burdens ?? []).filter((b) => b.length >= 3);
+  let burdened = 0;
   const parcelAreaSqm = Math.round(polygonArea(parcel));
   const buildings = input.buildings.filter((b) => b.length >= 3);
   const builtAreaSqm = Math.round(buildings.reduce((s, b) => s + polygonArea(b), 0));
@@ -373,6 +390,9 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
         if (pointInRing(p, b) || distToRing(p, b) < gap) { blocked = true; break; }
       }
       if (blocked) continue;
+      // Inside a registered easement or covenant area. No setback applied —
+      // the burden is the polygon itself, and its edge is where it stops.
+      if (burdens.some((b) => pointInRing(p, b))) { burdened++; continue; }
       row[c] = true;
       freeCells++;
     }
@@ -448,6 +468,7 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
     builtAreaSqm,
     buildingCount: buildings.length,
     clearAreaSqm: Math.round(freeCells * STEP * STEP),
+    burdenedAreaSqm: Math.round(burdened * STEP * STEP),
     largestClear,
     unitFits,
     coverageWithUnit: Math.round(coverageWithUnit * 1000) / 1000,
@@ -459,6 +480,11 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
     plan: {
       parcel: parcel.map(shift),
       buildings: buildings.map((b) => b.map(shift)),
+      burdens: burdens.map((b, i) => ({
+        kind: input.burdenLabels?.[i]?.kind ?? "Easement",
+        appellation: input.burdenLabels?.[i]?.appellation ?? null,
+        ring: b.map(shift),
+      })),
       unit: unitRect ? unitRect.map(shift) : null,
       clearArea: clearRect ? clearRect.map(shift) : null,
       road: road ? shift(road) : null,
@@ -515,6 +541,17 @@ export function canPlace(
       if (pointInRing(c, b)) return false;
       if (gap > 0 && distToRing(c, b) < gap) return false;
     }
+    for (const bp of b) {
+      if (bp.x > x && bp.x < x + w && bp.y > y && bp.y < y + l) return false;
+    }
+  }
+  // AND NOT ACROSS A REGISTERED BURDEN. You cannot build over a right of way or
+  // a drainage easement, and a footprint that can be dropped on one is a plan
+  // somebody takes to a builder before anybody notices. Tested both ways round,
+  // like the buildings: a small shed sitting wholly inside a large easement has
+  // no corner near its ring.
+  for (const { ring: b } of plan.burdens ?? []) {
+    for (const c of corners) if (pointInRing(c, b)) return false;
     for (const bp of b) {
       if (bp.x > x && bp.x < x + w && bp.y > y && bp.y < y + l) return false;
     }

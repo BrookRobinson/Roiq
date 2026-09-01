@@ -35,10 +35,25 @@ import type { Pt, Ring } from "@/lib/scoring/site-layout";
 const PARCELS_LAYER = "layer-50772";
 const BUILDINGS_LAYER = "layer-101290";
 const ROADS_LAYER = "layer-123110";
+/**
+ * NZ Non-Primary Parcels — surveyed easements, land covenants, esplanade
+ * strips. 784,660 easement polygons and 78,296 covenant ones nationally.
+ */
+const NON_PRIMARY_LAYER = "layer-50782";
 
 /** Metres per degree of latitude. Constant enough at NZ latitudes. */
 const M_PER_DEG_LAT = 110_540;
 const M_PER_DEG_LON_EQ = 111_320;
+
+/** A surveyed easement or covenant area lying over the section. */
+export interface Burden {
+  /** LINZ's `parcel_intent` — "Easement", "Covenant - Land", "Esplanade Strip". */
+  kind: string;
+  /** Its appellation, e.g. "Area C DP 626291" — quotable to a solicitor. */
+  appellation: string | null;
+  areaSqm: number | null;
+  ring: Ring;
+}
 
 export interface SiteGeometry {
   /** Where the metre frame is centred, so imagery can be aligned to it. */
@@ -51,6 +66,15 @@ export interface SiteGeometry {
   buildings: Ring[];
   /** A point on the street this property fronts, in the same metre frame. */
   roadPoint: Pt | null;
+  /**
+   * Surveyed easement and covenant areas lying over this section.
+   *
+   * EMPTY IS NOT CLEAR. Easements in gross, some service easements and older
+   * ones are described in words on the title with no surveyed extent at all, so
+   * a section with no polygon here may still be burdened — the same trap as an
+   * unpublished register, and it gets the same treatment in the copy.
+   */
+  burdens: Burden[];
 }
 
 type Feature = {
@@ -164,6 +188,31 @@ export async function lookupSiteGeometry(
     roadPoint = best?.p ?? null;
   }
 
+  // Easements and covenants over the section. Kept when they GENUINELY overlap
+  // rather than merely sharing a bounding box: a bbox around a suburban section
+  // catches the whole subdivision's right-of-way network, and 540 Wairakei Road
+  // came back with twenty of them that way. A polygon counts if any of its
+  // corners sits inside this parcel, or if it swallows a corner of it.
+  const burdens: Burden[] = [];
+  const nonPrimary = await wfs(NON_PRIMARY_LAYER, bbox(0), 60).catch(() => []);
+  for (const f of nonPrimary) {
+    const intent = typeof f.properties?.parcel_intent === "string" ? f.properties.parcel_intent : "";
+    if (!/^(easement|covenant)/i.test(intent)) continue;
+    for (const ring of outerRings(f.geometry)) {
+      const m = ring.map(toM);
+      const overlaps =
+        m.some((pt) => pointInRing(pt.x, pt.y, parcel)) ||
+        parcel.some((pt) => pointInRing(pt.x, pt.y, m));
+      if (!overlaps) continue;
+      burdens.push({
+        kind: intent,
+        appellation: typeof f.properties?.appellation === "string" ? f.properties.appellation : null,
+        areaSqm: typeof f.properties?.calc_area === "number" ? Math.round(f.properties.calc_area) : null,
+        ring: m,
+      });
+    }
+  }
+
   const props = parcelFeature?.properties ?? {};
   return {
     anchor: { lat: lat0, lng: lon0, mPerDegLat: M_PER_DEG_LAT, mPerDegLon: mPerLon },
@@ -172,5 +221,6 @@ export async function lookupSiteGeometry(
     parcel,
     buildings,
     roadPoint,
+    burdens,
   };
 }

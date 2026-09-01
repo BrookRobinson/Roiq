@@ -74,6 +74,35 @@ check("hanging off the section is not", canPlace(L.plan, { x: 18, y: 20, ...g },
 // The SAME spot, for a structure the rules treat differently.
 ok("a woodshed goes where a granny flat can't", canPlace(L.plan, { x: 0.2, y: 20, width: 1.6, length: 3.2 }, 0, 0));
 
+console.log("\nYOU CANNOT BUILD ON A REGISTERED EASEMENT");
+// LINZ publishes 784,660 surveyed easement polygons and 78,296 land covenant
+// ones. A right of way or a drainage easement is not buildable ground, and a
+// footprint that can be dropped on one is a plan somebody takes to a builder
+// before anybody notices.
+const withEase = readSiteLayout({
+  parcel: rect(0, 0, 20, 35),
+  buildings: [rect(4, 2, 12, 10)],
+  roadPoint: { x: 10, y: -5 },
+  burdens: [rect(0, 20, 20, 8)],        // a right of way clean across the back yard
+  burdenLabels: [{ kind: "Easement", appellation: "Area C DP 498181" }],
+});
+const smallShed = { width: 3, length: 4 };
+check("a spot inside the easement is refused", canPlace(withEase.plan, { x: 8, y: 22, ...smallShed }, 0, 0), false);
+check("and clear of it is fine", canPlace(withEase.plan, { x: 8, y: 30, ...smallShed }, 0, 0), true);
+// Tested both ways round: a small shed sitting WHOLLY inside a large easement
+// has no corner anywhere near its edge.
+check("a footprint swallowed by a large easement is still refused",
+  canPlace(withEase.plan, { x: 9, y: 23, width: 2, length: 2 }, 0, 0), false);
+// Setbacks are for boundaries and buildings. The burden's own edge is where it
+// stops — there is no yard requirement around an easement.
+ok("the burden is drawn with what it is", withEase.plan.burdens[0].kind === "Easement");
+ok("and its appellation, for the solicitor", withEase.plan.burdens[0].appellation === "Area C DP 498181");
+ok("burdened ground is measured", withEase.burdenedAreaSqm > 0);
+// The same section with nothing registered keeps that ground.
+const noEase = readSiteLayout({ parcel: rect(0, 0, 20, 35), buildings: [rect(4, 2, 12, 10)], roadPoint: { x: 10, y: -5 } });
+ok("an easement costs real buildable area", withEase.clearAreaSqm < noEase.clearAreaSqm);
+check("no burdens means none drawn", noEase.plan.burdens.length, 0);
+
 console.log("\nevery structure gets somewhere sensible to start");
 for (const b of BUILDABLE) {
   const size = footprintFor(b, b.defaultSqm);

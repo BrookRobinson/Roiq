@@ -284,6 +284,21 @@ export function AddStructure({
 
         <path d={ring(plan.parcel)} fill={tiles ? "none" : "var(--good-wash)"} stroke="var(--text-primary)" strokeWidth={0.9} />
 
+        {/* REGISTERED BURDENS. Drawn under the buildings and over the imagery,
+            hatched so they read as a restriction rather than a structure. The
+            drag refuses to cross them — you cannot build over a right of way. */}
+        {(plan.burdens ?? []).map((b, i) => (
+          <path
+            key={`burden-${i}`}
+            d={ring(b.ring)}
+            fill="var(--warn)"
+            fillOpacity={0.22}
+            stroke="var(--warn)"
+            strokeWidth={0.7}
+            strokeDasharray="2 1.5"
+          />
+        ))}
+
         {/* What's already there — outlined, not filled, so the imagery shows through. */}
         {plan.buildings.map((b, i) => (
           <path key={i} d={ring(b)} fill="var(--text-primary)" fillOpacity={tiles ? 0.18 : 0.4} stroke="var(--text-primary)" strokeWidth={0.5} strokeDasharray="1.5 1" />
@@ -337,6 +352,19 @@ export function AddStructure({
       </svg>
 
       {/* What the rules say about this one. */}
+      {(plan.burdens ?? []).length > 0 && (
+        <p className="text-[11px] mt-2 rounded-lg p-2.5" style={{ background: "var(--warn-wash)", border: "1px solid var(--warn-wash)", color: "var(--text-secondary)" }}>
+          <strong style={{ color: "var(--text-primary)" }}>
+            {plan.burdens.length === 1 ? "One registered area" : `${plan.burdens.length} registered areas`} on this section
+            can&apos;t be built on
+          </strong>{" "}
+          — {plan.burdens.map((b) => `${b.kind.toLowerCase()}${b.appellation ? ` (${b.appellation})` : ""}`).join(", ")}. The
+          footprint won&apos;t cross them. We can see WHERE they run but not what they permit, so give those references to your
+          solicitor. And an absence of shading is not an all-clear: many easements are described in words on the title with no
+          surveyed extent at all.
+        </p>
+      )}
+
       <p className="text-[11px] mt-2" style={{ color: "var(--text-secondary)" }}>
         {regimeNote(regime, sqm)}{" "}
         {boundary > 0

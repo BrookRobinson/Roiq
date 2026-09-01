@@ -957,6 +957,27 @@ falls back to Mapbox, and it PROXIES both so a server key never reaches a
 browser. Attribution follows the source actually served — crediting LINZ for a
 Mapbox photograph is a licensing problem, not a wording one.
 
+**Surveyed easements are drawn, and they BLOCK the drag.** LINZ publishes
+**784,660 easement polygons and 78,296 land-covenant ones** in `NZ Non-Primary
+Parcels` (50782) — real geometry, not just the instrument record the title gives
+us. You cannot build over a right of way or a drainage easement, so a burden
+comes OUT of the buildable ground and `canPlace()` refuses to cross it: a
+footprint that can be dropped on somebody's registered right of access is a plan
+taken to a builder before anyone notices.
+
+**Overlap, not bounding box.** A bbox round a suburban section catches the whole
+subdivision's right-of-way network — 540 Wairakei Road came back with twenty
+that way, and 565 Wairakei's "easement" turned out to be the neighbour's. A
+polygon counts only when one of its corners is inside the parcel or it swallows
+one of the parcel's. No setback is applied round a burden either: its own edge is
+where it stops.
+
+**And an absence of shading is NOT an all-clear.** Easements in gross, some
+service easements and older ones are described in words on the title with no
+surveyed extent at all. The copy says so, the same way the unpublished-register
+case does. The polygon shows WHERE it runs and still can't say what it permits —
+so the appellation ("Area C DP 498181") is printed for the solicitor.
+
 **Development potential is MEASURED off the parcel, not subtracted from it.** It
 used to be land area minus the house footprint, which writes the same sentence
 on every large section and is wrong about many of them: it cannot tell a house
