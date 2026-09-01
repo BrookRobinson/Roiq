@@ -13,15 +13,14 @@ import {
   Camera, Landmark, Map as MapIcon, FileText, ScrollText, Activity, TrendingUp, MapPin,
   GraduationCap, Lightbulb, Wrench, ArrowRight, ChevronRight, CheckCircle2, ShieldCheck, Lock, FileSearch,
 } from "lucide-react";
+import { alpha } from "@/lib/ui/color";
 
 const accent = { green: "var(--good)", amber: "var(--warn)", red: "var(--bad)", muted: "var(--text-muted)" } as const;
 
-// The accents above are CSS VARIABLES, so the wash(color) / `${color}40` trick
-// that appends an alpha to a hex silently produced `var(--good)1a` — invalid,
-// and therefore transparent. The score badges have never had their wash or
-// their border; it only became obvious once a bar had to sit inside one.
-const wash = (c: string) => `color-mix(in srgb, ${c} 10%, transparent)`;
-const edge = (c: string) => `color-mix(in srgb, ${c} 26%, transparent)`;
+// The accents above are CSS VARIABLES — see lib/ui/color.ts for why appending a
+// hex alpha to one silently renders nothing.
+const wash = (c: string) => alpha(c, 10);
+const edge = (c: string) => alpha(c, 26);
 
 const SOURCE_ICON: Record<string, React.ElementType> = {
   photo: Camera, council_data: Landmark, linz: MapIcon, title: FileText, lim: ScrollText,

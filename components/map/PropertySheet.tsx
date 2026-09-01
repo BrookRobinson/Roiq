@@ -8,6 +8,7 @@ import { loadReport } from "@/lib/report-store";
 import { useSession } from "@/lib/auth/session";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 import { SAMPLE_ID_PREFIX } from "@/lib/scoring/sample-reports";
+import { alpha } from "@/lib/ui/color";
 
 interface Detail {
   listing: MapListing;
@@ -102,7 +103,7 @@ export function PropertySheet({
                   percentage, nobody has analysed the property, or we analysed it
                   and had nothing to value it against. */}
               {c.pct != null ? (
-                <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-sm font-bold mono" style={{ background: hex, color: "#050d0d", boxShadow: `0 2px 12px ${hex}99` }}>
+                <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-sm font-bold mono" style={{ background: hex, color: "#050d0d", boxShadow: `0 2px 12px ${alpha(hex, 60)}` }}>
                   {pctLabel(c.pct)}
                 </div>
               ) : (
@@ -195,7 +196,7 @@ export function PropertySheet({
                       <Row label={`${PRODUCT_SHORT_NAME} Valuation`} value={money(c.roiqValuation)} />
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm" style={{ color: "var(--text-secondary)" }}>vs Asking Price</span>
-                        <span className="text-sm font-bold mono px-2 py-0.5 rounded-md" style={{ color: hex, background: `${hex}1a` }}>
+                        <span className="text-sm font-bold mono px-2 py-0.5 rounded-md" style={{ color: hex, background: `${alpha(hex, 10)}` }}>
                           {pctLabel(c.valuationGapPct)}
                         </span>
                       </div>

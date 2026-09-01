@@ -19,6 +19,7 @@ import {
   deckRepairCost,
 } from "@/lib/labour-rates";
 import { Camera, ArrowRight, Wrench, Shield } from "lucide-react";
+import { alpha } from "@/lib/ui/color";
 
 const PTS_RED = "var(--bad)", PTS_ORANGE = "var(--warn)", PTS_GREEN = "var(--good)";
 /** Colour for a points read, banded by fraction of the max. Shared with the
@@ -177,8 +178,8 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                     label="Points"
                     value={`${pts.earned}/${pts.max}`}
                     color={color}
-                    bg={`${color}1f`}
-                    border={`${color}55`}
+                    bg={`${alpha(color, 12)}`}
+                    border={`${alpha(color, 33)}`}
                     title="Points earned toward the score — the spec tier sets the band (its max), and condition positions the item within it."
                     tier={item.confidenceTier}
                   />
@@ -187,8 +188,8 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                     label="Condition"
                     value={item.score !== null ? `${item.score}/10` : "N/A"}
                     color={conditionScoreColor(item.score)}
-                    bg={`${conditionScoreColor(item.score)}1f`}
-                    border={`${conditionScoreColor(item.score)}55`}
+                    bg={`${alpha(conditionScoreColor(item.score), 12)}`}
+                    border={`${alpha(conditionScoreColor(item.score), 33)}`}
                     title="Condition — how worn or new the item is (1–10)."
                     tier={item.confidenceTier}
                   />

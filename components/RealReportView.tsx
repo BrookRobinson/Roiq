@@ -69,6 +69,7 @@ import Link from "next/link";
 import { useSession } from "@/lib/auth/session";
 import { BlurredValue, UpgradeNote, LockedTab } from "@/components/report/Locked";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
+import { alpha } from "@/lib/ui/color";
 
 type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "viewing" | "negotiation" | "methodology";
 
@@ -1156,13 +1157,13 @@ function InvestorRatingPanel({
   const rating = gross >= 6.5 ? { label: "Strong", c: "var(--good)" } : gross >= 4.5 ? { label: "Moderate", c: "var(--warn)" } : { label: "Modest", c: "var(--bad)" };
 
   return (
-    <div className="card p-5" style={{ border: `1px solid ${rating.c}33` }}>
+    <div className="card p-5" style={{ border: `1px solid ${alpha(rating.c, 20)}` }}>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Percent size={16} style={{ color: rating.c }} />
           <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>Investor rating</h3>
         </div>
-        <span className="text-sm font-bold px-2.5 py-1 rounded-full" style={{ background: `${rating.c}1a`, color: rating.c }}>{rating.label} yield</span>
+        <span className="text-sm font-bold px-2.5 py-1 rounded-full" style={{ background: `${alpha(rating.c, 10)}`, color: rating.c }}>{rating.label} yield</span>
       </div>
 
       {strong && lowCondition && (
@@ -2107,7 +2108,7 @@ function BudgetPlanCard({ lines, price, persona }: { lines: RenoLine[]; price: n
                       {l.category && (
                         <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface)", color: "var(--text-muted)" }}>{l.category}</span>
                       )}
-                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ background: `${meta.color}1a`, color: meta.color, border: `1px solid ${meta.color}40` }}>{meta.label}</span>
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ background: `${alpha(meta.color, 10)}`, color: meta.color, border: `1px solid ${alpha(meta.color, 25)}` }}>{meta.label}</span>
                     </div>
                     {/* What's actually visible in THIS property leads — a generic
                         "replace failed sheets" tells the buyer nothing about their house. */}
@@ -2408,7 +2409,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
   const VC = verdict === "over" ? "var(--bad)" : verdict === "under" ? "var(--good)" : "var(--warn)";
 
   return (
-    <div className="card p-5" style={{ border: `1px solid ${VC}55` }}>
+    <div className="card p-5" style={{ border: `1px solid ${alpha(VC, 33)}` }}>
       <div className="text-[11px] uppercase tracking-widest mb-3" style={{ color: "var(--brand)" }}>{PRODUCT_SHORT_NAME} Value Verdict</div>
 
       <div className="space-y-1.5 text-sm">
@@ -2425,7 +2426,7 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
         <div className="flex items-center justify-between pt-2"><span style={{ color: "var(--text-secondary)" }}>Asking price</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(asking)}</span></div>
       </div>
 
-      <div className="mt-4 rounded-lg p-3" style={{ background: `${VC}14`, border: `1px solid ${VC}40` }}>
+      <div className="mt-4 rounded-lg p-3" style={{ background: `${alpha(VC, 8)}`, border: `1px solid ${alpha(VC, 25)}` }}>
         {verdict === "over" && <div className="font-bold text-sm" style={{ color: VC }}>⚠️ OVERVALUED by ~{fmt(Math.abs(diff))}</div>}
         {verdict === "under" && <div className="font-bold text-sm" style={{ color: VC }}>✅ UNDERVALUED by ~{fmt(diff)}</div>}
         {verdict === "fair" && <div className="font-bold text-sm" style={{ color: VC }}>⚖️ FAIRLY PRICED — within the estimate range</div>}
@@ -2608,7 +2609,7 @@ function ByComparables({ asking, floorAreaSqm, suburbValue, propertyType, titleT
   const fmt = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 
   return (
-    <div className="card p-5" style={{ border: `1px solid ${VC}55` }}>
+    <div className="card p-5" style={{ border: `1px solid ${alpha(VC, 33)}` }}>
       <div className="text-[11px] uppercase tracking-widest mb-3" style={{ color: "var(--brand)" }}>{PRODUCT_SHORT_NAME} Value Verdict</div>
       <div className="space-y-1.5 text-sm">
         <div className="flex items-center justify-between">
@@ -2619,7 +2620,7 @@ function ByComparables({ asking, floorAreaSqm, suburbValue, propertyType, titleT
         <div className="flex items-center justify-between pt-2"><span style={{ color: "var(--text-secondary)" }}>Asking price</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(asking)}</span></div>
       </div>
 
-      <div className="mt-4 rounded-lg p-3" style={{ background: `${VC}14`, border: `1px solid ${VC}40` }}>
+      <div className="mt-4 rounded-lg p-3" style={{ background: `${alpha(VC, 8)}`, border: `1px solid ${alpha(VC, 25)}` }}>
         <div className="font-bold text-sm" style={{ color: VC }}>
           {verdict === "over" ? `Above the range by ~${fmt(Math.abs(diff))}` : verdict === "under" ? `Below the range by ~${fmt(diff)}` : "Inside the estimated range"}
         </div>
@@ -3008,7 +3009,7 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
                   <p className="text-xs mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>{r.requirement}</p>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
-                  <span className="inline-flex flex-col items-center rounded-lg" style={{ background: `${c}1f`, border: `1px solid ${c}55`, padding: "2px 10px", minWidth: 64 }}>
+                  <span className="inline-flex flex-col items-center rounded-lg" style={{ background: `${alpha(c, 12)}`, border: `1px solid ${alpha(c, 33)}`, padding: "2px 10px", minWidth: 64 }}>
                     <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>Points</span>
                     <span className="font-bold tabular-nums" style={{ color: c, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>
                       {r.assessed ? `${r.earned}/${r.maxPoints}` : `—/${r.maxPoints}`}

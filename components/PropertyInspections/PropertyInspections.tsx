@@ -15,6 +15,7 @@ import {
 } from "@/lib/scoring/land-quality";
 import { InspectionCard } from "./InspectionCard";
 import { ChevronRight, Info, Home, Check, AlertTriangle } from "lucide-react";
+import { alpha } from "@/lib/ui/color";
 
 const fmtNZD = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 
@@ -38,7 +39,7 @@ function DevelopmentPotentialCard({ dev, persona, onAddStructure, addedStructure
           <Home size={16} style={{ color: "var(--brand)" }} />
           <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Add a structure — what this section will take</h3>
         </div>
-        <span className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: `${c}1f`, color: c, border: `1px solid ${c}55` }}>{meta.short}</span>
+        <span className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: `${alpha(c, 12)}`, color: c, border: `1px solid ${alpha(c, 33)}` }}>{meta.short}</span>
       </div>
 
       <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">

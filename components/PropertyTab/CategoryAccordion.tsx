@@ -9,6 +9,7 @@ import { ConditionScore, conditionScoreColor } from "./ConditionScore";
 import { improvementItemPoints } from "@/lib/scoring/engine";
 import type { Persona } from "@/lib/scoring/model";
 import type { RenoControls } from "@/lib/property-tab/types";
+import { alpha } from "@/lib/ui/color";
 
 interface Props {
   category: Category;
@@ -94,8 +95,8 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
             <span
               className="inline-flex items-baseline gap-1 rounded-lg font-bold tabular-nums"
               style={{
-                background: `${catColor}1f`,
-                border: `1px solid ${catColor}55`,
+                background: `${alpha(catColor, 12)}`,
+                border: `1px solid ${alpha(catColor, 33)}`,
                 color: catColor,
                 fontFamily: "Fira Code, monospace",
                 padding: "3px 10px",

@@ -11,6 +11,7 @@ import { ExtraDwellingCard } from "./ExtraDwellingCard";
 import { buildEraFlags } from "@/lib/scoring/build-era";
 import { Home, AlertTriangle, Info, ArrowRight } from "lucide-react";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { alpha } from "@/lib/ui/color";
 
 interface Props {
   data: PropertyTabData;
@@ -82,7 +83,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
             <div
               key={s.label}
               className="rounded-xl p-3 text-center"
-              style={{ background: s.bg, border: `1px solid ${s.color}22` }}
+              style={{ background: s.bg, border: `1px solid ${alpha(s.color, 13)}` }}
             >
               <div className="text-2xl font-bold mono" style={{ color: s.color }}>{s.count}</div>
               <div className="text-xs font-medium mt-0.5" style={{ color: "var(--text-secondary)" }}>

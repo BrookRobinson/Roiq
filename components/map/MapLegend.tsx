@@ -1,6 +1,7 @@
 "use client";
 
 import type { MapMode } from "@/lib/map/types";
+import { alpha } from "@/lib/ui/color";
 
 // One line — the three deal colours, plus grey for listings the nightly crawl
 // found but nobody has analysed. Grey carries no percentage because there is no
@@ -32,7 +33,7 @@ export function MapLegend({ mode, seeded }: { mode: MapMode; seeded?: boolean })
     >
       {ITEMS[mode].map(([c, pct, label]) => (
         <div key={label} className="flex items-center gap-1.5 whitespace-nowrap">
-          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: c, boxShadow: `0 0 8px ${c}88` }} />
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: c, boxShadow: `0 0 8px ${alpha(c, 53)}` }} />
           {pct && <span className="text-xs font-bold mono" style={{ color: c }}>{pct}</span>}
           <span className="text-xs" style={{ color: "var(--text-secondary)" }}>{label}</span>
         </div>

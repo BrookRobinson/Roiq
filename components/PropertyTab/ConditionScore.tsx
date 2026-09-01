@@ -1,6 +1,7 @@
 "use client";
 
 import type { UrgencyScore } from "@/lib/property-tab/types";
+import { alpha } from "@/lib/ui/color";
 
 // Condition score badge for the Improvements tab — JUST the number + colour, no
 // words (no "Fair / Average / Good", no "plan replacement within X years").
@@ -40,8 +41,8 @@ export function ConditionScore({ score, size = "md" }: { score: UrgencyScore | n
     <span
       className="inline-flex items-center rounded-lg font-bold tabular-nums"
       style={{
-        background: `${c}1f`,
-        border: `1px solid ${c}55`,
+        background: `${alpha(c, 12)}`,
+        border: `1px solid ${alpha(c, 33)}`,
         color: c,
         fontFamily: "Fira Code, monospace",
         padding: pad,

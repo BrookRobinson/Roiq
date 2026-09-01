@@ -893,12 +893,15 @@ chart makes without a scale behind every column. Tier 3 is drawn at ~32% rather
 than empty — the item was still reasoned about, and an empty track would read as
 "no answer" rather than "an answer we can't stand behind".
 
-**The badge's coloured wash had never actually rendered**, which only became
-visible once a bar had to sit inside the box. The accents are CSS VARIABLES, so
-the `${color}1a` / `${color}40` trick that appends an alpha to a hex produced
-`var(--good)1a` — invalid, and therefore silently transparent. `wash()` / `edge()`
-in `InspectionCard` use `color-mix` instead. Anywhere else that appends an alpha
-to one of these accents has the same bug.
+**Never append a hex alpha to a colour — use `alpha()` from `lib/ui/color.ts`.**
+`${color}1f` is only valid when `color` is a hex, and most of our accents are CSS
+VARIABLES, so it produced `var(--good)1f`: not a colour, so the declaration is
+DROPPED and the element renders with no background at all. It fails silently and
+looks deliberate. The report's score badges, points bubbles, category pills and
+priority-repair chips had all been rendering with no wash and no border for as
+long as they had used variables, and nobody spotted it until something had to sit
+inside one. 25 sites across 9 components were affected. `alpha()` uses
+`color-mix`, which takes a hex or a variable, so it is safe either way.
 
 **Red means low CONFIDENCE, never bad condition** — which is why the bar is
 OUTSIDE the score badge on the Land tab. It was inside for a while, and the
