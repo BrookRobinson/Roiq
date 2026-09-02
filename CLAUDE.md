@@ -78,6 +78,16 @@ vendor's agent.
 - **`<input type="number">` eats the mouse wheel.** Every one of them takes
   `onWheel={blurOnWheel}` (`lib/ui/number-input.ts`), or scrolling the page
   silently edits the user's numbers.
+- **A number input bound straight to a number cannot be cleared.** Deleting the
+  contents runs `Number("") || 0`, which puts a **0** back in the box — so the
+  next keystroke lands after it and you are typing `$0700000`. An empty box has
+  to be allowed to BE empty, and a number cannot represent empty; only a string
+  can. `MoneyInput` / `NumInput` in `RealReportView` hold a **draft string**
+  while the field has focus and fall back to the committed number on blur, which
+  also normalises a trailing "." or a stray "007". They strip a leading zero
+  that sits in front of a real digit, because a field already showing 0 does the
+  same thing to the first keystroke. Use them rather than a raw `<input
+  type="number">` with `value={someNumber}`.
 
 ## Where things live
 
