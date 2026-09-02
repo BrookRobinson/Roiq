@@ -2673,9 +2673,25 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   const price = listing.askingPrice ?? 0;
   const floorSqm = listing.floorAreaSqm ?? 0;
   const growthPct = capitalGrowth?.annualRatePct ?? 5;
-  const rentDefault = marketRent?.weekly ?? Math.round((price * 0.04) / 52);
 
-  const [inp, setInp] = useState<FinanceInputs>(() => defaultInputs({ persona, price, floorSqm, holdYears, renoCost: renoTotal, weeklyRent: rentDefault, growthPct, buildYear: listing.buildYear }));
+  // OUR OWN VALUATION IS A PRICE. On a "By Negotiation" listing the whole tab
+  // used to sit behind "Enter a purchase price above to run the calculator" —
+  // on a report that had already worked out what the property is worth and
+  // printed it two tabs over. Refusing to compute anything while holding the
+  // number needed to compute it is the app declining to do its job.
+  //
+  // It is the SEED for the price box, and nothing more. It used to be forced
+  // into the calculator on every render instead, which meant the reader could
+  // type their own purchase price, watch the box accept it, and get the same
+  // walk-away figure back — every number on the tab was still being computed
+  // from the asking price. A control that visibly takes an input and silently
+  // ignores it is worse than one that is disabled.
+  const modelled = !price && propertyValue?.total ? propertyValue.total : null;
+  const seedPrice = price || modelled || 0;
+
+  const rentDefault = marketRent?.weekly ?? Math.round((seedPrice * 0.04) / 52);
+
+  const [inp, setInp] = useState<FinanceInputs>(() => defaultInputs({ persona, price: seedPrice, floorSqm, holdYears, renoCost: renoTotal, weeklyRent: rentDefault, growthPct, buildYear: listing.buildYear }));
   const [rateLoading, setRateLoading] = useState(false);
   const [rateInfo, setRateInfo] = useState<{ source: string; retrievedAt: string; lender: string; options: { label: string; ratePct: number }[] } | null>(null);
   const [rateErr, setRateErr] = useState<string | null>(null);
@@ -2685,23 +2701,23 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
     setInp((p) => ({ ...p, depositPct: persona === "investor" ? FINANCE_DEFAULTS.depositPctInvestor : FINANCE_DEFAULTS.depositPctBuyer, loanType: persona === "investor" ? "io" : "pi" }));
   }, [persona]);
 
-  // OUR OWN VALUATION IS A PRICE. On a "By Negotiation" listing the whole tab
-  // used to sit behind "Enter a purchase price above to run the calculator" —
-  // on a report that had already worked out what the property is worth and
-  // printed it two tabs over. Refusing to compute anything while holding the
-  // number needed to compute it is the app declining to do its job.
-  //
-  // The reader can still type over it, and the panel says plainly which figure
-  // is being used, because running someone's mortgage off our estimate without
-  // saying so would be worse than the blank page.
-  const modelled = !price && propertyValue?.total ? propertyValue.total : null;
-  const effectivePrice = price || modelled || 0;
+  // The modelled valuation can arrive AFTER this mounts — it is computed from
+  // the site geometry, which is fetched. Seed the price box when it lands, but
+  // only while the box is still empty: overwriting a figure the reader typed
+  // because a request came back late is the same bug in the other direction.
+  // Returning the state object unchanged when there is nothing to do keeps this
+  // from re-rendering on every seed change.
+  useEffect(() => {
+    setInp((p) => (p.price === 0 && seedPrice > 0 ? { ...p, price: seedPrice } : p));
+  }, [seedPrice]);
 
-  if (!effectivePrice) {
+  if (!seedPrice) {
     return <div className="card p-6 text-sm" style={{ color: "var(--text-secondary)" }}>Enter a purchase price above to run the calculator{listing.priceText ? ` — the listing says “${listing.priceText}”` : ""}.</div>;
   }
 
-  const inputs: FinanceInputs = { ...inp, persona, holdYears, renoCost: renoTotal, price: effectivePrice };
+  // `inp.price` and nothing else. Deposit, loan, repayments, maintenance, the
+  // projected sale value and therefore the walk-away all fall out of it.
+  const inputs: FinanceInputs = { ...inp, persona, holdYears, renoCost: renoTotal };
   const s = summarise(inputs);
   const set = (patch: Partial<FinanceInputs>) => setInp((p) => ({ ...p, ...patch }));
   const setCost = (k: PurchaseCostKey, v: number) => setInp((p) => ({ ...p, purchaseCosts: { ...p.purchaseCosts, [k]: v } }));

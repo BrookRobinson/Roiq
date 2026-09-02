@@ -1368,6 +1368,25 @@ and the headline is a **land + title score against its own total**, never out of
 would otherwise print a number that sits next to a house's and invites a
 comparison that means nothing.
 
+**The Financial tab's price box governs the maths, and for a while it did not.**
+`summarise()` was called with `price: effectivePrice` spread in AFTER `...inp`,
+so the reader's own purchase price was overwritten by the listing's asking price
+on every render. The box accepted what you typed and displayed it; deposit, loan,
+repayments, maintenance, the projected sale value and the walk-away figure all
+carried on being computed from the asking price. **A control that visibly takes
+an input and silently ignores it is worse than one that is disabled** — a buyer
+modelling an offer $400k below asking got the asking-price answer back and no
+sign anything was wrong.
+
+Our own valuation is still the SEED for that box on a "By Negotiation" listing —
+that part was right, and refusing to compute while holding the number needed to
+compute is the app declining to do its job. It is a seed and nothing more.
+`seedPrice` also has to be applied in an effect, because `propertyValue` is
+derived from the site geometry and that is FETCHED: it can land after the tab
+mounts. The effect fills the box only while it is still empty, since overwriting
+a figure somebody typed because a request came back late is the same bug facing
+the other way.
+
 **A bare section has no rent, no yield and no cash flow — and the report must
 not compute one.** The Financial tab was printing "+$24/wk net cash flow" and
 "8.5% gross yield" against an empty 5,002m² paddock, off the suburb's HOUSE
