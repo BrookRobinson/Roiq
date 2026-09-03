@@ -1067,13 +1067,26 @@ module's retention factors for the same reason: cost is not value.
 
 **The imagery needs its own key, and the LINZ data key is NOT it.** LINZ
 Basemaps is much better imagery for NZ (5–10cm urban against Mapbox's ~50cm) and
-free under CC BY, but `basemaps.linz.govt.nz` wants a key registered separately —
-the data key returns **"API Key Invalid: malformed"**, and it took a *cached*
-tile to notice, because some tiles also serve anonymously and looked like the key
-working. `app/api/tiles/aerial` tries LINZ where `LINZ_BASEMAP_KEY` is set and
-falls back to Mapbox, and it PROXIES both so a server key never reaches a
-browser. Attribution follows the source actually served — crediting LINZ for a
-Mapbox photograph is a licensing problem, not a wording one.
+free under CC BY. `LINZ_BASEMAP_KEY` is registered separately at
+basemaps.linz.govt.nz and is now set; `app/api/tiles/aerial` prefers LINZ and
+falls back to Mapbox, and PROXIES both so a server key never reaches a browser.
+
+**You cannot verify that key from a tile response, and the old note here was
+wrong about how.** It said the Data Service key comes back "API Key Invalid:
+malformed". Measured against a real Hokitika tile (18/255566/165537), **no key,
+a bogus key, a one-character key and the Data Service key all return the
+identical 15,708-byte image** — the aerial layer serves anonymously and validates
+nothing. A 200 with a picture in it proves only that LINZ is up. Worse, an
+out-of-coverage z/x/y returns a **190-byte blank WebP with a 200**, which is what
+made a wrong tile look like a wrong key the first time round.
+
+The check that actually means something is whether OUR route's bytes match a
+direct LINZ fetch of the same tile. If they differ, the route is quietly serving
+Mapbox. That is the real effect of the key: not access, but which of the two
+sources the imagery comes from — and therefore **who has to be credited.**
+Attribution follows the source actually served; crediting LINZ for a Mapbox
+photograph is a licensing problem, not a wording one. The route does not yet tell
+the client which source answered, so the caption still names both.
 
 **Surveyed easements are drawn, and they BLOCK the drag.** LINZ publishes
 **784,660 easement polygons and 78,296 land-covenant ones** in `NZ Non-Primary
