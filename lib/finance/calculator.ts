@@ -93,6 +93,19 @@ export interface FinanceInputs {
    * by $50k to the dollar.
    */
   renoUplift: number;
+  /**
+   * Work that falls due LATER in the hold, not at settlement.
+   *
+   * Once the plan started following the hold slider, the renovation figure went
+   * from $3,859 to $195,729 on a ten-year hold — and all of it landed in "Total
+   * money needed to buy", which then read $430,029. A roof you replace in year
+   * seven is not money you need on settlement day, and putting it there
+   * overstates the deposit somebody has to find by the price of a roof.
+   *
+   * It is still real money and still comes off the walk-away; it just belongs in
+   * the cost of OWNING the place rather than the cost of buying it.
+   */
+  renoDeferred: number;
   interestRatePct: number;
   loanTermYears: number;
   loanType: LoanType;
@@ -141,6 +154,7 @@ export interface FinanceSummary {
   // sale
   projectedValue: number;
   renoUplift: number;
+  renoDeferred: number;
   remainingLoan: number;
   agentFees: number;
   saleLegal: number;
@@ -166,6 +180,7 @@ export function summarise(i: FinanceInputs): FinanceSummary {
 
   const keys: PurchaseCostKey[] = ["legal", "lim", "inspection", "loanFee", "valuation"];
   const purchaseCostsTotal = keys.reduce((s, k) => s + (i.purchaseCostsEnabled[k] === false ? 0 : i.purchaseCosts[k] || 0), 0);
+  // Settlement cash only — deferred work is a holding cost, counted below.
   const totalCashIn = deposit + purchaseCostsTotal + (i.renoCost || 0);
 
   const monthly = monthlyRepayment(loan, i.interestRatePct, i.loanTermYears, i.loanType);
@@ -188,7 +203,7 @@ export function summarise(i: FinanceInputs): FinanceSummary {
   const netAnnualRent = grossAnnualRent - vacancyLoss - mgmtFee;
   const netWeeklyRent = netAnnualRent / 52;
   const netWeeklyCashflow = netWeeklyRent - weekly - weeklyOngoing;
-  const totalInvestment = price + purchaseCostsTotal + (i.renoCost || 0);
+  const totalInvestment = price + purchaseCostsTotal + (i.renoCost || 0) + (i.renoDeferred || 0);
   const grossYieldPct = price > 0 ? (grossAnnualRent / price) * 100 : 0;
   const netYieldPct = totalInvestment > 0 ? (netAnnualRent / totalInvestment) * 100 : 0;
   const isInvestor = i.persona === "investor";
@@ -219,7 +234,9 @@ export function summarise(i: FinanceInputs): FinanceSummary {
   // final answer — full-cashflow model (principal paydown is captured in net sale
   // proceeds, so subtracting full repayments here is correct double-entry).
   const totalOngoingOverHold = Math.round(annualOngoing * i.holdYears + totalRepayments);
-  const netCostOfOwnership = Math.round(totalOngoingOverHold - rentalIncomeOverHold);
+  // Deferred renovation is money spent while you own it, so it sits here
+  // rather than in the deposit. The walk-away subtracts both either way.
+  const netCostOfOwnership = Math.round(totalOngoingOverHold - rentalIncomeOverHold + (i.renoDeferred || 0));
   const walkAway = Math.round(netSaleProceeds - totalCashIn - netCostOfOwnership);
   const returnOnCashPct = totalCashIn > 0 ? (walkAway / totalCashIn) * 100 : 0;
   const totalReturnRatio = totalCashIn > 0 ? (walkAway + totalCashIn) / totalCashIn : 1;
@@ -236,7 +253,7 @@ export function summarise(i: FinanceInputs): FinanceSummary {
     grossAnnualRent: Math.round(grossAnnualRent), vacancyLoss: Math.round(vacancyLoss), mgmtFee: Math.round(mgmtFee),
     netAnnualRent: Math.round(netAnnualRent), netWeeklyRent: Math.round(netWeeklyRent), netWeeklyCashflow: Math.round(netWeeklyCashflow),
     grossYieldPct, netYieldPct, totalInvestment, rentalIncomeOverHold,
-    projectedValue, renoUplift: i.renoUplift || 0, remainingLoan, agentFees, saleLegal, netSaleProceeds,
+    projectedValue, renoUplift: i.renoUplift || 0, renoDeferred: i.renoDeferred || 0, remainingLoan, agentFees, saleLegal, netSaleProceeds,
     projection, brightLineApplies, interestDeductSaving,
     totalOngoingOverHold, netCostOfOwnership, walkAway, returnOnCashPct, annualReturnPct, termDepositValue,
   };
@@ -266,7 +283,8 @@ export function defaultInputs(args: {
     holdYears: args.holdYears,
     depositPct: args.persona === "investor" ? FINANCE_DEFAULTS.depositPctInvestor : FINANCE_DEFAULTS.depositPctBuyer,
     renoCost: args.renoCost,
-    renoUplift: 0, // set per render from the ticked reno lines
+    renoUplift: 0,   // set per render from the ticked reno lines
+    renoDeferred: 0,
     interestRatePct: args.interestRatePct ?? FINANCE_DEFAULTS.interestRatePct,
     loanTermYears: FINANCE_DEFAULTS.loanTermYears,
     loanType: args.persona === "investor" ? "io" : "pi",

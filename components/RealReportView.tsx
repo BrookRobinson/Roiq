@@ -181,10 +181,37 @@ const lineCost = (l: { costing?: ThreeTierCost; low: number; high: number }, t?:
 };
 
 /** Is a reno line in the plan? Explicit toggle wins; otherwise its auto default. */
+/**
+ * Is this line in the plan?
+ *
+ * An explicit tick or untick ALWAYS wins — this only sets the default.
+ *
+ * The default now includes anything that falls due inside the hold period, and
+ * that is the fix for a figure which used to be completely deaf to the slider:
+ * the demo's renovation total read $3,859 at a three-year hold and $3,859 at a
+ * fifteen-year one, with a 4/10 roof and an $18,000–$28,000 range sitting
+ * outside the plan at every setting. Work that reaches end of life while you own
+ * the house is money you will spend, whether or not anybody ticked a box —
+ * and if you don't spend it you sell a house with a dead roof, which costs you
+ * at the other end instead. Either way it belongs in the walk-away.
+ *
+ * `autoInclude` stays for what is urgent or legally required NOW, since that is
+ * true at any hold length.
+ */
 const renoIncluded = (
   l: { key: string; autoInclude: boolean },
-  toggles: Record<string, RenoToggle>
-): boolean => toggles[l.key]?.included ?? l.autoInclude;
+  toggles: Record<string, RenoToggle>,
+  dueWithinHold = false
+): boolean => toggles[l.key]?.included ?? (l.autoInclude || dueWithinHold);
+
+/**
+ * Work due within about a year is money you find at settlement; anything later
+ * you pay for out of income while you own the place. The split matters because
+ * "Total money needed to buy" is a real question with a real answer, and once
+ * the plan started following the hold slider it was answering it with the price
+ * of a roof due in year seven.
+ */
+export const UPFRONT_RENO_YEARS = 1;
 
 /** Total of the in-plan reno lines that fall within the hold period. */
 function selectedRenoCost(
@@ -194,7 +221,8 @@ function selectedRenoCost(
 ): number {
   return lines
     .filter((l) => withinHold(l.urgencyYears))
-    .filter((l) => renoIncluded(l, toggles))
+    // `true`: everything past that filter is due inside the hold by definition.
+    .filter((l) => renoIncluded(l, toggles, true))
     .reduce((sum, l) => sum + lineCost(l, toggles[l.key]), 0);
 }
 
@@ -220,7 +248,7 @@ function selectedRenoUplift(
 ): number {
   return lines
     .filter((l) => withinHold(l.urgencyYears))
-    .filter((l) => renoIncluded(l, toggles))
+    .filter((l) => renoIncluded(l, toggles, true))
     .filter((l) => (toggles[l.key]?.tier ?? "budget") !== "patch")
     .reduce((sum, l) => sum + (l.valueGap ?? 0), 0);
 }
@@ -713,6 +741,11 @@ export function RealReportView({
     const byId = new Map(renoLines.filter((l) => !l.key.endsWith("_rem")).map((l) => [l.key, l]));
     return {
       has: (id) => byId.has(id),
+      // Deliberately NOT hold-aware: this is built above HoldPeriodProvider, so
+      // the hold isn't readable here. It only serves the Healthy Homes and
+      // extra-dwelling compliance controls, whose items are legally required and
+      // therefore `autoInclude` at any hold length — so nothing it answers for
+      // can disagree with the plan.
       included: (id) => {
         const l = byId.get(id);
         return l ? renoIncluded(l, renoToggles) : false;
@@ -2207,7 +2240,9 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   // meant nor add it after checking. Shown and unticked, it costs nothing, states
   // that it is derived from the build era rather than observed, and says what to
   // go and look for.
-  const selected = items.filter((l) => renoIncluded(l, renoToggles) || l.inferred);
+  // Same rule as the money: due inside the hold means in the plan by default,
+  // or the ticked boxes and the total would tell different stories.
+  const selected = items.filter((l) => renoIncluded(l, renoToggles, withinHold(l.urgencyYears)) || l.inferred);
   const upliftTotal = persona === "investor" ? selected.reduce((sum, l) => sum + l.uplift, 0) : 0;
   const price = listing.askingPrice ?? 0;
 
@@ -2288,7 +2323,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
       )}
       {selected.map((l) => {
         const t = renoToggles[l.key];
-        const included = renoIncluded(l, renoToggles);
+        const included = renoIncluded(l, renoToggles, withinHold(l.urgencyYears));
         return (
           <div key={l.key} className="card p-4" style={{ opacity: included ? 1 : 0.8, transition: "opacity 0.15s" }}>
             <div className="flex items-start gap-3">
@@ -2760,7 +2795,10 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   propertyValue?: PropertyValue | null;
 }) {
   const { holdYears, withinHold } = useHoldPeriod();
+  // Everything due inside the hold, split by WHEN you pay for it.
   const renoTotal = selectedRenoCost(renoLines, renoToggles, withinHold);
+  const renoUpfront = selectedRenoCost(renoLines, renoToggles, (y) => y <= UPFRONT_RENO_YEARS);
+  const renoDeferred = Math.max(0, renoTotal - renoUpfront);
   const renoUplift = selectedRenoUplift(renoLines, renoToggles, withinHold);
   const price = listing.askingPrice ?? 0;
   const floorSqm = listing.floorAreaSqm ?? 0;
@@ -2809,7 +2847,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 
   // `inp.price` and nothing else. Deposit, loan, repayments, maintenance, the
   // projected sale value and therefore the walk-away all fall out of it.
-  const inputs: FinanceInputs = { ...inp, persona, holdYears, renoCost: renoTotal, renoUplift };
+  const inputs: FinanceInputs = { ...inp, persona, holdYears, renoCost: renoUpfront, renoDeferred, renoUplift };
   const s = summarise(inputs);
   const set = (patch: Partial<FinanceInputs>) => setInp((p) => ({ ...p, ...patch }));
   const setCost = (k: PurchaseCostKey, v: number) => setInp((p) => ({ ...p, purchaseCosts: { ...p.purchaseCosts, [k]: v } }));
@@ -2853,7 +2891,9 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
             <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Money you put in</div>
             <FinRow label="Deposit" value={fmt(s.deposit)} />
             <FinRow label="Purchase costs" value={fmt(s.purchaseCostsTotal)} />
-            <FinRow label="Renovations" value={fmt(inputs.renoCost)} />
+            {/* Only what you pay at settlement. Work due later is real money
+                but not deposit money, so it appears under holding costs. */}
+            <FinRow label="Renovations (now)" value={fmt(inputs.renoCost)} />
             <FinRow label="Total cash in" value={fmt(s.totalCashIn)} strong />
           </div>
           <div>
@@ -2873,6 +2913,9 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
           <div>
             <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Holding cost ({holdYears} yrs)</div>
             <FinRow label="Mortgage + ongoing" value={fmt(s.totalOngoingOverHold)} />
+            {s.renoDeferred > 0 && (
+              <FinRow label={`Renovations due within ${holdYears} yrs`} value={fmt(s.renoDeferred)} />
+            )}
             {isInvestor && <FinRow label="Less rent received" value={"−" + fmt(s.rentalIncomeOverHold)} />}
             <FinRow label="Net cost of ownership" value={fmt(s.netCostOfOwnership)} strong />
           </div>

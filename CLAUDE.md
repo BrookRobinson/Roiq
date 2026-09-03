@@ -1447,6 +1447,34 @@ mounts. The effect fills the box only while it is still empty, since overwriting
 a figure somebody typed because a request came back late is the same bug facing
 the other way.
 
+**The renovation plan follows the hold slider, and for a long time it didn't.**
+The demo's renovation total read $3,859 at a three-year hold and $3,859 at a
+fifteen-year one — a 4/10 roof with an $18,000–$28,000 range sat outside the plan
+at every setting. `renoIncluded` defaulted to `autoInclude`, which fires only for
+items scoring ≤30% or legally required, so extending the hold made work
+*eligible* without ever costing it. Somebody modelling a fifteen-year hold on a
+1975 house was told it needed $3,859 of work.
+
+**Work that reaches end of life while you own the house is money you will
+spend** — and if you don't spend it you sell a house with a dead roof, which
+costs you at the other end instead. Either way it belongs in the walk-away, so
+due-within-hold is now part of the DEFAULT. An explicit tick or untick still
+wins: this changes what happens when nobody has said anything, never what
+somebody chose.
+
+**Then split it by WHEN you pay.** Making the plan hold-aware pushed the ten-year
+figure to $195,729 and every cent of it landed in "Total money needed to buy",
+which read $430,029 — a roof due in year seven counted as settlement cash. Only
+work due inside `UPFRONT_RENO_YEARS` is deposit money; the rest is
+`renoDeferred`, a holding cost over the period. The walk-away is unchanged by the
+split to the dollar at every hold length, which is the check that it reclassified
+money rather than losing or double-counting it.
+
+`renoControls.included` is deliberately NOT hold-aware — it is built above
+`HoldPeriodProvider` and cannot read the hold. It only answers for Healthy Homes
+and extra-dwelling compliance items, which are legally required and therefore
+`autoInclude` at any hold length, so nothing it says can disagree with the plan.
+
 **Zero is a claim too, and the walk-away figure was making it.** Renovations
 were subtracted from cash in and the projected sale price did not move a cent —
 so spending $50k dropped the ten-year position by exactly $50k. That is not a
