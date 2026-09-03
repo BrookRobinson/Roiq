@@ -2923,12 +2923,21 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
         <div className="text-xs mt-4 pt-3" style={{ borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
           Put {fmt(s.totalCashIn)} in a term deposit at {inp.termDepositRatePct}% for {holdYears} years and you&apos;d have <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(s.termDepositValue)}</span>. This property returns <span className="mono" style={{ color: s.walkAway >= 0 ? "var(--good)" : "var(--bad)" }}>{fmt(s.walkAway)}</span>.
         </div>
+
+        {/* The SAME slider as the one in the report header, not a copy of it.
+            Both read and write `HoldPeriodContext`, so they move together with
+            no syncing to get wrong — and the hold is the single input that moves
+            this figure most, which made scrolling back up to the top of the
+            report to try another number the wrong thing to ask of a reader. */}
+        <div className="mt-4">
+          <HoldPeriodSlider />
+        </div>
       </div>
 
       {/* Section 1 — Purchase details */}
       <FinSection title="Purchase details">
         <FinNum label="Purchase price" value={inp.price} onChange={(v) => set({ price: v })} />
-        <FinRow label="Hold period (set by the slider above)" value={`${holdYears} years`} />
+        <FinRow label="Hold period (set by either slider)" value={`${holdYears} years`} />
         <div className="flex items-center justify-between gap-2 py-1.5 text-sm">
           <span style={{ color: "var(--text-secondary)" }}>Deposit</span>
           <span className="inline-flex items-center gap-1">
@@ -2937,7 +2946,9 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
           </span>
         </div>
         <FinRow label="Loan amount" value={fmt(s.loan)} />
-        <FinRow label="Renovations (from Renovations tab)" value={fmt(inputs.renoCost)} />
+        {/* The upfront share only — this sits under "money needed to BUY", and
+            the rest of the plan is a holding cost, shown as its own line above. */}
+        <FinRow label="Renovations due now (from Renovations tab)" value={fmt(inputs.renoCost)} />
         <FinRow label="Total money needed to buy" value={fmt(s.totalCashIn)} strong />
       </FinSection>
 

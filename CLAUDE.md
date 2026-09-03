@@ -1447,6 +1447,14 @@ mounts. The effect fills the box only while it is still empty, since overwriting
 a figure somebody typed because a request came back late is the same bug facing
 the other way.
 
+**The hold slider appears twice and is ONE control.** `HoldPeriodSlider` reads
+and writes `HoldPeriodContext`, so a second instance at the foot of the walk-away
+card moves with the one in the report header and there is no syncing to get
+wrong. It is there because the hold is the single input that moves that figure
+most — costs, deferred work, the uplift and ten years of compounding all turn on
+it — and asking a reader to scroll back to the top of the report to try another
+number is asking them not to try one.
+
 **The renovation plan follows the hold slider, and for a long time it didn't.**
 The demo's renovation total read $3,859 at a three-year hold and $3,859 at a
 fifteen-year one — a 4/10 roof with an $18,000–$28,000 range sat outside the plan
