@@ -1229,6 +1229,31 @@ longer read "likely", the instrument number is named in the summary and the
 blockers, and the badge SAYS the bonus was withheld rather than letting the
 points quietly vanish.
 
+**No trade rate or material price in this codebase has ever been verified, and
+the code used to claim otherwise.** `lib/labour-rates/index.ts` carried
+`dataSource: "Builderscrack <region>"`, `jobCount: 23` and `confidence: "high"`
+— and the Renovations tab PRINTED it to buyers: *"Builderscrack West Coast — 23
+electrical jobs (last 6 months) · Confidence: high"*, the last word in green.
+
+Every part of that was invented. The supplier name appeared **nowhere else in
+the repository** — no fetch, no scrape, no cached response — the counts were
+sample sizes nobody counted, and the six-month window was never a window. Git
+says why: `labour-rates` arrived in a 61-file bulk snapshot and `materials-db`
+in the commit that added the three-tier feature. No commit anywhere records
+research. `lastUpdated: "June 2026"` is when the FILE was written.
+
+`materials-db.ts` is the same shape — a header claiming *"Sourced from Bunnings
+NZ, Mitre 10, Placemakers"* and 356 `source:` fields naming retailers, with
+nothing that reads a price. `materials-catalogue.ts` builds retailer **search
+URLs**; it links to a search box, it does not read a price off one.
+
+The citations are gone, `confidence` is `ai_estimate` (a word the type already
+had), and the card says plainly that no local rates have been collected. **This
+is the same rule as the rest of the app** — never claim a source you don't have —
+broken at the root of the costing engine, where a wrong number ends up in a
+letter to a vendor's agent. Don't put a supplier name back unless something here
+actually calls one.
+
 **Materials are flat nationwide; only LABOUR carries a regional multiplier.**
 Gib is Gib in Gore and in Remuera, and NZ buys from a handful of national
 suppliers — so `costItem` multiplies the labour line and leaves materials alone.

@@ -63,8 +63,12 @@ export function CostWorkings({ item, onQuoteEntered, withinHoldPeriod = true }: 
           <div className="font-semibold text-sm mb-0.5" style={{ color: "var(--text-primary)" }}>
             {item.name}
           </div>
+          {/* This line used to read "West Coast · Builderscrack West Coast · 23
+              jobs · June 2026" — a supplier nothing in the codebase contacts,
+              and a sample size nobody counted, printed to a paying reader as
+              provenance. What the rate actually is, is an estimate. */}
           <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {item.region} · {item.dataSource} · {item.jobCount} jobs · {item.lastUpdated}
+            {item.region} · {item.dataSource} · {item.lastUpdated}
           </div>
         </div>
 
@@ -155,19 +159,14 @@ export function CostWorkings({ item, onQuoteEntered, withinHoldPeriod = true }: 
             </div>
 
             <div className="border-t mt-2 pt-2" style={{ borderColor: "var(--border)", fontFamily: "Space Grotesk, sans-serif" }}>
+              {/* "23 electrical jobs (last 6 months)" with "high" in green was
+                  the strongest claim on the card and the least true thing on it.
+                  There was no survey, no window, and no count. A reader deciding
+                  whether to trust a build cost is owed the actual answer. */}
               <span style={{ color: "var(--text-muted)", fontSize: 10 }}>
-                Regional data: {item.dataSource} — {item.jobCount} {item.trade} jobs (last 6 months) ·
-                Confidence:{" "}
-                <span
-                  style={{
-                    color:
-                      item.confidence === "high" ? "var(--green)"
-                      : item.confidence === "medium" ? "var(--warning)"
-                      : "var(--text-muted)",
-                  }}
-                >
-                  {item.confidence}
-                </span>
+                {item.dataSource}. Not a quote and not a market survey — no local
+                {" "}{item.trade.replace(/_/g, " ")} rates have been collected, so treat this as a
+                starting figure and get it priced.
               </span>
             </div>
           </div>

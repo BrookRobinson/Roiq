@@ -21,11 +21,28 @@ export interface LabourRate {
   ratePerSqm: number | null;    // $ per m²
   ratePerHour: number | null;   // $ per hour
   regionalMultiplier: number;   // relative to Auckland = 1.0
-  jobCount: number;
   dataSource: string;
   confidence: "high" | "medium" | "low" | "ai_estimate";
   lastUpdated: string;
 }
+
+// ── Where these rates came from, honestly ───────────────────────────────────
+//
+// They used to claim a `dataSource` of "Builderscrack <region>", a count of 23
+// jobs and a confidence of "high" — and the Renovations tab PRINTED that to
+// buyers: "Builderscrack West Coast — 23 electrical jobs (last 6 months) ·
+// Confidence: high", the last word in green.
+//
+// Every part of it was invented. That supplier name appeared nowhere else in
+// this repository — no fetch, no scrape, no cached response — the counts were
+// sample sizes nobody counted, and the six-month window was never a window. The
+// figures arrived whole in a bulk commit and have never been checked against
+// what a tradesman actually charges.
+//
+// What IS true is how a regional rate is derived: a national base rate times
+// this region's multiplier. That is what the label says now, and `ai_estimate`
+// is the confidence the type already had a word for. Do not put a supplier name
+// back here unless something in this repository actually calls one.
 
 // ── Regional multipliers (Auckland base = 1.0) ────────────────────────────
 export const REGIONAL_MULTIPLIERS: Record<string, number> = {
@@ -173,7 +190,6 @@ export interface CostItem {
 
   // Source info
   dataSource: string;
-  jobCount: number;
   confidence: "high" | "medium" | "low" | "ai_estimate";
   lastUpdated: string;
 
@@ -227,9 +243,8 @@ export function calculateCost(params: {
     low:          Math.round(baseCost * 0.85),
     high:         Math.round(baseCost * 1.15),
     mostLikely:   Math.round(baseCost),
-    dataSource: `Builderscrack ${canonRegion}`,
-    jobCount: 23,
-    confidence: multiplier === 1.0 ? "high" : "medium",
+    dataSource: `Estimate — national base rate x the ${canonRegion} multiplier`,
+    confidence: "ai_estimate",
     lastUpdated: "June 2026",
   };
 }
@@ -287,9 +302,8 @@ export function windowReplacementCost(unitCount: number, region: string): CostIt
     low:          Math.round(baseCost * 0.85),
     high:         Math.round(baseCost * 1.15),
     mostLikely:   Math.round(baseCost),
-    dataSource: "Builderscrack window installers NZ",
-    jobCount: 41,
-    confidence: "high",
+    dataSource: "Estimate — per-unit rate, not surveyed",
+    confidence: "ai_estimate",
     lastUpdated: "June 2026",
   };
 }
@@ -328,9 +342,8 @@ export function heatPumpCost(region: string): CostItem {
     low:          Math.round(baseCost * 0.85),
     high:         Math.round(baseCost * 1.15),
     mostLikely:   Math.round(baseCost),
-    dataSource: "Builderscrack heat pump installers",
-    jobCount: 87,
-    confidence: "high",
+    dataSource: "Estimate — supply plus install, not surveyed",
+    confidence: "ai_estimate",
     lastUpdated: "June 2026",
   };
 }
