@@ -82,6 +82,17 @@ export interface FinanceInputs {
   holdYears: number;
   depositPct: number;
   renoCost: number;
+  /**
+   * What the selected renovations add to what the property is WORTH, in the
+   * app's own valuation model — not a market resale promise.
+   *
+   * Without this the walk-away figure counted every renovation as pure cash out
+   * and moved the sale price not at all, which is not a neutral position: it
+   * states that renovation returns EXACTLY ZERO, a claim as strong as any uplift
+   * number and a good deal less likely. Spend $50k and the ten-year figure fell
+   * by $50k to the dollar.
+   */
+  renoUplift: number;
   interestRatePct: number;
   loanTermYears: number;
   loanType: LoanType;
@@ -129,6 +140,7 @@ export interface FinanceSummary {
   rentalIncomeOverHold: number;
   // sale
   projectedValue: number;
+  renoUplift: number;
   remainingLoan: number;
   agentFees: number;
   saleLegal: number;
@@ -183,7 +195,10 @@ export function summarise(i: FinanceInputs): FinanceSummary {
   const rentalIncomeOverHold = isInvestor ? Math.round(netAnnualRent * i.holdYears) : 0;
 
   // sale
-  const projectedValue = Math.round(projectValue(price, i.growthPct, i.holdYears));
+  // The renovation lands at purchase, so the market grows the improved value
+  // rather than the bought value. `renoUplift` is 0 unless work is ticked.
+  const improvedValue = price + (i.renoUplift || 0);
+  const projectedValue = Math.round(projectValue(improvedValue, i.growthPct, i.holdYears));
   const agentFees = Math.round(projectedValue * i.agentCommissionPct);
   const saleLegal = i.legalAtSale;
   const netSaleProceeds = projectedValue - remainingLoan - agentFees - saleLegal;
@@ -191,7 +206,7 @@ export function summarise(i: FinanceInputs): FinanceSummary {
   // year-by-year projection (value + equity) for the chart
   const projection: { year: number; value: number; equity: number }[] = [];
   for (let y = 1; y <= i.holdYears; y++) {
-    const v = Math.round(projectValue(price, i.growthPct, y));
+    const v = Math.round(projectValue(improvedValue, i.growthPct, y));
     const bal = Math.round(remainingBalance(loan, i.interestRatePct, i.loanTermYears, y, i.loanType));
     projection.push({ year: y, value: v, equity: v - bal });
   }
@@ -221,7 +236,7 @@ export function summarise(i: FinanceInputs): FinanceSummary {
     grossAnnualRent: Math.round(grossAnnualRent), vacancyLoss: Math.round(vacancyLoss), mgmtFee: Math.round(mgmtFee),
     netAnnualRent: Math.round(netAnnualRent), netWeeklyRent: Math.round(netWeeklyRent), netWeeklyCashflow: Math.round(netWeeklyCashflow),
     grossYieldPct, netYieldPct, totalInvestment, rentalIncomeOverHold,
-    projectedValue, remainingLoan, agentFees, saleLegal, netSaleProceeds,
+    projectedValue, renoUplift: i.renoUplift || 0, remainingLoan, agentFees, saleLegal, netSaleProceeds,
     projection, brightLineApplies, interestDeductSaving,
     totalOngoingOverHold, netCostOfOwnership, walkAway, returnOnCashPct, annualReturnPct, termDepositValue,
   };
@@ -251,6 +266,7 @@ export function defaultInputs(args: {
     holdYears: args.holdYears,
     depositPct: args.persona === "investor" ? FINANCE_DEFAULTS.depositPctInvestor : FINANCE_DEFAULTS.depositPctBuyer,
     renoCost: args.renoCost,
+    renoUplift: 0, // set per render from the ticked reno lines
     interestRatePct: args.interestRatePct ?? FINANCE_DEFAULTS.interestRatePct,
     loanTermYears: FINANCE_DEFAULTS.loanTermYears,
     loanType: args.persona === "investor" ? "io" : "pi",

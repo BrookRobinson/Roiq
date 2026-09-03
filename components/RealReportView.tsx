@@ -198,6 +198,33 @@ function selectedRenoCost(
     .reduce((sum, l) => sum + lineCost(l, toggles[l.key]), 0);
 }
 
+/**
+ * What the ticked renovations add to what the property is WORTH — the app's own
+ * valuation model, not a market resale promise.
+ *
+ * `valueGap` is `valuePotential − valueNow` out of `improvement-values.ts`,
+ * where potential is **modern spec at as-new condition**. That is what a genuine
+ * replacement gets you, so only Replace Budget and Replace High End count here.
+ *
+ * A PATCH contributes nothing, deliberately. Re-grouting a shower or repainting
+ * cabinet doors moves neither the spec tier nor the condition to as-new, and
+ * there is no principled figure in the model for a partial restoration — picking
+ * one would be the invented-number habit in a new place. Zero errs toward the
+ * conservative side, which is the right direction when over-capitalising is the
+ * usual way people lose money on a renovation.
+ */
+function selectedRenoUplift(
+  lines: { key: string; valueGap?: number; urgencyYears: number; autoInclude: boolean }[],
+  toggles: Record<string, RenoToggle>,
+  withinHold: (years: number) => boolean
+): number {
+  return lines
+    .filter((l) => withinHold(l.urgencyYears))
+    .filter((l) => renoIncluded(l, toggles))
+    .filter((l) => (toggles[l.key]?.tier ?? "budget") !== "patch")
+    .reduce((sum, l) => sum + (l.valueGap ?? 0), 0);
+}
+
 /** Pull a dollar figure out of a "no firm price" label like "Enquiries Over $629,000". */
 function parseOverPrice(text: string | null | undefined): number | null {
   if (!text) return null;
@@ -2155,7 +2182,7 @@ function BudgetPlanCard({ lines, price, persona }: { lines: RenoLine[]; price: n
 
       <p className="text-[11px] mt-4 pt-3" style={{ color: "var(--text-muted)", lineHeight: 1.6, borderTop: "1px solid var(--border)" }}>
         Ordered by what a buyer or valuer reacts to first — legal obligations, then things that are missing or worn out, then work already due, then presentation. Costs are at tradesman rates for the cheapest option that genuinely fixes the item.{" "}
-        <strong style={{ color: "var(--text-secondary)" }}>We deliberately don&apos;t quote a resale gain.</strong> What renovation returns varies far too much by suburb, street and buyer to promise a number — and over-capitalising is the most common way people lose money on a renovation.
+        <strong style={{ color: "var(--text-secondary)" }}>We don&apos;t quote a resale gain</strong> — what a buyer will actually pay for a new kitchen varies far too much by suburb, street and person to promise a number, and over-capitalising is the most common way people lose money on a renovation. The Financial tab does carry a figure, and it is a different claim: what <em>our own valuation</em> makes the property worth once the work is done, on the same depreciated-replacement-cost model as the rest of the report. Only a full replacement counts toward it — a patch keeps the money and adds nothing, because nothing in the model prices a half-restored bathroom.
       </p>
     </div>
   );
@@ -2734,6 +2761,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 }) {
   const { holdYears, withinHold } = useHoldPeriod();
   const renoTotal = selectedRenoCost(renoLines, renoToggles, withinHold);
+  const renoUplift = selectedRenoUplift(renoLines, renoToggles, withinHold);
   const price = listing.askingPrice ?? 0;
   const floorSqm = listing.floorAreaSqm ?? 0;
   const growthPct = capitalGrowth?.annualRatePct ?? 5;
@@ -2781,7 +2809,7 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 
   // `inp.price` and nothing else. Deposit, loan, repayments, maintenance, the
   // projected sale value and therefore the walk-away all fall out of it.
-  const inputs: FinanceInputs = { ...inp, persona, holdYears, renoCost: renoTotal };
+  const inputs: FinanceInputs = { ...inp, persona, holdYears, renoCost: renoTotal, renoUplift };
   const s = summarise(inputs);
   const set = (patch: Partial<FinanceInputs>) => setInp((p) => ({ ...p, ...patch }));
   const setCost = (k: PurchaseCostKey, v: number) => setInp((p) => ({ ...p, purchaseCosts: { ...p.purchaseCosts, [k]: v } }));
@@ -2830,6 +2858,13 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: "var(--text-muted)" }}>Sale in {holdYears} yrs</div>
+            {/* The uplift gets its own line rather than quietly inflating the
+                projected price. It moves a six-figure number and a reader is
+                owed the reason — and it is OUR valuation model talking, not a
+                promise about what a buyer will pay. */}
+            {s.renoUplift > 0 && (
+              <FinRow label="Renovation adds (our valuation)" value={"+" + fmt(s.renoUplift)} />
+            )}
             <FinRow label="Projected price" value={fmt(s.projectedValue)} />
             <FinRow label="Less remaining loan" value={"−" + fmt(s.remainingLoan)} />
             <FinRow label="Less agent + legal" value={"−" + fmt(s.agentFees + s.saleLegal)} />

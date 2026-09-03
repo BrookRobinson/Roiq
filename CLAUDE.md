@@ -1447,6 +1447,35 @@ mounts. The effect fills the box only while it is still empty, since overwriting
 a figure somebody typed because a request came back late is the same bug facing
 the other way.
 
+**Zero is a claim too, and the walk-away figure was making it.** Renovations
+were subtracted from cash in and the projected sale price did not move a cent —
+so spending $50k dropped the ten-year position by exactly $50k. That is not a
+neutral model, it is the assertion that renovation returns PRECISELY NOTHING,
+which is as strong as any uplift number and far less likely.
+
+`renoUplift` is the app's OWN valuation talking, not a market promise. Each item
+already carries `valueGap` from `improvement-values.ts` — `valuePotential −
+valueNow`, where potential is that component at **modern spec, as-new**. Sum it
+over the ticked lines and you have what `valueProperty` would say the house is
+worth once the work is done, on the same depreciated-replacement-cost model as
+the rest of the report. The market then grows the IMPROVED value, because a
+better house appreciates on a bigger base.
+
+**A patch contributes nothing, deliberately.** `valueGap` measures the gap to
+modern-and-as-new, which is what a replacement buys; re-grouting a shower moves
+neither the spec tier nor the condition to as-new. There is no principled figure
+in the model for a partial restoration and inventing one would be the same habit
+this codebase has deleted elsewhere — so Patch Up spends the money and adds no
+value, and the copy says so. Zero errs conservative, which is the right direction
+when over-capitalising is how people lose money on renovations.
+
+**The two tabs have to agree.** The Renovations tab promised "we deliberately
+don't quote a resale gain" while the Financial tab quietly modelled zero. It now
+draws the distinction: no promise about what a BUYER will pay, and a stated
+figure for what OUR valuation makes it worth. The uplift gets its own line rather
+than inflating the projected price silently — it moves a six-figure number and
+the reader is owed the reason.
+
 **A bare section has no rent, no yield and no cash flow — and the report must
 not compute one.** The Financial tab was printing "+$24/wk net cash flow" and
 "8.5% gross yield" against an empty 5,002m² paddock, off the suburb's HOUSE
