@@ -1084,9 +1084,21 @@ The check that actually means something is whether OUR route's bytes match a
 direct LINZ fetch of the same tile. If they differ, the route is quietly serving
 Mapbox. That is the real effect of the key: not access, but which of the two
 sources the imagery comes from — and therefore **who has to be credited.**
-Attribution follows the source actually served; crediting LINZ for a Mapbox
-photograph is a licensing problem, not a wording one. The route does not yet tell
-the client which source answered, so the caption still names both.
+**The route now NAMES the source that answered**, in an `x-imagery-source`
+header (`lib/imagery/source.ts` holds the header name and the credit strings —
+a route file may only export handlers, so it cannot live in the route). The
+caption used to read "LINZ Basemaps, or © Mapbox © Maxar where that isn't
+configured": both providers named, neither committed to. An "or" is not
+attribution, and crediting the wrong one is a licensing problem rather than a
+wording one.
+
+The page cannot tell them apart from the picture — an `<img>` hands back no
+headers — so `AddStructure` fetches ONE tile for its header, which the browser
+already has cached from drawing it. **No imagery on screen means no imagery
+credit**: null prints nothing, because crediting a provider whose photograph
+nobody is looking at is its own small untruth. Proven both ways by removing the
+key and restarting: LINZ serves a 15,708-byte WebP and is credited, Mapbox
+serves a 70,832-byte JPEG and is credited.
 
 **Surveyed easements are drawn, and they BLOCK the drag.** LINZ publishes
 **784,660 easement polygons and 78,296 land-covenant ones** in `NZ Non-Primary

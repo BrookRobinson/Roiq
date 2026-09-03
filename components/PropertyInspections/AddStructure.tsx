@@ -20,9 +20,10 @@
 // photograph — and when it doesn't, that mismatch is itself worth seeing.
 // ============================================================
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { SiteLayout } from "@/lib/scoring/site-layout";
 import { canPlace, firstFit } from "@/lib/scoring/site-layout";
+import { IMAGERY_CREDIT, IMAGERY_SOURCE_HEADER, isImagerySource, type ImagerySource } from "@/lib/imagery/source";
 import {
   BUILDABLE,
   BUILDABLE_BY_ID,
@@ -205,6 +206,29 @@ export function AddStructure({
     void sw;
     return out;
   }, [plan.anchor, W, H, PAD, vw, vh]);
+
+  // WHO to credit. Two providers on different licences serve /api/tiles/aerial,
+  // and the page cannot tell them apart from the picture — an <img> hands back
+  // no headers. So one tile is fetched for its header; the browser has the same
+  // URL in its HTTP cache from drawing it, so this is not a second download.
+  //
+  // Null means no imagery is on screen at all (no anchor, or nothing answered),
+  // and then no imagery credit is printed — crediting a provider whose picture
+  // nobody is looking at is its own small untruth.
+  const [imagery, setImagery] = useState<ImagerySource | null>(null);
+  useEffect(() => {
+    const first = tiles?.[0];
+    if (!first) { setImagery(null); return; }
+    let cancelled = false;
+    fetch(first.url)
+      .then((r) => {
+        if (cancelled || !r.ok) return;
+        const named = r.headers.get(IMAGERY_SOURCE_HEADER);
+        if (isImagerySource(named)) setImagery(named);
+      })
+      .catch(() => { /* the plan still draws; it just carries no imagery credit */ });
+    return () => { cancelled = true; };
+  }, [tiles]);
 
   const alreadyAdded = added?.includes(choiceId);
 
@@ -467,12 +491,14 @@ export function AddStructure({
       )}
 
       <p className="text-[10px] mt-2" style={{ color: "var(--text-muted)" }}>
-        {/* The boundary and the footprints ARE LINZ. The imagery underneath is
-            LINZ Basemaps only where a basemap key is configured, and Mapbox
-            otherwise — see app/api/tiles/aerial. Crediting LINZ for a Mapbox
-            photograph is a licensing problem, not a wording one. */}
-        Parcel boundary and building footprints: Toitū Te Whenua LINZ, CC BY 4.0. Aerial imagery: LINZ Basemaps, or
-        © Mapbox © Maxar where that isn&apos;t configured. Costs are indicative build ranges, not quotes. What we
+        {/* The boundary and the footprints ARE LINZ, always. The imagery under
+            them is whichever of the two providers answered, which the route
+            reports in a header — this used to read "LINZ Basemaps, or © Mapbox
+            © Maxar where that isn't configured", naming both and committing to
+            neither. Crediting the wrong one is a licensing problem, not a
+            wording one, and an "or" is not attribution. */}
+        Parcel boundary and building footprints: Toitū Te Whenua LINZ, CC BY 4.0.
+        {imagery ? ` ${IMAGERY_CREDIT[imagery]}.` : ""} Costs are indicative build ranges, not quotes. What we
         don&apos;t read is the district plan itself — hazard overlays, height to boundary, and any covenant on your
         title can all still apply.
       </p>

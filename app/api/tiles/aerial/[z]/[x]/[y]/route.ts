@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { IMAGERY_SOURCE_HEADER } from "@/lib/imagery/source";
 
 // ============================================================
 // LINZ aerial imagery, proxied.
@@ -51,13 +52,13 @@ export async function GET(
   const mapbox = process.env.NEXT_PUBLIC_MAPBOX_TOKEN?.trim();
 
   const sources = [
-    linz && `https://basemaps.linz.govt.nz/v1/tiles/aerial/EPSG:3857/${zi}/${xi}/${yi}.webp?api=${linz}`,
-    mapbox && `https://api.mapbox.com/v4/mapbox.satellite/${zi}/${xi}/${yi}@2x.jpg90?access_token=${mapbox}`,
-  ].filter((u): u is string => !!u);
+    linz && { name: "linz", url: `https://basemaps.linz.govt.nz/v1/tiles/aerial/EPSG:3857/${zi}/${xi}/${yi}.webp?api=${linz}` },
+    mapbox && { name: "mapbox", url: `https://api.mapbox.com/v4/mapbox.satellite/${zi}/${xi}/${yi}@2x.jpg90?access_token=${mapbox}` },
+  ].filter((s): s is { name: string; url: string } => !!s);
 
   if (sources.length === 0) return new NextResponse("no imagery source", { status: 404 });
 
-  for (const url of sources) {
+  for (const { name, url } of sources) {
     try {
       const upstream = await fetch(url, { next: { revalidate: 604800 } });
       if (!upstream.ok) continue;
@@ -66,6 +67,14 @@ export async function GET(
         headers: {
           "Content-Type": upstream.headers.get("content-type") ?? "image/webp",
           "Cache-Control": CACHE,
+          // WHICH source answered, so the page can credit that one and not the
+          // other. Two providers on different licences serve this route — LINZ
+          // Basemaps under CC BY 4.0, Mapbox/Maxar under their own terms — and
+          // which one a given reader got depends on config AND on whether the
+          // first choice was reachable at the time. A caption naming both with
+          // an "or" is a guess; crediting the wrong one is a licensing problem,
+          // not a wording one. The client reads this and prints one credit.
+          [IMAGERY_SOURCE_HEADER]: name,
         },
       });
     } catch {
