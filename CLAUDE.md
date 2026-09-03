@@ -1447,6 +1447,23 @@ mounts. The effect fills the box only while it is still empty, since overwriting
 a figure somebody typed because a request came back late is the same bug facing
 the other way.
 
+**The plan says whose idea each line was.** Once work started joining it because
+it falls due inside the hold, a single list headed "the work you've chosen" was
+simply untrue — and a reader sliding from five years to ten watched the total
+jump with nothing telling them what had arrived. It is two groups now: **You
+chose these** (an explicit tick) and **Our recommendation for your N-year hold**,
+which names the reason and marks each line "due ~yr 7". Tick something and it
+moves from ours to yours; the heading and the contents re-make themselves as the
+slider moves.
+
+**An untick has to be reversible where it happens.** Both lists used to render
+`selected`, so unticking an item removed its own checkbox from the page — the
+control you needed to change your mind disappeared with the decision, and the
+only way back was the Improvements tab. Survivable while the plan held two items;
+now that most in-hold work is ticked by default, unticking IS the normal
+interaction. The detail list maps everything in scope for the hold, so an
+excluded line stays visible and unticked.
+
 **The hold slider appears twice and is ONE control.** `HoldPeriodSlider` reads
 and writes `HoldPeriodContext`, so a second instance at the foot of the walk-away
 card moves with the one in the report header and there is no syncing to get

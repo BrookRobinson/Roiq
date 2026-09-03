@@ -2243,6 +2243,23 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   // Same rule as the money: due inside the hold means in the plan by default,
   // or the ticked boxes and the total would tell different stories.
   const selected = items.filter((l) => renoIncluded(l, renoToggles, withinHold(l.urgencyYears)) || l.inferred);
+
+  // ── Whose idea was each line? ────────────────────────────────────────────
+  //
+  // The plan used to be one undifferentiated list headed "the work you've
+  // chosen", which stopped being true the moment work started joining it
+  // because it falls due inside the hold. A reader sliding from five years to
+  // ten watched the total jump and had nothing telling them what had arrived.
+  //
+  // An explicit tick is the reader's. Everything else in the plan is ours, and
+  // is listed separately with the reason — urgent, legally required, or reaching
+  // end of life inside the hold. Untick anything and it leaves both lists,
+  // because `renoIncluded` reads an explicit `false` before it reads either
+  // default.
+  const isChosen = (l: RenoLine) => renoToggles[l.key]?.included === true;
+  const chosen = selected.filter((l) => !l.inferred && isChosen(l));
+  const recommended = selected.filter((l) => !l.inferred && !isChosen(l));
+  const dueInHoldCount = recommended.filter((l) => !l.autoInclude).length;
   const upliftTotal = persona === "investor" ? selected.reduce((sum, l) => sum + l.uplift, 0) : 0;
   const price = listing.askingPrice ?? 0;
 
@@ -2265,9 +2282,9 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
           plan is the thing they came back to adjust. */}
       <div>
         <div className="text-[11px] uppercase tracking-widest mb-1.5" style={{ color: "var(--brand)" }}>Your renovation plan</div>
-        <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>The work you&apos;ve chosen</h3>
+        <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>What you&apos;ll spend over {holdYears} years</h3>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          These are the items you&apos;ve ticked on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab. Set the tier and who does the work, and the totals below follow. This is what feeds your yield and predicted sale price. Our own recommendation is further down, kept separate.
+          Anything you&apos;ve ticked on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab, plus the work we expect to reach end of life while you own the place. <strong style={{ color: "var(--text-primary)" }}>Move the hold slider and this list re-makes itself</strong> — a roof due in year eight is your problem on a ten-year hold and somebody else&apos;s on a five-year one. Untick anything you wouldn&apos;t do and it leaves the plan and the numbers. This is what feeds your yield and predicted sale price.
         </p>
       </div>
 
@@ -2290,20 +2307,60 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
             <div className="text-2xl font-bold mono" style={{ color: "var(--brand)" }}>{fmt(total)}</div>
           </div>
         </div>
-        {selected.length > 0 && (
-          <div className="mt-3 pt-3 space-y-1" style={{ borderTop: "1px solid var(--border)" }}>
-            {selected.map((l) => {
-              const r = rowFor(l);
-              return (
-                <div key={l.key} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="truncate" style={{ color: "var(--text-secondary)" }}>{l.name}</span>
-                  <span className="flex items-center gap-2 flex-shrink-0">
-                    <span style={{ color: "var(--text-muted)" }}>{r.tierLabel}{r.labour === "diy" ? " · DIY" : ""}{r.pct < 1 ? ` · ${Math.round(r.pct * 100)}%` : ""}</span>
-                    <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(r.cost)}</span>
-                  </span>
+        {/* Two groups, because "who put this here" is the question a reader has
+            the moment the total moves on its own. */}
+        {(chosen.length > 0 || recommended.length > 0) && (
+          <div className="mt-3 pt-3 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
+            {[
+              {
+                key: "chosen",
+                heading: "You chose these",
+                note: null as string | null,
+                rows: chosen,
+              },
+              {
+                key: "recommended",
+                heading: `Our recommendation for your ${holdYears}-year hold`,
+                note:
+                  dueInHoldCount > 0
+                    ? `${dueInHoldCount} of these ${dueInHoldCount === 1 ? "is" : "are"} here because ${dueInHoldCount === 1 ? "it reaches" : "they reach"} end of life inside ${holdYears} years. The rest are urgent or legally required.`
+                    : "Urgent or legally required work — these apply at any hold length.",
+                rows: recommended,
+              },
+            ]
+              .filter((g) => g.rows.length > 0)
+              .map((g) => (
+                <div key={g.key}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[11px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{g.heading}</span>
+                    <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>
+                      {fmt(g.rows.reduce((sum, l) => sum + rowFor(l).cost, 0))}
+                    </span>
+                  </div>
+                  {g.note && (
+                    <p className="text-[11px] mt-0.5 mb-1" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>{g.note}</p>
+                  )}
+                  <div className="space-y-1 mt-1">
+                    {g.rows.map((l) => {
+                      const r = rowFor(l);
+                      return (
+                        <div key={l.key} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="truncate" style={{ color: "var(--text-secondary)" }}>
+                            {l.name}
+                            {g.key === "recommended" && !l.autoInclude && (
+                              <span style={{ color: "var(--text-muted)" }}> · due ~yr {l.urgencyYears}</span>
+                            )}
+                          </span>
+                          <span className="flex items-center gap-2 flex-shrink-0">
+                            <span style={{ color: "var(--text-muted)" }}>{r.tierLabel}{r.labour === "diy" ? " · DIY" : ""}{r.pct < 1 ? ` · ${Math.round(r.pct * 100)}%` : ""}</span>
+                            <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(r.cost)}</span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              );
-            })}
+              ))}
           </div>
         )}
         {price > 0 && (
@@ -2316,12 +2373,19 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
         )}
       </div>
 
-      {selected.length === 0 && (
+      {items.length === 0 && (
         <div className="card p-6 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Nothing in your renovation plan yet. On the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab, tick <em>&ldquo;Add to renovation plan&rdquo;</em> on any item you plan to replace — items scoring 30% or less are ticked automatically.
+          Nothing due inside a {holdYears}-year hold. Move the slider out to see work that falls due later, or tick <em>&ldquo;Add to renovation plan&rdquo;</em> on any item on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab.
         </div>
       )}
-      {selected.map((l) => {
+      {/* EVERY line in scope for this hold, not just the ticked ones.
+          Mapping `selected` here meant unticking something removed its own
+          checkbox from the page — the control you'd need to change your mind
+          disappeared with the decision, and the only way back was the
+          Improvements tab. That was survivable while the plan held two items;
+          now that most in-hold work is ticked by default, unticking is the
+          normal interaction and it has to be reversible where it happens. */}
+      {items.map((l) => {
         const t = renoToggles[l.key];
         const included = renoIncluded(l, renoToggles, withinHold(l.urgencyYears));
         return (
