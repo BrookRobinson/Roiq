@@ -306,8 +306,10 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                       </span>
                     </div>
                     <p className="mb-5 text-[13px]" style={{ color: "var(--text-muted)" }}>
-                      Every pin is a real report on a property that&rsquo;s for sale — condition,
-                      renovation costs, valuation and five-year return, scored out of 1,000.
+                      Every property for sale in New Zealand, and a full report on the ones
+                      somebody has analysed — condition, renovation costs, valuation and five-year
+                      return, scored out of 1,000. A pin only goes coloured once a complete report
+                      is behind it; the grey ones are waiting for their first.
                     </p>
                     <Link
                       href="/pricing"

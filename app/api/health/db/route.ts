@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { hasAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, hasAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -83,7 +83,17 @@ export async function GET() {
 
   // Reachable — now find out whether the schema is there. `head: true` with an
   // exact count is a cheap existence probe that also reports current row counts.
-  const supabase = createClient();
+  //
+  // Counted with the SERVICE ROLE where there is one. The anon client is subject
+  // to row-level security, and `reports` is owner-scoped — so an anonymous count
+  // of it is always exactly 0, which is indistinguishable from an empty table
+  // and reads as "nothing is saving". It cost an afternoon: the app was saving
+  // reports correctly the whole time and this endpoint said it wasn't. The
+  // response now says which key did the counting, because a count of 0 means
+  // two completely different things depending on the answer.
+  const admin = createAdminClient();
+  const supabase = admin ?? createClient();
+  const countedWith: "service_role" | "anon" = admin ? "service_role" : "anon";
   const tables = await Promise.all(
     TABLES.map(async (t) => {
       try {
@@ -140,6 +150,11 @@ export async function GET() {
   return NextResponse.json({
     ok: missing.length === 0 && writes.ok,
     reachable: true,
+    countedWith,
+    countsNote:
+      countedWith === "service_role"
+        ? "Row counts are true totals — counted with the service role, which bypasses RLS."
+        : "NO SERVICE ROLE KEY: counts are what an anonymous visitor can see, so every RLS-protected table (reports, watchlist, alerts) reads 0 even when it is full.",
     host,
     summary:
       missing.length > 0

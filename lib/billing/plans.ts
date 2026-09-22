@@ -91,7 +91,13 @@ export const PLAN_PRICE_NZD: Record<PaidPlan, number> = {
   // reports at a lower price each ($2.98 against Silver's $3.96). Priced as
   // what it is, rather than as a tier pretending to unlock something.
   gold: 149,
-  platinum: 279,
+  // Platinum is the step where the product changes kind: below it you analyse
+  // houses you already found, at it the map searches the country for you and
+  // every report anyone has run opens. That ceiling is worth far more than a
+  // $130 step over Gold — and the gap it leaves to Diamond is now $900, which
+  // is the top of the inspection range plus the coordination, so Diamond's
+  // premium reads as exactly the one thing it adds.
+  platinum: 399,
   // Diamond carries a real building inspection, which is bought from a person
   // and costs $400–900 depending on the house and how far they drive. The price
   // has to cover the worst of that range, not the average.
