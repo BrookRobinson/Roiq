@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/lib/auth/session";
-import { planIncludes, type Plan } from "@/lib/billing/plans";
+
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useTheme } from "@/lib/theme/context";
@@ -20,11 +20,12 @@ import { PRODUCT_NAME } from "@/lib/brand";
  */
 export default function Navbar({
   user: userProp,
-  plan: planProp,
+  hasMap: mapProp,
 }: {
   /** Overrides for the rare page that needs a fixed state; otherwise the real session is used. */
   user?: { email: string } | null;
-  plan?: Plan;
+  /** Override for the rare page that needs a fixed state. */
+  hasMap?: boolean;
 } = {}) {
   const session = useSession();
 
@@ -39,7 +40,7 @@ export default function Navbar({
   }
 
   const user = userProp !== undefined ? userProp : session.user;
-  const plan = planProp ?? session.plan;
+  const hasMap = mapProp ?? session.can("map");
   const { theme, toggle } = useTheme();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -48,9 +49,9 @@ export default function Navbar({
     ? [
         { href: "/dashboard", label: "Dashboard" },
         { href: "/report/new", label: "New report" },
-        ...(planIncludes(plan, "map")
+        ...(hasMap
           ? [{ href: "/map", label: "Map" }]
-          : [{ href: "/pricing", label: "Upgrade" }]),
+          : [{ href: "/pricing", label: "Get the map" }]),
         { href: "/account", label: "Account" },
       ]
     : [
@@ -114,8 +115,21 @@ export default function Navbar({
 
             {user ? (
               <div className="hidden items-center gap-2.5 md:flex">
-                {plan && (
-                  <span className="badge badge-blue">{plan}</span>
+                {/* What's left, not what was bought. A package name told
+                    somebody nothing they could act on; the credit count is the
+                    one number that decides whether they can run the next one. */}
+                {!session.loading && (
+                  <Link
+                    href="/pricing"
+                    className="badge badge-blue"
+                    title={
+                      session.creditsLeft > 0
+                        ? "Reports left — they don't expire"
+                        : "You're out of reports"
+                    }
+                  >
+                    {session.creditsLeft} {session.creditsLeft === 1 ? "report" : "reports"}
+                  </Link>
                 )}
                 <div
                   className="mono flex h-9 w-9 items-center justify-center text-sm font-medium"

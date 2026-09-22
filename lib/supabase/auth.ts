@@ -1,13 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { UserRow } from "@/lib/supabase/types";
-import {
-  effectivePlan,
-  planIncludes,
-  planMeets,
-  type Feature,
-  type Plan,
-} from "@/lib/billing/plans";
-import { isDevOwner, DEV_OWNER_PLAN } from "@/lib/auth/dev-owner";
+import { includes, type Entitlements, type Feature } from "@/lib/billing/plans";
+import { entitlementsFor } from "@/lib/billing/entitlements";
 
 /**
  * Returns the authenticated Supabase user and their profile row.
@@ -35,36 +29,25 @@ export async function getUser(): Promise<{
 }
 
 /**
- * The plan the user actually has right now.
+ * Everything the caller has bought and not yet used up.
  *
- * `users.plan` alone is not the answer: it records what was last bought and
- * stays there after the month runs out. Access is the plan paired with an
- * expiry still in the future, which is what effectivePlan checks. Reading the
- * column directly is the bug that hands someone Pro forever.
+ * `users.plan` is NOT the answer and never was: it records what was last bought
+ * and stays there afterwards. Access is computed from the purchase ledger —
+ * see lib/billing/entitlements.ts. Reading the column directly is the bug that
+ * hands somebody the map forever.
  */
-export async function getUserPlan(): Promise<Plan> {
-  // Owner mode short-circuits every plan gate at once — the report tabs, the map
-  // teaser, /api/reports' Pro branch. Local only; see lib/auth/dev-owner.ts.
-  if (isDevOwner()) return DEV_OWNER_PLAN;
-  const { profile } = await getUser();
-  return effectivePlan(profile?.plan, profile?.plan_expires_at);
+export async function getEntitlements(): Promise<Entitlements> {
+  const { authUser } = await getUser().catch(() => ({ authUser: null }));
+  return entitlementsFor(authUser?.id ?? null);
 }
 
 /**
- * Checks whether the current user has access to a given plan level.
- * Diamond ⊃ Platinum ⊃ … ⊃ Free.
- */
-export async function requirePlan(minimum: Plan): Promise<boolean> {
-  return planMeets(await getUserPlan(), minimum);
-}
-
-/**
- * Does the caller's plan include this feature?
+ * Does the caller have this feature?
  *
- * The question a route should ask. Comparing plan names in a handler is how a
- * gate gets left behind when a tier is added above it — and a gate that quietly
- * stops matching is a feature given away, which nothing in the app would report.
+ * The question a route should ask. Comparing package names in a handler is how
+ * a gate gets left behind when the packages change — and a gate that quietly
+ * stops matching is a feature given away, which nothing in the app reports.
  */
 export async function hasFeature(feature: Feature): Promise<boolean> {
-  return planIncludes(await getUserPlan(), feature);
+  return includes(await getEntitlements(), feature);
 }

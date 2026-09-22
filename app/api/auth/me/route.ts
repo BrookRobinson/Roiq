@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 
 import { getUser } from "@/lib/supabase/auth";
-import { daysRemaining, effectivePlan } from "@/lib/billing/plans";
+import { NO_ENTITLEMENTS } from "@/lib/billing/plans";
+import { entitlementsFor } from "@/lib/billing/entitlements";
+import { getQuota } from "@/lib/reports/quota";
 import { emailKey } from "@/lib/auth/email-key";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { claimReports } from "@/lib/reports/store";
 import { readOwnerKey } from "@/lib/reports/owner";
-import { isDevOwner, DEV_OWNER_PLAN, DEV_OWNER_EMAIL } from "@/lib/auth/dev-owner";
+import { isDevOwner, DEV_OWNER_ENTITLEMENTS, DEV_OWNER_EMAIL } from "@/lib/auth/dev-owner";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/auth/me — who's signed in, and on what plan.
+ * GET /api/auth/me — who's signed in, and what they've bought.
  *
  * The whole UI is client components, so rather than thread a server session
  * through every page they ask here once. Returns a null user rather than a 401
@@ -21,17 +23,16 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { authUser, profile } = await getUser().catch(() => ({ authUser: null, profile: null }));
 
-  // Owner mode: report a signed-in Pro without touching the database, so the
-  // navbar, the report tabs and the map all behave as they would for a paying
-  // account. Local only — isDevOwner() refuses in production before it reads
-  // the flag. See lib/auth/dev-owner.ts.
+  // Owner mode: report a fully paid-up account without touching the database,
+  // so the navbar, the report tabs and the map all behave as they would for a
+  // paying customer. Local only — isDevOwner() refuses in production before it
+  // reads the flag. See lib/auth/dev-owner.ts.
   if (!authUser && isDevOwner()) {
     return NextResponse.json({
       ok: true,
       user: { id: "dev-owner", email: DEV_OWNER_EMAIL },
-      plan: DEV_OWNER_PLAN,
-      planExpiresAt: null,
-      daysLeft: 3650,
+      entitlements: DEV_OWNER_ENTITLEMENTS,
+      creditsLeft: DEV_OWNER_ENTITLEMENTS.credits,
       claimed: 0,
       devOwner: true,
     });
@@ -41,9 +42,8 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       user: null,
-      plan: "free",
-      planExpiresAt: null,
-      daysLeft: 0,
+      entitlements: NO_ENTITLEMENTS,
+      creditsLeft: 0,
       claimed: 0,
     });
   }
@@ -59,16 +59,24 @@ export async function GET() {
   // every session check, so it self-heals for accounts that predate the column.
   await syncEmailKey(authUser.id, authUser.email ?? profile?.email ?? null, profile?.email_key ?? null);
 
-  // The effective plan, not the stored one: a month that has run out reads as
-  // free everywhere, and the client must not be the place that forgets to check.
-  const expiresAt = profile?.plan_expires_at ?? null;
+  // Computed from the purchase ledger, never read off the user row: that column
+  // records what was last bought and stays there afterwards. Map access that
+  // has run out reads as gone everywhere, and the client must not be the place
+  // that remembers to check.
+  const entitlements = await entitlementsFor(authUser.id);
+  const quota = await getQuota(
+    authUser.id,
+    readOwnerKey(),
+    entitlements,
+    new Date(),
+    authUser.email ?? profile?.email ?? null
+  );
 
   return NextResponse.json({
     ok: true,
     user: { id: authUser.id, email: authUser.email ?? profile?.email ?? "" },
-    plan: effectivePlan(profile?.plan, expiresAt),
-    planExpiresAt: expiresAt,
-    daysLeft: daysRemaining(expiresAt),
+    entitlements,
+    creditsLeft: quota.remaining,
     claimed,
   });
 }

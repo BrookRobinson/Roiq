@@ -1,7 +1,7 @@
 "use client";
 
 import Navbar from "@/components/Navbar";
-import { FEATURE_FROM, PLAN_LABEL, PLAN_PRICE_NZD } from "@/lib/billing/plans";
+import { PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { loadReport, type StoredReport } from "@/lib/report-store";
@@ -183,7 +183,7 @@ export default function ReportPage() {
             This report is somebody else&rsquo;s
           </h1>
           <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-            {PLAN_LABEL[FEATURE_FROM.mapReports]} opens every report on the map — every property
+            {PACKAGE_LABEL[packageFor("mapReports")]} opens every report on the map — every property
             anyone has analysed, scored out of 1,000 and valued against its asking price.
           </p>
           <a
@@ -191,8 +191,8 @@ export default function ReportPage() {
             className="inline-block px-4 py-2 rounded-lg text-sm font-semibold"
             style={{ background: "var(--brand)", color: "var(--on-accent)" }}
           >
-            See {PLAN_LABEL[FEATURE_FROM.mapReports]} — $
-            {PLAN_PRICE_NZD[FEATURE_FROM.mapReports].toLocaleString("en-NZ")}
+            See {PACKAGE_LABEL[packageFor("mapReports")]} — $
+            {priceFor(packageFor("mapReports")).toLocaleString("en-NZ")}
           </a>
         </div>
       </div>

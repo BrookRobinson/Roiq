@@ -9,17 +9,14 @@
 
 import Stripe from "stripe";
 
-import { PAID_PLANS, type PaidPlan, type Plan } from "@/lib/billing/plans";
-
-/** Env var holding the Stripe price for each paid plan. */
-const PRICE_ENV: Record<PaidPlan, string> = {
-  copper: "STRIPE_COPPER_PRICE_ID",
-  bronze: "STRIPE_BRONZE_PRICE_ID",
-  silver: "STRIPE_SILVER_PRICE_ID",
-  gold: "STRIPE_GOLD_PRICE_ID",
-  platinum: "STRIPE_PLATINUM_PRICE_ID",
-  diamond: "STRIPE_DIAMOND_PRICE_ID",
-};
+import {
+  describeGrant,
+  grantFor,
+  PACKAGE_LABEL,
+  priceFor,
+  type Package,
+  type ReportQuantity,
+} from "@/lib/billing/plans";
 
 let cached: Stripe | null = null;
 
@@ -39,21 +36,16 @@ export function getStripe(): Stripe | null {
 }
 
 /**
- * Tiers that can actually be bought right now — a key, and a price for that one.
+ * Billing needs a secret key and nothing else.
  *
- * Per-tier rather than all-or-nothing, because the tiers are meant to go on sale
- * as they're ready. Diamond in particular owes a customer a building inspector,
- * so it stays unbuyable until someone deliberately creates its Stripe price;
- * requiring every plan to have one would have reported billing as broken for as
- * long as that took, and hidden a real fault behind an expected one.
+ * There are no price IDs any more. Bronze's price depends on how many reports
+ * were chosen, which would have meant a Stripe price per quantity and an env
+ * var for each — so the line item is built inline from PRICE, our own table,
+ * and Stripe is told what to charge rather than asked. That removes six
+ * environment variables AND the entire class of bug where Stripe charges $149
+ * and the site advertises $99, because there is now only one number.
  */
-export const sellablePlans = (): PaidPlan[] =>
-  process.env.STRIPE_SECRET_KEY ? PAID_PLANS.filter((p) => !!priceIdFor(p)) : [];
-
-export const isPlanSellable = (plan: PaidPlan): boolean =>
-  !!process.env.STRIPE_SECRET_KEY && !!priceIdFor(plan);
-
-export const isBillingConfigured = (): boolean => sellablePlans().length > 0;
+export const isBillingConfigured = (): boolean => !!process.env.STRIPE_SECRET_KEY;
 
 export const hasWebhookSecret = (): boolean => !!process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -64,21 +56,28 @@ export const stripeMode = (): "test" | "live" | null => {
   return key.startsWith("sk_live_") ? "live" : "test";
 };
 
-export const priceIdFor = (plan: PaidPlan): string | null =>
-  process.env[PRICE_ENV[plan]]?.trim() || null;
-
-export const priceEnvName = (plan: PaidPlan): string => PRICE_ENV[plan];
-
 /**
- * Which plan a price ID belongs to.
+ * The one line item on the checkout, priced from our own table.
  *
- * The webhook trusts this over the session metadata it also carries: metadata
- * is set by our own checkout route, but the price is what Stripe actually
- * charged for. If the two ever disagree, the charge is the honest one.
+ * The name is what appears on the Stripe receipt and the customer's card
+ * statement line, so it says what they got — "Silver — 50 reports and the map"
+ * rather than a product code nobody can match to a charge three weeks later.
  */
-export function planForPriceId(priceId: string | null | undefined): PaidPlan | null {
-  if (!priceId) return null;
-  return PAID_PLANS.find((p) => priceIdFor(p) === priceId) ?? null;
+export function lineItemFor(
+  pkg: Package,
+  quantity?: ReportQuantity
+): Stripe.Checkout.SessionCreateParams.LineItem {
+  const grant = grantFor(pkg, quantity);
+  return {
+    quantity: 1,
+    price_data: {
+      currency: "nzd",
+      unit_amount: priceFor(pkg, quantity) * 100,
+      product_data: {
+        name: `${PACKAGE_LABEL[pkg]} — ${describeGrant(grant)}`,
+      },
+    },
+  };
 }
 
 /** Absolute origin for Stripe's return URLs — they can't be relative. */
@@ -111,4 +110,3 @@ export async function findOrCreateCustomer(
   return created.id;
 }
 
-export type { Plan, PaidPlan };

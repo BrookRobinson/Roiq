@@ -10,16 +10,12 @@ import { useSession } from "@/lib/auth/session";
 import BuyPlanButton from "@/components/billing/BuyPlanButton";
 import PurchaseRow from "@/components/billing/PurchaseRow";
 import {
-  ACCESS_DAYS,
-  describeAllowance,
-  featuresAddedBy,
-  FEATURE_LABEL,
   formatAccessDate,
-  nextPlanUp,
-  PLAN_ALLOWANCE,
-  PLAN_LABEL,
-  PLAN_PRICE_NZD,
-  PLAN_TAGLINE,
+  MAP_DAYS,
+  PACKAGE_LABEL,
+  packageFor,
+  priceFor,
+  REPORT_PRICE_NZD,
   type PurchaseSummary,
 } from "@/lib/billing/plans";
 
@@ -145,7 +141,7 @@ function PlanTab() {
  * billing date that will never arrive.
  */
 function PlanTabInner() {
-  const { plan, planExpiresAt, daysLeft, user, loading: sessionLoading, refresh } = useSession();
+  const { entitlements, creditsLeft, daysLeft, user, loading: sessionLoading, refresh } = useSession();
   const params = useSearchParams();
   const justPurchased = params.get("purchase") === "success";
 
@@ -169,15 +165,13 @@ function PlanTabInner() {
   }, [user]);
 
   // Stripe redirects back the moment the payment is taken, which can beat the
-  // webhook that grants the plan by a second or two. Re-ask a couple of times
-  // rather than showing someone who just paid that they're still on Free.
+  // webhook that grants it by a second or two. Re-ask a couple of times rather
+  // than showing someone who just paid that they have nothing.
   useEffect(() => {
-    if (!justPurchased || plan !== "free") return;
+    if (!justPurchased || entitlements.paid) return;
     const timers = [1500, 4000].map((ms) => setTimeout(refresh, ms));
     return () => timers.forEach(clearTimeout);
-  }, [justPurchased, plan, refresh]);
-
-  const expiringSoon = plan !== "free" && daysLeft <= 5;
+  }, [justPurchased, entitlements.paid, refresh]);
 
   return (
     <div className="space-y-5 max-w-lg">
@@ -189,100 +183,110 @@ function PlanTabInner() {
         >
           <CheckCircle2 size={18} style={{ color: "var(--success)", flexShrink: 0, marginTop: 1 }} />
           <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            {plan === "free"
+            {!entitlements.paid
               ? "Payment received — confirming with Stripe. This page will update in a moment."
-              : `Payment received. ${PLAN_LABEL[plan]} is active until ${formatAccessDate(planExpiresAt)}.`}
+              : `Payment received. You have ${creditsLeft} ${creditsLeft === 1 ? "report" : "reports"}${
+                  entitlements.map ? ` and the map until ${formatAccessDate(entitlements.mapUntil)}` : ""
+                }.`}
           </div>
         </div>
       )}
 
-      {/* Current plan */}
+      {/* What this account holds. Three things, three different clocks — the
+          panel says which is which, because "access until" meant one thing when
+          everything expired together and means nothing now. */}
       <div className="card p-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <h2 className="font-semibold mb-1" style={{ color: "var(--text-primary)" }}>Current plan</h2>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold" style={{ color: "var(--brand)" }}>
-                {sessionLoading ? "…" : PLAN_LABEL[plan]}
-              </span>
-              {plan !== "free" && (
-                <span className="badge badge-blue">
-                  ${PLAN_PRICE_NZD[plan].toLocaleString("en-NZ")} / {ACCESS_DAYS} days
-                </span>
-              )}
+        <h2 className="font-semibold mb-4" style={{ color: "var(--text-primary)" }}>
+          What you have
+        </h2>
+
+        <div className="grid sm:grid-cols-3 gap-4 mb-5">
+          <Holding
+            label="Reports"
+            value={sessionLoading ? "…" : String(creditsLeft)}
+            note="They don't expire"
+            good={creditsLeft > 0}
+          />
+          <Holding
+            label="Map"
+            value={
+              sessionLoading
+                ? "…"
+                : !entitlements.map
+                  ? "Not active"
+                  : daysLeft > 0
+                    ? `${daysLeft}d left`
+                    : "Active"
+            }
+            note={
+              entitlements.map && entitlements.mapUntil
+                ? `Until ${formatAccessDate(entitlements.mapUntil)}`
+                : `${PACKAGE_LABEL[packageFor("map")]} includes it`
+            }
+            good={entitlements.map}
+          />
+          <Holding
+            label="Inspection"
+            value={
+              sessionLoading
+                ? "…"
+                : entitlements.inspections > 0
+                  ? `${entitlements.inspections} owed`
+                  : "None booked"
+            }
+            note={
+              entitlements.inspections > 0
+                ? "We'll be in touch to book it"
+                : `${PACKAGE_LABEL.gold} includes one`
+            }
+            good={entitlements.inspections > 0}
+          />
+        </div>
+
+        {!sessionLoading && creditsLeft === 0 && (
+          <div
+            className="rounded-xl p-4 text-sm"
+            style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+          >
+            <div className="font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
+              You&rsquo;re out of reports
+            </div>
+            Credits don&rsquo;t expire, so buying more adds to the account rather than replacing
+            anything — 10 for ${REPORT_PRICE_NZD[10]}, or {PACKAGE_LABEL.silver} at $
+            {priceFor("silver").toLocaleString("en-NZ")} for 50 and the map for {MAP_DAYS} days.
+            <div className="mt-3">
+              <BuyPlanButton
+                pkg="bronze"
+                quantity={10}
+                label={`Get 10 more — $${REPORT_PRICE_NZD[10]}`}
+                className="btn-secondary text-sm gap-1.5"
+                returnTo="/account"
+              />
             </div>
           </div>
-          {plan === "free" ? (
-            <AlertTriangle size={24} style={{ color: "var(--text-muted)" }} />
-          ) : (
-            <CheckCircle2 size={24} style={{ color: "var(--success)" }} />
-          )}
-        </div>
+        )}
 
-        <div className="text-sm mb-4" style={{ color: expiringSoon ? "var(--danger)" : "var(--text-secondary)" }}>
-          {sessionLoading ? (
-            "Checking your plan…"
-          ) : plan === "free" ? (
-            `You're on the free plan. A paid month lasts ${ACCESS_DAYS} days and nothing auto-renews.`
-          ) : (
-            <>
-              Access until <strong>{formatAccessDate(planExpiresAt)}</strong>
-              {daysLeft > 0 ? ` — ${daysLeft} day${daysLeft === 1 ? "" : "s"} left.` : "."}
-              {" "}Nothing auto-renews, so it simply stops on that date.
-            </>
-          )}
-        </div>
-
-        {plan !== "free" && (
-          <BuyPlanButton
-            plan={plan}
-            label={`Add another month of ${PLAN_LABEL[plan]}`}
-            className="btn-secondary text-sm gap-1.5"
-            returnTo="/account"
-          />
+        {!sessionLoading && creditsLeft > 0 && !entitlements.map && (
+          <div
+            className="rounded-xl p-4 text-sm"
+            style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+          >
+            <div className="font-semibold mb-1" style={{ color: "var(--text-primary)" }}>
+              Add the map
+            </div>
+            Every property for sale in New Zealand, and the full report on the ones somebody has
+            analysed. {PACKAGE_LABEL.silver} is 50 more reports and {MAP_DAYS} days of it.
+            <div className="mt-3">
+              <BuyPlanButton
+                pkg="silver"
+                label={`Get ${PACKAGE_LABEL.silver} — $${priceFor("silver").toLocaleString("en-NZ")}`}
+                className="btn-secondary text-sm gap-1.5"
+                returnTo="/account"
+              />
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Upgrade prompt — the next tier up, and only what it actually adds. */}
-      {(() => {
-        const up = nextPlanUp(plan);
-        if (!up) return null;
-        const adds = featuresAddedBy(up);
-        return (
-          <div
-            className="rounded-2xl p-6"
-            style={{ background: "linear-gradient(160deg, #091e1e 0%, #0a2420 100%)" }}
-          >
-            <div className="font-bold text-lg mb-1">Upgrade to {PLAN_LABEL[up]}</div>
-            <div className="text-[var(--text-secondary)] text-sm mb-4">
-              {PLAN_TAGLINE[up]}
-            </div>
-            <ul className="space-y-2 mb-5">
-              {/* More reports is the headline only when there ARE more. Gold,
-                  Platinum and Diamond all carry 50, so listing "50 reports" as
-                  a reason to pay another $130 would be selling nothing. */}
-              {PLAN_ALLOWANCE[up].reports > PLAN_ALLOWANCE[plan].reports && (
-                <li className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                  <CheckCircle2 size={14} style={{ color: "var(--green)" }} />
-                  {describeAllowance(up)}
-                </li>
-              )}
-              {adds.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                  <CheckCircle2 size={14} style={{ color: "var(--green)" }} />
-                  {FEATURE_LABEL[f]}
-                </li>
-              ))}
-            </ul>
-            <BuyPlanButton
-              plan={up}
-              label={`Get ${PLAN_LABEL[up]}, $${PLAN_PRICE_NZD[up].toLocaleString("en-NZ")} for ${ACCESS_DAYS} days`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[var(--brand)] font-semibold text-sm cursor-pointer hover:bg-[var(--brand-light)] transition-colors"
-              returnTo="/account"
-            />
-          </div>
-        );
-      })()}
 
       {/* Purchase history */}
       <div className="card p-6">
@@ -348,6 +352,39 @@ function NotificationsTab() {
           </div>
         ))}
         <button className="btn-primary mt-2">Save preferences</button>
+      </div>
+    </div>
+  );
+}
+
+/** One of the three things an account can hold. */
+function Holding({
+  label,
+  value,
+  note,
+  good,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  good: boolean;
+}) {
+  return (
+    <div
+      className="rounded-xl p-4"
+      style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+    >
+      <div className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </div>
+      <div
+        className="text-2xl font-bold mt-0.5"
+        style={{ color: good ? "var(--brand)" : "var(--text-muted)" }}
+      >
+        {value}
+      </div>
+      <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+        {note}
       </div>
     </div>
   );

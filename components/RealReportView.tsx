@@ -68,7 +68,7 @@ import Link from "next/link";
 
 import { useSession } from "@/lib/auth/session";
 import { BlurredValue, UpgradeNote, LockedTab } from "@/components/report/Locked";
-import { FEATURE_FROM, planIncludes, type Feature } from "@/lib/billing/plans";
+import { includes as hasFeature, type Feature } from "@/lib/billing/plans";
 import { letterGate, type InspectionEvidence } from "@/lib/viewing/status";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 import { alpha } from "@/lib/ui/color";
@@ -342,7 +342,7 @@ export function RealReportView({
   // demo, or the bundled samples — those exist to show the full product to
   // people who haven't paid for anything yet, so locking them would gate the
   // shop window. Sample ids aren't uuids.
-  const { plan, loading: planLoading } = useSession();
+  const { entitlements, loading: planLoading } = useSession();
   const isSample = !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(report.id);
   // While the session is loading, assume unlocked — a moment of visible content
   // is a smaller wrong than showing a paying customer an upgrade wall.
@@ -352,7 +352,7 @@ export function RealReportView({
   // about which tabs open. The Financial and Renovations tabs come with the
   // cheapest paid tier; the agent document is further up.
   const gated = !shared && !embedded && !isSample && !planLoading;
-  const has = (f: Feature) => !gated || planIncludes(plan, f);
+  const has = (f: Feature) => !gated || hasFeature(entitlements, f);
   const locked = !has("score");
   const tabLocked = (t: string) => {
     const meta = LOCKED_TABS[t];
@@ -1041,7 +1041,7 @@ export function RealReportView({
             </div>
           )}
           {tabLocked(tab) && (
-            <LockedTab {...LOCKED_TABS[tab]} needs={FEATURE_FROM[LOCKED_TABS[tab].feature]} />
+            <LockedTab {...LOCKED_TABS[tab]} />
           )}
           {tab === "renovations" && !tabLocked("renovations") && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
           {tab === "financial" && !tabLocked("financial") && (

@@ -17,9 +17,11 @@ import PurchaseRow from "@/components/billing/PurchaseRow";
 import BuyPlanButton from "@/components/billing/BuyPlanButton";
 import { useSession } from "@/lib/auth/session";
 import {
-  ACCESS_DAYS,
   formatAccessDate,
-  PLAN_LABEL,
+  MAP_DAYS,
+  PACKAGE_LABEL,
+  priceFor,
+  REPORT_PRICE_NZD,
   type PurchaseSummary,
 } from "@/lib/billing/plans";
 
@@ -31,7 +33,7 @@ interface HistoryResponse {
 }
 
 export default function BillingPage() {
-  const { plan, planExpiresAt, user, loading: sessionLoading } = useSession();
+  const { entitlements, creditsLeft, user, loading: sessionLoading } = useSession();
   const [purchases, setPurchases] = useState<PurchaseSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,32 +72,43 @@ export default function BillingPage() {
           Purchases
         </h1>
         <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
-          Each purchase buys {ACCESS_DAYS} days. Nothing auto-renews, so there is no
-          card on file to update and no subscription to cancel.
+          Reports are yours once you buy them and never expire. Map access is the one
+          thing on a clock — {MAP_DAYS} days from purchase, and buying again adds to what
+          is left rather than replacing it. Nothing auto-renews, so there is no card on
+          file to update and no subscription to cancel.
         </p>
 
         <div className="card p-6 mb-5">
           <div className="flex items-center gap-3 mb-2">
             <CreditCard size={18} style={{ color: "var(--brand)" }} />
             <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
-              {sessionLoading ? "…" : PLAN_LABEL[plan]}
+              {sessionLoading
+                ? "…"
+                : `${creditsLeft} ${creditsLeft === 1 ? "report" : "reports"} left`}
             </span>
           </div>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            {plan === "free"
-              ? "No paid access at the moment."
-              : `Active until ${formatAccessDate(planExpiresAt)}.`}
+            {sessionLoading
+              ? ""
+              : entitlements.map && entitlements.mapUntil
+                ? `Reports don't expire. Map access runs to ${formatAccessDate(entitlements.mapUntil)}.`
+                : "Reports don't expire. No map access at the moment."}
           </p>
-          {plan !== "free" && (
-            <div className="mt-4">
-              <BuyPlanButton
-                plan={plan}
-                label={`Add another month of ${PLAN_LABEL[plan]}`}
-                className="btn-secondary text-sm gap-1.5"
-                returnTo="/account/billing"
-              />
-            </div>
-          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <BuyPlanButton
+              pkg="bronze"
+              quantity={10}
+              label={`10 more reports — $${REPORT_PRICE_NZD[10]}`}
+              className="btn-secondary text-sm gap-1.5"
+              returnTo="/account/billing"
+            />
+            <BuyPlanButton
+              pkg="silver"
+              label={`${PACKAGE_LABEL.silver} — $${priceFor("silver").toLocaleString("en-NZ")}`}
+              className="btn-secondary text-sm gap-1.5"
+              returnTo="/account/billing"
+            />
+          </div>
         </div>
 
         <div className="card p-6">

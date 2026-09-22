@@ -8,12 +8,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emailKey } from "@/lib/auth/email-key";
-import {
-  allowanceWindowStart,
-  quotaFrom,
-  type Plan,
-  type QuotaState,
-} from "@/lib/billing/plans";
+import { quotaFrom, type Entitlements, type QuotaState } from "@/lib/billing/plans";
 
 /**
  * The account's quota right now.
@@ -29,12 +24,12 @@ import {
 export async function getQuota(
   userId: string | null,
   ownerKey: string | null,
-  plan: Plan,
+  ent: Entitlements,
   now: Date = new Date(),
   email: string | null = null
 ): Promise<QuotaState> {
   const supabase = createAdminClient();
-  if (!supabase || (!userId && !ownerKey)) return quotaFrom(plan, 0, now);
+  if (!supabase || (!userId && !ownerKey)) return quotaFrom(ent.credits, 0, ent.paid);
 
   try {
     // Signed in → count the person, by inbox. Signed out → count the browser,
@@ -50,29 +45,29 @@ export async function getQuota(
     const keys = userId
       ? ids.map((id) => `user_id.eq.${id}`)
       : [`owner_key.eq.${ownerKey}`];
-    if (keys.length === 0) return quotaFrom(plan, 0, now);
+    if (keys.length === 0) return quotaFrom(ent.credits, 0, ent.paid);
 
-    let query = supabase
+    // Every complete report ever, with no date window. Credits are owned rather
+    // than rented now, so there is no month to count within — what somebody
+    // bought in January is still theirs in June, and what they spent in January
+    // is still spent.
+    const { count, error } = await supabase
       .from("reports")
       .select("id", { count: "exact", head: true })
       .eq("report_status", "complete")
       .or(keys.join(","));
-
-    const since = allowanceWindowStart(plan, now);
-    if (since) query = query.gte("created_at", since.toISOString());
-
-    const { count, error } = await query;
     if (error) throw new Error(error.message);
 
-    return quotaFrom(plan, count ?? 0, now);
+    return quotaFrom(ent.credits, count ?? 0, ent.paid);
   } catch (err) {
     // A failed count must not become a free-for-all OR a hard block. Treating
-    // it as "allowance used" would lock out paying customers over a transient
+    // every credit as spent would lock out paying customers over a transient
     // database blip; treating it as zero would hand out unlimited analyses.
-    // Reporting it as one-used splits the difference: the first report of the
-    // window still runs, and the logs say why.
+    // Reporting it as one-used splits the difference: somebody with credits
+    // still gets their report, somebody with none still doesn't, and the logs
+    // say why.
     console.warn("[quota] count failed, assuming one used:", (err as Error)?.message);
-    return quotaFrom(plan, 1, now);
+    return quotaFrom(ent.credits, 1, ent.paid);
   }
 }
 

@@ -15,9 +15,8 @@ npm run dev                  # port 3000
 ./node_modules/.bin/tsc --noEmit   # type check — see the trap below
 npm run lint
 npm run db:setup-sql         # regenerate supabase/setup.sql from the migrations
-npm run verify:billing       # the plan/expiry maths
+npm run verify:billing       # package prices, credits, map expiry, and what the wall says
 npm run verify:listing-key   # the "same house?" rules behind report reuse
-npm run verify:allowance     # who gets how many reports, and what the wall says
 npm run verify:email-key     # which accounts count as one inbox
 npm run verify:discovery     # the sitemap/URL parsers behind nightly discovery
 npm run verify:dwelling      # is there a building to score, and does the address name one property
@@ -44,8 +43,8 @@ npm run build:instruments    # regenerate lib/linz/instrument-types.ts from LINZ
 
 **There are almost no tests.** Verification is `tsc`, the health endpoints, and
 driving the app. The one exception is `scripts/verify-billing.mjs`, because a
-wrong date in `lib/billing/plans.ts` either gives away a plan or takes away a
-paid month, and neither throws. If you add anything to `lib/scoring`,
+wrong number in `lib/billing/plans.ts` either gives away reports or takes away
+ones somebody paid for, and neither throws. If you add anything to `lib/scoring`,
 `lib/negotiation` or `lib/reno-costing`, they deserve the same for the same
 reason: pure, deterministic, and a wrong number there ends up in a letter to a
 vendor's agent.

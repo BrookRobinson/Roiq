@@ -16,7 +16,7 @@
 import { Lock } from "lucide-react";
 import Link from "next/link";
 
-import { FEATURE_FROM, PLAN_LABEL, PLAN_PRICE_NZD, type PaidPlan } from "@/lib/billing/plans";
+import { PACKAGE_LABEL, packageFor, priceFor, type Feature } from "@/lib/billing/plans";
 
 /**
  * A real value, rendered unreadable.
@@ -58,15 +58,16 @@ export function BlurredValue({
  */
 export function UpgradeNote({
   what,
-  needs = FEATURE_FROM.score,
+  feature = "score",
   compact = false,
 }: {
   /** What's hidden, in the reader's words — "your score", "the valuation". */
   what: string;
-  /** The cheapest tier that opens it. Naming it beats "a paid plan". */
-  needs?: PaidPlan;
+  /** What it needs. Naming the price beats "a paid plan". */
+  feature?: Feature;
   compact?: boolean;
 }) {
+  const needs = packageFor(feature);
   return (
     <div
       className={`flex items-center gap-2 rounded-xl ${compact ? "px-3 py-2" : "px-4 py-3"}`}
@@ -74,7 +75,8 @@ export function UpgradeNote({
     >
       <Lock size={compact ? 13 : 15} style={{ color: "var(--brand)", flexShrink: 0 }} />
       <span className={compact ? "text-xs" : "text-sm"} style={{ color: "var(--text-secondary)" }}>
-        {what} is included from {PLAN_LABEL[needs]}, ${PLAN_PRICE_NZD[needs].toLocaleString("en-NZ")}.{" "}
+        {what} comes with {PACKAGE_LABEL[needs]}, from $
+        {priceFor(needs, 1).toLocaleString("en-NZ")}.{" "}
         <Link href="/pricing" className="font-semibold hover:underline" style={{ color: "var(--brand)" }}>
           See plans
         </Link>
@@ -93,14 +95,15 @@ export function LockedTab({
   title,
   blurb,
   includes,
-  needs = FEATURE_FROM.tools,
+  feature = "tools",
 }: {
   title: string;
   blurb: string;
   includes: string[];
-  /** The cheapest tier that opens this tab. */
-  needs?: PaidPlan;
+  /** What this tab needs. */
+  feature?: Feature;
 }) {
+  const needs = packageFor(feature);
   return (
     <div className="max-w-lg mx-auto text-center py-14 px-6">
       <div
@@ -124,7 +127,7 @@ export function LockedTab({
 
       <div>
         <Link href="/pricing" className="btn-primary px-6 py-3 text-[15px] inline-flex">
-          Included from {PLAN_LABEL[needs]} — ${PLAN_PRICE_NZD[needs].toLocaleString("en-NZ")}
+          {PACKAGE_LABEL[needs]} — from ${priceFor(needs, 1).toLocaleString("en-NZ")}
         </Link>
       </div>
       <p className="text-xs mt-4" style={{ color: "var(--text-muted)" }}>

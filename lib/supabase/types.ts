@@ -6,7 +6,8 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type Plan = "free" | "copper" | "bronze" | "silver" | "gold" | "platinum" | "diamond";
+/** What was last bought. Access is computed from `purchases`, never from this. */
+export type Plan = "free" | "bronze" | "silver" | "gold";
 export type ReportStatus = "pending" | "processing" | "complete" | "failed";
 export type ListingStatus = "active" | "sold" | "removed";
 export type OpportunityGrade = "A+" | "A" | "B+" | "B" | "C+" | "C" | "D";
@@ -323,6 +324,16 @@ export interface Database {
           stripe_payment_intent_id: string | null;
           stripe_customer_id: string | null;
           plan: string;
+          /** Report credits this purchase granted. The ledger — summed, never
+           *  decremented, so a replayed webhook can't grant twice. */
+          reports_granted: number;
+          /** Did it carry map access? */
+          includes_map: boolean;
+          /** Inspections owed by it. */
+          inspections_granted: number;
+          /** When the inspection was actually carried out, or null if it still
+           *  owes one. */
+          inspection_fulfilled_at: string | null;
           amount_cents: number | null;
           currency: string;
           status: string;
@@ -338,6 +349,10 @@ export interface Database {
           stripe_payment_intent_id?: string | null;
           stripe_customer_id?: string | null;
           plan: string;
+          reports_granted?: number;
+          includes_map?: boolean;
+          inspections_granted?: number;
+          inspection_fulfilled_at?: string | null;
           amount_cents?: number | null;
           currency?: string;
           status?: string;
@@ -399,3 +414,4 @@ export type MarketDataRow = Database["public"]["Tables"]["market_data"]["Row"];
 export type MapListingRow = Database["public"]["Tables"]["map_listings"]["Row"];
 export type WatchlistRow = Database["public"]["Tables"]["watchlist"]["Row"];
 export type AlertRow = Database["public"]["Tables"]["alerts"]["Row"];
+export type PurchaseRow = Database["public"]["Tables"]["purchases"]["Row"];

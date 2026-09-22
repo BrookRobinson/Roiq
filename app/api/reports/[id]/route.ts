@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { readOwnerKey } from "@/lib/reports/owner";
 import { deleteReport, loadReport, loadReportForPro } from "@/lib/reports/store";
-import { getUser, getUserPlan } from "@/lib/supabase/auth";
-import { FEATURE_FROM, PLAN_LABEL, planIncludes } from "@/lib/billing/plans";
+import { getUser, getEntitlements } from "@/lib/supabase/auth";
+import { includes, PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,8 +24,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   // Someone else's, off the map. This is what the map tiers buy — every analysis
   // anyone has run on a property that's publicly for sale.
-  const plan = await getUserPlan().catch(() => "free" as const);
-  const allowed = planIncludes(plan, "mapReports");
+  const ent = await getEntitlements();
+  const allowed = includes(ent, "mapReports");
   if (allowed) {
     const shared = await loadReportForPro(params.id);
     if (shared) return NextResponse.json({ ok: true, report: shared, access: "map" });
@@ -37,13 +37,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (authUser && !allowed) {
     const exists = await loadReportForPro(params.id);
     if (exists) {
-      const from = PLAN_LABEL[FEATURE_FROM.mapReports];
+      const needs = packageFor("mapReports");
       return NextResponse.json(
         {
           ok: false,
           error: "upgrade_required",
-          plan,
-          message: `${from} opens every report on the map.`,
+          needs,
+          message: `${PACKAGE_LABEL[needs]} — $${priceFor(needs).toLocaleString("en-NZ")} — opens every report on the map.`,
         },
         { status: 402 }
       );

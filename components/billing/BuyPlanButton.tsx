@@ -4,19 +4,22 @@
 // The button that actually takes money.
 //
 // Used on the pricing page and in the account tab so both start checkout the
-// same way — including the awkward cases (signed out, already on a higher
-// plan), which are the ones that get forgotten when this is inlined twice.
+// same way — including the awkward cases (signed out, a checkout that 503s
+// because no Stripe key is set), which are the ones that get forgotten when
+// this is inlined twice.
 // ============================================================
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 
-import { PLAN_LABEL, type PaidPlan } from "@/lib/billing/plans";
+import { PACKAGE_LABEL, type Package, type ReportQuantity } from "@/lib/billing/plans";
 import { useSession } from "@/lib/auth/session";
 
 interface Props {
-  plan: PaidPlan;
+  pkg: Package;
+  /** Bronze only — how many reports. Ignored by the others. */
+  quantity?: ReportQuantity;
   label?: string;
   className?: string;
   style?: React.CSSProperties;
@@ -24,7 +27,14 @@ interface Props {
   returnTo?: string;
 }
 
-export default function BuyPlanButton({ plan, label, className, style, returnTo = "/pricing" }: Props) {
+export default function BuyPlanButton({
+  pkg,
+  quantity,
+  label,
+  className,
+  style,
+  returnTo = "/pricing",
+}: Props) {
   const { user, loading: sessionLoading } = useSession();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -33,10 +43,12 @@ export default function BuyPlanButton({ plan, label, className, style, returnTo 
   async function start() {
     setError(null);
 
-    // Checkout needs an account to grant the plan to. Send them to sign up with
-    // the plan remembered, rather than letting the API turn them away with a 401.
+    // Checkout needs an account to grant the purchase to. Send them to sign up
+    // with the choice remembered, rather than letting the API turn them away
+    // with a 401 after they have already decided.
     if (!user) {
-      router.push(`/signup?plan=${plan}&next=${encodeURIComponent(returnTo)}`);
+      const q = quantity ? `&quantity=${quantity}` : "";
+      router.push(`/signup?pkg=${pkg}${q}&next=${encodeURIComponent(returnTo)}`);
       return;
     }
 
@@ -45,7 +57,7 @@ export default function BuyPlanButton({ plan, label, className, style, returnTo 
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ pkg, quantity }),
       });
       const data = (await res.json().catch(() => null)) as { ok?: boolean; url?: string; error?: string } | null;
 
@@ -72,7 +84,7 @@ export default function BuyPlanButton({ plan, label, className, style, returnTo 
         className={className}
         style={{ ...style, opacity: busy || sessionLoading ? 0.65 : 1 }}
       >
-        {busy ? "Opening checkout…" : (label ?? `Get ${PLAN_LABEL[plan]}`)}
+        {busy ? "Opening checkout…" : (label ?? `Get ${PACKAGE_LABEL[pkg]}`)}
         {busy ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
       </button>
       {error && (

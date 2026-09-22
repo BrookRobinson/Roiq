@@ -4,10 +4,10 @@
 // of them, and neither should invent its own idea of what a purchase looks like.
 
 import {
+  describeGrant,
   formatAccessDate,
   formatAmount,
-  PLAN_LABEL,
-  type Plan,
+  PACKAGE_LABEL,
   type PurchaseSummary,
 } from "@/lib/billing/plans";
 
@@ -20,7 +20,16 @@ export default function PurchaseRow({ purchase }: { purchase: PurchaseSummary })
       <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
         {formatAccessDate(purchase.createdAt)}
         <span className="block text-xs" style={{ color: "var(--text-muted)" }}>
-          {PLAN_LABEL[purchase.plan as Plan] ?? purchase.plan} · access to {formatAccessDate(purchase.accessUntil)}
+          {/* What it bought, not which rung it was. A receipt saying "Silver"
+              is unmatchable to a charge three weeks later; "50 reports and the
+              map" is what they remember buying. */}
+          {PACKAGE_LABEL[purchase.pkg]} ·{" "}
+          {describeGrant({
+            reports: purchase.reports,
+            map: purchase.map,
+            inspections: purchase.inspections,
+          })}
+          {purchase.mapUntil && <> · map to {formatAccessDate(purchase.mapUntil)}</>}
         </span>
       </div>
       <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>

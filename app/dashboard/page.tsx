@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { describeAllowance, FEATURE_FROM, PLAN_LABEL, PLAN_PRICE_NZD } from "@/lib/billing/plans";
+import { MAP_DAYS, PACKAGE_LABEL, packageFor, priceFor, REPORT_PRICE_NZD } from "@/lib/billing/plans";
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import {
@@ -320,9 +320,9 @@ export default function DashboardPage() {
             More reports, and the NZ investment map
           </h3>
           <p className="text-[var(--text-secondary)] text-sm mb-4">
-            Six tiers from ${PLAN_PRICE_NZD.copper} — {describeAllowance("copper")}. The map starts at{" "}
-            {PLAN_LABEL[FEATURE_FROM.map]}, $
-            {PLAN_PRICE_NZD[FEATURE_FROM.map].toLocaleString("en-NZ")}.
+            Reports from ${REPORT_PRICE_NZD[1]}, and they never expire — ten for $
+            {REPORT_PRICE_NZD[10]}. {PACKAGE_LABEL[packageFor("map")]} adds the map for {MAP_DAYS}{" "}
+            days at ${priceFor(packageFor("map")).toLocaleString("en-NZ")}.
           </p>
           <Link
             href="/pricing"

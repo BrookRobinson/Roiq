@@ -9,7 +9,7 @@ import { saveReport, saveReportPersona } from "@/lib/report-store";
 import type { Persona } from "@/lib/scoring/model";
 import { PersonaChoice, PersonaRequiredDialog } from "@/components/report/PersonaChoice";
 import { useSession } from "@/lib/auth/session";
-import { describeAllowance, PLAN_LABEL, PLAN_PRICE_NZD } from "@/lib/billing/plans";
+import { FREE_REPORTS, REPORT_PRICE_NZD } from "@/lib/billing/plans";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { contributeToMap } from "@/lib/map/contribution";
@@ -63,7 +63,7 @@ function NewReportInner() {
   // not remembered from last time, or the choice stops being a choice.
   const [persona, setPersona] = useState<Persona | null>(null);
   const [askPersona, setAskPersona] = useState(false);
-  const { plan, loading: planLoading } = useSession();
+  const { isPaid, loading: planLoading } = useSession();
   const [step, setStep] = useState<Step>("input");
   const [pipelineStep, setPipelineStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -422,17 +422,18 @@ function NewReportInner() {
 
               {/* What a free report includes, said before it's used rather than
                   discovered afterwards. There is only one, and it doesn't come back. */}
-              {!planLoading && plan === "free" && (
+              {!planLoading && !isPaid && (
                 <div
                   className="rounded-xl px-4 py-3 mb-5 text-xs"
                   style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)", lineHeight: 1.6 }}
                 >
                   <strong style={{ color: "var(--text-primary)" }}>This uses your free report</strong> — you get{" "}
-                  {describeAllowance("free")}, and it doesn&apos;t reset. Every photo is analysed and every finding
-                  shown, but the <strong style={{ color: "var(--text-primary)" }}>score</strong> and{" "}
-                  <strong style={{ color: "var(--text-primary)" }}>valuation</strong> stay locked until you upgrade.{" "}
+                  {FREE_REPORTS} report, and it doesn&apos;t reset. Every photo is analysed and every
+                  finding shown, but the <strong style={{ color: "var(--text-primary)" }}>score</strong>{" "}
+                  and <strong style={{ color: "var(--text-primary)" }}>valuation</strong> stay locked
+                  until you buy.{" "}
                   <Link href="/pricing" className="hover:underline" style={{ color: "var(--brand)" }}>
-                    {PLAN_LABEL.copper} is {describeAllowance("copper")} for ${PLAN_PRICE_NZD.copper} →
+                    One more report is ${REPORT_PRICE_NZD[1]}, ten are ${REPORT_PRICE_NZD[10]} →
                   </Link>
                 </div>
               )}

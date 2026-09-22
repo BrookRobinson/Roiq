@@ -7,7 +7,8 @@ import { assessFarm } from "@/lib/property/farm";
 import { analyseProperty, analysePropertyFast } from "@/lib/ai/analyze";
 import { findReusableReport, isOwnReport, REUSE_MAX_AGE_DAYS } from "@/lib/reports/reuse";
 import { getQuota } from "@/lib/reports/quota";
-import { effectivePlan, quotaExhaustedMessage } from "@/lib/billing/plans";
+import { quotaExhaustedMessage } from "@/lib/billing/plans";
+import { entitlementsFor } from "@/lib/billing/entitlements";
 import { getUser } from "@/lib/supabase/auth";
 import { readOwnerKey } from "@/lib/reports/owner";
 import { fetchMarketData, type MarketResult } from "@/lib/ai/market";
@@ -58,9 +59,9 @@ export async function POST(req: NextRequest) {
   const inspections = Array.isArray(body.only) && body.only.length > 0 ? body.only : undefined;
 
   // Who's asking. Needed twice below — to tell their own saved report from
-  // someone else's, and to size their allowance.
+  // someone else's, and to count their credits.
   const { authUser, profile } = await getUser().catch(() => ({ authUser: null, profile: null }));
-  const plan = effectivePlan(profile?.plan, profile?.plan_expires_at);
+  const entitlements = await entitlementsFor(authUser?.id ?? null);
   const ownerKey = readOwnerKey();
 
   // Background prefetch (manual-upload flow): resolve the address + suburb $/m² +
@@ -199,12 +200,12 @@ export async function POST(req: NextRequest) {
     // ── Allowance ────────────────────────────────────────────────────────────
     // Below the scrape so the caller's own report can be recognised first, and
     // above everything expensive. A cached report from SOMEONE ELSE still costs
-    // the reader one of theirs — the saving from reuse is ours, not a way to
-    // run more reports than the plan includes.
+    // the reader one of their credits — the saving from reuse is ours, not a
+    // way to run more reports than were paid for.
     const quota = await getQuota(
       authUser?.id ?? null,
       ownerKey,
-      plan,
+      entitlements,
       new Date(),
       authUser?.email ?? profile?.email ?? null
     );

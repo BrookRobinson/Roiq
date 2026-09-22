@@ -10,9 +10,15 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { daysRemaining, planIncludes, type Feature, type Plan } from "@/lib/billing/plans";
+import {
+  daysRemaining,
+  includes,
+  NO_ENTITLEMENTS,
+  type Entitlements,
+  type Feature,
+} from "@/lib/billing/plans";
 
-export type { Plan };
+export type { Entitlements };
 
 export interface SessionUser {
   id: string;
@@ -21,27 +27,28 @@ export interface SessionUser {
 
 interface SessionValue {
   user: SessionUser | null;
-  /** The plan in force right now — already expiry-checked by /api/auth/me. */
-  plan: Plan;
-  /** ISO date the purchased month runs out, or null on the free plan. */
-  planExpiresAt: string | null;
-  /** Whole days left on the current month, 0 when there isn't one. */
+  /** Everything bought and not yet used — already computed by /api/auth/me. */
+  entitlements: Entitlements;
+  /** Report credits left, after what's been run. */
+  creditsLeft: number;
+  /** Whole days of map access left, 0 when there is none. */
   daysLeft: number;
   /** Still fetching — render neither a signed-in nor a signed-out state yet. */
   loading: boolean;
   /**
-   * Does the plan in force include this feature? The one question a gate should
-   * ask — `plan === "gold"` goes stale the moment a tier is added above it.
+   * Does this account have the feature? The one question a gate should ask —
+   * a package-name comparison goes stale the moment the packages change.
    */
   can: (feature: Feature) => boolean;
+  /** Has ever bought anything. */
   isPaid: boolean;
   refresh: () => void;
 }
 
 const SessionContext = createContext<SessionValue>({
   user: null,
-  plan: "free",
-  planExpiresAt: null,
+  entitlements: NO_ENTITLEMENTS,
+  creditsLeft: 0,
   daysLeft: 0,
   loading: true,
   can: () => false,
@@ -51,8 +58,8 @@ const SessionContext = createContext<SessionValue>({
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
-  const [plan, setPlan] = useState<Plan>("free");
-  const [planExpiresAt, setPlanExpiresAt] = useState<string | null>(null);
+  const [entitlements, setEntitlements] = useState<Entitlements>(NO_ENTITLEMENTS);
+  const [creditsLeft, setCreditsLeft] = useState(0);
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
 
@@ -65,8 +72,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       .then((d) => {
         if (!live) return;
         setUser(d?.user ?? null);
-        setPlan((d?.plan as Plan) ?? "free");
-        setPlanExpiresAt((d?.planExpiresAt as string | null) ?? null);
+        setEntitlements((d?.entitlements as Entitlements) ?? NO_ENTITLEMENTS);
+        setCreditsLeft(Number(d?.creditsLeft ?? 0));
       })
       .catch(() => {
         /* signed out is the safe assumption */
@@ -80,15 +87,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<SessionValue>(
     () => ({
       user,
-      plan,
-      planExpiresAt,
-      daysLeft: daysRemaining(planExpiresAt),
+      entitlements,
+      creditsLeft,
+      daysLeft: daysRemaining(entitlements.mapUntil),
       loading,
-      can: (feature: Feature) => planIncludes(plan, feature),
-      isPaid: plan !== "free",
+      can: (feature: Feature) => includes(entitlements, feature),
+      isPaid: entitlements.paid,
       refresh,
     }),
-    [user, plan, planExpiresAt, loading, refresh]
+    [user, entitlements, creditsLeft, loading, refresh]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

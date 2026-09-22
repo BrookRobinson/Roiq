@@ -3,7 +3,8 @@
 //
 // The owner builds this app on his own machine and does not want to log into it
 // to look at his own work. This makes the whole product behave as though a
-// Diamond account is signed in: no login wall, no upgrade wall, every tab open.
+// fully paid-up account is signed in: no login wall, no upgrade wall, every
+// tab open.
 //
 // The dangerous version of this feature is a flag that grants a paid tier to
 // everybody,
@@ -20,10 +21,20 @@
 // doesn't orphan anything.
 // ============================================================
 
-import type { Plan } from "@/lib/billing/plans";
+import { NO_ENTITLEMENTS, type Entitlements } from "@/lib/billing/plans";
 
-/** The plan owner mode reports. The top tier, which is the whole request. */
-export const DEV_OWNER_PLAN: Plan = "diamond";
+/** What owner mode reports owning. Everything, which is the whole request. */
+export const DEV_OWNER_ENTITLEMENTS: Entitlements = {
+  ...NO_ENTITLEMENTS,
+  credits: 9999,
+  paid: true,
+  map: true,
+  // A real date, not null. `map: true` with no date renders as "0 days left"
+  // everywhere that counts down from it, which looks exactly like expired
+  // access — and owner mode exists so the product behaves normally.
+  mapUntil: new Date(Date.now() + 3650 * 86_400_000).toISOString(),
+  inspections: 1,
+};
 
 /** A stable label for the UI, so it's obvious this isn't a real account. */
 export const DEV_OWNER_EMAIL = "owner@localhost";

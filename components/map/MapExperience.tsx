@@ -11,7 +11,7 @@ import { VariablesScreen } from "@/components/map/VariablesScreen";
 import { loadVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
 import { TypeFilter } from "./TypeFilter";
 import { useSession } from "@/lib/auth/session";
-import { FEATURE_FROM, PLAN_LABEL, PLAN_PRICE_NZD } from "@/lib/billing/plans";
+import { PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import type { MapMode, UserVariables } from "@/lib/map/types";
@@ -60,7 +60,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   // Demo listings are nobody's paid analysis, so there is nothing to withhold.
   const unlocked = demo || can("map");
   /** Named once — the tier the map starts at is decided in lib/billing/plans.ts. */
-  const mapTier = PLAN_LABEL[FEATURE_FROM.map];
+  const mapTier = PACKAGE_LABEL[packageFor("map")];
 
   useEffect(() => {
     const v = loadVariables();
@@ -316,7 +316,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                       className="btn-primary inline-flex px-5 py-2 text-sm"
                       style={{ textDecoration: "none" }}
                     >
-                      Get {mapTier} — ${PLAN_PRICE_NZD[FEATURE_FROM.map].toLocaleString("en-NZ")}
+                      Get {mapTier} — ${priceFor(packageFor("map")).toLocaleString("en-NZ")}
                     </Link>
                     <button
                       onClick={() => setLocked(false)}

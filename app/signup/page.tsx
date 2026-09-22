@@ -8,12 +8,13 @@
 
 import Link from "next/link";
 import {
-  ACCESS_DAYS,
-  normalisePlan,
-  PLAN_COLOUR,
-  PLAN_LABEL,
-  PLAN_PRICE_NZD,
-  type PaidPlan,
+  describeGrant,
+  grantFor,
+  isReportQuantity,
+  normalisePackage,
+  PACKAGE_COLOUR,
+  PACKAGE_LABEL,
+  priceFor,
 } from "@/lib/billing/plans";
 import { useState, Suspense } from "react";
 import { Eye, EyeOff, ArrowRight, CheckCircle2 } from "lucide-react";
@@ -33,8 +34,11 @@ function SignupForm() {
   }, [ownerMode, router]);
 
   const searchParams = useSearchParams();
-  const plan = searchParams.get("plan") || "free";
-  // Where to land afterwards. Someone who came here from a plan CTA is midway
+  // `plan` is the old name for this parameter and links to it are still in the
+  // wild; both are read so an old bookmark doesn't lose somebody's choice.
+  const pkgParam = searchParams.get("pkg") ?? searchParams.get("plan");
+  const qtyParam = Number(searchParams.get("quantity"));
+  // Where to land afterwards. Someone who came here from a buy button is midway
   // through buying — dumping them on the dashboard loses the purchase.
   const next = searchParams.get("next") || "/dashboard";
 
@@ -45,17 +49,19 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Built from the plan table rather than listed here, so a renamed or
-  // repriced tier can't leave a stale chip on the signup form.
-  const chosen = normalisePlan(plan) ?? "free";
-  const planInfo = {
-    name: PLAN_LABEL[chosen],
-    price:
-      chosen === "free"
-        ? "$0"
-        : `$${PLAN_PRICE_NZD[chosen as PaidPlan].toLocaleString("en-NZ")} / ${ACCESS_DAYS} days`,
-    color: PLAN_COLOUR[chosen],
-  };
+  // Built from the package table rather than listed here, so a renamed or
+  // repriced package can't leave a stale chip on the signup form.
+  const chosen = normalisePackage(pkgParam);
+  const quantity = isReportQuantity(qtyParam) ? qtyParam : undefined;
+  const planInfo = chosen
+    ? {
+        name: PACKAGE_LABEL[chosen],
+        price: `$${priceFor(chosen, quantity).toLocaleString("en-NZ")} — ${describeGrant(
+          grantFor(chosen, quantity)
+        )}`,
+        color: PACKAGE_COLOUR[chosen],
+      }
+    : null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,7 +74,7 @@ function SignupForm() {
       password,
       options: {
         emailRedirectTo: `${location.origin}/auth/callback`,
-        data: { plan },
+        data: { plan: chosen ?? "free" },
       },
     });
 
@@ -142,22 +148,33 @@ function SignupForm() {
             Create your account
           </h1>
 
-          <div className="flex items-center gap-2 mb-6">
-            <span className="text-sm" style={{ color: "var(--text-secondary)" }}>Plan:</span>
-            <span
-              className="text-sm font-semibold px-3 py-0.5 rounded-full"
-              style={{ background: `${planInfo.color}18`, color: planInfo.color }}
-            >
-              {planInfo.name} — {planInfo.price}
-            </span>
-            <Link
-              href="/pricing"
-              className="text-xs cursor-pointer hover:underline"
-              style={{ color: "var(--text-muted)" }}
-            >
-              Change
-            </Link>
-          </div>
+          {/* Only when they arrived mid-purchase. Nothing is being bought on
+              this form, and a "Plan: Free" chip on a page that sells nothing
+              invited the question of what they were signing up to. */}
+          {planInfo ? (
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                Buying:
+              </span>
+              <span
+                className="text-sm font-semibold px-3 py-0.5 rounded-full"
+                style={{ background: `${planInfo.color}18`, color: planInfo.color }}
+              >
+                {planInfo.name} — {planInfo.price}
+              </span>
+              <Link
+                href="/pricing"
+                className="text-xs cursor-pointer hover:underline"
+                style={{ color: "var(--text-muted)" }}
+              >
+                Change
+              </Link>
+            </div>
+          ) : (
+            <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
+              Your first report is free — every photo read and every finding shown.
+            </p>
+          )}
 
           {error && (
             <div
@@ -227,7 +244,7 @@ function SignupForm() {
             style={{ borderTop: "1px solid var(--border)" }}
           >
             {[
-              "No credit card required for Free plan",
+              "No credit card required for your free report",
               "Cancel or upgrade anytime",
               "Your data is private by default",
             ].map((f) => (

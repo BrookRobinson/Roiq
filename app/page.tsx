@@ -11,16 +11,16 @@ import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
 import { PRODUCT_NAME } from "@/lib/brand";
 import {
-  describeAllowance,
-  FEATURE_FROM,
   FEATURE_LABEL,
-  PLAN_LABEL,
-  PLAN_PRICE_NZD,
-  PLAN_RANK,
-  planIncludes,
+  FEATURE_NEEDS,
+  featuresOf,
+  grantFor,
+  PACKAGE_LABEL,
+  PACKAGES,
+  priceFor,
+  REPORT_PRICE_NZD,
   type Feature,
-  type PaidPlan,
-  type Plan,
+  type Package,
 } from "@/lib/billing/plans";
 
 /**
@@ -242,36 +242,34 @@ function LedgerRow({
 /* ── 7. Pricing ────────────────────────────────────────────────────────────
    A ruled comparison table rather than three identical cards.               */
 function Pricing() {
-  // Four of the seven tiers. The whole ladder belongs on /pricing — a landing
-  // page asking someone to compare seven columns loses them, and the interesting
-  // question here is only "cheapest, middle, or the one with a person in it".
+  // All three, because there are only three. The rows come from the feature map
+  // in lib/billing/plans.ts, like the pricing page's — the hand-written version
+  // of this table sold "Batch and compare", which was never built.
   //
-  // Rows come from the feature map in lib/billing/plans.ts, like the pricing
-  // page's. The hand-written version of this table sold "Batch and compare",
-  // which was never built.
-  // Not Gold: it carries no feature of its own, so a column of ticks identical
-  // to Silver's would make the table look broken rather than honest.
-  const shown: Plan[] = ["free", "copper", "platinum", "diamond"];
-  const plans = shown.map((plan) => ({
-    plan,
-    name: PLAN_LABEL[plan],
+  // Bronze is shown at 10 reports, which is what the dropdown opens on. Its
+  // price moves; the ticks don't.
+  const shown: Package[] = [...PACKAGES];
+  const plans = shown.map((pkg) => ({
+    pkg,
+    name: PACKAGE_LABEL[pkg],
     price:
-      plan === "free" ? "$0" : `$${PLAN_PRICE_NZD[plan as PaidPlan].toLocaleString("en-NZ")}`,
-    href: plan === "free" ? "/signup" : `/pricing#${plan}`,
-    cta: plan === "free" ? "Start free" : `Get ${PLAN_LABEL[plan]}`,
+      pkg === "bronze"
+        ? `from $${REPORT_PRICE_NZD[1]}`
+        : `$${priceFor(pkg).toLocaleString("en-NZ")}`,
+    reports: grantFor(pkg, 10).reports,
+    href: "/pricing",
+    cta: `Get ${PACKAGE_LABEL[pkg]}`,
   }));
 
   const features: { label: string; has: boolean[] }[] = [
+    ...(Object.keys(FEATURE_NEEDS) as Feature[]).map((f) => ({
+      label: FEATURE_LABEL[f],
+      has: shown.map((p) => featuresOf(p).includes(f)),
+    })),
     {
-      label: "Reports for the month",
-      has: shown.map(() => true),
+      label: "In-person building inspection",
+      has: shown.map((p) => grantFor(p, 10).inspections > 0),
     },
-    ...(Object.keys(FEATURE_FROM) as Feature[])
-      .sort((a, b) => PLAN_RANK[FEATURE_FROM[a]] - PLAN_RANK[FEATURE_FROM[b]])
-      .map((f) => ({
-        label: FEATURE_LABEL[f],
-        has: shown.map((p) => planIncludes(p, f)),
-      })),
   ];
 
   return (
@@ -286,9 +284,9 @@ function Pricing() {
             Pay for a month at a time. No subscription, nothing auto-renews.
           </p>
           <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
-            Four of six paid tiers shown.{" "}
+            Reports never expire. Map access runs 30 days.{" "}
             <Link href="/pricing" className="font-semibold hover:underline" style={{ color: "var(--accent-text)" }}>
-              Bronze, Silver and Gold sit in between →
+              See the full breakdown →
             </Link>
           </p>
         </Reveal>
@@ -323,12 +321,11 @@ function Pricing() {
                         style={{ color: "var(--text-primary)" }}
                       >
                         {p.price}
-                        <span className="ml-0.5 text-[13px] font-medium" style={{ color: "var(--text-muted)" }}>
-                          /month
-                        </span>
                       </div>
                       <div className="mt-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
-                        {describeAllowance(p.plan)}
+                        {p.pkg === "bronze"
+                          ? "As many reports as you want"
+                          : `${p.reports} reports`}
                       </div>
                     </th>
                   ))}

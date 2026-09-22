@@ -6,7 +6,7 @@ import type { MapListing, ComputedListing, MapMode, UserVariables } from "@/lib/
 import { pinHex, pctLabel } from "@/lib/map/calc";
 import { loadReport } from "@/lib/report-store";
 import { useSession } from "@/lib/auth/session";
-import { FEATURE_FROM, PLAN_LABEL } from "@/lib/billing/plans";
+import { PACKAGE_LABEL, packageFor } from "@/lib/billing/plans";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 import { SAMPLE_ID_PREFIX } from "@/lib/scoring/sample-reports";
 import { alpha } from "@/lib/ui/color";
@@ -268,7 +268,7 @@ export function PropertySheet({
                     : hasReport
                       ? "View full report"
                       : l.fullReportId
-                        ? `Unlock with ${PLAN_LABEL[FEATURE_FROM.mapReports]}`
+                        ? `Unlock with ${PACKAGE_LABEL[packageFor("mapReports")]}`
                         : "Analyse this property"}{" "}
                   <ChevronRight size={14} />
                 </a>

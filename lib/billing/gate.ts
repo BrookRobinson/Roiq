@@ -10,10 +10,10 @@
 import { NextResponse } from "next/server";
 
 import {
-  FEATURE_FROM,
   FEATURE_LABEL,
-  PLAN_LABEL,
-  PLAN_PRICE_NZD,
+  PACKAGE_LABEL,
+  packageFor,
+  priceFor,
   type Feature,
 } from "@/lib/billing/plans";
 import { hasFeature } from "@/lib/supabase/auth";
@@ -29,14 +29,15 @@ export async function featureGate(feature: Feature): Promise<NextResponse | null
   const allowed = await hasFeature(feature).catch(() => false);
   if (allowed) return null;
 
-  const needs = FEATURE_FROM[feature];
+  const needs = packageFor(feature);
+  const price = priceFor(needs, 1);
   return NextResponse.json(
     {
       ok: false,
       error: "upgrade_required",
       feature,
       needs,
-      message: `${FEATURE_LABEL[feature]} is included from ${PLAN_LABEL[needs]}, $${PLAN_PRICE_NZD[needs].toLocaleString("en-NZ")}.`,
+      message: `${FEATURE_LABEL[feature]} comes with ${PACKAGE_LABEL[needs]}, from $${price.toLocaleString("en-NZ")}.`,
     },
     { status: 402 }
   );

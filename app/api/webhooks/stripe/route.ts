@@ -2,21 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 
 import {
-  ACCESS_DAYS,
-  accessUntil,
-  effectivePlan,
-  isPaidPlan,
-  PLAN_RANK,
-  type PaidPlan,
+  isPackage,
+  mapAccessUntil,
+  MAP_DAYS,
+  type Package,
 } from "@/lib/billing/plans";
-import { getStripe, planForPriceId } from "@/lib/billing/stripe";
+import { getStripe } from "@/lib/billing/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/webhooks/stripe — the only thing in this app that grants a plan.
+ * POST /api/webhooks/stripe — the only thing in this app that grants anything.
  *
  * The success redirect can be typed into a browser; a signed webhook can't, so
  * access is written here and nowhere else. The root middleware's matcher
@@ -102,9 +100,12 @@ async function grantFromSession(stripe: Stripe, session: Stripe.Checkout.Session
   const userId = session.metadata?.user_id;
   if (!userId) return { skipped: "no user_id in session metadata" };
 
-  // What was actually charged for beats what our own metadata claims.
-  const plan = (await planFromSession(stripe, session)) ?? metadataPlan(session);
-  if (!plan) return { skipped: "no recognisable plan on the session" };
+  // The grant is read from OUR metadata, which this app's checkout route set
+  // server-side from its own price table. There is no price ID to look it up by
+  // any more — the line item is priced inline — so the metadata is the record,
+  // and the browser never had a hand in writing it.
+  const grant = grantFromMetadata(session);
+  if (!grant) return { skipped: "no recognisable package on the session" };
 
   const { data: profile } = await admin
     .from("users")
@@ -113,27 +114,29 @@ async function grantFromSession(stripe: Stripe, session: Stripe.Checkout.Session
     .single();
 
   const now = new Date();
-  const currentExpiry = profile?.plan_expires_at ?? null;
-  const until = accessUntil(currentExpiry, now);
-
-  // Buying again mid-month extends rather than resets — see accessUntil.
-  // If someone somehow buys a *lower* tier while a higher one is still running,
-  // keep the higher one: checkout blocks that case, and if it slips through, the
-  // safe direction is never to strip access already paid for.
-  const active = effectivePlan(profile?.plan, currentExpiry, now);
-  const granted: PaidPlan =
-    isPaidPlan(active) && PLAN_RANK[active] > PLAN_RANK[plan] ? active : plan;
+  // Only a purchase carrying the map moves the map clock. A Bronze bought
+  // mid-month must not quietly extend map access nobody paid for again.
+  const until = grant.map
+    ? mapAccessUntil(profile?.plan_expires_at ?? null, now)
+    : new Date(profile?.plan_expires_at ?? now);
 
   const charge = await chargeDetails(stripe, session);
 
   // Insert first. The unique session id means a replayed event conflicts here
-  // and returns before the plan is extended a second time.
+  // and returns before anything is granted a second time.
+  //
+  // This row IS the grant — lib/billing/entitlements.ts sums these columns
+  // rather than reading a balance off the user, so there is no counter to
+  // increment twice and nothing to reconcile if this runs at an odd moment.
   const { error: insertError } = await admin.from("purchases").insert({
     user_id: userId,
     stripe_session_id: session.id,
     stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
     stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
-    plan: granted,
+    plan: grant.pkg,
+    reports_granted: grant.reports,
+    includes_map: grant.map,
+    inspections_granted: grant.inspections,
     amount_cents: session.amount_total ?? null,
     currency: (session.currency ?? "nzd").toLowerCase(),
     status: "paid",
@@ -147,22 +150,70 @@ async function grantFromSession(stripe: Stripe, session: Stripe.Checkout.Session
     throw new Error(`Recording the purchase failed: ${insertError.message}`);
   }
 
+  // `users.plan` is a record of what was last bought and nothing reads it for
+  // access — kept so the account page can say "you bought Gold" without a join.
   const { error: updateError } = await admin
     .from("users")
-    .update({ plan: granted, plan_expires_at: until.toISOString() } as never)
+    .update({ plan: grant.pkg, plan_expires_at: until.toISOString() } as never)
     .eq("id", userId);
 
-  if (updateError) throw new Error(`Granting the plan failed: ${updateError.message}`);
+  if (updateError) throw new Error(`Recording what was bought failed: ${updateError.message}`);
 
-  return { granted, until: until.toISOString(), days: ACCESS_DAYS };
+  return {
+    granted: grant.pkg,
+    reports: grant.reports,
+    map: grant.map,
+    inspections: grant.inspections,
+    until: grant.map ? until.toISOString() : null,
+    days: grant.map ? MAP_DAYS : 0,
+  };
+}
+
+interface GrantedPurchase {
+  pkg: Package;
+  reports: number;
+  map: boolean;
+  inspections: number;
 }
 
 /**
- * Pull access back when a charge is refunded.
+ * What this checkout bought, from the metadata our own route wrote.
  *
- * Partial refunds are left alone: someone who got $10 back on a $99 month still
- * bought the month, and guessing at a pro-rata cutoff would be worse than doing
+ * Every field is parsed defensively and a nonsensical one collapses the whole
+ * grant rather than granting a guess: a NaN report count that reached the
+ * ledger as 0 would look exactly like a purchase that bought nothing, and the
+ * customer would be told they had no credits with a receipt in their hand.
+ */
+function grantFromMetadata(session: Stripe.Checkout.Session): GrantedPurchase | null {
+  const pkg = session.metadata?.pkg;
+  if (!isPackage(pkg)) return null;
+
+  const reports = Number(session.metadata?.reports);
+  if (!Number.isInteger(reports) || reports < 0) return null;
+
+  const inspections = Number(session.metadata?.inspections ?? 0);
+  if (!Number.isInteger(inspections) || inspections < 0) return null;
+
+  return { pkg, reports, map: session.metadata?.map === "1", inspections };
+}
+
+/**
+ * Pull back what a refunded charge bought.
+ *
+ * Marking the row is the whole revocation. Entitlements are SUMMED from the
+ * purchases that are still `paid`, so flipping this one to `refunded` removes
+ * its credits, its map days and any inspection it owed, in the same query that
+ * reads them — there is no balance to claw back by hand and no way for the two
+ * to disagree. The row stays for the receipt.
+ *
+ * Partial refunds are left alone: someone who got $10 back on a $149 purchase
+ * still bought it, and guessing at a pro-rata cutoff would be worse than doing
  * nothing.
+ *
+ * One known edge: map access extends, so a purchase made AFTER this one carries
+ * a date that was calculated from it. Refunding the earlier one leaves those
+ * days on the later one. It is rare, it favours the customer, and unpicking it
+ * would mean recomputing a chain — worth knowing about, not worth guessing at.
  */
 async function revokeFromRefund(charge: Stripe.Charge) {
   if (!charge.refunded) return { skipped: "partial refund — access left in place" };
@@ -175,58 +226,21 @@ async function revokeFromRefund(charge: Stripe.Charge) {
 
   const { data: purchase } = await admin
     .from("purchases")
-    .select("id, user_id, status, access_until")
+    .select("id, user_id, status")
     .eq("stripe_payment_intent_id", intentId)
     .single();
 
   if (!purchase) return { skipped: "no purchase matches that payment intent" };
   if (purchase.status === "refunded") return { duplicate: true };
 
-  await admin.from("purchases").update({ status: "refunded" } as never).eq("id", purchase.id);
+  const { error } = await admin
+    .from("purchases")
+    .update({ status: "refunded" } as never)
+    .eq("id", purchase.id);
+  if (error) throw new Error(`Marking the refund failed: ${error.message}`);
 
-  // Take back exactly the days this purchase added, rather than ending access
-  // outright — an earlier month they haven't been refunded for may still have
-  // time on it.
-  const now = new Date();
-  const { data: profile } = await admin
-    .from("users")
-    .select("plan_expires_at")
-    .eq("id", purchase.user_id)
-    .single();
-
-  const current = profile?.plan_expires_at ? new Date(profile.plan_expires_at) : null;
-  if (!current || Number.isNaN(current.getTime())) return { revoked: false };
-
-  const pulled = new Date(current.getTime() - ACCESS_DAYS * 86_400_000);
-  const next = pulled.getTime() < now.getTime() ? now : pulled;
-
-  await admin
-    .from("users")
-    .update({ plan_expires_at: next.toISOString() } as never)
-    .eq("id", purchase.user_id);
-
-  return { revoked: true, until: next.toISOString() };
+  return { revoked: true, purchase: purchase.id };
 }
-
-/** The plan behind the price that was actually charged. */
-async function planFromSession(
-  stripe: Stripe,
-  session: Stripe.Checkout.Session
-): Promise<PaidPlan | null> {
-  try {
-    const items =
-      session.line_items?.data ??
-      (await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })).data;
-    return planForPriceId(items[0]?.price?.id ?? null);
-  } catch {
-    return null;
-  }
-}
-
-const metadataPlan = (session: Stripe.Checkout.Session): PaidPlan | null => {
-  const plan = session.metadata?.plan;
-  return isPaidPlan(plan) ? plan : null;
-};
 
 /** The charge, for its hosted receipt URL. Best-effort — a missing one is fine. */
 async function chargeDetails(
