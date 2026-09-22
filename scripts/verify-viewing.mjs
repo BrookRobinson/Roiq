@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 // The viewing gate. Run: npm run verify:viewing
 //
-// Two rules, and both are silent when they break.
+// Three rules, and every one of them is silent when it breaks.
 //
 // The gate decides whether the "For the agent" tab opens. It exists because the
 // letter used to build itself the moment the report did — a costed schedule of
 // defects, read off marketing photographs, ready to send to a vendor before
 // anybody had walked through the house. If this returns `complete` a line too
 // early, that is exactly what goes out again.
+//
+// The gate also waits on a building inspector having attended — a buyer's own
+// walk-through settles what they could see, and the lines carrying the money are
+// the ones it can't. A missing inspection and a rejected one must hold the door
+// equally shut, because the failure they prevent is identical.
 //
 // The disposition decides what the letter may say about each item once the
 // buyer HAS been. The dangerous cells are the two that used to be the only
@@ -20,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const { checklistStatus, dispositionFor, EMPTY_VIEWING } = await import(
+const { checklistStatus, dispositionFor, letterGate, EMPTY_VIEWING } = await import(
   join(root, "lib/viewing/status.ts")
 );
 const { mergeViewing } = await import(join(root, "lib/viewing/merge.ts"));
@@ -178,6 +183,28 @@ check(
   3
 );
 check("merging with nothing changes nothing", JSON.stringify(mergeViewing(EMPTY_VIEWING, phone).answers), JSON.stringify(phone.answers));
+
+console.log("\nletterGate — the checklist is one of three conditions now");
+const DONE = { total: 2, answered: 2, outstanding: 0, complete: true, missingViewingDate: false, problems: 0, noAccess: 0, absent: 0 };
+const PART = { ...DONE, answered: 1, outstanding: 1, complete: false };
+const NODATE = { ...DONE, complete: false, missingViewingDate: true };
+const GOOD = { present: true, confirmed: true };
+const BAD = { present: true, confirmed: false };
+
+check("everything done and inspected opens it", letterGate(DONE, GOOD).open, true);
+check("a finished checklist alone does NOT open it", letterGate(DONE, null).open, false);
+check("…and says why", letterGate(DONE, null).blockers, ["inspection"]);
+check("an unconfirmed report is no better than none", letterGate(DONE, BAD).open, false);
+check("…and is named differently, so the copy can differ",
+  letterGate(DONE, BAD).blockers, ["inspection_rejected"]);
+check("undefined inspection fails closed", letterGate(DONE, undefined).open, false);
+check("an inspection can't substitute for the checklist", letterGate(PART, GOOD).open, false);
+check("nor for the viewing date", letterGate(NODATE, GOOD).open, false);
+check("two things missing are both reported, checklist first",
+  letterGate(PART, null).blockers, ["checklist", "inspection"]);
+check("the date blocker replaces the checklist one, never joins it",
+  letterGate(NODATE, null).blockers, ["viewing_date", "inspection"]);
+check("an open gate reports no blockers", letterGate(DONE, GOOD).blockers, []);
 
 console.log("\nThe rule that started all this");
 check(

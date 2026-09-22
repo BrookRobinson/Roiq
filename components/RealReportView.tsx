@@ -69,6 +69,7 @@ import Link from "next/link";
 import { useSession } from "@/lib/auth/session";
 import { BlurredValue, UpgradeNote, LockedTab } from "@/components/report/Locked";
 import { FEATURE_FROM, planIncludes, type Feature } from "@/lib/billing/plans";
+import { letterGate, type InspectionEvidence } from "@/lib/viewing/status";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 import { alpha } from "@/lib/ui/color";
 
@@ -689,7 +690,25 @@ export function RealReportView({
    * viewing would present every finding as unverified — which is the exact
    * over-claim the gate exists to stop.
    */
-  const letterUnlocked = viewingStatus.complete || isSample || embedded;
+  // The letter's three conditions, in one place. A sample or the embedded demo
+  // is open regardless — those exist to show the product to someone who hasn't
+  // got a property, let alone an inspection report.
+  const inspection: InspectionEvidence | null = useMemo(() => {
+    const doc = verifiedDocs?.["insp_report"];
+    if (!doc) return null;
+    return {
+      present: true,
+      confirmed: doc.docTypeConfirmed,
+      inspector: doc.inspector ?? null,
+      inspectedOn: doc.inspectedOn ?? null,
+    };
+  }, [verifiedDocs]);
+
+  const letterGateState = useMemo(
+    () => letterGate(viewingStatus, inspection),
+    [viewingStatus, inspection]
+  );
+  const letterUnlocked = letterGateState.open || isSample || embedded;
 
   function onPersonaToggle(next: Persona) {
     setPersona(next);
@@ -1042,6 +1061,8 @@ export function RealReportView({
               onViewedOn={(iso) => updateViewing(setViewedOn(viewing, iso))}
               photoContext={{ buildYear: listing.buildYear, floorAreaSqm: listing.floorAreaSqm, propertyType: listing.propertyType }}
               gated={!(isSample || embedded)}
+              inspection={inspection}
+              inspectionDoc={verifiedDocs?.["insp_report"] ?? null}
               onItemPhoto={(id, a: ItemPhotoAnalysis) => updateViewing(setItemPhoto(viewing, id, a))}
               onClearItemPhoto={(id) => updateViewing(clearItemPhoto(viewing, id))}
               onVerifiedDoc={onVerified}
@@ -1056,9 +1077,9 @@ export function RealReportView({
               <NegotiationTab report={report} viewing={viewing} checklist={checklist} subItems={effectiveSubItems} />
             ) : (
               <LetterLocked
+                blockers={letterGateState.blockers}
                 outstanding={viewingStatus.outstanding}
                 total={viewingStatus.total}
-                missingViewingDate={viewingStatus.missingViewingDate}
                 onOpenChecklist={() => setTab("viewing")}
               />
             )

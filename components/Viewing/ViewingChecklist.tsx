@@ -11,7 +11,7 @@
 // ============================================================
 
 import { useEffect, useMemo, useState } from "react";
-import { Ban, CalendarDays, Check, CircleAlert, Lock, Printer, Unlock, X } from "lucide-react";
+import { Ban, CalendarDays, Check, CircleAlert, HardHat, Lock, Printer, Unlock, X } from "lucide-react";
 
 import {
   ANSWER_LABEL,
@@ -24,6 +24,15 @@ import type { ItemPhotoAnalysis } from "@/lib/viewing/photo-types";
 import { ItemPhotoUpload, type PhotoContext } from "./ItemPhotoUpload";
 import { itemLabel } from "@/lib/scoring/catalog";
 import { DocUpload } from "@/components/PropertyInspections/DocUpload";
+import { letterGate, type InspectionEvidence, type LetterBlocker } from "@/lib/viewing/status";
+
+/** What each unmet condition asks the reader to go and do. */
+const BLOCKER_TODO: Record<LetterBlocker, string> = {
+  checklist: "answer the remaining checks",
+  viewing_date: "record the date you viewed the property",
+  inspection: "upload the property inspection report",
+  inspection_rejected: "upload a real property inspection report",
+};
 import type { DocAnalysis } from "@/lib/report-store";
 import { PRODUCT_NAME } from "@/lib/brand";
 
@@ -79,6 +88,8 @@ export function ViewingChecklist({
   onViewedOn,
   onItemPhoto,
   onClearItemPhoto,
+  inspection,
+  inspectionDoc,
   onVerifiedDoc,
   onOpenLetter,
   onOpenLand,
@@ -99,6 +110,11 @@ export function ViewingChecklist({
   onViewedOn: (iso: string | null) => void;
   onItemPhoto: (itemId: string, analysis: ItemPhotoAnalysis) => void;
   onClearItemPhoto: (itemId: string) => void;
+  /** The uploaded inspection report, as the gate sees it. */
+  inspection: InspectionEvidence | null;
+  /** …and its full reading. The Land tab is keyed by scoring item id and has
+   *  nowhere to put this one, so the findings are shown here. */
+  inspectionDoc: DocAnalysis | null;
   /** A LIM / consent file / EQC history / title, read and scored. */
   onVerifiedDoc: (itemId: string, doc: DocAnalysis) => void;
   onOpenLetter: () => void;
@@ -106,6 +122,10 @@ export function ViewingChecklist({
   onOpenLand: () => void;
 }) {
   const status = useMemo(() => checklistStatus(items, state), [items, state]);
+  // The checklist is one of three conditions now, so the header, the progress
+  // bar and the "open the letter" button all ask the gate rather than the list.
+  const gate = useMemo(() => letterGate(status, inspection), [status, inspection]);
+  const open = gate.open;
 
   const groups = useMemo(() => {
     const map = new Map<string, ChecklistItem[]>();
@@ -132,34 +152,34 @@ export function ViewingChecklist({
           and doesn't need to be told what it's for. */}
       <div className="card p-5 no-print">
         <div className="flex items-start gap-3">
-          {status.complete ? (
+          {open ? (
             <Unlock size={18} style={{ color: "var(--good)", flexShrink: 0, marginTop: 2 }} />
           ) : (
             <Lock size={18} style={{ color: "var(--brand)", flexShrink: 0, marginTop: 2 }} />
           )}
           <div className="flex-1">
             <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-              {status.complete
-                ? "You've been through the property — the letter is unlocked"
+              {open
+                ? "Viewed and inspected — the letter is unlocked"
                 : gated
                   ? "Go and see the property before you write to the agent"
                   : "What a viewing would have to settle on this property"}
             </h2>
             <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
-              {!gated && !status.complete ? (
+              {!gated && !open ? (
                 <>
                   This is a sample property, so there is nothing to go and look at and the agent
                   letter is open to read. On a real report these {items.length} lines have to be
-                  answered first — the letter is held shut until somebody has walked through the
-                  house, because a costed schedule of defects assembled from photographs is not a
-                  negotiating position.
+                  answered first, and a building inspector has to have been to the house — a costed
+                  schedule of defects assembled from marketing photographs is not a negotiating
+                  position, and an agent will say so in one sentence.
                 </>
-              ) : status.complete ? (
+              ) : open ? (
                 <>
                   All {items.length} {items.length === 1 ? "thing" : "things"} the photographs
-                  couldn&rsquo;t settle {items.length === 1 ? "has" : "have"} been answered, and the
-                  letter now says what you found rather than what the analysis guessed. Change any
-                  answer below and it updates.
+                  couldn&rsquo;t settle {items.length === 1 ? "has" : "have"} been answered, and an
+                  inspector has been to the property. The letter now says what the two of you found
+                  rather than what the analysis guessed. Change any answer below and it updates.
                 </>
               ) : (
                 <>
@@ -167,9 +187,10 @@ export function ViewingChecklist({
                   {items.length === 0
                     ? "on this property, nothing — every item was assessed."
                     : `${items.length} of them on this property.`}{" "}
-                  Until they&rsquo;re answered, the document that goes to the vendor would be built on
-                  guesswork, and an agent will take it apart in a sentence. Print this, take it with
-                  you, and fill it in as you go.
+                  Answer them, record the date you went, and add your inspector&rsquo;s report — the
+                  letter opens on all three. Until then the document that goes to the vendor would be
+                  built on guesswork, and an agent will take it apart in a sentence. Print this, take
+                  it with you, and fill it in as you go.
                 </>
               )}
             </p>
@@ -203,17 +224,17 @@ export function ViewingChecklist({
           <button onClick={printChecklist} className="btn-secondary gap-2 px-4 py-2 text-sm">
             <Printer size={14} /> Print checklist
           </button>
-          {(status.complete || !gated) && (
+          {(open || !gated) && (
             <button onClick={onOpenLetter} className="btn-primary gap-2 px-4 py-2 text-sm">
               <Unlock size={14} /> Open the agent letter
             </button>
           )}
         </div>
 
-        {status.missingViewingDate && (
-          <p className="mt-3 flex items-center gap-2 text-[13px]" style={{ color: "var(--warn)" }}>
-            <CircleAlert size={14} /> Every line is answered — record the date you viewed the property
-            below and the letter unlocks.
+        {!open && gated && gate.blockers.length > 0 && (
+          <p className="mt-3 flex items-start gap-2 text-[13px]" style={{ color: "var(--warn)" }}>
+            <CircleAlert size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>Still to do: {gate.blockers.map((b) => BLOCKER_TODO[b]).join(", ")}.</span>
           </p>
         )}
       </div>
@@ -259,6 +280,67 @@ export function ViewingChecklist({
           The letter says the property was inspected on this date. That is the difference between a
           schedule of defects and an opinion about some photos, so it isn&rsquo;t optional.
         </p>
+      </div>
+
+
+      {/* The inspection. The letter's third condition, and the only one the
+          buyer can't satisfy by typing — it needs the report in the file. */}
+      <div className="card p-5 no-print">
+        <label className="label flex items-center gap-2">
+          <HardHat size={14} style={{ color: "var(--brand)" }} />
+          The property inspection
+        </label>
+
+        {inspection?.confirmed ? (
+          <div className="mt-3">
+            <p className="flex items-start gap-2 text-sm" style={{ color: "var(--good)" }}>
+              <Unlock size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>
+                Inspection report read and accepted
+                {inspection.inspector ? ` — ${inspection.inspector}` : ""}
+                {inspection.inspectedOn ? `, ${inspection.inspectedOn}` : ""}.
+              </span>
+            </p>
+            {inspectionDoc?.summary && (
+              <p className="mt-3 text-[13px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                {inspectionDoc.summary}
+              </p>
+            )}
+            {!!inspectionDoc?.redFlags?.length && (
+              <ul className="mt-3 space-y-1.5">
+                {inspectionDoc.redFlags.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-[13px]" style={{ color: "var(--warn)" }}>
+                    <CircleAlert size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-3 text-[13px]" style={{ color: "var(--text-muted)" }}>
+              Where the inspector disagrees with the photo analysis, the letter follows the
+              inspector — they were there and the camera wasn&rsquo;t.
+            </p>
+          </div>
+        ) : (
+          <>
+            <p className="mt-2 text-[13px]" style={{ color: "var(--text-secondary)" }}>
+              {inspection?.present
+                ? "What you uploaded wasn't a property inspection report. A valuation, a builder's quote or a desktop assessment doesn't count — the letter needs a report by somebody who attended the property."
+                : "Upload the report from your building inspector. The letter stays shut until it's here, because it puts costed claims in front of a stranger whose job is to take them apart, and a buyer's own walk-through can't settle whether a stain is a leak or a solved one."}
+            </p>
+            <div className="mt-3">
+              <DocUpload
+                itemId="insp_report"
+                label="Upload inspection report (PDF)"
+                onVerified={(doc) => onVerifiedDoc("insp_report", doc)}
+              />
+            </div>
+            <p className="mt-2 text-[13px]" style={{ color: "var(--text-muted)" }}>
+              Haven&rsquo;t had one done? A pre-purchase inspection is normally $400&ndash;$900 and a
+              few days&rsquo; notice. On Diamond we send the inspector and load their report for you.
+            </p>
+          </>
+        )}
       </div>
 
       {/* Most photographed items leave the list — a clear shot makes them scored
@@ -543,16 +625,76 @@ function Row({
  * is entitled to know it's being withheld on their behalf, not upsold.
  */
 export function LetterLocked({
+  blockers,
   outstanding,
   total,
-  missingViewingDate,
   onOpenChecklist,
 }: {
+  blockers: LetterBlocker[];
   outstanding: number;
   total: number;
-  missingViewingDate: boolean;
   onOpenChecklist: () => void;
 }) {
+  // One screen, three possible reasons, and it names the one in front of them
+  // rather than all three — a lock that lists everything you haven't done reads
+  // as a wall, and the reader can only act on the next step anyway.
+  const next = blockers[0];
+
+  const COPY: Record<LetterBlocker, { title: string; body: React.ReactNode; cta: string }> = {
+    checklist: {
+      title: "Go and see the house first",
+      body: (
+        <>
+          This letter puts a costed schedule of defects in front of a vendor. Right now{" "}
+          <strong style={{ color: "var(--text-primary)" }}>
+            {outstanding} of {total}
+          </strong>{" "}
+          of its findings rest on things nobody has looked at — the analysis read photographs and
+          said so honestly. Sending it in that state is how a real case gets dismissed on the first
+          item that turns out to be wrong.
+        </>
+      ),
+      cta: `Open the checklist — ${outstanding} to answer`,
+    },
+    viewing_date: {
+      title: "Record the date you viewed it",
+      body: (
+        <>
+          Every check is answered. The letter states the date the property was walked through, and
+          that sentence is the difference between a schedule of defects and an opinion about some
+          photographs.
+        </>
+      ),
+      cta: "Record the viewing date",
+    },
+    inspection: {
+      title: "An inspector has to have been there",
+      body: (
+        <>
+          You&rsquo;ve done your own walk-through, and that settles what you could see. It
+          can&rsquo;t settle whether a stain is an active leak or a repaired one, or what the
+          subfloor is doing — and those are the lines carrying the money. Upload the report from
+          your building inspector and the letter opens on it.
+        </>
+      ),
+      cta: "Upload the inspection report",
+    },
+    inspection_rejected: {
+      title: "That wasn't an inspection report",
+      body: (
+        <>
+          The file you uploaded was read and it isn&rsquo;t a pre-purchase property inspection. A
+          valuation, a builder&rsquo;s quote or a desktop assessment won&rsquo;t do it — the letter
+          needs a report by somebody who attended the property, because that is exactly the claim
+          it makes to the agent.
+        </>
+      ),
+      cta: "Upload the inspection report",
+    },
+  };
+
+  const copy = COPY[next ?? "checklist"];
+
   return (
     <div className="mx-auto max-w-xl px-6 py-14 text-center">
       <div
@@ -563,33 +705,25 @@ export function LetterLocked({
       </div>
 
       <h2 className="mb-2 text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-        Go and see the house first
+        {copy.title}
       </h2>
       <p className="mb-6 text-sm" style={{ color: "var(--text-secondary)" }}>
-        {missingViewingDate ? (
-          <>
-            Every check is answered. Record the date you viewed the property and this opens.
-          </>
-        ) : (
-          <>
-            This letter puts a costed schedule of defects in front of a vendor. Right now{" "}
-            <strong style={{ color: "var(--text-primary)" }}>
-              {outstanding} of {total}
-            </strong>{" "}
-            of its findings rest on things nobody has looked at — the analysis read photographs and said
-            so honestly. Sending it in that state is how a real case gets dismissed on the first item
-            that turns out to be wrong.
-          </>
-        )}
+        {copy.body}
       </p>
 
       <button onClick={onOpenChecklist} className="btn-primary inline-flex px-6 py-3 text-[15px]">
-        {missingViewingDate ? "Record the viewing date" : `Open the checklist — ${outstanding} to answer`}
+        {copy.cta}
       </button>
 
+      {blockers.length > 1 && (
+        <p className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
+          Then: {blockers.slice(1).map((b) => BLOCKER_TODO[b]).join(", ")}.
+        </p>
+      )}
+
       <p className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
-        Print it, take it to the viewing, tick it off. Anything you genuinely can&rsquo;t inspect is an
-        answer too — the letter then says that, instead of claiming it.
+        Print the checklist, take it to the viewing, tick it off. Anything you genuinely
+        can&rsquo;t inspect is an answer too — the letter then says that, instead of claiming it.
       </p>
     </div>
   );

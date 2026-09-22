@@ -397,6 +397,10 @@ function Faq() {
       a: "One complete analysis of a real listing you paste in — every photo read, every defect and finding shown. What stays locked is the conclusion: the score out of 1,000, the valuation, and the Financial, Renovations and agent tabs. It's one report, not one a month, and upgrading opens the report you already ran rather than making you run it again.",
     },
     {
+      q: "Platinum has the agent document — so why would I need Diamond?",
+      a: "Because the agent document doesn't open until a building inspector has been to the property. It puts costed claims in front of somebody whose job is to take them apart, and a buyer's own walk-through can't settle whether a stain is an active leak or a repaired one. On Platinum you bring your own inspector's report and upload it. On Diamond we send the inspector and load their report for you — so if you were going to pay for an inspection anyway, Diamond is that inspection with the rest attached.",
+    },
+    {
       q: "Why do Gold, Platinum and Diamond all have 50 reports?",
       a: "Because nobody analysing fifty houses a month needs eighty. Above Gold you aren't buying more searching, you're buying what happens to the house you've chosen — the offer document you hand the agent, and then an inspector standing in it.",
     },

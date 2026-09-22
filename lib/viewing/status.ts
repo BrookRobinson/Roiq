@@ -1,6 +1,6 @@
 // ============================================================
 // The gate itself, and the rule that decides what the letter may say about each
-// item once the buyer has been to the property.
+// item once the property has been inspected.
 //
 // Deliberately dependency-free — no imports at all — so `npm run verify:viewing`
 // can load it with plain node and assert both rules exhaustively. A mistake here
@@ -104,6 +104,67 @@ export function checklistStatus(items: { key: string }[], state: ViewingState): 
     noAccess,
     absent,
   };
+}
+
+// ── The inspection, and the gate the letter actually sits behind ─────────────
+//
+// The checklist is the buyer's own walk-through, and it was the whole gate.
+// It isn't enough. A buyer standing in a hallway can say the ceiling looks
+// stained; they cannot say whether it is a leak or a solved one, and the letter
+// puts a dollar figure on the answer in front of somebody whose job is to take
+// it apart. So the letter now also waits on a qualified inspector having been
+// to the property — the buyer's own, on Platinum, or ours on Diamond.
+//
+// It is the report that proves it, not a tick box. Anyone can type a date.
+
+export interface InspectionEvidence {
+  /** A file was uploaded against the inspection slot. */
+  present: boolean;
+  /** …and Claude confirmed it really is a pre-purchase inspection report. */
+  confirmed: boolean;
+  /** The firm or inspector named on the report, when it named one. */
+  inspector?: string | null;
+  /** The date the report gives for the site visit. */
+  inspectedOn?: string | null;
+}
+
+export type LetterBlocker =
+  /** Checklist lines still unanswered. */
+  | "checklist"
+  /** Answered, but nobody recorded the date they went. */
+  | "viewing_date"
+  /** No inspection report uploaded. */
+  | "inspection"
+  /** Something was uploaded and it wasn't an inspection report. */
+  | "inspection_rejected";
+
+export interface LetterGate {
+  open: boolean;
+  /** Most actionable first — what the lock screen tells them to do next. */
+  blockers: LetterBlocker[];
+}
+
+/**
+ * May this report's letter be written yet?
+ *
+ * Fails CLOSED on a missing inspection: no evidence is the same answer as bad
+ * evidence, because the failure being prevented is identical either way — a
+ * costed claim reaching a vendor's agent that nobody qualified has stood in
+ * front of.
+ */
+export function letterGate(
+  status: ChecklistStatus,
+  inspection: InspectionEvidence | null | undefined
+): LetterGate {
+  const blockers: LetterBlocker[] = [];
+
+  if (status.outstanding > 0) blockers.push("checklist");
+  else if (status.missingViewingDate) blockers.push("viewing_date");
+
+  if (!inspection?.present) blockers.push("inspection");
+  else if (!inspection.confirmed) blockers.push("inspection_rejected");
+
+  return { open: blockers.length === 0, blockers };
 }
 
 // ── What the letter may do with one item ─────────────────────────────────────

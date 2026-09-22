@@ -127,10 +127,16 @@ export async function findReusableReport(opts: {
 /**
  * Strip what the first person paid for personally.
  *
- * `verifiedDocs` holds Claude's reading of a LIM, title, consents or EQC claim
- * that someone uploaded themselves. That's their purchased work, not a fact
- * about the house that comes free with the listing — so the next person starts
- * without it and uploads their own.
+ * `verifiedDocs` holds Claude's reading of a LIM, title, consents, EQC claim or
+ * property inspection that someone uploaded themselves. That's their purchased
+ * work, not a fact about the house that comes free with the listing — so the
+ * next person starts without it and uploads their own.
+ *
+ * The inspection report makes this load-bearing rather than merely fair. It is
+ * what unlocks the letter to the vendor's agent, so inheriting it would let the
+ * second buyer send a costed schedule off the back of an inspection somebody
+ * else commissioned, on a visit they know nothing about — possibly months ago,
+ * possibly before work was done. They get their own inspector or no letter.
  */
 function stripPersonalWork(report: StoredReport): StoredReport {
   const { verifiedDocs: _discarded, ...rest } = report;

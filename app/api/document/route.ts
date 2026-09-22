@@ -29,6 +29,14 @@ const DOC_KINDS: Record<string, { label: string; what: string; scoreGuide: strin
     scoreGuide:
       "10 = no claims / fully remediated & signed off; 5 = past claim, remediation status unclear; 1 = open claim, unrepaired damage, or an over-cap claim with structural implications.",
   },
+  insp_report: {
+    label: "property inspection report",
+    what:
+      "a New Zealand pre-purchase property (building) inspection report, written by a building " +
+      "inspector or surveyor who physically attended the property and inspected it in person",
+    scoreGuide:
+      "10 = inspected throughout with no significant defects; 5 = defects found that are ordinary for the age and are costed or described; 1 = significant structural, weathertightness or safety defects, or large parts of the house the inspector could not access.",
+  },
   leg_title: {
     label: "Record of title",
     what: "a New Zealand record of title (or title search) from Toitū Te Whenua LINZ",
@@ -43,6 +51,9 @@ interface RawDocAnalysis {
   summary: string;
   key_findings?: string[];
   red_flags?: string[];
+  /** Inspection reports only — see the tool schema. */
+  inspector?: string | null;
+  inspected_on?: string | null;
 }
 
 const DOC_TOOL_NAME = "submit_document_analysis";
@@ -77,6 +88,20 @@ function docTool(kind: { label: string; scoreGuide: string }): Anthropic.Tool {
           items: { type: "string" },
           description: "Anything the buyer should worry about or follow up. Empty array if none.",
         },
+        // Only an inspection report fills these, and the letter quotes them to
+        // the vendor's agent — so they are read off the document rather than
+        // typed by the buyer. Anyone can type a date; this one has to be on the
+        // report that is sitting in the file.
+        inspector: {
+          type: ["string", "null"],
+          description:
+            "ONLY for a property inspection report: the inspector or firm named on it, exactly as written. Null for any other document, or if the report names nobody.",
+        },
+        inspected_on: {
+          type: ["string", "null"],
+          description:
+            "ONLY for a property inspection report: the date of the site visit as the report states it, in YYYY-MM-DD. Null for any other document, or if no date is given.",
+        },
       },
       required: ["doc_type_confirmed", "score", "summary"],
     },
@@ -89,6 +114,7 @@ Rules:
 - If the PDF is not the expected document type, or is unreadable, set doc_type_confirmed=false, score=null, and say so plainly in the summary.
 - Write the summary in plain English with no legal jargon — imagine explaining it to a first-home buyer.
 - Be honest about red flags; do not soften genuine risks, and do not manufacture risks that aren't there.
+- For a property inspection report specifically: it only counts if a person attended the property. A desktop or drive-by assessment, a valuation, a builder's quote, a council document or a report on a DIFFERENT address is not one — set doc_type_confirmed=false and say which of those it actually is. This document is what unlocks a costed letter to the vendor's agent, so confirming the wrong file puts claims in front of a stranger that nobody qualified has checked.
 Return your analysis ONLY by calling the submit_document_analysis tool.`;
 
 export async function POST(req: NextRequest) {
@@ -165,6 +191,11 @@ export async function POST(req: NextRequest) {
       summary: raw.summary?.trim() || "No summary returned.",
       keyFindings: Array.isArray(raw.key_findings) ? raw.key_findings.filter(Boolean) : [],
       redFlags: Array.isArray(raw.red_flags) ? raw.red_flags.filter(Boolean) : [],
+      // Only meaningful on an inspection report, and only when it was confirmed
+      // to BE one — carrying an inspector's name off a rejected document would
+      // let a valuation's author end up cited in a letter to an agent.
+      inspector: raw.doc_type_confirmed ? raw.inspector?.trim() || null : null,
+      inspectedOn: raw.doc_type_confirmed ? raw.inspected_on?.trim() || null : null,
       analysedAt: new Date().toISOString(),
       model: ANALYSIS_MODEL,
     });

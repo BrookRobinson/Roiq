@@ -30,6 +30,9 @@ export interface DocAnalysis {
   summary: string;
   keyFindings: string[];
   redFlags: string[];
+  /** Inspection reports only: who attended, and when, per the report itself. */
+  inspector?: string | null;
+  inspectedOn?: string | null;
   analysedAt: string;
 }
 

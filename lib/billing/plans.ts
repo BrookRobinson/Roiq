@@ -92,7 +92,7 @@ export const PLAN_TAGLINE: Record<Plan, string> = {
   bronze: "A weekend of open homes",
   silver: "Reading the paperwork too",
   gold: "Hunting across the whole country",
-  platinum: "Walking in with a number to argue",
+  platinum: "Your inspector's findings, put to the agent",
   diamond: "Someone on site before you sign",
 };
 
@@ -240,7 +240,14 @@ export type Feature =
   | "map"
   /** Open any report on the map, not just your own. */
   | "mapReports"
-  /** The document you send the vendor's agent, with the offer at the end. */
+  /**
+   * The document you send the vendor's agent, with the offer at the end.
+   *
+   * Buying the tier buys the machinery, not an open door: the letter still
+   * waits on a building inspector having attended the property — see
+   * lib/viewing/status.ts. Platinum means bringing your own inspector's report;
+   * Diamond means we send the inspector.
+   */
   | "negotiation"
   /** A building inspector on the property. One per purchase — see below. */
   | "inspection";
@@ -253,8 +260,8 @@ export const FEATURE_LABEL: Record<Feature, string> = {
   documents: "LIM, consents, EQC and title read for you",
   map: "NZ investment map, filters and watchlist",
   mapReports: "Every report on the map, not just your own",
-  negotiation: "Agent offer document",
-  inspection: "In-person building inspection",
+  negotiation: "Agent offer document, once an inspector has been",
+  inspection: "In-person building inspection, arranged by us",
 };
 
 /**
