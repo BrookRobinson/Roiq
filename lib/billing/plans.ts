@@ -55,16 +55,26 @@ export const PLAN_LABEL: Record<Plan, string> = {
 };
 
 /**
+ * The cheapest tier carrying the map. Declared here rather than read from
+ * FEATURE_FROM because that table lives further down the file — but the two are
+ * checked against each other below, so they cannot drift apart in silence.
+ */
+const FEATURE_FROM_MAP_TIER: PaidPlan = "platinum";
+
+/**
  * Plans that were sold before the metals, and what they map to now.
  *
  * Starter was 10 reports, which is Bronze exactly. Pro was 20 reports plus the
- * map; Gold is the cheapest tier with the map, and 50 reports is more than they
- * paid for — erring toward giving someone more than they bought rather than
- * taking the map away from an account that is still inside its 30 days.
+ * map, so it maps to the cheapest tier that still HAS the map — Platinum, since
+ * the map moved up off Gold. That hands them more than they paid for, which is
+ * the right way to be wrong: the alternative is taking the map away from an
+ * account that is still inside its 30 days, silently, on the day we renamed the
+ * tiers. Tie this to the feature, not to a tier name, or the next time
+ * something moves this quietly stops being true — verify:billing asserts it.
  */
 const LEGACY_PLANS: Record<string, PaidPlan> = {
   starter: "bronze",
-  pro: "gold",
+  pro: FEATURE_FROM_MAP_TIER,
 };
 
 /**
@@ -77,7 +87,10 @@ export const PLAN_PRICE_NZD: Record<PaidPlan, number> = {
   copper: 29,
   bronze: 59,
   silver: 99,
-  gold: 169,
+  // Gold carries no feature Silver doesn't — it is the volume step, twice the
+  // reports at a lower price each ($2.98 against Silver's $3.96). Priced as
+  // what it is, rather than as a tier pretending to unlock something.
+  gold: 149,
   platinum: 279,
   // Diamond carries a real building inspection, which is bought from a person
   // and costs $400–900 depending on the house and how far they drive. The price
@@ -91,8 +104,8 @@ export const PLAN_TAGLINE: Record<Plan, string> = {
   copper: "One house, properly looked at",
   bronze: "A weekend of open homes",
   silver: "Reading the paperwork too",
-  gold: "Hunting across the whole country",
-  platinum: "Your inspector's findings, put to the agent",
+  gold: "Silver twice over, for less each",
+  platinum: "The whole map, and a case to put to the agent",
   diamond: "Someone on site before you sign",
 };
 
@@ -273,11 +286,21 @@ export const FEATURE_FROM: Record<Feature, PaidPlan> = {
   tools: "copper",
   share: "bronze",
   documents: "silver",
-  map: "gold",
-  mapReports: "gold",
+  map: "platinum",
+  mapReports: "platinum",
   negotiation: "platinum",
   inspection: "diamond",
 };
+
+// The retired `pro` plan is mapped by hand above. If the map ever moves again
+// and that mapping isn't updated with it, a paying Pro account loses the one
+// feature it was sold — silently, and only for the people who pre-date the
+// metals, which is the group least likely to be testing.
+if (FEATURE_FROM.map !== FEATURE_FROM_MAP_TIER) {
+  throw new Error(
+    `LEGACY_PLANS maps the retired "pro" plan to ${FEATURE_FROM_MAP_TIER}, but the map now starts at ${FEATURE_FROM.map}. Update FEATURE_FROM_MAP_TIER — a live Pro account would lose the map.`
+  );
+}
 
 /** Does this plan include this feature? The only question the gates should ask. */
 export const planIncludes = (plan: Plan, feature: Feature): boolean =>
@@ -325,9 +348,10 @@ export const NEEDS_FULFILMENT: Partial<Record<PaidPlan, string>> = {
 // visitor and an unbounded bill. "Unlimited" on the pricing page was written
 // before anyone had measured that.
 //
-// Gold, Platinum and Diamond all sit at 50. The tiers above Gold are not sold
-// on volume — nobody analysing 50 houses a month needs 80 — they're sold on
-// what happens to the house you actually chose.
+// Gold, Platinum and Diamond all sit at 50. Gold is where the volume stops and
+// is the only tier sold on it alone; above that nobody analysing 50 houses a
+// month needs 80, so Platinum and Diamond are sold on what happens to the house
+// you actually chose rather than on finding more of them.
 
 export interface Allowance {
   /** How many reports the plan includes. */

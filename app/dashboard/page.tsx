@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { describeAllowance, PLAN_LABEL, PLAN_PRICE_NZD } from "@/lib/billing/plans";
+import { describeAllowance, FEATURE_FROM, PLAN_LABEL, PLAN_PRICE_NZD } from "@/lib/billing/plans";
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import {
@@ -321,7 +321,8 @@ export default function DashboardPage() {
           </h3>
           <p className="text-[var(--text-secondary)] text-sm mb-4">
             Six tiers from ${PLAN_PRICE_NZD.copper} — {describeAllowance("copper")}. The map starts at{" "}
-            {PLAN_LABEL.gold}, ${PLAN_PRICE_NZD.gold}.
+            {PLAN_LABEL[FEATURE_FROM.map]}, $
+            {PLAN_PRICE_NZD[FEATURE_FROM.map].toLocaleString("en-NZ")}.
           </p>
           <Link
             href="/pricing"

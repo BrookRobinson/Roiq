@@ -47,7 +47,12 @@ check("diamond with time left is diamond", effectivePlan("diamond", iso(plus(1))
 // "pro" was paid for, and its 30 days are still running.
 console.log("\nthe retired names — Starter and Pro still resolve");
 check("starter maps to bronze", normalisePlan("starter"), "bronze");
-check("pro maps to gold", normalisePlan("pro"), "gold");
+// Deliberately NOT pinned to a tier name. What Pro was sold was the map, so
+// what it must keep is the map — naming "gold" here is what let the mapping go
+// stale the moment the map moved up a tier.
+check("pro maps to the cheapest tier that still has the map",
+  normalisePlan("pro"), FEATURE_FROM.map);
+check("pro never maps to a tier without it", planIncludes(normalisePlan("pro"), "map"), true);
 check("a live starter row keeps working", effectivePlan("starter", iso(plus(5)), NOW), "bronze");
 check("a live pro row keeps the map", planIncludes(effectivePlan("pro", iso(plus(5)), NOW), "map"), true);
 check("an expired pro row is still free", effectivePlan("pro", iso(plus(-1)), NOW), "free");
@@ -84,6 +89,10 @@ check("free is cheaper than copper in reports too",
 
 // A tier that adds nothing is a tier nobody can be sold. Every paid step must
 // either carry a feature the one below didn't, or more reports.
+//
+// Gold is the one that carries NO feature — it is the volume step. That is
+// allowed, but only while it is genuinely cheaper per report than the tier
+// below; the moment it isn't, it's a more expensive Silver and this fails.
 console.log("\nevery paid tier earns its price");
 const emptyTiers = PAID_PLANS.filter((p, i) => {
   if (i === 0) return false;
@@ -102,14 +111,25 @@ check("copper opens the score", planIncludes("copper", "score"), true);
 check("free does not", planIncludes("free", "score"), false);
 check("bronze can share, copper can't",
   [planIncludes("bronze", "share"), planIncludes("copper", "share")], [true, false]);
-check("the map starts at gold",
-  [planIncludes("silver", "map"), planIncludes("gold", "map")], [false, true]);
+check("the map starts at platinum, NOT gold",
+  [planIncludes("gold", "map"), planIncludes("platinum", "map")], [false, true]);
+check("so does opening somebody else's report off it",
+  [planIncludes("gold", "mapReports"), planIncludes("platinum", "mapReports")], [false, true]);
 check("the agent letter starts at platinum",
   [planIncludes("gold", "negotiation"), planIncludes("platinum", "negotiation")], [false, true]);
 check("only diamond sends an inspector",
   PAID_PLANS.filter((p) => planIncludes(p, "inspection")), ["diamond"]);
 check("diamond includes everything below it",
   Object.keys(FEATURE_FROM).every((f) => planIncludes("diamond", f)), true);
+
+console.log("\nGold is the volume tier, and has to actually be one");
+check("gold adds no feature over silver", featuresAddedBy("gold"), []);
+const perReport = (p) => PLAN_PRICE_NZD[p] / PLAN_ALLOWANCE[p].reports;
+check("…so it must be cheaper per report than silver, or it's just dearer",
+  perReport("gold") < perReport("silver"), true);
+check("every feature-free tier is cheaper per report than the one below it",
+  PAID_PLANS.filter((p, i) => i > 0 && featuresAddedBy(p).length === 0 &&
+    perReport(p) >= perReport(PAID_PLANS[i - 1])), []);
 
 console.log("\nnextPlanUp — what every upgrade prompt offers");
 check("free is pointed at copper", nextPlanUp("free"), "copper");

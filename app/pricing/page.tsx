@@ -48,9 +48,9 @@ const FEATURE_ROWS = (Object.keys(FEATURE_FROM) as Feature[]).sort(
 );
 
 /**
- * Seven cards in one row is a wall. Two groups, split where the product does:
- * below Gold you're analysing houses you found yourself; from Gold up the app
- * is finding them, and then acting on the one you chose.
+ * Seven cards in one row is a wall. Two groups, split where the buying changes:
+ * the first four are about houses you found yourself, and the last three are
+ * about searching harder and then acting on the one you chose.
  */
 const GROUPS: { title: string; blurb: string; plans: Plan[] }[] = [
   {
@@ -59,8 +59,9 @@ const GROUPS: { title: string; blurb: string; plans: Plan[] }[] = [
     plans: ["free", "copper", "bronze", "silver"],
   },
   {
-    title: "Find them, then act on one",
-    blurb: "The map across all of New Zealand, and what happens after you choose.",
+    title: "Search harder, then act on one",
+    blurb:
+      "More reports at a lower price each, then the map across all of New Zealand and what happens after you choose.",
     plans: ["gold", "platinum", "diamond"],
   },
 ];
@@ -138,7 +139,7 @@ function PlanCard({ plan }: { plan: Plan }) {
   const colour = PLAN_COLOUR[plan];
   const below = ALL_PLANS[PLAN_RANK[plan] - 1];
   const adds = paid ? featuresAddedBy(plan as PaidPlan) : [];
-  const highlight = plan === "gold";
+  const highlight = plan === "platinum";
   const fulfilment = paid ? NEEDS_FULFILMENT[plan as PaidPlan] : undefined;
 
   return (
@@ -155,7 +156,7 @@ function PlanCard({ plan }: { plan: Plan }) {
           className="absolute -top-2.5 left-5 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider"
           style={{ background: colour, color: "#1a1a1a" }}
         >
-          Most popular
+          Map + agent letter
         </div>
       )}
 
@@ -189,6 +190,22 @@ function PlanCard({ plan }: { plan: Plan }) {
           </span>
         </li>
 
+        {/* A tier that adds no feature has to say what it IS, or its card reads
+            as a more expensive Silver with the bullets missing. */}
+        {paid && adds.length === 0 && below && (
+          <li className="flex items-start gap-2 text-sm">
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
+            <span style={{ color: "var(--text-secondary)" }}>
+              Everything in {PLAN_LABEL[below]}, at $
+              {(PLAN_PRICE_NZD[plan as PaidPlan] / PLAN_ALLOWANCE[plan].reports).toFixed(2)} a
+              report instead of $
+              {below !== "free"
+                ? (PLAN_PRICE_NZD[below as PaidPlan] / PLAN_ALLOWANCE[below].reports).toFixed(2)
+                : "0.00"}
+            </span>
+          </li>
+        )}
+
         {plan === "free" && (
           <li className="flex items-start gap-2 text-sm">
             <Minus size={14} className="mt-0.5 shrink-0" style={{ color: "var(--text-muted)" }} />
@@ -205,7 +222,9 @@ function PlanCard({ plan }: { plan: Plan }) {
           </li>
         ))}
 
-        {paid && below && below !== "free" && (
+        {/* Skipped on a feature-free tier, whose volume line above already
+            said "everything in X" and said what it costs there. */}
+        {paid && below && below !== "free" && adds.length > 0 && (
           <li className="flex items-start gap-2 text-sm">
             <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
             <span style={{ color: "var(--text-secondary)" }}>
@@ -401,8 +420,12 @@ function Faq() {
       a: "Because the agent document doesn't open until a building inspector has been to the property. It puts costed claims in front of somebody whose job is to take them apart, and a buyer's own walk-through can't settle whether a stain is an active leak or a repaired one. On Platinum you bring your own inspector's report and upload it. On Diamond we send the inspector and load their report for you — so if you were going to pay for an inspection anyway, Diamond is that inspection with the rest attached.",
     },
     {
+      q: "Gold has no features Silver doesn't. Why is it there?",
+      a: "Because it's the volume step and nothing else. Fifty reports for $149 is $2.98 each against Silver's $3.96 — if you're getting through a lot of listings that's the whole point of it, and if you're not, Silver is the better buy. It's listed honestly rather than padded out with something invented to justify the gap.",
+    },
+    {
       q: "Why do Gold, Platinum and Diamond all have 50 reports?",
-      a: "Because nobody analysing fifty houses a month needs eighty. Above Gold you aren't buying more searching, you're buying what happens to the house you've chosen — the offer document you hand the agent, and then an inspector standing in it.",
+      a: "Because nobody analysing fifty houses a month needs eighty. Gold is where buying more searching stops being useful. Above it you're buying what happens to the house you've chosen — the map to find it, the offer document you hand the agent, and then an inspector standing in it.",
     },
     {
       q: "What is the Diamond inspection, exactly?",

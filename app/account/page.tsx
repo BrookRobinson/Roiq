@@ -259,8 +259,8 @@ function PlanTabInner() {
             </div>
             <ul className="space-y-2 mb-5">
               {/* More reports is the headline only when there ARE more. Gold,
-                  Platinum and Diamond all carry 50, and listing "50 reports"
-                  as a reason to pay another $110 would be selling nothing. */}
+                  Platinum and Diamond all carry 50, so listing "50 reports" as
+                  a reason to pay another $130 would be selling nothing. */}
               {PLAN_ALLOWANCE[up].reports > PLAN_ALLOWANCE[plan].reports && (
                 <li className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                   <CheckCircle2 size={14} style={{ color: "var(--green)" }} />

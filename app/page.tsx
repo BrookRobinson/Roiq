@@ -249,7 +249,9 @@ function Pricing() {
   // Rows come from the feature map in lib/billing/plans.ts, like the pricing
   // page's. The hand-written version of this table sold "Batch and compare",
   // which was never built.
-  const shown: Plan[] = ["free", "copper", "gold", "diamond"];
+  // Not Gold: it carries no feature of its own, so a column of ticks identical
+  // to Silver's would make the table look broken rather than honest.
+  const shown: Plan[] = ["free", "copper", "platinum", "diamond"];
   const plans = shown.map((plan) => ({
     plan,
     name: PLAN_LABEL[plan],
@@ -286,7 +288,7 @@ function Pricing() {
           <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
             Four of six paid tiers shown.{" "}
             <Link href="/pricing" className="font-semibold hover:underline" style={{ color: "var(--accent-text)" }}>
-              Bronze, Silver and Platinum sit in between →
+              Bronze, Silver and Gold sit in between →
             </Link>
           </p>
         </Reveal>
