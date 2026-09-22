@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { describeAllowance, PLAN_LABEL, PLAN_PRICE_NZD } from "@/lib/billing/plans";
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import {
@@ -316,10 +317,11 @@ export default function DashboardPage() {
           }}
         >
           <h3 className="font-bold text-white text-lg mb-1">
-            Get unlimited reports and the NZ investment map
+            More reports, and the NZ investment map
           </h3>
           <p className="text-[var(--text-secondary)] text-sm mb-4">
-            Starter $49 / month · Pro with map $99 / month
+            Six tiers from ${PLAN_PRICE_NZD.copper} — {describeAllowance("copper")}. The map starts at{" "}
+            {PLAN_LABEL.gold}, ${PLAN_PRICE_NZD.gold}.
           </p>
           <Link
             href="/pricing"

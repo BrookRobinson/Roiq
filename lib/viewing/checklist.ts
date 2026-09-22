@@ -138,7 +138,7 @@ const WHAT_TO_CHECK: Record<string, string> = {
   land_trees: "Large trees near the house or the drains, and whether any are protected or notable (the council schedule will say).",
 
   leg_lim:
-    "A LIM comes from the council — only they can issue one. Ask the agent first: vendors often order one before marketing and hand copies out, and if it exists it costs you nothing. Check the date on the front, though — a LIM is a snapshot, and one pulled months ago won't show anything registered since. No copy, or an old one? Order your own from the council; anyone can, on any property, for a few hundred dollars and usually about ten working days. Upload it on the Land tab and we'll read it.",
+    "A LIM comes from the council — only they can issue one. Ask the agent first: vendors often order one before marketing and hand copies out, and if it exists it costs you nothing. Check the date on the front, though — a LIM is a snapshot, and one pulled months ago won't show anything registered since. No copy, or an old one? Order your own from the council; anyone can, on any property, for a few hundred dollars and usually about ten working days. Upload it on the Land tab and we'll read it for you — that's included from Silver up.",
   leg_consents:
     "Ask the council for the property file — it holds the consents and code compliance certificates for every structure, house, garage, deck and sleepout. The agent may already have a copy. Upload what you get on the Land tab.",
   leg_eqc: "Ask the agent or the vendor for the EQC (Toka Tū Ake) claim history and any scope of works or settlement documents — only the owner can request their own claim file, so this one has to come from them. Upload it on the Land tab.",

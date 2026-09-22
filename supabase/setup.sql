@@ -46,7 +46,7 @@ create table if not exists public.users (
   id                     uuid primary key references auth.users(id) on delete cascade,
   email                  text not null,
   created_at             timestamptz not null default now(),
-  plan                   text not null default 'free',   -- 'free' | 'starter' | 'pro'
+  plan                   text not null default 'free',   -- 'free' | 'copper' | 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond'
   stripe_customer_id     text,
   stripe_subscription_id text,
   subscription_status    text,
@@ -756,9 +756,13 @@ COMMENT ON COLUMN public.users.plan_expires_at IS
 -- record an end date. Reading plan + a NULL expiry now resolves to free, so
 -- without this they'd silently lose access the moment this migration lands.
 -- Give them a month from now; after that they buy like everyone else.
+-- 'starter' and 'pro' are the retired tier names. They are still read — the
+-- app maps them onto Bronze and Gold — so a row set by hand before the metals
+-- must keep its access, not lose it here.
 UPDATE public.users
    SET plan_expires_at = now() + interval '30 days'
- WHERE plan IN ('starter', 'pro')
+ WHERE plan IN ('starter', 'pro',
+                'copper', 'bronze', 'silver', 'gold', 'platinum', 'diamond')
    AND plan_expires_at IS NULL;
 
 -- ── purchases (one row per completed Stripe checkout) ───────────────────────
@@ -771,7 +775,7 @@ CREATE TABLE IF NOT EXISTS public.purchases (
   stripe_session_id        text NOT NULL UNIQUE,
   stripe_payment_intent_id text,
   stripe_customer_id       text,
-  plan                     text NOT NULL,             -- 'starter' | 'pro'
+  plan                     text NOT NULL,             -- 'copper' … 'diamond' (or a retired 'starter'/'pro')
   amount_cents             integer,                   -- what was actually charged
   currency                 text NOT NULL DEFAULT 'nzd',
   status                   text NOT NULL DEFAULT 'paid',  -- 'paid' | 'refunded'

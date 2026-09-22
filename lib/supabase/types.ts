@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type Plan = "free" | "starter" | "pro";
+export type Plan = "free" | "copper" | "bronze" | "silver" | "gold" | "platinum" | "diamond";
 export type ReportStatus = "pending" | "processing" | "complete" | "failed";
 export type ListingStatus = "active" | "sold" | "removed";
 export type OpportunityGrade = "A+" | "A" | "B+" | "B" | "C+" | "C" | "D";

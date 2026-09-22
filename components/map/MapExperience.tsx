@@ -11,6 +11,7 @@ import { VariablesScreen } from "@/components/map/VariablesScreen";
 import { loadVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
 import { TypeFilter } from "./TypeFilter";
 import { useSession } from "@/lib/auth/session";
+import { FEATURE_FROM, PLAN_LABEL, PLAN_PRICE_NZD } from "@/lib/billing/plans";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import type { MapMode, UserVariables } from "@/lib/map/types";
@@ -54,10 +55,12 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   // the viewer's own numbers, which is the whole idea and completely invisible
   // if you don't know the button is there.
   const [showHint, setShowHint] = useState(false);
-  const { isPro, loading: sessionLoading } = useSession();
+  const { can, loading: sessionLoading } = useSession();
 
   // Demo listings are nobody's paid analysis, so there is nothing to withhold.
-  const unlocked = demo || isPro;
+  const unlocked = demo || can("map");
+  /** Named once — the tier the map starts at is decided in lib/billing/plans.ts. */
+  const mapTier = PLAN_LABEL[FEATURE_FROM.map];
 
   useEffect(() => {
     const v = loadVariables();
@@ -128,7 +131,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
       <Navbar />
 
       {/* Wait for the plan before building the map: the locked/unlocked layers are
-          created once at mount, so a Pro user who renders early would be stuck with
+          created once at mount, so a map-tier user who renders early would be stuck with
           the blurred version. */}
       {!ready || (!demo && sessionLoading) ? (
         <div className="flex-1" />
@@ -273,14 +276,14 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                   >
                     <Lock size={13} style={{ color: "var(--brand)" }} />
                     <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                      Pins are blurred — Pro opens every report.
+                      Pins are blurred — {mapTier} opens every report.
                     </span>
                     <Link
-                      href="/pricing?plan=pro"
+                      href="/pricing"
                       className="btn-primary px-3 py-1.5 text-xs"
                       style={{ textDecoration: "none" }}
                     >
-                      Get Pro
+                      Get {mapTier}
                     </Link>
                   </div>
                 </div>
@@ -299,7 +302,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                     <div className="mb-2 flex items-center justify-center gap-2">
                       <Lock size={15} style={{ color: "var(--brand)" }} />
                       <span className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                        Upgrade to Pro to fully view the map
+                        {mapTier} opens the whole map
                       </span>
                     </div>
                     <p className="mb-5 text-[13px]" style={{ color: "var(--text-muted)" }}>
@@ -307,11 +310,11 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                       renovation costs, valuation and five-year return, scored out of 1,000.
                     </p>
                     <Link
-                      href="/pricing?plan=pro"
+                      href="/pricing"
                       className="btn-primary inline-flex px-5 py-2 text-sm"
                       style={{ textDecoration: "none" }}
                     >
-                      Get Pro
+                      Get {mapTier} — ${PLAN_PRICE_NZD[FEATURE_FROM.map].toLocaleString("en-NZ")}
                     </Link>
                     <button
                       onClick={() => setLocked(false)}

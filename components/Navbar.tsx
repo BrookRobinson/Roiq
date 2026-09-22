@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/lib/auth/session";
+import { planIncludes, type Plan } from "@/lib/billing/plans";
 import { createClient } from "@/lib/supabase/client";
 import { useState } from "react";
 import { useTheme } from "@/lib/theme/context";
@@ -23,7 +24,7 @@ export default function Navbar({
 }: {
   /** Overrides for the rare page that needs a fixed state; otherwise the real session is used. */
   user?: { email: string } | null;
-  plan?: "free" | "starter" | "pro";
+  plan?: Plan;
 } = {}) {
   const session = useSession();
 
@@ -47,7 +48,7 @@ export default function Navbar({
     ? [
         { href: "/dashboard", label: "Dashboard" },
         { href: "/report/new", label: "New report" },
-        ...(plan === "pro"
+        ...(planIncludes(plan, "map")
           ? [{ href: "/map", label: "Map" }]
           : [{ href: "/pricing", label: "Upgrade" }]),
         { href: "/account", label: "Account" },

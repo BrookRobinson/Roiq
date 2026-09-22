@@ -68,6 +68,7 @@ import Link from "next/link";
 
 import { useSession } from "@/lib/auth/session";
 import { BlurredValue, UpgradeNote, LockedTab } from "@/components/report/Locked";
+import { FEATURE_FROM, planIncludes, type Feature } from "@/lib/billing/plans";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 import { alpha } from "@/lib/ui/color";
 
@@ -99,8 +100,15 @@ const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?
  */
 const LAND_HIDDEN_TABS = new Set<Tab>(["improvements", "renovations"]);
 
-const LOCKED_TABS: Record<string, { title: string; blurb: string; includes: string[] }> = {
+/**
+ * Tabs a plan can be short of, what's inside each, and the feature that opens
+ * it. The feature — not the plan name — is the gate: which tier carries it is
+ * decided once, in lib/billing/plans.ts, so moving the agent document up or
+ * down the ladder never means editing this file.
+ */
+const LOCKED_TABS: Record<string, { title: string; blurb: string; includes: string[]; feature: Feature }> = {
   financial: {
+    feature: "tools",
     title: "Financial",
     blurb: "The valuation and the numbers behind it, worked from the condition findings you can already see.",
     includes: [
@@ -111,6 +119,7 @@ const LOCKED_TABS: Record<string, { title: string; blurb: string; includes: stri
     ],
   },
   renovations: {
+    feature: "tools",
     title: "Renovations",
     blurb: "Every flagged item costed at New Zealand rates, and what fixing it does to the property's value.",
     includes: [
@@ -121,6 +130,7 @@ const LOCKED_TABS: Record<string, { title: string; blurb: string; includes: stri
     ],
   },
   negotiation: {
+    feature: "negotiation",
     title: "For the agent",
     blurb: "A document you can send the vendor's agent, built only from the critical and urgent findings in this report.",
     includes: [
@@ -335,7 +345,18 @@ export function RealReportView({
   const isSample = !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(report.id);
   // While the session is loading, assume unlocked — a moment of visible content
   // is a smaller wrong than showing a paying customer an upgrade wall.
-  const locked = !shared && !embedded && !isSample && !planLoading && plan === "free";
+  //
+  // Gates apply at all only to a real report someone is reading on their own
+  // account; `has` then answers per feature, because the tiers no longer agree
+  // about which tabs open. The Financial and Renovations tabs come with the
+  // cheapest paid tier; the agent document is further up.
+  const gated = !shared && !embedded && !isSample && !planLoading;
+  const has = (f: Feature) => !gated || planIncludes(plan, f);
+  const locked = !has("score");
+  const tabLocked = (t: string) => {
+    const meta = LOCKED_TABS[t];
+    return !!meta && !has(meta.feature);
+  };
   const [showSend, setShowSend] = useState(false);
   const [askingPrice, setAskingPrice] = useState<number | null>(
     report.listing.askingPrice ?? parseOverPrice(report.listing.priceText)
@@ -915,7 +936,7 @@ export function RealReportView({
                   className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap cursor-pointer border-b-2 transition-colors"
                   style={{ color: tab === t.id ? "var(--brand)" : "var(--text-secondary)", borderBottomColor: tab === t.id ? "var(--brand)" : "transparent" }}>
                   <t.icon size={14} />{t.label}
-                  {locked && LOCKED_TABS[t.id] && (
+                  {tabLocked(t.id) && (
                     <Lock size={11} style={{ color: "var(--text-muted)" }} aria-label="needs a paid plan" />
                   )}
                   {t.id === "viewing" && viewingStatus.outstanding > 0 && (
@@ -925,7 +946,7 @@ export function RealReportView({
                       {viewingStatus.outstanding}
                     </span>
                   )}
-                  {t.id === "negotiation" && !locked && !letterUnlocked && (
+                  {t.id === "negotiation" && !tabLocked("negotiation") && !letterUnlocked && (
                     <Lock size={11} style={{ color: "var(--text-muted)" }} aria-label="locked until the property is viewed" />
                   )}
                 </button>
@@ -957,7 +978,7 @@ export function RealReportView({
                   this report opens as it is.
                 </p>
               </div>
-              <Link href="/pricing?plan=starter" className="btn-primary text-sm px-5 py-2.5 whitespace-nowrap self-start sm:self-auto">
+              <Link href="/pricing" className="btn-primary text-sm px-5 py-2.5 whitespace-nowrap self-start sm:self-auto">
                 See plans <ArrowRight size={15} />
               </Link>
             </div>
@@ -1000,9 +1021,11 @@ export function RealReportView({
               <LocationFactCard subItems={subItems} ids={["loc_noise", "loc_views"]} title="Noise & outlook" />
             </div>
           )}
-          {locked && LOCKED_TABS[tab] && <LockedTab {...LOCKED_TABS[tab]} />}
-          {tab === "renovations" && !locked && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
-          {tab === "financial" && !locked && (
+          {tabLocked(tab) && (
+            <LockedTab {...LOCKED_TABS[tab]} needs={FEATURE_FROM[LOCKED_TABS[tab].feature]} />
+          )}
+          {tab === "renovations" && !tabLocked("renovations") && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
+          {tab === "financial" && !tabLocked("financial") && (
             <>
               <PurchasePriceBar value={askingPrice} priceText={listing.priceText} onChange={setAskingPrice} modelledPrice={propertyValue?.total ?? null} />
               <FinanceTab key={askingPrice ?? "none"} listing={{ ...listing, askingPrice }} persona={persona} marketRent={report.marketRent} capitalGrowth={report.capitalGrowth} renoLines={renoLines} renoToggles={renoToggles} score={scored.total} suburbValue={report.suburbValue} improvementValuation={improvementValuation} dwellingAdded={dwellingValue.addedValue} landOnly={landOnly} propertyValue={propertyValue} />
@@ -1028,7 +1051,7 @@ export function RealReportView({
           )}
           {/* The letter is the one place the report speaks to somebody else, so
               it is the one place an unverified finding does real damage. */}
-          {tab === "negotiation" && !locked && (
+          {tab === "negotiation" && !tabLocked("negotiation") && (
             letterUnlocked ? (
               <NegotiationTab report={report} viewing={viewing} checklist={checklist} subItems={effectiveSubItems} />
             ) : (

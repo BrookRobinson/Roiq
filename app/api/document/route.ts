@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 import { getAnthropic, ANALYSIS_MODEL, isAnalysisConfigured } from "@/lib/ai/client";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { featureGate } from "@/lib/billing/gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -91,6 +92,11 @@ Rules:
 Return your analysis ONLY by calling the submit_document_analysis tool.`;
 
 export async function POST(req: NextRequest) {
+  // Before the key check, not after: someone without the tier should be told
+  // what to buy, not told the service is down.
+  const gate = await featureGate("documents");
+  if (gate) return gate;
+
   if (!isAnalysisConfigured()) {
     return NextResponse.json(
       { error: "analysis_unavailable", message: "ANTHROPIC_API_KEY is not configured." },

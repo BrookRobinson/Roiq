@@ -1,6 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import type { UserRow } from "@/lib/supabase/types";
-import { effectivePlan, planMeets, type Plan } from "@/lib/billing/plans";
+import {
+  effectivePlan,
+  planIncludes,
+  planMeets,
+  type Feature,
+  type Plan,
+} from "@/lib/billing/plans";
 import { isDevOwner, DEV_OWNER_PLAN } from "@/lib/auth/dev-owner";
 
 /**
@@ -46,8 +52,19 @@ export async function getUserPlan(): Promise<Plan> {
 
 /**
  * Checks whether the current user has access to a given plan level.
- * Pro ⊃ Starter ⊃ Free.
+ * Diamond ⊃ Platinum ⊃ … ⊃ Free.
  */
 export async function requirePlan(minimum: Plan): Promise<boolean> {
   return planMeets(await getUserPlan(), minimum);
+}
+
+/**
+ * Does the caller's plan include this feature?
+ *
+ * The question a route should ask. Comparing plan names in a handler is how a
+ * gate gets left behind when a tier is added above it — and a gate that quietly
+ * stops matching is a feature given away, which nothing in the app would report.
+ */
+export async function hasFeature(feature: Feature): Promise<boolean> {
+  return planIncludes(await getUserPlan(), feature);
 }

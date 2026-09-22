@@ -9,7 +9,7 @@ import { saveReport, saveReportPersona } from "@/lib/report-store";
 import type { Persona } from "@/lib/scoring/model";
 import { PersonaChoice, PersonaRequiredDialog } from "@/components/report/PersonaChoice";
 import { useSession } from "@/lib/auth/session";
-import { describeAllowance, PLAN_LABEL } from "@/lib/billing/plans";
+import { describeAllowance, PLAN_LABEL, PLAN_PRICE_NZD } from "@/lib/billing/plans";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { contributeToMap } from "@/lib/map/contribution";
@@ -310,7 +310,7 @@ function NewReportInner() {
                       You&apos;re out of reports
                     </div>
                     <p className="text-sm mb-3" style={{ color: "var(--text-secondary)" }}>{error}</p>
-                    <Link href="/pricing?plan=starter" className="btn-primary text-sm px-4 py-2">
+                    <Link href="/pricing" className="btn-primary text-sm px-4 py-2">
                       See plans <ArrowRight size={15} />
                     </Link>
                   </div>
@@ -432,7 +432,7 @@ function NewReportInner() {
                   shown, but the <strong style={{ color: "var(--text-primary)" }}>score</strong> and{" "}
                   <strong style={{ color: "var(--text-primary)" }}>valuation</strong> stay locked until you upgrade.{" "}
                   <Link href="/pricing" className="hover:underline" style={{ color: "var(--brand)" }}>
-                    {PLAN_LABEL.starter} is {describeAllowance("starter")} →
+                    {PLAN_LABEL.copper} is {describeAllowance("copper")} for ${PLAN_PRICE_NZD.copper} →
                   </Link>
                 </div>
               )}

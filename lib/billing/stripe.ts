@@ -13,8 +13,12 @@ import { PAID_PLANS, type PaidPlan, type Plan } from "@/lib/billing/plans";
 
 /** Env var holding the Stripe price for each paid plan. */
 const PRICE_ENV: Record<PaidPlan, string> = {
-  starter: "STRIPE_STARTER_PRICE_ID",
-  pro: "STRIPE_PRO_PRICE_ID",
+  copper: "STRIPE_COPPER_PRICE_ID",
+  bronze: "STRIPE_BRONZE_PRICE_ID",
+  silver: "STRIPE_SILVER_PRICE_ID",
+  gold: "STRIPE_GOLD_PRICE_ID",
+  platinum: "STRIPE_PLATINUM_PRICE_ID",
+  diamond: "STRIPE_DIAMOND_PRICE_ID",
 };
 
 let cached: Stripe | null = null;
@@ -34,8 +38,22 @@ export function getStripe(): Stripe | null {
   return cached;
 }
 
-export const isBillingConfigured = (): boolean =>
-  !!process.env.STRIPE_SECRET_KEY && PAID_PLANS.every((p) => !!priceIdFor(p));
+/**
+ * Tiers that can actually be bought right now — a key, and a price for that one.
+ *
+ * Per-tier rather than all-or-nothing, because the tiers are meant to go on sale
+ * as they're ready. Diamond in particular owes a customer a building inspector,
+ * so it stays unbuyable until someone deliberately creates its Stripe price;
+ * requiring every plan to have one would have reported billing as broken for as
+ * long as that took, and hidden a real fault behind an expected one.
+ */
+export const sellablePlans = (): PaidPlan[] =>
+  process.env.STRIPE_SECRET_KEY ? PAID_PLANS.filter((p) => !!priceIdFor(p)) : [];
+
+export const isPlanSellable = (plan: PaidPlan): boolean =>
+  !!process.env.STRIPE_SECRET_KEY && !!priceIdFor(plan);
+
+export const isBillingConfigured = (): boolean => sellablePlans().length > 0;
 
 export const hasWebhookSecret = (): boolean => !!process.env.STRIPE_WEBHOOK_SECRET;
 

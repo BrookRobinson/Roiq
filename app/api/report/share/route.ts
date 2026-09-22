@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/supabase/auth";
+import { featureGate } from "@/lib/billing/gate";
 import { SHARE_TTL_DAYS, newShareToken, isShareToken } from "@/lib/share";
 import type { StoredReport } from "@/lib/report-store";
 import { sendEmail } from "@/lib/email/send";
@@ -17,6 +18,9 @@ export const runtime = "nodejs";
  * the link. Returns { ok, token, url, emailed }.
  */
 export async function POST(req: NextRequest) {
+  const gate = await featureGate("share");
+  if (gate) return gate;
+
   let body: { report?: StoredReport; recipientEmail?: string; note?: string };
   try {
     body = await req.json();

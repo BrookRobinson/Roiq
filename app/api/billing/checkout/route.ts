@@ -5,6 +5,8 @@ import {
   effectivePlan,
   formatAccessDate,
   isPaidPlan,
+  NEEDS_FULFILMENT,
+  PAID_PLANS,
   PLAN_LABEL,
   PLAN_RANK,
 } from "@/lib/billing/plans";
@@ -22,7 +24,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/billing/checkout  { plan: "starter" | "pro" }
+ * POST /api/billing/checkout  { plan: "copper" | … | "diamond" }
  * → { ok: true, url } — send the browser there.
  *
  * One-off payments, not subscriptions: the site promises a month at a time with
@@ -40,7 +42,10 @@ export async function POST(req: NextRequest) {
 
   if (!isPaidPlan(plan)) {
     return NextResponse.json(
-      { ok: false, error: "Choose the Starter or Pro plan." },
+      {
+        ok: false,
+        error: `Choose one of: ${PAID_PLANS.map((p) => PLAN_LABEL[p]).join(", ")}.`,
+      },
       { status: 400 }
     );
   }
@@ -58,7 +63,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: `The ${PLAN_LABEL[plan]} plan has no Stripe price yet — set ${priceEnvName(plan)}.`,
+        error: `${PLAN_LABEL[plan]} isn't on sale yet — it has no Stripe price (${priceEnvName(plan)}).`,
       },
       { status: 503 }
     );
@@ -75,8 +80,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Buying a lower tier while a higher one is still running would replace it —
-  // one plan column can't hold both. Say so instead of quietly taking Pro away
-  // from someone who just paid for Starter.
+  // one plan column can't hold both. Say so instead of quietly taking Gold away
+  // from someone who then paid for Copper.
   const active = effectivePlan(profile?.plan, profile?.plan_expires_at);
   if (PLAN_RANK[active] > PLAN_RANK[plan]) {
     return NextResponse.json(
@@ -120,7 +125,9 @@ export async function POST(req: NextRequest) {
       allow_promotion_codes: true,
       custom_text: {
         submit: {
-          message: `${ACCESS_DAYS} days of ${PLAN_LABEL[plan]} access. Nothing auto-renews.`,
+          message: NEEDS_FULFILMENT[plan]
+            ? `${ACCESS_DAYS} days of ${PLAN_LABEL[plan]} access, and one building inspection we book with you afterwards. Nothing auto-renews.`
+            : `${ACCESS_DAYS} days of ${PLAN_LABEL[plan]} access. Nothing auto-renews.`,
         },
       },
     });

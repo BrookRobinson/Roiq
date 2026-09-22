@@ -40,12 +40,16 @@ export async function GET() {
     PAID_PLANS.map(async (plan) => {
       const id = priceIdFor(plan);
       if (!id) {
+        // Not a fault. Six tiers go on sale as they're ready, and Diamond owes
+        // a customer a building inspector, so an unset price is the safe state
+        // — the tier simply can't be bought. A WRONG price is the fault.
         return {
           plan,
           env: priceEnvName(plan),
           id: null,
-          ok: false,
-          detail: `${priceEnvName(plan)} isn't set.`,
+          ok: true,
+          onSale: false,
+          detail: `Not on sale — ${priceEnvName(plan)} isn't set.`,
         };
       }
 
@@ -61,6 +65,7 @@ export async function GET() {
           env: priceEnvName(plan),
           id,
           ok: price.active && !recurring && matchesCopy,
+          onSale: true,
           amount,
           active: price.active,
           recurring,
@@ -78,6 +83,7 @@ export async function GET() {
           env: priceEnvName(plan),
           id,
           ok: false,
+          onSale: true,
           detail: `Stripe couldn't find that price: ${(err as Error).message}`,
         };
       }
@@ -87,6 +93,7 @@ export async function GET() {
   const webhook = hasWebhookSecret();
   const canGrant = hasAdminClient();
   const broken = prices.filter((p) => !p.ok);
+  const onSale = prices.filter((p) => p.onSale && p.ok);
 
   // The service role is what the webhook writes plans with. Without it a
   // customer can pay in full and get nothing, which is the worst failure here.
@@ -96,12 +103,19 @@ export async function GET() {
       ? "STRIPE_WEBHOOK_SECRET isn't set — checkout works, but nothing grants the plan afterwards."
       : broken.length
         ? broken.map((p) => `${PLAN_LABEL[p.plan]}: ${p.detail}`).join(" ")
-        : mode === "test"
-          ? `Ready in TEST mode — ${prices.map((p) => `${PLAN_LABEL[p.plan]} ${p.amount}`).join(", ")}. No real money moves until the keys are live.`
-          : `Ready — ${prices.map((p) => `${PLAN_LABEL[p.plan]} ${p.amount}`).join(", ")}.`;
+        : onSale.length === 0
+          ? `A Stripe key is set but no tier has a price yet — set at least ${priceEnvName("copper")}. Nothing can be bought.`
+          : `${mode === "test" ? "Ready in TEST mode" : "Ready"} — ${onSale
+              .map((p) => `${PLAN_LABEL[p.plan]} ${p.amount}`)
+              .join(", ")}. Not on sale: ${
+              prices
+                .filter((p) => !p.onSale)
+                .map((p) => PLAN_LABEL[p.plan])
+                .join(", ") || "none"
+            }.${mode === "test" ? " No real money moves until the keys are live." : ""}`;
 
   return NextResponse.json({
-    ok: canGrant && webhook && broken.length === 0,
+    ok: canGrant && webhook && broken.length === 0 && onSale.length > 0,
     configured: true,
     mode,
     webhookSecret: webhook,

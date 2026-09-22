@@ -11,9 +11,15 @@ import BuyPlanButton from "@/components/billing/BuyPlanButton";
 import PurchaseRow from "@/components/billing/PurchaseRow";
 import {
   ACCESS_DAYS,
+  describeAllowance,
+  featuresAddedBy,
+  FEATURE_LABEL,
   formatAccessDate,
+  nextPlanUp,
+  PLAN_ALLOWANCE,
   PLAN_LABEL,
   PLAN_PRICE_NZD,
+  PLAN_TAGLINE,
   type PurchaseSummary,
 } from "@/lib/billing/plans";
 
@@ -200,7 +206,9 @@ function PlanTabInner() {
                 {sessionLoading ? "…" : PLAN_LABEL[plan]}
               </span>
               {plan !== "free" && (
-                <span className="badge badge-blue">${PLAN_PRICE_NZD[plan]} / month</span>
+                <span className="badge badge-blue">
+                  ${PLAN_PRICE_NZD[plan].toLocaleString("en-NZ")} / {ACCESS_DAYS} days
+                </span>
               )}
             </div>
           </div>
@@ -235,37 +243,46 @@ function PlanTabInner() {
         )}
       </div>
 
-      {/* Upgrade prompt — only when there's something to upgrade to. */}
-      {plan !== "pro" && (
-        <div
-          className="rounded-2xl p-6"
-          style={{
-            background: "linear-gradient(160deg, #091e1e 0%, #0a2420 100%)",
-          }}
-        >
-          <div className="font-bold text-lg mb-1">Upgrade to Pro</div>
-          <div className="text-[var(--text-secondary)] text-sm mb-4">Get the NZ investment map + batch reports</div>
-          <ul className="space-y-2 mb-5">
-            {[
-              "NZ-wide investment map",
-              "10-year profit on every listing",
-              "Filters, alerts, watchlist",
-              "Batch reports & compare mode",
-            ].map((f) => (
-              <li key={f} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                <CheckCircle2 size={14} style={{ color: "var(--green)" }} />
-                {f}
-              </li>
-            ))}
-          </ul>
-          <BuyPlanButton
-            plan="pro"
-            label={`Get Pro, $${PLAN_PRICE_NZD.pro} for ${ACCESS_DAYS} days`}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[var(--brand)] font-semibold text-sm cursor-pointer hover:bg-[var(--brand-light)] transition-colors"
-            returnTo="/account"
-          />
-        </div>
-      )}
+      {/* Upgrade prompt — the next tier up, and only what it actually adds. */}
+      {(() => {
+        const up = nextPlanUp(plan);
+        if (!up) return null;
+        const adds = featuresAddedBy(up);
+        return (
+          <div
+            className="rounded-2xl p-6"
+            style={{ background: "linear-gradient(160deg, #091e1e 0%, #0a2420 100%)" }}
+          >
+            <div className="font-bold text-lg mb-1">Upgrade to {PLAN_LABEL[up]}</div>
+            <div className="text-[var(--text-secondary)] text-sm mb-4">
+              {PLAN_TAGLINE[up]}
+            </div>
+            <ul className="space-y-2 mb-5">
+              {/* More reports is the headline only when there ARE more. Gold,
+                  Platinum and Diamond all carry 50, and listing "50 reports"
+                  as a reason to pay another $110 would be selling nothing. */}
+              {PLAN_ALLOWANCE[up].reports > PLAN_ALLOWANCE[plan].reports && (
+                <li className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                  <CheckCircle2 size={14} style={{ color: "var(--green)" }} />
+                  {describeAllowance(up)}
+                </li>
+              )}
+              {adds.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                  <CheckCircle2 size={14} style={{ color: "var(--green)" }} />
+                  {FEATURE_LABEL[f]}
+                </li>
+              ))}
+            </ul>
+            <BuyPlanButton
+              plan={up}
+              label={`Get ${PLAN_LABEL[up]}, $${PLAN_PRICE_NZD[up].toLocaleString("en-NZ")} for ${ACCESS_DAYS} days`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-[var(--brand)] font-semibold text-sm cursor-pointer hover:bg-[var(--brand-light)] transition-colors"
+              returnTo="/account"
+            />
+          </div>
+        );
+      })()}
 
       {/* Purchase history */}
       <div className="card p-6">

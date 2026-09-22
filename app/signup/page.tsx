@@ -7,6 +7,14 @@
 // the flag. See lib/auth/dev-owner.ts.
 
 import Link from "next/link";
+import {
+  ACCESS_DAYS,
+  normalisePlan,
+  PLAN_COLOUR,
+  PLAN_LABEL,
+  PLAN_PRICE_NZD,
+  type PaidPlan,
+} from "@/lib/billing/plans";
 import { useState, Suspense } from "react";
 import { Eye, EyeOff, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -37,12 +45,17 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const planLabels: Record<string, { name: string; price: string; color: string }> = {
-    free: { name: "Free", price: "$0", color: "#6b7280" },
-    starter: { name: "Starter", price: "$49 / month", color: "#3b82f6" },
-    pro: { name: "Pro", price: "$99 / month", color: "#f59e0b" },
+  // Built from the plan table rather than listed here, so a renamed or
+  // repriced tier can't leave a stale chip on the signup form.
+  const chosen = normalisePlan(plan) ?? "free";
+  const planInfo = {
+    name: PLAN_LABEL[chosen],
+    price:
+      chosen === "free"
+        ? "$0"
+        : `$${PLAN_PRICE_NZD[chosen as PaidPlan].toLocaleString("en-NZ")} / ${ACCESS_DAYS} days`,
+    color: PLAN_COLOUR[chosen],
   };
-  const planInfo = planLabels[plan] ?? planLabels.free;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,7 +89,7 @@ function SignupForm() {
     setSuccess(true);
     setLoading(false);
     // After email confirmation the callback will redirect to /auth/callback
-    // which redirects to /dashboard. For Pro users we later redirect to /onboarding.
+    // which redirects to /dashboard. Map tiers later redirect to /onboarding.
   }
 
   if (success) {

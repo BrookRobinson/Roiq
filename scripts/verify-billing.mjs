@@ -3,7 +3,7 @@
 //
 // There are no tests in this repo, and mostly that's fine. This file is the
 // exception, for the same reason lib/scoring deserves one: these functions are
-// pure, and a wrong answer here either hands someone Pro they didn't pay for or
+// pure, and a wrong answer here either hands someone Diamond they didn't pay for or
 // takes away a month they did. Both are silent — nothing throws, a date is just
 // off — so the only way to notice is to check.
 //
@@ -13,9 +13,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const { accessUntil, daysRemaining, effectivePlan, planMeets, ACCESS_DAYS } = await import(
-  join(root, "lib/billing/plans.ts")
-);
+const {
+  accessUntil, daysRemaining, effectivePlan, planMeets, normalisePlan, nextPlanUp,
+  planIncludes, featuresAddedBy, FEATURE_FROM, PAID_PLANS, PLAN_RANK, PLAN_PRICE_NZD,
+  PLAN_ALLOWANCE, ACCESS_DAYS,
+} = await import(join(root, "lib/billing/plans.ts"));
 
 const NOW = new Date("2026-08-22T10:00:00Z");
 const iso = (d) => d.toISOString();
@@ -32,14 +34,25 @@ const check = (label, got, want) => {
 };
 
 console.log("\neffectivePlan — access is the plan AND an unexpired date");
-check("pro with time left is pro", effectivePlan("pro", iso(plus(5)), NOW), "pro");
-check("pro that ran out is free", effectivePlan("pro", iso(plus(-1)), NOW), "free");
-check("pro with no expiry fails closed", effectivePlan("pro", null, NOW), "free");
-check("an unparseable expiry fails closed", effectivePlan("pro", "not-a-date", NOW), "free");
+check("gold with time left is gold", effectivePlan("gold", iso(plus(5)), NOW), "gold");
+check("gold that ran out is free", effectivePlan("gold", iso(plus(-1)), NOW), "free");
+check("gold with no expiry fails closed", effectivePlan("gold", null, NOW), "free");
+check("an unparseable expiry fails closed", effectivePlan("gold", "not-a-date", NOW), "free");
 check("an expiry can't upgrade a free plan", effectivePlan("free", iso(plus(5)), NOW), "free");
 check("an unknown plan name is free", effectivePlan("enterprise", iso(plus(5)), NOW), "free");
-check("expiring exactly now is over", effectivePlan("pro", iso(NOW), NOW), "free");
-check("starter with time left is starter", effectivePlan("starter", iso(plus(1)), NOW), "starter");
+check("expiring exactly now is over", effectivePlan("gold", iso(NOW), NOW), "free");
+check("diamond with time left is diamond", effectivePlan("diamond", iso(plus(1)), NOW), "diamond");
+
+// Nobody should lose access because the tiers were renamed. A row still saying
+// "pro" was paid for, and its 30 days are still running.
+console.log("\nthe retired names — Starter and Pro still resolve");
+check("starter maps to bronze", normalisePlan("starter"), "bronze");
+check("pro maps to gold", normalisePlan("pro"), "gold");
+check("a live starter row keeps working", effectivePlan("starter", iso(plus(5)), NOW), "bronze");
+check("a live pro row keeps the map", planIncludes(effectivePlan("pro", iso(plus(5)), NOW), "map"), true);
+check("an expired pro row is still free", effectivePlan("pro", iso(plus(-1)), NOW), "free");
+check("a metal name is left alone", normalisePlan("platinum"), "platinum");
+check("nonsense is null, not a plan", normalisePlan("enterprise"), null);
 
 console.log("\naccessUntil — buying early must add days, never discard them");
 check(`a first purchase runs ${ACCESS_DAYS} days`, iso(accessUntil(null, NOW)), iso(plus(ACCESS_DAYS)));
@@ -51,10 +64,57 @@ check("a part day rounds up", daysRemaining(new Date(NOW.getTime() + 6.5 * 86_40
 check("a past date floors at zero", daysRemaining(iso(plus(-2)), NOW), 0);
 check("no expiry is zero", daysRemaining(null, NOW), 0);
 
-console.log("\nplanMeets — Pro ⊃ Starter ⊃ Free");
-check("pro clears the starter bar", planMeets("pro", "starter"), true);
-check("starter does not clear the pro bar", planMeets("starter", "pro"), false);
+console.log("\nplanMeets — Diamond ⊃ Platinum ⊃ … ⊃ Free");
+check("diamond clears the copper bar", planMeets("diamond", "copper"), true);
+check("copper does not clear the diamond bar", planMeets("copper", "diamond"), false);
 check("free clears the free bar", planMeets("free", "free"), true);
+
+console.log("\nthe ladder — each tier costs more and gives more than the one below");
+let ladderOk = true;
+PAID_PLANS.forEach((p, i) => {
+  if (i === 0) return;
+  const below = PAID_PLANS[i - 1];
+  if (PLAN_RANK[p] <= PLAN_RANK[below]) ladderOk = false;
+  if (PLAN_PRICE_NZD[p] <= PLAN_PRICE_NZD[below]) ladderOk = false;
+  if (PLAN_ALLOWANCE[p].reports < PLAN_ALLOWANCE[below].reports) ladderOk = false;
+});
+check("rank, price and reports never go backwards", ladderOk, true);
+check("free is cheaper than copper in reports too",
+  PLAN_ALLOWANCE.free.reports < PLAN_ALLOWANCE.copper.reports, true);
+
+// A tier that adds nothing is a tier nobody can be sold. Every paid step must
+// either carry a feature the one below didn't, or more reports.
+console.log("\nevery paid tier earns its price");
+const emptyTiers = PAID_PLANS.filter((p, i) => {
+  if (i === 0) return false;
+  const below = PAID_PLANS[i - 1];
+  return (
+    featuresAddedBy(p).length === 0 &&
+    PLAN_ALLOWANCE[p].reports === PLAN_ALLOWANCE[below].reports
+  );
+});
+check("no tier adds nothing over the one below", emptyTiers, []);
+check("every feature starts at a real paid tier",
+  Object.values(FEATURE_FROM).every((p) => PAID_PLANS.includes(p)), true);
+
+console.log("\nfeature gates");
+check("copper opens the score", planIncludes("copper", "score"), true);
+check("free does not", planIncludes("free", "score"), false);
+check("bronze can share, copper can't",
+  [planIncludes("bronze", "share"), planIncludes("copper", "share")], [true, false]);
+check("the map starts at gold",
+  [planIncludes("silver", "map"), planIncludes("gold", "map")], [false, true]);
+check("the agent letter starts at platinum",
+  [planIncludes("gold", "negotiation"), planIncludes("platinum", "negotiation")], [false, true]);
+check("only diamond sends an inspector",
+  PAID_PLANS.filter((p) => planIncludes(p, "inspection")), ["diamond"]);
+check("diamond includes everything below it",
+  Object.keys(FEATURE_FROM).every((f) => planIncludes("diamond", f)), true);
+
+console.log("\nnextPlanUp — what every upgrade prompt offers");
+check("free is pointed at copper", nextPlanUp("free"), "copper");
+check("gold is pointed at platinum", nextPlanUp("gold"), "platinum");
+check("diamond has nowhere to go", nextPlanUp("diamond"), null);
 
 console.log(failures ? `\n${failures} check(s) failed.\n` : "\nAll billing checks passed.\n");
 process.exit(failures ? 1 : 0);

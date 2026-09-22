@@ -18,7 +18,7 @@ create table if not exists public.users (
   id                     uuid primary key references auth.users(id) on delete cascade,
   email                  text not null,
   created_at             timestamptz not null default now(),
-  plan                   text not null default 'free',   -- 'free' | 'starter' | 'pro'
+  plan                   text not null default 'free',   -- 'free' | 'copper' | 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond'
   stripe_customer_id     text,
   stripe_subscription_id text,
   subscription_status    text,

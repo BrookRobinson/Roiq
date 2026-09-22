@@ -4,74 +4,66 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import Navbar from "@/components/Navbar";
-import { CheckCircle2, XCircle, ArrowRight, Info } from "lucide-react";
+import { CheckCircle2, Minus, ArrowRight, Info, HardHat } from "lucide-react";
 
 import BuyPlanButton from "@/components/billing/BuyPlanButton";
 import { useSession } from "@/lib/auth/session";
 import { PRODUCT_NAME } from "@/lib/brand";
 import {
   ACCESS_DAYS,
+  ALL_PLANS,
+  describeAllowance,
+  featuresAddedBy,
+  FEATURE_FROM,
+  FEATURE_LABEL,
   formatAccessDate,
+  INSPECTIONS_PER_PURCHASE,
+  NEEDS_FULFILMENT,
+  PLAN_ALLOWANCE,
+  PLAN_COLOUR,
   PLAN_LABEL,
   PLAN_PRICE_NZD,
   PLAN_RANK,
+  PLAN_TAGLINE,
+  planIncludes,
+  type Feature,
   type PaidPlan,
+  type Plan,
 } from "@/lib/billing/plans";
 
-const FEATURES = [
+// ============================================================
+// Pricing.
+//
+// Every tier, every tick and every row below is derived from the feature map in
+// lib/billing/plans.ts — the same map the gates in the app read. It used to be
+// a hand-written table beside them, and it drifted: it sold CSV export, listing
+// alerts, saved searches, compare mode and priority generation, none of which
+// were ever built. Nothing can appear here now unless something in the app
+// actually gates on it.
+// ============================================================
+
+/** Cheapest feature first, so a column reads as a ladder. */
+const FEATURE_ROWS = (Object.keys(FEATURE_FROM) as Feature[]).sort(
+  (a, b) => PLAN_RANK[FEATURE_FROM[a]] - PLAN_RANK[FEATURE_FROM[b]]
+);
+
+/**
+ * Seven cards in one row is a wall. Two groups, split where the product does:
+ * below Gold you're analysing houses you found yourself; from Gold up the app
+ * is finding them, and then acting on the one you chose.
+ */
+const GROUPS: { title: string; blurb: string; plans: Plan[] }[] = [
   {
-    category: "Reports",
-    rows: [
-      { label: "Reports", free: "1 (once)", starter: "10 / month", pro: "20 / month" },
-      { label: "Watermark-free reports", free: false, starter: true, pro: true },
-      { label: "Photo analysis (AI vision)", free: true, starter: true, pro: true },
-      { label: "Every defect and finding", free: true, starter: true, pro: true },
-      { label: "Score out of 1,000", free: false, starter: true, pro: true },
-      { label: "Valuation, with the working shown", free: false, starter: true, pro: true },
-    ],
+    title: "Analyse the houses you've found",
+    blurb: "Paste a listing, get the whole report back.",
+    plans: ["free", "copper", "bronze", "silver"],
   },
   {
-    category: "Analysis tools",
-    rows: [
-      { label: "Renovation planner", free: false, starter: true, pro: true },
-      { label: "Healthy Homes compliance check", free: false, starter: true, pro: true },
-      { label: "Financial tab (buyer + investor)", free: false, starter: true, pro: true },
-      { label: "Equity timeline", free: false, starter: true, pro: true },
-      { label: "Hazard report", free: true, starter: true, pro: true },
-      { label: "Market comparables", free: "Basic", starter: "Full", pro: "Full" },
-    ],
-  },
-  {
-    category: "Export & sharing",
-    rows: [
-      { label: "PDF download", free: false, starter: true, pro: true },
-      { label: "Email report", free: false, starter: true, pro: true },
-      { label: "Shareable private link", free: false, starter: true, pro: true },
-      { label: "Export to CSV", free: false, starter: false, pro: true },
-    ],
-  },
-  {
-    category: "Pro: Investment map",
-    rows: [
-      { label: "NZ investment map", free: false, starter: false, pro: true },
-      { label: "Map filters (deposit, yield, suburb)", free: false, starter: false, pro: true },
-      { label: "10-year profit on every listing", free: false, starter: false, pro: true },
-      { label: "Alert system (new listings)", free: false, starter: false, pro: true },
-      { label: "Saved searches + watchlist", free: false, starter: false, pro: true },
-      
-      { label: "Compare mode (3 properties)", free: false, starter: false, pro: true },
-      { label: "Priority report generation", free: false, starter: false, pro: true },
-    ],
+    title: "Find them, then act on one",
+    blurb: "The map across all of New Zealand, and what happens after you choose.",
+    plans: ["gold", "platinum", "diamond"],
   },
 ];
-
-function Cell({ value }: { value: boolean | string }) {
-  if (value === true)
-    return <CheckCircle2 size={16} style={{ color: "var(--success)" }} />;
-  if (value === false)
-    return <XCircle size={16} style={{ color: "var(--border)" }} className="opacity-60" />;
-  return <span className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>{value}</span>;
-}
 
 export default function PricingPage() {
   return (
@@ -79,14 +71,17 @@ export default function PricingPage() {
       <Navbar />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold mb-4" style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+          <h1
+            className="text-4xl sm:text-5xl font-bold mb-4"
+            style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}
+          >
             Simple, honest pricing
           </h1>
           <p className="text-lg" style={{ color: "var(--text-secondary)" }}>
             Pay for a month at a time. No subscription, no hidden fees.
           </p>
           <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-            Prices in NZD. Access lasts a month and nothing auto-renews.
+            Prices in NZD. Access lasts {ACCESS_DAYS} days and nothing auto-renews.
           </p>
           <Suspense fallback={null}>
             <CheckoutNotice />
@@ -100,182 +95,151 @@ export default function PricingPage() {
           </Link>
         </div>
 
-        {/* Plan cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-16">
-          {[
-            {
-              name: "Free",
-              price: "$0",
-              desc: "One real report on your own listing",
-              plan: null,
-              cta: "Start free",
-              highlight: false,
-              features: [
-                "1 full report — not a sample",
-                "Every photo analysed",
-                "Every defect and finding shown",
-                "Score and valuation stay locked",
-              ],
-            },
-            {
-              name: "Starter",
-              price: `$${PLAN_PRICE_NZD.starter}`,
-              desc: "Full reports, unlimited",
-              plan: "starter" as const,
-              cta: "Get Starter",
-              highlight: false,
-              features: ["10 reports a month", "Score out of 1,000", "Full valuation", "Renovation planner", "Healthy Homes check", "PDF, email and share links"],
-            },
-            {
-              name: "Pro",
-              price: `$${PLAN_PRICE_NZD.pro}`,
-              desc: "For serious investors",
-              plan: "pro" as const,
-              cta: "Get Pro",
-              highlight: true,
-              features: ["20 reports a month", "Everything in Starter", "NZ investment map", "Map filters + alerts", "Compare mode", "CSV export"],
-            },
-          ].map((p) => (
-            <div
-              key={p.name}
-              className="rounded-2xl p-6 relative"
-              style={{
-                background: p.highlight ? "var(--brand)" : "var(--surface)",
-                border: p.highlight ? "none" : "1px solid var(--border)",
-                boxShadow: p.highlight ? "0 16px 48px rgba(29,78,216,0.25)" : "none",
-              }}
-            >
-              {p.highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold px-4 py-1 rounded-full" style={{ background: "#f59e0b", color: "#1a1a1a" }}>
-                  Most popular
-                </div>
-              )}
-              <div className="text-xl font-bold mb-0.5" style={{ color: p.highlight ? "white" : "var(--text-primary)" }}>
-                {p.name}
-              </div>
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-4xl font-bold" style={{ color: p.highlight ? "white" : "var(--text-primary)" }}>
-                  {p.price}
-                </span>
-                {p.price !== "$0" && (
-                  <span className="text-sm" style={{ color: p.highlight ? "rgba(255,255,255,0.6)" : "var(--text-muted)" }}>/month</span>
-                )}
-              </div>
-              <p className="text-sm mb-5" style={{ color: p.highlight ? "rgba(255,255,255,0.75)" : "var(--text-secondary)" }}>
-                {p.desc}
+        {GROUPS.map((group, gi) => (
+          <div key={group.title} className={gi === 0 ? "mb-12" : "mb-16"}>
+            <div className="mb-5">
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+                {group.title}
+              </h2>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                {group.blurb}
               </p>
-              <ul className="space-y-2 mb-6">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 size={14} style={{ color: p.highlight ? "#a5f3d0" : "var(--success)" }} />
-                    <span style={{ color: p.highlight ? "rgba(255,255,255,0.9)" : "var(--text-secondary)" }}>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              {p.plan ? (
-                <PlanCta plan={p.plan} fallbackLabel={p.cta} highlight={p.highlight} />
-              ) : (
-                <Link
-                  href="/signup"
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm cursor-pointer transition-all"
-                  style={{ background: "var(--brand)", color: "white" }}
-                >
-                  {p.cta}
-                  <ArrowRight size={15} />
-                </Link>
-              )}
             </div>
-          ))}
-        </div>
-
-        {/* Feature comparison table */}
-        <div>
-          <h2 className="text-2xl font-bold mb-6 text-center" style={{ color: "var(--text-primary)" }}>
-            Full feature comparison
-          </h2>
-          <div
-            className="rounded-2xl overflow-hidden"
-            style={{ border: "1px solid var(--border)" }}
-          >
-            {/* Header */}
             <div
-              className="grid grid-cols-4 px-6 py-3 text-sm font-semibold"
-              style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}
+              className={`grid gap-5 ${
+                group.plans.length === 4
+                  ? "sm:grid-cols-2 lg:grid-cols-4"
+                  : "sm:grid-cols-2 lg:grid-cols-3"
+              }`}
             >
-              <div style={{ color: "var(--text-primary)" }}>Feature</div>
-              {["Free", "Starter — $49", "Pro — $99"].map((h) => (
-                <div key={h} className="text-center" style={{ color: "var(--text-primary)" }}>{h}</div>
+              {group.plans.map((plan) => (
+                <PlanCard key={plan} plan={plan} />
               ))}
             </div>
-
-            {FEATURES.map((section, si) => (
-              <div key={section.category}>
-                <div
-                  className="px-6 py-2 text-xs font-semibold uppercase tracking-wider"
-                  style={{ background: "var(--surface)", color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}
-                >
-                  {section.category}
-                </div>
-                {section.rows.map((row, ri) => (
-                  <div
-                    key={ri}
-                    className="grid grid-cols-4 px-6 py-3 items-center"
-                    style={{
-                      borderBottom: si < FEATURES.length - 1 || ri < section.rows.length - 1 ? "1px solid var(--border)" : "none",
-                      background: ri % 2 === 0 ? "var(--bg)" : "var(--surface)",
-                    }}
-                  >
-                    <div className="text-sm" style={{ color: "var(--text-secondary)" }}>{row.label}</div>
-                    <div className="flex justify-center"><Cell value={row.free} /></div>
-                    <div className="flex justify-center"><Cell value={row.starter} /></div>
-                    <div className="flex justify-center"><Cell value={row.pro} /></div>
-                  </div>
-                ))}
-              </div>
-            ))}
           </div>
-        </div>
+        ))}
 
-        {/* FAQ */}
-        <div className="mt-16">
-          <h2 className="text-2xl font-bold mb-8 text-center" style={{ color: "var(--text-primary)" }}>
-            Common questions
-          </h2>
-          <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {[
-              {
-                q: "Is this a subscription?",
-                a: `No. You buy ${ACCESS_DAYS} days of access and it ends there. Nothing auto-renews, so there is no recurring charge, no saved mandate and nothing to cancel. Buy another month whenever you need one — buying early adds to the days you have left rather than replacing them.`,
-              },
-              {
-                q: "What do I actually get for free?",
-                a: "One complete analysis of a real listing you paste in — every photo read, every defect and finding shown. What stays locked is the conclusion: the score out of 1,000, the valuation, and the Financial, Renovations and agent tabs. It's one report, not one a month, and upgrading opens the report you already ran rather than making you run it again.",
-              },
-              {
-                q: "Is this a registered property valuation?",
-                a: `No. ${PRODUCT_NAME} is AI-assisted analysis of publicly available listing data. It is not a registered valuation, building inspection, or legal advice.`,
-              },
-              {
-                q: "How accurate is the photo analysis?",
-                a: "Photos are scored with a confidence tier. Tier 1 (≥90% confidence) findings are stated as fact. Tier 2 (65–89%) are labelled 'verify at inspection'. Tier 3 findings are unscored.",
-              },
-              {
-                q: `What currency does ${PRODUCT_NAME} use?`,
-                a: "NZD by default. Australian users will see AUD pricing automatically based on browser locale.",
-              },
-            ].map((faq) => (
-              <div key={faq.q} className="card p-5">
-                <h3 className="font-semibold text-sm mb-2" style={{ color: "var(--text-primary)" }}>
-                  {faq.q}
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-                  {faq.a}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+        <ComparisonTable />
+        <Faq />
       </div>
+    </div>
+  );
+}
+
+/**
+ * One tier.
+ *
+ * The bullet list is what this tier ADDS, not everything it has — a Diamond
+ * card listing all eight features buries the one thing you're paying the extra
+ * thousand dollars for. "Everything in X" carries the rest.
+ */
+function PlanCard({ plan }: { plan: Plan }) {
+  const paid = plan !== "free";
+  const colour = PLAN_COLOUR[plan];
+  const below = ALL_PLANS[PLAN_RANK[plan] - 1];
+  const adds = paid ? featuresAddedBy(plan as PaidPlan) : [];
+  const highlight = plan === "gold";
+  const fulfilment = paid ? NEEDS_FULFILMENT[plan as PaidPlan] : undefined;
+
+  return (
+    <div
+      className="rounded-2xl p-5 flex flex-col relative"
+      style={{
+        background: "var(--surface)",
+        border: `1px solid ${highlight ? colour : "var(--border)"}`,
+        boxShadow: highlight ? `0 12px 40px ${colour}26` : "none",
+      }}
+    >
+      {highlight && (
+        <div
+          className="absolute -top-2.5 left-5 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider"
+          style={{ background: colour, color: "#1a1a1a" }}
+        >
+          Most popular
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 mb-1">
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: colour }} />
+        <span className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+          {PLAN_LABEL[plan]}
+        </span>
+      </div>
+
+      <div className="flex items-baseline gap-1 mb-1">
+        <span className="text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
+          {paid ? `$${PLAN_PRICE_NZD[plan as PaidPlan].toLocaleString("en-NZ")}` : "$0"}
+        </span>
+        {paid && (
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            / {ACCESS_DAYS} days
+          </span>
+        )}
+      </div>
+
+      <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
+        {PLAN_TAGLINE[plan]}
+      </p>
+
+      <ul className="space-y-1.5 mb-5 flex-1">
+        <li className="flex items-start gap-2 text-sm">
+          <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
+          <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+            {describeAllowance(plan)}
+          </span>
+        </li>
+
+        {plan === "free" && (
+          <li className="flex items-start gap-2 text-sm">
+            <Minus size={14} className="mt-0.5 shrink-0" style={{ color: "var(--text-muted)" }} />
+            <span style={{ color: "var(--text-secondary)" }}>
+              Every photo read and every finding shown — the score and valuation stay blurred
+            </span>
+          </li>
+        )}
+
+        {adds.map((f) => (
+          <li key={f} className="flex items-start gap-2 text-sm">
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
+            <span style={{ color: "var(--text-secondary)" }}>{FEATURE_LABEL[f]}</span>
+          </li>
+        ))}
+
+        {paid && below && below !== "free" && (
+          <li className="flex items-start gap-2 text-sm">
+            <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
+            <span style={{ color: "var(--text-secondary)" }}>
+              Everything in {PLAN_LABEL[below]}
+            </span>
+          </li>
+        )}
+      </ul>
+
+      {fulfilment && (
+        <div
+          className="rounded-xl p-3 mb-4 text-xs leading-relaxed flex gap-2"
+          style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+        >
+          <HardHat size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
+          <span>
+            {fulfilment} {INSPECTIONS_PER_PURCHASE === 1 ? "One inspection per purchase" : `${INSPECTIONS_PER_PURCHASE} per purchase`} — not one a
+            month, so buying a second month doesn&apos;t owe a second visit.
+          </span>
+        </div>
+      )}
+
+      {paid ? (
+        <PlanCta plan={plan as PaidPlan} colour={colour} />
+      ) : (
+        <Link
+          href="/signup"
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-semibold text-sm cursor-pointer transition-all"
+          style={{ background: "var(--brand)", color: "white" }}
+        >
+          Start free
+          <ArrowRight size={15} />
+        </Link>
+      )}
     </div>
   );
 }
@@ -283,36 +247,18 @@ export default function PricingPage() {
 /**
  * The buy button, aware of what the visitor already has.
  *
- * A plan they're already on says "another month" rather than "Get Pro", and a
+ * A plan they're already on says "another month" rather than "Get Gold", and a
  * lower tier than the one running says so instead of offering a purchase the
  * checkout route would refuse with a 409.
  */
-function PlanCta({
-  plan,
-  fallbackLabel,
-  highlight,
-}: {
-  plan: PaidPlan;
-  fallbackLabel: string;
-  highlight: boolean;
-}) {
+function PlanCta({ plan, colour }: { plan: PaidPlan; colour: string }) {
   const { plan: current, planExpiresAt } = useSession();
-
-  const buttonClass =
-    "flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm cursor-pointer transition-all";
-  const buttonStyle = {
-    background: highlight ? "white" : "var(--brand)",
-    color: highlight ? "var(--brand)" : "white",
-  };
 
   if (PLAN_RANK[current] > PLAN_RANK[plan]) {
     return (
       <div
-        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-semibold text-sm"
-        style={{
-          background: highlight ? "rgba(255,255,255,0.15)" : "var(--surface-2)",
-          color: highlight ? "rgba(255,255,255,0.85)" : "var(--text-secondary)",
-        }}
+        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-semibold text-sm"
+        style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
       >
         <CheckCircle2 size={15} />
         Included in {PLAN_LABEL[current]}
@@ -324,19 +270,168 @@ function PlanCta({
     <>
       <BuyPlanButton
         plan={plan}
-        label={current === plan ? "Add another month" : fallbackLabel}
-        className={buttonClass}
-        style={buttonStyle}
+        label={current === plan ? "Add another month" : `Get ${PLAN_LABEL[plan]}`}
+        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-semibold text-sm cursor-pointer transition-all"
+        style={{ background: colour, color: "#fff" }}
       />
       {current === plan && planExpiresAt && (
-        <p
-          className="text-xs mt-2 text-center"
-          style={{ color: highlight ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}
-        >
+        <p className="text-xs mt-2 text-center" style={{ color: "var(--text-muted)" }}>
           Yours until {formatAccessDate(planExpiresAt)}
         </p>
       )}
     </>
+  );
+}
+
+function Cell({ on, colour }: { on: boolean; colour: string }) {
+  return on ? (
+    <CheckCircle2 size={16} style={{ color: colour }} />
+  ) : (
+    <Minus size={14} style={{ color: "var(--border)" }} />
+  );
+}
+
+/**
+ * Every tier against every feature.
+ *
+ * Eight columns don't fit a phone, so it scrolls sideways with the feature name
+ * pinned — the alternative is eight stacked lists nobody compares.
+ */
+function ComparisonTable() {
+  return (
+    <div className="mb-16">
+      <h2 className="text-2xl font-bold mb-6 text-center" style={{ color: "var(--text-primary)" }}>
+        Full comparison
+      </h2>
+      <div className="rounded-2xl overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
+        <div className="min-w-[860px]">
+          {/* Header */}
+          <div
+            className="grid px-4 py-3"
+            style={{
+              gridTemplateColumns: `minmax(220px,1.6fr) repeat(${ALL_PLANS.length}, 1fr)`,
+              background: "var(--surface-2)",
+              borderBottom: "1px solid var(--border)",
+            }}
+          >
+            <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              Feature
+            </div>
+            {ALL_PLANS.map((p) => (
+              <div key={p} className="text-center">
+                <div className="text-sm font-semibold" style={{ color: PLAN_COLOUR[p] }}>
+                  {PLAN_LABEL[p]}
+                </div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {p === "free"
+                    ? "$0"
+                    : `$${PLAN_PRICE_NZD[p as PaidPlan].toLocaleString("en-NZ")}`}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Reports — a count, not a tick, so it gets its own row. */}
+          <Row label="Reports" striped>
+            {ALL_PLANS.map((p) => (
+              <div
+                key={p}
+                className="text-center text-xs font-medium"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {PLAN_ALLOWANCE[p].reports}
+                {PLAN_ALLOWANCE[p].period === "month" ? " / mo" : " ever"}
+              </div>
+            ))}
+          </Row>
+
+          {FEATURE_ROWS.map((f, i) => (
+            <Row key={f} label={FEATURE_LABEL[f]} striped={i % 2 === 1}>
+              {ALL_PLANS.map((p) => (
+                <div key={p} className="flex justify-center">
+                  <Cell on={planIncludes(p, f)} colour={PLAN_COLOUR[p]} />
+                </div>
+              ))}
+            </Row>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  striped,
+  children,
+}: {
+  label: string;
+  striped: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="grid px-4 py-3 items-center"
+      style={{
+        gridTemplateColumns: `minmax(220px,1.6fr) repeat(${ALL_PLANS.length}, 1fr)`,
+        borderBottom: "1px solid var(--border)",
+        background: striped ? "var(--surface)" : "var(--bg)",
+      }}
+    >
+      <div className="text-sm pr-4" style={{ color: "var(--text-secondary)" }}>
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Faq() {
+  const faqs = [
+    {
+      q: "Is this a subscription?",
+      a: `No. You buy ${ACCESS_DAYS} days of access and it ends there. Nothing auto-renews, so there is no recurring charge, no saved mandate and nothing to cancel. Buy another month whenever you need one — buying early adds to the days you have left rather than replacing them.`,
+    },
+    {
+      q: "What do I actually get for free?",
+      a: "One complete analysis of a real listing you paste in — every photo read, every defect and finding shown. What stays locked is the conclusion: the score out of 1,000, the valuation, and the Financial, Renovations and agent tabs. It's one report, not one a month, and upgrading opens the report you already ran rather than making you run it again.",
+    },
+    {
+      q: "Why do Gold, Platinum and Diamond all have 50 reports?",
+      a: "Because nobody analysing fifty houses a month needs eighty. Above Gold you aren't buying more searching, you're buying what happens to the house you've chosen — the offer document you hand the agent, and then an inspector standing in it.",
+    },
+    {
+      q: "What is the Diamond inspection, exactly?",
+      a: `${NEEDS_FULFILMENT.diamond} It is a qualified human being writing their own report, and their findings go in beside ours — where they disagree with the photo analysis, theirs is the one that was there.`,
+    },
+    {
+      q: "Is this a registered property valuation?",
+      a: `No. ${PRODUCT_NAME} is AI-assisted analysis of publicly available listing data. It is not a registered valuation, building inspection, or legal advice. The Diamond inspection is a real building inspection, carried out by the inspector, not by us.`,
+    },
+    {
+      q: "How accurate is the photo analysis?",
+      a: "Photos are scored with a confidence tier. Tier 1 (≥90% confidence) findings are stated as fact. Tier 2 (65–89%) are labelled 'verify at inspection'. Tier 3 findings are unscored.",
+    },
+  ];
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-8 text-center" style={{ color: "var(--text-primary)" }}>
+        Common questions
+      </h2>
+      <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        {faqs.map((faq) => (
+          <div key={faq.q} className="card p-5">
+            <h3 className="font-semibold text-sm mb-2" style={{ color: "var(--text-primary)" }}>
+              {faq.q}
+            </h3>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              {faq.a}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PRODUCT_NAME, TAGLINE, displayDomain, absoluteUrl } from "@/lib/brand";
+import { featureGate } from "@/lib/billing/gate";
 
 interface AgentLetterParams {
   propertyAddress: string;
@@ -120,6 +121,11 @@ function buildAgentLetterHtml(p: AgentLetterParams): string {
 }
 
 export async function POST(request: NextRequest) {
+  // The letter itself, not just the tab that composes it — otherwise the gate
+  // is only in the UI, and the UI is not where a gate holds.
+  const gate = await featureGate("negotiation");
+  if (gate) return gate;
+
   let body: AgentLetterParams;
   try {
     body = await request.json();

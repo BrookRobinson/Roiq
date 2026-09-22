@@ -10,7 +10,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { daysRemaining, type Plan } from "@/lib/billing/plans";
+import { daysRemaining, planIncludes, type Feature, type Plan } from "@/lib/billing/plans";
 
 export type { Plan };
 
@@ -29,7 +29,11 @@ interface SessionValue {
   daysLeft: number;
   /** Still fetching — render neither a signed-in nor a signed-out state yet. */
   loading: boolean;
-  isPro: boolean;
+  /**
+   * Does the plan in force include this feature? The one question a gate should
+   * ask — `plan === "gold"` goes stale the moment a tier is added above it.
+   */
+  can: (feature: Feature) => boolean;
   isPaid: boolean;
   refresh: () => void;
 }
@@ -40,7 +44,7 @@ const SessionContext = createContext<SessionValue>({
   planExpiresAt: null,
   daysLeft: 0,
   loading: true,
-  isPro: false,
+  can: () => false,
   isPaid: false,
   refresh: () => {},
 });
@@ -80,7 +84,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       planExpiresAt,
       daysLeft: daysRemaining(planExpiresAt),
       loading,
-      isPro: plan === "pro",
+      can: (feature: Feature) => planIncludes(plan, feature),
       isPaid: plan !== "free",
       refresh,
     }),

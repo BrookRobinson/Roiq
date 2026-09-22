@@ -6,6 +6,7 @@ import type { MapListing, ComputedListing, MapMode, UserVariables } from "@/lib/
 import { pinHex, pctLabel } from "@/lib/map/calc";
 import { loadReport } from "@/lib/report-store";
 import { useSession } from "@/lib/auth/session";
+import { FEATURE_FROM, PLAN_LABEL } from "@/lib/billing/plans";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 import { SAMPLE_ID_PREFIX } from "@/lib/scoring/sample-reports";
 import { alpha } from "@/lib/ui/color";
@@ -44,7 +45,8 @@ export function PropertySheet({
 }) {
   const [data, setData] = useState<Detail | null>(null);
   const [saved, setSaved] = useState(false);
-  const { isPro } = useSession();
+  const { can } = useSession();
+  const hasMap = can("mapReports");
 
   useEffect(() => {
     setData(null);
@@ -76,7 +78,7 @@ export function PropertySheet({
   // Every pin came from a real report. You can open it if you ran it, or if
   // you're on Pro — reading everyone else's analyses is what Pro is for.
   const ownReport = !!l?.fullReportId && !!loadReport(l.fullReportId);
-  const hasReport = !!l?.fullReportId && (ownReport || isPro);
+  const hasReport = !!l?.fullReportId && (ownReport || hasMap);
   const hex = c ? pinHex(c.colour) : "var(--brand)";
 
   return (
@@ -254,7 +256,7 @@ export function PropertySheet({
                       : hasReport
                         ? `/report/${l.fullReportId}`
                         : l.fullReportId
-                          ? "/pricing?plan=pro"
+                          ? "/pricing"
                           : l.listingUrl
                             ? `/report/new?url=${encodeURIComponent(l.listingUrl)}`
                             : "/report/new"
@@ -266,7 +268,7 @@ export function PropertySheet({
                     : hasReport
                       ? "View full report"
                       : l.fullReportId
-                        ? "Unlock with Pro"
+                        ? `Unlock with ${PLAN_LABEL[FEATURE_FROM.mapReports]}`
                         : "Analyse this property"}{" "}
                   <ChevronRight size={14} />
                 </a>

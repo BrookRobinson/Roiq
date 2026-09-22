@@ -16,6 +16,8 @@
 import { Lock } from "lucide-react";
 import Link from "next/link";
 
+import { FEATURE_FROM, PLAN_LABEL, PLAN_PRICE_NZD, type PaidPlan } from "@/lib/billing/plans";
+
 /**
  * A real value, rendered unreadable.
  *
@@ -56,10 +58,13 @@ export function BlurredValue({
  */
 export function UpgradeNote({
   what,
+  needs = FEATURE_FROM.score,
   compact = false,
 }: {
   /** What's hidden, in the reader's words — "your score", "the valuation". */
   what: string;
+  /** The cheapest tier that opens it. Naming it beats "a paid plan". */
+  needs?: PaidPlan;
   compact?: boolean;
 }) {
   return (
@@ -69,8 +74,8 @@ export function UpgradeNote({
     >
       <Lock size={compact ? 13 : 15} style={{ color: "var(--brand)", flexShrink: 0 }} />
       <span className={compact ? "text-xs" : "text-sm"} style={{ color: "var(--text-secondary)" }}>
-        {what} needs a paid plan.{" "}
-        <Link href="/pricing?plan=starter" className="font-semibold hover:underline" style={{ color: "var(--brand)" }}>
+        {what} is included from {PLAN_LABEL[needs]}, ${PLAN_PRICE_NZD[needs].toLocaleString("en-NZ")}.{" "}
+        <Link href="/pricing" className="font-semibold hover:underline" style={{ color: "var(--brand)" }}>
           See plans
         </Link>
       </span>
@@ -88,10 +93,13 @@ export function LockedTab({
   title,
   blurb,
   includes,
+  needs = FEATURE_FROM.tools,
 }: {
   title: string;
   blurb: string;
   includes: string[];
+  /** The cheapest tier that opens this tab. */
+  needs?: PaidPlan;
 }) {
   return (
     <div className="max-w-lg mx-auto text-center py-14 px-6">
@@ -115,8 +123,8 @@ export function LockedTab({
       </ul>
 
       <div>
-        <Link href="/pricing?plan=starter" className="btn-primary px-6 py-3 text-[15px] inline-flex">
-          See plans
+        <Link href="/pricing" className="btn-primary px-6 py-3 text-[15px] inline-flex">
+          Included from {PLAN_LABEL[needs]} — ${PLAN_PRICE_NZD[needs].toLocaleString("en-NZ")}
         </Link>
       </div>
       <p className="text-xs mt-4" style={{ color: "var(--text-muted)" }}>

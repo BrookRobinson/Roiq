@@ -2,10 +2,11 @@
 // Owner mode — sign-in skipped, top plan granted, LOCAL ONLY.
 //
 // The owner builds this app on his own machine and does not want to log into it
-// to look at his own work. This makes the whole product behave as though a Pro
-// account is signed in: no login wall, no upgrade wall, every tab open.
+// to look at his own work. This makes the whole product behave as though a
+// Diamond account is signed in: no login wall, no upgrade wall, every tab open.
 //
-// The dangerous version of this feature is a flag that grants Pro to everybody,
+// The dangerous version of this feature is a flag that grants a paid tier to
+// everybody,
 // so the guard is deliberately not a setting. `NODE_ENV === "production"` is
 // checked FIRST and is not overridable from the environment file — Next sets it
 // to "production" for `next build`/`next start` and on Vercel, so a stray
@@ -22,7 +23,7 @@
 import type { Plan } from "@/lib/billing/plans";
 
 /** The plan owner mode reports. The top tier, which is the whole request. */
-export const DEV_OWNER_PLAN: Plan = "pro";
+export const DEV_OWNER_PLAN: Plan = "diamond";
 
 /** A stable label for the UI, so it's obvious this isn't a real account. */
 export const DEV_OWNER_EMAIL = "owner@localhost";

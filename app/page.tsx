@@ -10,6 +10,18 @@ import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { ArrowRight, Check, Minus } from "lucide-react";
 import { PRODUCT_NAME } from "@/lib/brand";
+import {
+  describeAllowance,
+  FEATURE_FROM,
+  FEATURE_LABEL,
+  PLAN_LABEL,
+  PLAN_PRICE_NZD,
+  PLAN_RANK,
+  planIncludes,
+  type Feature,
+  type PaidPlan,
+  type Plan,
+} from "@/lib/billing/plans";
 
 /**
  * Landing page, "Survey Report" language.
@@ -230,21 +242,34 @@ function LedgerRow({
 /* ── 7. Pricing ────────────────────────────────────────────────────────────
    A ruled comparison table rather than three identical cards.               */
 function Pricing() {
-  const plans = [
-    { name: "Free", price: "$0", href: "/signup", cta: "Start free" },
-    { name: "Starter", price: "$49", href: "/signup?plan=starter", cta: "Get Starter" },
-    { name: "Pro", price: "$99", href: "/signup?plan=pro", cta: "Get Pro" },
-  ];
+  // Four of the seven tiers. The whole ladder belongs on /pricing — a landing
+  // page asking someone to compare seven columns loses them, and the interesting
+  // question here is only "cheapest, middle, or the one with a person in it".
+  //
+  // Rows come from the feature map in lib/billing/plans.ts, like the pricing
+  // page's. The hand-written version of this table sold "Batch and compare",
+  // which was never built.
+  const shown: Plan[] = ["free", "copper", "gold", "diamond"];
+  const plans = shown.map((plan) => ({
+    plan,
+    name: PLAN_LABEL[plan],
+    price:
+      plan === "free" ? "$0" : `$${PLAN_PRICE_NZD[plan as PaidPlan].toLocaleString("en-NZ")}`,
+    href: plan === "free" ? "/signup" : `/pricing#${plan}`,
+    cta: plan === "free" ? "Start free" : `Get ${PLAN_LABEL[plan]}`,
+  }));
 
-  const features: { label: string; has: [boolean, boolean, boolean] }[] = [
-    { label: "Reports for the month", has: [true, true, true] },
-    { label: "Full photo analysis", has: [false, true, true] },
-    { label: "Score breakdown", has: [false, true, true] },
-    { label: "Renovation planner", has: [false, true, true] },
-    { label: "Healthy Homes check", has: [false, true, true] },
-    { label: "Shareable links and PDF", has: [false, true, true] },
-    { label: "Investment map", has: [false, false, true] },
-    { label: "Batch and compare", has: [false, false, true] },
+  const features: { label: string; has: boolean[] }[] = [
+    {
+      label: "Reports for the month",
+      has: shown.map(() => true),
+    },
+    ...(Object.keys(FEATURE_FROM) as Feature[])
+      .sort((a, b) => PLAN_RANK[FEATURE_FROM[a]] - PLAN_RANK[FEATURE_FROM[b]])
+      .map((f) => ({
+        label: FEATURE_LABEL[f],
+        has: shown.map((p) => planIncludes(p, f)),
+      })),
   ];
 
   return (
@@ -257,6 +282,12 @@ function Pricing() {
             style={{ color: "var(--accent-text)" }}
           >
             Pay for a month at a time. No subscription, nothing auto-renews.
+          </p>
+          <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
+            Four of six paid tiers shown.{" "}
+            <Link href="/pricing" className="font-semibold hover:underline" style={{ color: "var(--accent-text)" }}>
+              Bronze, Silver and Platinum sit in between →
+            </Link>
           </p>
         </Reveal>
 
@@ -293,6 +324,9 @@ function Pricing() {
                         <span className="ml-0.5 text-[13px] font-medium" style={{ color: "var(--text-muted)" }}>
                           /month
                         </span>
+                      </div>
+                      <div className="mt-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
+                        {describeAllowance(p.plan)}
                       </div>
                     </th>
                   ))}
