@@ -16,6 +16,7 @@ npm run dev                  # port 3000
 npm run lint
 npm run db:setup-sql         # regenerate supabase/setup.sql from the migrations
 npm run verify:billing       # package prices, credits, map expiry, and what the wall says
+npm run verify:roof          # the itemised roof valuation: area, effective age, cost split, refusals
 npm run verify:listing-key   # the "same house?" rules behind report reuse
 npm run verify:email-key     # which accounts count as one inbox
 npm run verify:discovery     # the sitemap/URL parsers behind nightly discovery
@@ -1270,6 +1271,33 @@ read covenant 5638539.1" is useful where silence is not. Confidence can no
 longer read "likely", the instrument number is named in the summary and the
 blockers, and the badge SAYS the bonus was withheld rather than letting the
 points quietly vanish.
+
+**The itemised valuation (v6, roof first) prices an item in seven reported
+steps** — material, visible concerns, effective age, material life, measured
+area, cost split, and value. `lib/scoring/roof-value.ts` is the template for the
+rest and is pure so `verify:roof` can assert it.
+
+Three things in it are load-bearing and easy to get wrong later:
+
+**Condition moves the AGE; it never multiplies the value.** A 1–10 read maps to
+an effective age either side of the chronological one — 10 presents 25% younger,
+1 presents 50% older, and 5.5 moves nothing. Applying a condition factor AND an
+age/life fraction discounts the same wear twice and halves the value for free.
+
+**A roof is not a floor, and it is not its own footprint.** `ext_roof` was
+priced at `roof area ≈ floor area`, which overstates a two-storey roof by about
+2× and ignores pitch and eaves entirely. It is measured now: footprint (LINZ
+building outline) × 1/cos(pitch), plus an eaves band around an estimated
+perimeter. Every step is in `area.workings`.
+
+**Only LABOUR carries the regional multiplier.** Steel costs the same in Gore as
+in Remuera. Letting a region reach the material line makes build cost track land
+value, which is the rival-valuation mistake this codebase has deleted twice.
+
+Value and liability are reported separately and always sum to the replacement
+cost. A roof at the end of its life is worth nothing AND costs the full
+replacement — those answer different questions (what you are buying, what you
+are about to spend) and a reader needs both.
 
 **No trade rate or material price in this codebase has ever been verified, and
 the code used to claim otherwise.** `lib/labour-rates/index.ts` carried
