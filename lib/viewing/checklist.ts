@@ -22,6 +22,7 @@
 // ============================================================
 
 import { ITEM_BY_ID, isVerifiedDocItem } from "@/lib/scoring/catalog";
+import { CHECK_GUIDE, type CheckGuide } from "./how-to-check";
 
 /**
  * How bad a 1–10 condition score is, and where the item lives in the report.
@@ -65,6 +66,8 @@ export type {
   Disposition,
 } from "./status";
 
+export type { CheckGuide };
+
 export type CheckSource = "ungraded" | "probable" | "document" | "gap";
 
 export interface ChecklistItem {
@@ -77,8 +80,11 @@ export interface ChecklistItem {
   group: string;
   /** Why it's on the list, in the report's terms. */
   why: string;
-  /** What to physically do about it at the viewing. */
-  whatToCheck: string;
+  /**
+   * The three blocks the card is built from: what we don't know, what to do
+   * about it in order, and what to photograph. See lib/viewing/how-to-check.ts.
+   */
+  guide: CheckGuide;
   source: CheckSource;
   /** Set when the report already treats this as a critical/urgent claim. */
   band?: Band;
@@ -92,83 +98,6 @@ export interface ChecklistItem {
   priorSummary?: string;
 }
 
-// ── What to actually check, per item ─────────────────────────────────────────
-// Written as an instruction to someone standing at the property with fifteen
-// minutes and no ladder. Where a thing needs a professional, it says so rather
-// than pretending a buyer can judge it.
-
-const WHAT_TO_CHECK: Record<string, string> = {
-  ext_foundation:
-    "Open the subfloor hatch (usually under the house or in a hallway cupboard) and look with a torch: rot or splitting in the piles, sagging bearers, standing water, and how much clearance there is to the ground. If there's no access, say so.",
-  ext_roof:
-    "Look from the ground on all four sides: lifted or rusted sheets, cracked or slipped tiles, moss, patched flashings around the chimney and vents. Ask how old the roof is and whether it's been recoated.",
-  ext_cladding:
-    "Walk the full perimeter — including the side you can't see from the street. Tap weatherboards for soft spots, look for cracked plaster, staining below windows, and gaps where cladding meets joinery.",
-  ext_windows:
-    "Open and shut several. Single or double glazed? Rotten sills, fogging between panes, condensation staining on the frames, and whether the catches actually work.",
-  ext_decking:
-    "Stand on it and bounce. Springy boards, rusted or missing fixings, rot where the deck meets the house, and whether a balustrade over a metre high is solid.",
-  ext_gutters:
-    "Look for rust, sagging runs, and stains down the wall below a joint. If it's raining, watch where the water actually goes.",
-  ext_soffits: "Look up under the eaves for sagging, staining or holes — the first place a roof leak shows.",
-  ext_doors: "Open every exterior door: does it swing and latch, is the bottom rail rotten, are the seals intact.",
-  ext_paint: "Chalky, flaking or bare timber anywhere, especially on the weather side. Ask when it was last painted.",
-  ext_chimney: "Cracked or leaning brickwork, missing mortar, and whether the flashing where it meets the roof has been patched. Ask if the fire has been used recently.",
-  ext_retaining: "Leaning, bulging or cracked walls, and whether there's drainage behind them. Anything over 1.5m usually needed a consent — ask for it.",
-
-  bath_waterproof:
-    "Press the wall lining beside and behind the shower — soft means water is getting through. Look for lifting vinyl, dark grout, swollen skirting, and a musty smell in the room.",
-  bath_shower: "Run it. Check the pressure, whether the door or liner seals, and the state of the grout and silicone.",
-  bath_hotwater:
-    "Find the cylinder (hot water cupboard, garage or outside) or the gas califont. Read the date on the label, look for rust or a wet tray under it, and run a hot tap to see how long it takes.",
-  bath_ventilation: "Is there an extractor fan, and does it vent outside rather than into the ceiling? Switch it on. Mould in the corners means it isn't coping.",
-  bath_toilet: "Flush it. Look for movement in the pan, staining on the floor around the base, and a running cistern.",
-
-  kit_appliances: "Turn on the oven, cooktop, rangehood and dishwasher. Ask their age and whether any are being taken by the vendor.",
-  kit_cabinetry: "Open drawers and doors — swollen particle board, broken runners, water damage under the sink.",
-  kit_benchtop: "Check the joins and the edge behind the sink for swelling or lifting laminate.",
-  kit_sink: "Run both taps hard, then look under the sink with a torch for drips, staining or a bucket.",
-
-  liv_insulation:
-    "Get into the ceiling cavity if there's a hatch, and look under the house if there's access: is there insulation, is it thick and evenly laid, or is it flattened or missing in patches. Ask for the insulation statement — it's compulsory in every sale.",
-  liv_heating: "Turn the heat pump or fire on and let it run. Ask its age, whether the fire has a current compliance certificate, and what the winter power bills look like.",
-  liv_fixtures:
-    "Find the switchboard. Ceramic rewirable fuses (porcelain, with fuse wire) mean old wiring; modern breakers and an RCD are what you want. Try light switches and a few power points.",
-  liv_flooring: "Lift a corner of carpet in a wardrobe if you can, and walk the floors listening for spring or squeak — both suggest what's underneath.",
-  liv_ceiling: "Brown rings or bubbling paint mean a leak, current or historic. Ask about any you find.",
-
-  bed_size: "Take a tape measure. A room that won't take a double bed plus a wardrobe isn't a bedroom the market will pay for.",
-  bed_windows: "Does every bedroom have an opening window, and does it get any direct sun?",
-
-  gar_construction: "Look at the roof, walls and door of the garage the same way as the house — it's usually the oldest and least maintained structure on the site.",
-  gar_floor: "Cracking, oil staining, and whether water runs in under the door.",
-
-  out_drainage: "After rain, look for ponding against the house, and check where the downpipes discharge. Water sitting beside a foundation is the cheapest problem to find and the dearest to ignore.",
-  out_driveway: "Cracking, drainage, and whether two cars can actually pass or park.",
-  out_fencing: "Leaning or rotten posts, and who owns which boundary — ask the agent.",
-  out_retaining: "Leaning, bulging or cracked walls, and whether there's drainage behind them. Anything over 1.5m usually needed a consent — ask for it.",
-
-  loc_noise: "Stand outside for five minutes and listen — traffic, rail, dogs, aircraft. Go back at a different time of day if you can.",
-  loc_views: "Check what the outlook actually is from the main living room, and whether a neighbour could build across it.",
-  loc_sun: "Note where the sun is when you visit and which rooms get it. Ask which rooms have sun in winter — the answer is usually honest and it matters.",
-
-  land_topography: "Walk the boundaries. How much of the section is actually flat enough to use, and is anything slipping or slumping?",
-  land_frontage: "Drive in and out. Shared driveways, rights of way and who maintains them — ask, then check it on the title.",
-  land_trees: "Large trees near the house or the drains, and whether any are protected or notable (the council schedule will say).",
-
-  leg_lim:
-    "A LIM comes from the council — only they can issue one. Ask the agent first: vendors often order one before marketing and hand copies out, and if it exists it costs you nothing. Check the date on the front, though — a LIM is a snapshot, and one pulled months ago won't show anything registered since. No copy, or an old one? Order your own from the council; anyone can, on any property, for a few hundred dollars and usually about ten working days. Upload it on the Land tab and we'll read it for you — that's included from Silver up.",
-  leg_consents:
-    "Ask the council for the property file — it holds the consents and code compliance certificates for every structure, house, garage, deck and sleepout. The agent may already have a copy. Upload what you get on the Land tab.",
-  leg_eqc: "Ask the agent or the vendor for the EQC (Toka Tū Ake) claim history and any scope of works or settlement documents — only the owner can request their own claim file, so this one has to come from them. Upload it on the Land tab.",
-  leg_title: "Read the record of title: ownership type, easements, covenants and anything registered against it. Your solicitor should see it before you sign.",
-  leg_weathertight: "Ask directly whether the house has monolithic cladding and when it was built or reclad. A 1994–2004 plaster house needs a specialist weathertightness inspection, not your eyes.",
-  leg_unconsented: "Compare what you can see on site against the council property file — an extra room, a deck, a sleepout or a bathroom that isn't on the plans is unconsented work.",
-  leg_bodycorp: "Ask for the body corporate minutes, the levies, the long-term maintenance plan and any pending special levy.",
-  leg_crosslease: "Compare the flats plan against what's actually built. Any extension or deck not on the plan makes the title defective, and fixing it costs real money.",
-  leg_easements: "Have your solicitor read the easements and covenants — what crosses the land, and what you're not allowed to do on it.",
-  leg_encumbrances: "Have your solicitor check for caveats, encumbrances and any registered interest that survives the sale.",
-};
 
 /**
  * When we have no specific instruction, say the honest generic thing — and only
@@ -177,10 +106,25 @@ const WHAT_TO_CHECK: Record<string, string> = {
  * lifestyle" for the rest. A sentence that is nonsense for a third of the list
  * is worse than no sentence.
  */
-function fallbackCheck(s: SubItem): string {
+/**
+ * For an item with no hand-written guide.
+ *
+ * Deliberately vague, because a generic instruction that PRETENDED to be
+ * specific would be worse than one that admits it is generic — "check the
+ * flashings" on an item nobody wrote flashings for is how invented advice gets
+ * into a checklist somebody carries round a house.
+ */
+function fallbackGuide(s: SubItem): CheckGuide {
   const cat = ITEM_BY_ID[s.id]?.category;
-  const room = cat && ROOMS.has(cat) ? ` Check it while you're in the ${cat.toLowerCase()}.` : "";
-  return `Look at this in person and note its condition — it wasn't visible in the listing photos, so nothing in the report is based on seeing it.${room}`;
+  const room = cat && ROOMS.has(cat) ? `, while you're in the ${cat.toLowerCase()}` : "";
+  return {
+    concern: "It wasn't visible in the listing photos, so nothing in the report is based on seeing it.",
+    steps: [
+      `Find it and look at it in person${room}.`,
+      "Note its condition and anything obviously wrong.",
+    ],
+    photos: ["The item, clearly enough to identify it"],
+  };
 }
 
 /** Categories that name somewhere you physically stand. */
@@ -283,7 +227,7 @@ export function buildViewingChecklist(
         label: s.name || ITEM_BY_ID[s.id]?.label || s.id,
         group: "Paperwork",
         why: "No document has been uploaded, so this is unscored — the report has not seen it.",
-        whatToCheck: WHAT_TO_CHECK[s.id] ?? fallbackCheck(s),
+        guide: CHECK_GUIDE[s.id] ?? fallbackGuide(s),
         source: "document",
         canPhotograph: false,
       });
@@ -303,7 +247,7 @@ export function buildViewingChecklist(
           : s.confidenceTier === 3
             ? `Not visible in any photo. ${s.aiSummary || ""}`.trim()
             : "Not assessed from the listing.",
-        whatToCheck: WHAT_TO_CHECK[s.id] ?? fallbackCheck(s),
+        guide: CHECK_GUIDE[s.id] ?? fallbackGuide(s),
         source: "ungraded",
         canPhotograph: isPhotoAssessable(s.id),
         priorSummary: s.aiSummary || undefined,
@@ -326,7 +270,7 @@ export function buildViewingChecklist(
         label: s.name || ITEM_BY_ID[s.id]?.label || s.id,
         group: groupOf(s.id),
         why: `Graded ${band} (${s.score}/10) from ${basis}. ${s.observedDefect || s.aiSummary || ""}`.trim(),
-        whatToCheck: WHAT_TO_CHECK[s.id] ?? fallbackCheck(s),
+        guide: CHECK_GUIDE[s.id] ?? fallbackGuide(s),
         source: "probable",
         band,
         canPhotograph: isPhotoAssessable(s.id),
@@ -351,7 +295,7 @@ export function buildViewingChecklist(
       why:
         found?.aiSummary?.trim() ||
         "The foundation type is read from the perimeter, but no listing photograph shows under the floor — so its condition has never been seen.",
-      whatToCheck: WHAT_TO_CHECK.ext_foundation,
+      guide: CHECK_GUIDE.ext_foundation,
       source: "ungraded",
       canPhotograph: true,
       priorSummary: found?.aiSummary || undefined,
@@ -379,7 +323,15 @@ export function buildViewingChecklist(
         label: "The bedrooms the listing didn't show",
         group: "Bedrooms",
         why: `The listing advertises ${bedrooms} bedrooms. The photographs show at most ${shots.size} of them${shots.size > 1 ? " — and two shots of one room is a common way that count reads high" : ""}, so every bedroom score in this report rests on ${shots.size === 0 ? "no photograph at all" : "what little was photographed"}.`,
-        whatToCheck: `Photograph every bedroom — one wide shot from the doorway each, so all ${bedrooms} are covered. Check size against a double bed plus a wardrobe, whether the window opens, whether there's any fixed heating, and the state of the flooring and ceiling.`,
+        guide: {
+          concern: `The listing shows at most ${shots.size} of ${bedrooms} bedrooms, so the rest are unassessed.`,
+          steps: [
+            "Walk into every bedroom, including the ones the listing skipped.",
+            "Pace each for size against a double bed plus a wardrobe, and open the window.",
+            "Check for fixed heating, and look at the flooring and the ceiling corners.",
+          ],
+          photos: [`One wide shot from the doorway of each bedroom — all ${bedrooms}`],
+        },
         source: "gap",
         canPhotograph: false,
       });
@@ -400,9 +352,19 @@ export function buildViewingChecklist(
       label,
       group: "Questions for the agent",
       why: g.description,
-      whatToCheck: photo
-        ? "Ask the agent to send a photo of this, or look at it yourself at the viewing, and note what you find."
-        : "Ask the agent to confirm this, and write down what they tell you.",
+      guide: {
+        concern: g.description,
+        ask: photo
+          ? `Can you send me a photo of ${label.toLowerCase()}?`
+          : `Can you confirm ${label.toLowerCase()}?`,
+        steps: photo
+          ? [
+              "Ask the agent — this is the fastest route, and they can usually answer by email.",
+              "Or look at it yourself at the viewing and write down what you find.",
+            ]
+          : ["Ask the agent, and write down what they tell you."],
+        photos: photo ? ["It, if you get to see it yourself"] : [],
+      },
       source: "gap",
       canPhotograph: false,
     });

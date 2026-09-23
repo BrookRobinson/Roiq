@@ -66,6 +66,7 @@ interface RawItemPhoto {
   condition?: string;
   material?: string;
   estimated_age?: string;
+  data_plate?: string | null;
   spec_tier?: string;
   observed_defect?: string;
   ai_summary: string;
@@ -101,7 +102,16 @@ function tool(itemId: string, label: string): Anthropic.Tool {
         },
         condition: { type: "string", description: "Short condition phrase, e.g. \"Rust through the ridge flashing\"." },
         material: { type: "string", description: "What it is made of / what type it is, as far as the photographs show." },
-        estimated_age: { type: "string", description: "Approximate age or era, e.g. \"~20 years\" or \"original to the house\"." },
+        estimated_age: {
+          type: "string",
+          description:
+            "Approximate age or era, e.g. \"~20 years\" or \"original to the house\". If a data plate, label or model/serial number is legible in any photograph, DATE IT FROM THAT and say so — e.g. \"2009, from the serial on the data plate\".",
+        },
+        data_plate: {
+          type: ["string", "null"],
+          description:
+            "Anything legible on a data plate, label or sticker: make, model, serial, capacity, kW rating, date of manufacture. Copy it VERBATIM, do not tidy or interpret it. Null when no plate is readable in any photograph.",
+        },
         spec_tier: {
           type: "string",
           enum: ["deteriorated", "dated", "modern", "luxury"],
@@ -159,6 +169,7 @@ Rules:
 - Never infer condition from the building's era here. The whole point of these photographs is that somebody finally looked. If you cannot see it, say you cannot see it.
 - Be specific about defects: name what is visible and where. "Below average" is useless to a buyer and worthless in a negotiation.
 - Do not soften a real problem, and do not manufacture one that isn't in the frame.
+- If a DATA PLATE, label or model/serial number is legible in any photograph, read it and use it. A model or serial number dates a hot water cylinder, a heat pump or an appliance far more precisely than its appearance does, and that date changes what the item is worth. Copy what is printed there verbatim into data_plate; do not guess at characters you cannot actually read, and do not infer a manufacture date from a serial number format you are not sure of — an age stated from a misread plate is worse than no age at all.
 Return your assessment ONLY by calling the ${TOOL_NAME} tool.`;
 
 const clampScore = (n: unknown): UrgencyScore | null =>
@@ -262,6 +273,7 @@ export async function analyseItemPhotos(
     condition: raw.condition?.trim() || (showsItem ? urgencyLabel(score) : "Not shown in these photos"),
     material: raw.material?.trim() || undefined,
     estimatedAge: raw.estimated_age?.trim() || "—",
+    dataPlate: raw.data_plate?.trim() || null,
     specTier: usesSpecTier(item) ? normSpec(raw.spec_tier) : undefined,
     observedDefect: raw.observed_defect?.trim() || undefined,
     summary: foundation

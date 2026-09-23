@@ -480,6 +480,47 @@ on a tab. If you are about to rebuild a document that speaks to somebody outside
 this app, read `lib/viewing/status.ts` first — the disposition rule is the part
 that mattered and it survived.
 
+**Every checklist item is three blocks, always the same three, always in that
+order — which is the order they cost you.** ASK is free and instant and the
+agent usually just tells you; LOOK is free but you have to be there;
+PHOTOGRAPH is the only one that changes the report. Before this it was two grey
+paragraphs of similar weight and the instruction was lost inside them.
+
+The guidance is HAND-WRITTEN, in `lib/viewing/how-to-check.ts`, one entry per
+item. A model asked where the hot water cylinder is in a New Zealand house will
+produce something plausible every single time, and plausible is not right — it
+is the difference between sending a buyer to a hallway cupboard and sending them
+round the side of the house to a califont. None of it costs a token at run time
+and all of it can be read and corrected. `fallbackGuide()` is deliberately vague
+for an item nobody wrote: a generic instruction PRETENDING to be specific is
+worse than one that admits it is generic.
+
+**Block 3 makes a promise, and it is only true for improvements items.** A
+buyer's photograph really does re-score the item — `effectiveSubItems` overrides
+score, condition, spec tier, age and replacement cost from it, and
+`valueProperty()` then reads those, so it reaches the valuation. Land, legal and
+location items are NOT photo-assessable (`isPhotoAssessable`), so the card says
+plainly that we can't score those from a picture and that they're for the
+inspector and the solicitor instead. Saying "this flows into the valuation"
+there would be the same over-claim the confidence tiers exist to prevent.
+
+**Data plates are read, and the reading is shown verbatim.** A model or serial
+number dates a cylinder, a heat pump or an appliance far better than its
+appearance does, so the photo prompt asks for a plate wherever one is legible and
+`ItemPhotoAnalysis.dataPlate` carries it VERBATIM, separately from
+`estimatedAge`. That separation is the point: an age is a conclusion, and
+"Rheem 135L, ser. 0923" is evidence the reader can check against the photograph
+in their own hand. The prompt also says not to infer a date from a serial format
+it isn't sure of — an age off a misread plate is worse than no age.
+
+**Only two of the three blocks carry colour.** The theme's accent is a gold and
+its warn an orange, close enough that three tinted headings in a row read as a
+gradient rather than three separate things. The problem is amber, the payoff is
+green, and the instruction in the middle is plain ink. The numbered bubble
+carries the ordering, the heading always says it in words, and the colour is
+never the only thing carrying the meaning — roughly one man in twelve cannot
+separate the amber from the green.
+
 **The viewing checklist survived the removal and still earns its place.**
 `lib/viewing/checklist.ts` collects everything the analysis could NOT settle —
 items it refused to score, findings graded from a Tier 2/3 read rather than a

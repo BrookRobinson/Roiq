@@ -20,6 +20,14 @@ export interface ItemPhotoAnalysis {
   /** Absent when the photos don't establish one — see SubItem.material. */
   material?: string;
   estimatedAge: string;
+  /**
+   * What was legible on a data plate, verbatim. Null when no plate was readable.
+   *
+   * Kept separately from `estimatedAge` because it is EVIDENCE rather than a
+   * conclusion: "Rheem 135L, ser. 0923" is checkable by the person holding the
+   * photograph, and "~14 years" is not.
+   */
+  dataPlate?: string | null;
   specTier?: SpecTier;
   observedDefect?: string;
   summary: string;

@@ -127,6 +127,23 @@ export function ItemPhotoUpload({
                   {analysis.observedDefect}
                 </p>
               )}
+              {/* Shown verbatim, and shown at all, because it is the one part of
+                  this the reader can check for themselves: they are holding the
+                  photograph of the plate. An age is a conclusion; "Rheem 135L,
+                  ser. 0923" is evidence. */}
+              {analysis.dataPlate && (
+                <p
+                  className="mono mt-1.5 rounded px-2 py-1 text-[12px]"
+                  style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
+                >
+                  Read off the plate: {analysis.dataPlate}
+                </p>
+              )}
+              {analysis.estimatedAge && analysis.estimatedAge !== "—" && (
+                <p className="mt-1.5 text-[12px]" style={{ color: "var(--text-muted)" }}>
+                  Age: {analysis.estimatedAge}
+                </p>
+              )}
             </div>
           </div>
           <button

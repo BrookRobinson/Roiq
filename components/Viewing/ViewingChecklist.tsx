@@ -11,7 +11,8 @@
 // ============================================================
 
 import { useEffect, useMemo, useState } from "react";
-import { Ban, CalendarDays, Check, CircleAlert, HardHat, Lock, Printer, Unlock, X } from "lucide-react";
+import { Ban, CalendarDays, Camera, Check, CircleAlert, HardHat, Lock, Printer, Unlock, X } from "lucide-react";
+import { PACKAGE_LABEL } from "@/lib/billing/plans";
 
 import {
   ANSWER_LABEL,
@@ -323,7 +324,8 @@ export function ViewingChecklist({
             </div>
             <p className="mt-2 text-[13px]" style={{ color: "var(--text-muted)" }}>
               Haven&rsquo;t had one done? A pre-purchase inspection is normally $400&ndash;$900 and a
-              few days&rsquo; notice. On Diamond we send the inspector and load their report for you.
+              few days&rsquo; notice. On {PACKAGE_LABEL.gold} we send the inspector and load their
+              report for you.
             </p>
           </>
         )}
@@ -420,6 +422,63 @@ export function ViewingChecklist({
   );
 }
 
+/**
+ * One of the three blocks on every checklist item.
+ *
+ * The number and the colour do the same job twice on purpose. A reader scanning
+ * a long list finds "2" faster than they read a heading, and the tint says which
+ * KIND of thing it is before they read anything at all — but the colour never
+ * carries the meaning alone, because roughly one man in twelve cannot separate
+ * the amber from the green. The heading says it in words either way.
+ *
+ * On paper the numbered bubbles go and the rule stays: a printed checklist is
+ * something you carry round a house with a pen, and what survives is the
+ * instruction.
+ */
+function Step({
+  n,
+  title,
+  tone,
+  children,
+}: {
+  n: number;
+  title: string;
+  tone: "warn" | "neutral" | "good";
+  children: React.ReactNode;
+}) {
+  // Only TWO of the three carry colour, deliberately. The theme's accent is a
+  // gold and its warn an orange, close enough that three tinted headings in a
+  // row read as a gradient rather than three separate things. So the problem is
+  // amber, the payoff is green, and the instruction in the middle — the part
+  // actually read word by word — is plain ink. The numbered bubble carries the
+  // ordering; the colour carries the meaning.
+  const TONE = {
+    warn: { accent: "var(--warn)", wash: "var(--warn-wash)" },
+    neutral: { accent: "var(--text-secondary)", wash: "var(--surface-2)" },
+    good: { accent: "var(--good)", wash: "var(--good-wash)" },
+  }[tone];
+
+  return (
+    <div className="mt-3">
+      <div className="mb-1.5 flex items-center gap-2">
+        <span
+          className="mono no-print flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+          style={{ background: TONE.wash, color: TONE.accent }}
+          aria-hidden="true"
+        >
+          {n}
+        </span>
+        <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: TONE.accent }}>
+          {title}
+        </span>
+      </div>
+      <div className="pl-2.5" style={{ borderLeft: `2px solid ${TONE.wash}` }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function Row({
   item,
   record,
@@ -486,16 +545,92 @@ function Row({
             </span>
           </div>
 
-          {/* Why it's on the list. Screen only — on paper it is reasoning the
-              reader already has in the report, and printing a paragraph of it
-              per line turns a clipboard into an essay nobody carries round a
-              house. What survives is the label and the instruction. */}
-          <p className="mt-1.5 text-[13px] no-print" style={{ color: "var(--text-muted)" }}>
-            {item.why}
-          </p>
-          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
-            {item.whatToCheck}
-          </p>
+          {/* Three blocks, always the same three, always in this order — which
+              is the order they cost you. Ask is free and instant, look is free
+              but you have to be there, and photograph is the only one that
+              changes the report. Before this it was two grey paragraphs of
+              similar weight and nobody could find the instruction in them. */}
+          <Step n={1} title="The concern" tone="warn">
+            <p className="text-sm" style={{ color: "var(--text-primary)" }}>
+              {item.guide.concern}
+            </p>
+            {/* The report's own reason, underneath and quieter — it says why
+                this is ON the list, which is a different question from what
+                you don't know about it. Screen only: printing a paragraph of
+                reasoning per line turns a clipboard into an essay. */}
+            <p className="mt-1 text-[12px] no-print" style={{ color: "var(--text-muted)" }}>
+              {item.why}
+            </p>
+          </Step>
+
+          <Step n={2} title="How to check it" tone="neutral">
+            {item.guide.ask && (
+              <div
+                className="mb-2.5 rounded-lg px-3 py-2"
+                style={{ background: "var(--surface)", border: "1px dashed var(--rule-strong)" }}
+              >
+                <div
+                  className="text-[10px] font-bold uppercase tracking-wider mb-0.5"
+                  style={{ color: "var(--accent-text)" }}
+                >
+                  Ask the agent
+                </div>
+                <p className="text-sm italic" style={{ color: "var(--text-primary)" }}>
+                  &ldquo;{item.guide.ask}&rdquo;
+                </p>
+              </div>
+            )}
+            <ol className="space-y-1.5">
+              {item.guide.steps.map((step, i) => (
+                <li key={i} className="flex gap-2.5 text-sm">
+                  <span
+                    className="mono shrink-0 text-[11px] font-bold"
+                    style={{ color: "var(--accent-text)", lineHeight: "1.45" }}
+                  >
+                    {i + 1}.
+                  </span>
+                  <span style={{ color: "var(--text-secondary)" }}>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </Step>
+
+          {!!item.guide.photos?.length && (
+            <Step n={3} title="Photograph it" tone="good">
+              <ul className="space-y-1.5 mb-2">
+                {item.guide.photos.map((shot, i) => (
+                  <li key={i} className="flex gap-2.5 text-sm">
+                    <Camera size={13} className="shrink-0 mt-0.5" style={{ color: "var(--good)" }} />
+                    <span style={{ color: "var(--text-secondary)" }}>{shot}</span>
+                  </li>
+                ))}
+              </ul>
+              {/* Two different promises, because only one of them is true for
+                  any given item. An improvements item really is re-scored on the
+                  buyer's photograph — see effectiveSubItems in RealReportView,
+                  where the shot overrides score, condition, spec tier, age and
+                  replacement cost, and valueProperty then reads those. Land,
+                  legal and location items are NOT photo-assessable, and saying
+                  "this flows into the valuation" there would be the same
+                  over-claim the confidence tiers exist to prevent. */}
+              <p className="text-[12px] no-print" style={{ color: "var(--text-muted)" }}>
+                {item.canPhotograph ? (
+                  <>
+                    Your photos go through the same analysis the listing photos did. We read the
+                    condition, the materials and the age — a model or serial number on a data
+                    plate dates a unit far better than its appearance does — and the item is
+                    re-scored on what you saw, which flows through to the valuation.
+                  </>
+                ) : (
+                  <>
+                    We can&rsquo;t score this one from a photograph — it&rsquo;s settled by a
+                    document or by the council, not by how it looks. Take them anyway: they
+                    are what you hand your building inspector and your solicitor.
+                  </>
+                )}
+              </p>
+            </Step>
+          )}
 
           {/* The document goes in HERE, for the same reason the camera does: the
               buyer is standing at an open home with the LIM the agent just
