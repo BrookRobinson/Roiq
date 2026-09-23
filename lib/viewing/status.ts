@@ -1,11 +1,11 @@
 // ============================================================
-// The gate itself, and the rule that decides what the letter may say about each
-// item once the property has been inspected.
+// What the buyer found at the viewing, and what the report may then say about
+// each item.
 //
 // Deliberately dependency-free — no imports at all — so `npm run verify:viewing`
-// can load it with plain node and assert both rules exhaustively. A mistake here
-// either lets an unviewed property's letter go to a vendor's agent, or puts a
-// dollar figure against something nobody could look at. Neither throws.
+// can load it with plain node and assert the rules exhaustively. A mistake here
+// puts a dollar figure against something nobody could look at, and nothing
+// throws when it does.
 // ============================================================
 
 import type { ItemPhotoAnalysis } from "./photo-types";
@@ -106,16 +106,18 @@ export function checklistStatus(items: { key: string }[], state: ViewingState): 
   };
 }
 
-// ── The inspection, and the gate the letter actually sits behind ─────────────
+// ── The inspection ───────────────────────────────────────────────────────────
 //
-// The checklist is the buyer's own walk-through, and it was the whole gate.
-// It isn't enough. A buyer standing in a hallway can say the ceiling looks
-// stained; they cannot say whether it is a leak or a solved one, and the letter
-// puts a dollar figure on the answer in front of somebody whose job is to take
-// it apart. So the letter now also waits on a qualified inspector having been
-// to the property — the buyer's own, on Platinum, or ours on Diamond.
+// A buyer's own walk-through settles what they could see. It cannot settle
+// whether a ceiling stain is an active leak or a repaired one, or what the
+// subfloor is doing. An uploaded inspection report answers those, and where the
+// inspector disagrees with the photo analysis the report follows the inspector
+// — they were there and the camera wasn't.
 //
-// It is the report that proves it, not a tick box. Anyone can type a date.
+// This used to be a gate: it held the agent letter shut until a qualified
+// person had attended. That letter has been removed, so nothing is withheld on
+// it any more. The shape stays because the report still reads the document and
+// still needs to know whether it is a real one.
 
 export interface InspectionEvidence {
   /** A file was uploaded against the inspection slot. */
@@ -128,54 +130,15 @@ export interface InspectionEvidence {
   inspectedOn?: string | null;
 }
 
-export type LetterBlocker =
-  /** Checklist lines still unanswered. */
-  | "checklist"
-  /** Answered, but nobody recorded the date they went. */
-  | "viewing_date"
-  /** No inspection report uploaded. */
-  | "inspection"
-  /** Something was uploaded and it wasn't an inspection report. */
-  | "inspection_rejected";
-
-export interface LetterGate {
-  open: boolean;
-  /** Most actionable first — what the lock screen tells them to do next. */
-  blockers: LetterBlocker[];
-}
-
-/**
- * May this report's letter be written yet?
- *
- * Fails CLOSED on a missing inspection: no evidence is the same answer as bad
- * evidence, because the failure being prevented is identical either way — a
- * costed claim reaching a vendor's agent that nobody qualified has stood in
- * front of.
- */
-export function letterGate(
-  status: ChecklistStatus,
-  inspection: InspectionEvidence | null | undefined
-): LetterGate {
-  const blockers: LetterBlocker[] = [];
-
-  if (status.outstanding > 0) blockers.push("checklist");
-  else if (status.missingViewingDate) blockers.push("viewing_date");
-
-  if (!inspection?.present) blockers.push("inspection");
-  else if (!inspection.confirmed) blockers.push("inspection_rejected");
-
-  return { open: blockers.length === 0, blockers };
-}
-
-// ── What the letter may do with one item ─────────────────────────────────────
+// ── What the report may do with one item ─────────────────────────────────────
 
 export type Disposition =
-  /** Goes in the schedule with its cost — the case being put to the vendor. */
+  /** Stated with its cost, as a finding the report stands behind. */
   | "claim"
-  /** Checked on site and sound. Removed, and the letter says how many were. */
+  /** Checked on site and sound. Dropped, and the report says how many were. */
   | "drop"
-  /** The thing does not exist. Removed from the letter entirely and NOT counted
-   *  among the items found sound — there was never anything to find. */
+  /** The thing does not exist. Dropped entirely and NOT counted among the items
+   *  found sound — there was never anything to find. */
   | "absent"
   /** The buyer's own observation of something the analysis never scored. Listed,
    *  attributed to them, never costed. */
@@ -188,16 +151,15 @@ export type Disposition =
  *
  * `scored` means the analysis put a critical/urgent grade on it. The two
  * dangerous cells are the ones that used to be the only behaviour: a scored item
- * with no answer, and a scored item the buyer couldn't reach — both went to the
- * agent as costed claims about a house nobody had walked through.
+ * with no answer, and a scored item the buyer couldn't reach — both were stated
+ * as costed claims about a house nobody had walked through.
  */
 export function dispositionFor(answer: ViewingAnswer | undefined, scored: boolean): Disposition {
   if (answer === "not_there") return "absent";
   if (answer === "ok") return "drop";
   if (answer === "no_access") return "unverified";
   if (answer === "problem") return scored ? "claim" : "observe";
-  // No answer. Only reachable for an item that was never on the checklist —
-  // a Tier 1 finding confirmed from a photograph — because the letter is locked
-  // until every checklist line is answered.
+  // No answer. Reached by an item that was never on the checklist — a Tier 1
+  // finding confirmed from a photograph, which needed nobody's opinion.
   return scored ? "claim" : "drop";
 }

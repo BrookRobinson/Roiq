@@ -58,7 +58,6 @@ export interface GapFinding {
   gapType: string;
   area: string;
   description: string;
-  includedInAgentLetter: boolean;
   includedInLimLetter: boolean;
 }
 
@@ -941,7 +940,6 @@ export function assembleResult(
     gapType: g.gap_type?.trim() || "info",
     area: g.area?.trim() || "Unknown",
     description: g.description?.trim() || "",
-    includedInAgentLetter: g.in_agent_letter !== false,
     includedInLimLetter: Boolean(g.in_lim_letter),
   }));
 

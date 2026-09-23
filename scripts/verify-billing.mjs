@@ -120,8 +120,8 @@ const PAID = { ...NO_ENTITLEMENTS, paid: true };
 const MAPPED = { ...NO_ENTITLEMENTS, paid: true, map: true };
 check("free sees no score", includes(FREE, "score"), false);
 check("any purchase unblurs the score", includes(PAID, "score"), true);
-check("…and the agent document, which the inspection gate then holds",
-  includes(PAID, "negotiation"), true);
+check("…and every other thing a report contains",
+  Object.keys(FEATURE_NEEDS).filter((f) => FEATURE_NEEDS[f] !== "map" && !includes(PAID, f)), []);
 check("the map needs the map, not just a purchase",
   [includes(PAID, "map"), includes(MAPPED, "map")], [false, true]);
 check("so does opening somebody else's report",

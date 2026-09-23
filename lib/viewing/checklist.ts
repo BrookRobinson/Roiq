@@ -1,20 +1,17 @@
 // ============================================================
-// The viewing checklist — what has to be settled at the property before
-// anything is put to the vendor's agent.
+// The viewing checklist — what the photographs could not settle, and what to go
+// and look at yourself.
 //
 // The analysis reads photos. Photos don't show the subfloor, they don't show
 // what a switchboard is wired with, and they don't show whether the "probable
-// rot" in a Tier-2 read is rot or a shadow. Sending a vendor a costed schedule
-// of defects assembled entirely from marketing photographs, before anyone has
-// walked through the house, is not a negotiation position — it's a guess with a
-// dollar sign on it, and the first thing a competent agent does with it is take
-// it apart.
+// rot" in a Tier-2 read is rot or a shadow. A costed schedule assembled entirely
+// from marketing photographs is a guess with a dollar sign on it.
 //
-// So the letter is locked until this list is answered, and this list is exactly
-// the set of things the report itself could not settle:
+// So the report says what it could not settle, and this list is exactly that
+// set:
 //
 //   ungraded  — the analysis declined to score it (Tier 3, or no photos at all)
-//   probable  — Tier 2, and graded critical or urgent, so the LETTER leans on it
+//   probable  — Tier 2, and graded critical or urgent, so the money leans on it
 //   document  — a LIM / consents / EQC file nobody has uploaded yet
 //   gap       — an information gap the analysis flagged in its own words
 //
@@ -25,8 +22,30 @@
 // ============================================================
 
 import { ITEM_BY_ID, isVerifiedDocItem } from "@/lib/scoring/catalog";
+
+/**
+ * How bad a 1–10 condition score is, and where the item lives in the report.
+ *
+ * These moved here when the agent letter was removed — they were part of
+ * building that document, and this list is now their only caller. Same numbers,
+ * same thresholds: a line that was picked because the money leaned on it is
+ * still picked for exactly the same reason, because it is still the finding a
+ * buyer most needs to confirm with their own eyes.
+ */
+export type Band = "critical" | "urgent";
+
+export const bandFor = (score: number): Band | null =>
+  score <= 2 ? "critical" : score <= 4 ? "urgent" : null;
+
+export const areaLabel = (id: string): string => {
+  const inspection = ITEM_BY_ID[id]?.inspection;
+  if (inspection === "improvements") return ITEM_BY_ID[id]?.category ?? "Building";
+  if (inspection === "land") return "Land";
+  if (inspection === "legal") return "Legal & title";
+  if (inspection === "location") return "Location";
+  return "Property";
+};
 import { isPhotoAssessable } from "@/lib/viewing/photo-assessable";
-import { bandFor, areaLabel, type Band } from "@/lib/negotiation/build";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 
@@ -61,7 +80,7 @@ export interface ChecklistItem {
   /** What to physically do about it at the viewing. */
   whatToCheck: string;
   source: CheckSource;
-  /** Set when the letter already treats this as a critical/urgent claim. */
+  /** Set when the report already treats this as a critical/urgent claim. */
   band?: Band;
   /**
    * True when a photograph would actually settle this. The buyer can then upload
@@ -293,10 +312,10 @@ export function buildViewingChecklist(
       continue;
     }
 
-    // Graded, but not from a photograph anyone can point at — and the letter puts
-    // it to the agent as a costed finding. Tier 2 is a probable read and Tier 3 is
-    // an inference from era or record; both are claims that have to survive being
-    // questioned, so they get confirmed on site first. Tier 1 needs nothing: the
+    // Graded, but not from a photograph anyone can point at — and the report
+    // still costs it. Tier 2 is a probable read and Tier 3 is an inference from
+    // era or record; both are claims that have to survive being questioned, so
+    // they get confirmed on site first. Tier 1 needs nothing: the
     // photograph is in the report and the agent can look at it.
     const band = bandFor(s.score);
     if (band && s.confidenceTier >= 2) {

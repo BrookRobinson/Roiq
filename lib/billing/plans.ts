@@ -275,15 +275,6 @@ export type Feature =
   | "share"
   /** Upload a LIM, consents, an EQC history or a title, and have it read. */
   | "documents"
-  /**
-   * The document you send the vendor's agent, with the offer at the end.
-   *
-   * Buying anything buys the machinery, not an open door: the letter still
-   * waits on a building inspector having attended the property — see
-   * lib/viewing/status.ts. Bronze and Silver mean bringing your own inspector's
-   * report; Gold means we send the inspector.
-   */
-  | "negotiation"
   /** The NZ investment map, its filters and the watchlist. */
   | "map"
   /** Open any report on the map, not just your own. */
@@ -294,7 +285,6 @@ export const FEATURE_LABEL: Record<Feature, string> = {
   tools: "Renovation planner, Financial tab, Healthy Homes check",
   share: "PDF, email and private share link",
   documents: "LIM, consents, EQC and title read for you",
-  negotiation: "Agent offer document, once an inspector has been",
   map: "NZ investment map, filters and watchlist",
   mapReports: "Every report on the map, not just your own",
 };
@@ -307,7 +297,6 @@ export const FEATURE_NEEDS: Record<Feature, "paid" | "map"> = {
   tools: "paid",
   share: "paid",
   documents: "paid",
-  negotiation: "paid",
   map: "map",
   mapReports: "map",
 };

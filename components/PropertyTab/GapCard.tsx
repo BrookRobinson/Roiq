@@ -65,24 +65,14 @@ export function GapSummary({ gaps }: { gaps: ReportGap[] }) {
             />
             <div style={{ color: "var(--text-secondary)" }}>
               <strong style={{ color: "var(--text-primary)" }}>{g.label}</strong> — {g.description}{" "}
-              {g.inAgentLetter && (
-                <span style={{ color: "var(--text-muted)" }}>
-                  Included in agent request.
-                </span>
-              )}
               {g.inLimLetter && (
-                <span style={{ color: "var(--text-muted)" }}>
-                  {" "}Included in LIM request.
-                </span>
+                <span style={{ color: "var(--text-muted)" }}>A LIM would settle this.</span>
               )}
             </div>
           </div>
         ))}
       </div>
       <div className="flex flex-wrap gap-2">
-        <button className="btn-primary text-xs py-1.5 px-3">
-          Generate agent letter PDF
-        </button>
         <button className="btn-secondary text-xs py-1.5 px-3">
           Generate LIM request PDF
         </button>

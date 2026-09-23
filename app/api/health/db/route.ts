@@ -26,7 +26,7 @@ const TABLES: { name: string; used_by: string }[] = [
   { name: "map_listings", used_by: "the property map" },
   { name: "watchlist", used_by: "map save/bookmark" },
   { name: "alerts", used_by: "saved-search alerts" },
-  { name: "report_gaps", used_by: "report gap banner + agent letter" },
+  { name: "report_gaps", used_by: "report gap banner" },
   { name: "report_upload_tokens", used_by: "/upload/[token] document links" },
   { name: "shared_reports", used_by: "Send report → /report/share_<token>" },
 ];

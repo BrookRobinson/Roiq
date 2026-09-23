@@ -40,8 +40,7 @@ import { costThreeTier, tierTotal, TIER_ORDER, scaleTier, isScalableKind } from 
 import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
 import { buildBudgetPlan, PRIORITY_META } from "@/lib/reno-costing/budget-plan";
 import { MaterialStudio } from "@/components/MaterialStudio";
-import { NegotiationTab } from "@/components/Negotiation/NegotiationTab";
-import { ViewingChecklist, LetterLocked } from "@/components/Viewing/ViewingChecklist";
+import { ViewingChecklist } from "@/components/Viewing/ViewingChecklist";
 import { buildViewingChecklist, checklistStatus, EMPTY_VIEWING, type ViewingState } from "@/lib/viewing/checklist";
 import { loadViewing, saveViewing, syncViewing, setAnswer, setNote, setViewedOn, setItemPhoto, clearItemPhoto } from "@/lib/viewing/store";
 import type { ItemPhotoAnalysis } from "@/lib/viewing/photo-types";
@@ -69,11 +68,11 @@ import Link from "next/link";
 import { useSession } from "@/lib/auth/session";
 import { BlurredValue, UpgradeNote, LockedTab } from "@/components/report/Locked";
 import { includes as hasFeature, type Feature } from "@/lib/billing/plans";
-import { letterGate, type InspectionEvidence } from "@/lib/viewing/status";
+import { type InspectionEvidence } from "@/lib/viewing/status";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 import { alpha } from "@/lib/ui/color";
 
-type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "viewing" | "negotiation" | "methodology";
+type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "viewing" | "methodology";
 
 const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?: boolean }[] = [
   { id: "overview", label: "Overview", icon: Home },
@@ -82,7 +81,6 @@ const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?
   { id: "renovations", label: "Renovations", icon: Wrench },
   { id: "financial", label: "Financial", icon: Calculator },
   { id: "viewing", label: "Before you view", icon: ClipboardCheck },
-  { id: "negotiation", label: "For the agent", icon: Handshake },
   { id: "methodology", label: "How we score", icon: Info },
 ];
 
@@ -104,8 +102,8 @@ const LAND_HIDDEN_TABS = new Set<Tab>(["improvements", "renovations"]);
 /**
  * Tabs a plan can be short of, what's inside each, and the feature that opens
  * it. The feature — not the plan name — is the gate: which tier carries it is
- * decided once, in lib/billing/plans.ts, so moving the agent document up or
- * down the ladder never means editing this file.
+ * decided once, in lib/billing/plans.ts, so moving a tab between packages never
+ * means editing this file.
  */
 const LOCKED_TABS: Record<string, { title: string; blurb: string; includes: string[]; feature: Feature }> = {
   financial: {
@@ -128,17 +126,6 @@ const LOCKED_TABS: Record<string, { title: string; blurb: string; includes: stri
       "Toggle items in and out to see the effect",
       "Budget and premium options per item",
       "What the work adds back in value",
-    ],
-  },
-  negotiation: {
-    feature: "negotiation",
-    title: "For the agent",
-    blurb: "A document you can send the vendor's agent, built only from the critical and urgent findings in this report.",
-    includes: [
-      "Every claim traced to a photo in your report",
-      "Costs stated with their confidence tier",
-      "Nothing about your budget or walk-away price",
-      "Emailed or shared as a private link",
     ],
   },
 };
@@ -350,7 +337,7 @@ export function RealReportView({
   // Gates apply at all only to a real report someone is reading on their own
   // account; `has` then answers per feature, because the tiers no longer agree
   // about which tabs open. The Financial and Renovations tabs come with the
-  // cheapest paid tier; the agent document is further up.
+  // cheapest purchase; only the map is sold separately.
   const gated = !shared && !embedded && !isSample && !planLoading;
   const has = (f: Feature) => !gated || hasFeature(entitlements, f);
   const locked = !has("score");
@@ -441,7 +428,7 @@ export function RealReportView({
           return {
             ...s,
             score: shot.score as typeof s.score,
-            // The label travels with the score or the letter reads "Average"
+            // The label travels with the score or the report reads "Average"
             // beside 2/10 — the original label described the desktop guess.
             urgencyLabel: urgencyLabel(shot.score),
             confidenceTier: shot.confidenceTier,
@@ -681,18 +668,17 @@ export function RealReportView({
    * The viewing gate, except on the shop window.
    *
    * A demo report and the embedded landing demo describe fictional properties
-   * nobody can go and view, so the gate has nothing to gate: it would only ever
-   * show a padlock where the thing being sold is supposed to be. Same rule as
-   * the paywall — never lock a sample id or the landing demo (see CLAUDE.md).
+   * nobody can go and view, so the checklist there is a demonstration rather
+   * than an errand. Same rule as the paywall — never lock a sample id or the
+   * landing demo (see CLAUDE.md).
    *
-   * A SHARED report stays gated on purpose. The viewing is owner-scoped, so a
-   * recipient's browser holds none of it, and building the letter from an empty
-   * viewing would present every finding as unverified — which is the exact
-   * over-claim the gate exists to stop.
+   * A SHARED report shows the checklist read-only on purpose: the viewing is
+   * owner-scoped, so the recipient's browser holds none of it and every line
+   * would read as unanswered.
    */
-  // The letter's three conditions, in one place. A sample or the embedded demo
-  // is open regardless — those exist to show the product to someone who hasn't
-  // got a property, let alone an inspection report.
+  // The inspection report, when one has been uploaded. It no longer gates
+  // anything — it is read beside the photo analysis, and where the inspector
+  // disagrees they were there and the camera wasn't.
   const inspection: InspectionEvidence | null = useMemo(() => {
     const doc = verifiedDocs?.["insp_report"];
     if (!doc) return null;
@@ -703,12 +689,6 @@ export function RealReportView({
       inspectedOn: doc.inspectedOn ?? null,
     };
   }, [verifiedDocs]);
-
-  const letterGateState = useMemo(
-    () => letterGate(viewingStatus, inspection),
-    [viewingStatus, inspection]
-  );
-  const letterUnlocked = letterGateState.open || isSample || embedded;
 
   function onPersonaToggle(next: Persona) {
     setPersona(next);
@@ -811,7 +791,6 @@ export function RealReportView({
     area: g.area,
     label: g.area,
     description: g.description,
-    inAgentLetter: g.includedInAgentLetter,
     inLimLetter: g.includedInLimLetter,
     resolved: false,
   }));
@@ -965,9 +944,6 @@ export function RealReportView({
                       {viewingStatus.outstanding}
                     </span>
                   )}
-                  {t.id === "negotiation" && !tabLocked("negotiation") && !letterUnlocked && (
-                    <Lock size={11} style={{ color: "var(--text-muted)" }} aria-label="locked until the property is viewed" />
-                  )}
                 </button>
               ))}
             </div>
@@ -1066,23 +1042,8 @@ export function RealReportView({
               onItemPhoto={(id, a: ItemPhotoAnalysis) => updateViewing(setItemPhoto(viewing, id, a))}
               onClearItemPhoto={(id) => updateViewing(clearItemPhoto(viewing, id))}
               onVerifiedDoc={onVerified}
-              onOpenLetter={() => setTab("negotiation")}
               onOpenLand={() => setTab("address")}
             />
-          )}
-          {/* The letter is the one place the report speaks to somebody else, so
-              it is the one place an unverified finding does real damage. */}
-          {tab === "negotiation" && !tabLocked("negotiation") && (
-            letterUnlocked ? (
-              <NegotiationTab report={report} viewing={viewing} checklist={checklist} subItems={effectiveSubItems} />
-            ) : (
-              <LetterLocked
-                blockers={letterGateState.blockers}
-                outstanding={viewingStatus.outstanding}
-                total={viewingStatus.total}
-                onOpenChecklist={() => setTab("viewing")}
-              />
-            )
           )}
           {tab === "methodology" && <MethodologyTab />}
         </div>

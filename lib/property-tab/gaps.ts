@@ -6,7 +6,8 @@ export interface ReportGap {
   area: string;           // machine key, e.g. "west_wall"
   label: string;          // human readable, e.g. "West wall exterior"
   description: string;    // "Not visible in any listing photo"
-  inAgentLetter: boolean;
+  /** A LIM would settle this one. Not a request document — just where the
+   *  answer lives, now that the agent letter that used to carry it is gone. */
   inLimLetter: boolean;
   resolved: boolean;
   resolvedAt?: string;
@@ -19,7 +20,6 @@ export const DEMO_GAPS: ReportGap[] = [
     area: "foundation",
     label: "Foundation / subfloor",
     description: "Subfloor access not shown in any listing photo. Cannot assess pile condition, subfloor moisture, or ground clearance.",
-    inAgentLetter: true,
     inLimLetter: true,
     resolved: false,
   },
@@ -29,7 +29,6 @@ export const DEMO_GAPS: ReportGap[] = [
     area: "west_wall",
     label: "West wall exterior",
     description: "West elevation not photographed. Cladding condition on west face cannot be assessed.",
-    inAgentLetter: true,
     inLimLetter: false,
     resolved: false,
   },
@@ -39,7 +38,6 @@ export const DEMO_GAPS: ReportGap[] = [
     area: "electrical_board",
     label: "Electrical switchboard",
     description: "Switchboard not shown in listing. Cannot confirm modern breakers or identify rewirable fuses.",
-    inAgentLetter: true,
     inLimLetter: true,
     resolved: false,
   },
@@ -49,7 +47,6 @@ export const DEMO_GAPS: ReportGap[] = [
     area: "build_year",
     label: "Build year confirmation",
     description: "Build year estimated as c.1975 from architectural style — not confirmed in listing.",
-    inAgentLetter: true,
     inLimLetter: false,
     resolved: false,
   },

@@ -5,7 +5,7 @@
 //
 // The report couldn't score this item because the listing never showed it. The
 // checklist's other two answers — found it, couldn't reach it — are the buyer's
-// own judgement, which the letter has to attribute to them. A photograph is
+// own judgement, which the report has to attribute to them. A photograph is
 // different: it goes back through the same vision analysis the rest of the
 // report came from, and the item stops being a gap and becomes a scored finding
 // with evidence behind it.
@@ -178,7 +178,7 @@ export function ItemPhotoUpload({
 
       <p className="mt-1.5 text-[12px]" style={{ color: "var(--text-muted)" }}>
         Up to {MAX_PHOTOS} photos. They go through the same analysis as the rest of the report, so this
-        item gets a real score instead of staying a gap — and the letter can then say it was seen.
+        item gets a real score instead of staying a gap — and the report can then say it was seen.
       </p>
 
       {notShown && (

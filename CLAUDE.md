@@ -23,7 +23,7 @@ npm run verify:dwelling      # is there a building to score, and does the addres
 npm run verify:farm          # farmland is refused at the door; a lifestyle block never is
 npm run verify:floor-area    # advertised floor area vs the rating roll, and what that must never say
 npm run verify:foundation    # foundation scoring from type, era and visible movement
-npm run verify:viewing       # the gate on the agent letter, and what it may claim about each item
+npm run verify:viewing       # when the report may say a person stood in the house, and what it may claim
 npm run verify:title         # title scored from tenure, and the warnings a buyer must not miss
 npm run verify:map-valuation # when the map may show a valuation, and what it must say when it can't
 npm run verify:estimated-value # valuing what the photos couldn't show, without inventing it
@@ -44,10 +44,10 @@ npm run build:instruments    # regenerate lib/linz/instrument-types.ts from LINZ
 **There are almost no tests.** Verification is `tsc`, the health endpoints, and
 driving the app. The one exception is `scripts/verify-billing.mjs`, because a
 wrong number in `lib/billing/plans.ts` either gives away reports or takes away
-ones somebody paid for, and neither throws. If you add anything to `lib/scoring`,
-`lib/negotiation` or `lib/reno-costing`, they deserve the same for the same
-reason: pure, deterministic, and a wrong number there ends up in a letter to a
-vendor's agent.
+ones somebody paid for, and neither throws. If you add anything to `lib/scoring`
+or `lib/reno-costing`, they deserve the same for the same
+reason: pure, deterministic, and a wrong number there ends up in front of
+somebody deciding what to bid on a house.
 
 ## Traps that have actually bitten
 
@@ -94,11 +94,10 @@ vendor's agent.
 | --- | --- |
 | `components/landing/` | Landing page sections. **Check here before adding anything to the landing page** — a duplicate map got shipped by grepping for `PropertyMap` and missing `LiveMapSection`. |
 | `components/map/` | `MapExperience.tsx` is the whole map; `/map` and `/map/demo` are thin wrappers around it with a `demo` flag. Don't fork it. |
-| `components/Negotiation/` | The agent document. |
-| `components/Viewing/`, `lib/viewing/` | The viewing checklist and the gate on that document. `status.ts` is dependency-free on purpose. |
+| `components/Viewing/`, `lib/viewing/` | The viewing checklist — what the photos couldn't settle. `status.ts` is dependency-free on purpose. |
 | `lib/billing/` | `plans.ts` is pure and safe to import anywhere; `stripe.ts` is server-only. |
 | `lib/scoring/` | The 1,000-point engine. `model.ts` is the rubric, `engine.ts` scores, `catalog.ts` is the item list. |
-| `lib/map/`, `lib/reports/`, `lib/negotiation/`, `lib/email/`, `lib/auth/` | Feature libs. Server-only modules say so at the top. |
+| `lib/map/`, `lib/reports/`, `lib/email/`, `lib/auth/` | Feature libs. Server-only modules say so at the top. |
 | `lib/map/delisting.ts` | When a crawl may conclude a listing has gone. Dependency-free on purpose. |
 | `lib/valuation/` | The scoreboard: our valuations graded against what the market paid. `scoreboard.ts` is dependency-free. |
 | `lib/supabase/paged.ts` | `readAllPages` — any read that isn't deliberately one page. See the trap below. |
@@ -471,58 +470,46 @@ indistinguishable from real ones on the next read.
 deliberately no write policy: the anon key ships to every browser, so an insert
 policy would let anyone write to the map.
 
-**The agent letter invents nothing.** Every item, defect, photo reference,
-confidence tier and cost is copied from the report. If the analysis didn't find
-it, the document doesn't say it — and when nothing is critical or urgent it says
-that plainly rather than manufacturing a case. It also carries **no valuation
-claim**, and the share link carries **only the document**, never the report: the
-Financial tab holds the buyer's walk-away price and the recipient is the vendor's
-agent.
+**The agent letter is GONE — removed 23 September 2026, and it is not coming
+back by accident.** It built a costed schedule of defects out of the report and
+sent it to the vendor's agent. Everything below it in this file that still
+mentions "the letter" has been rewritten to say "the report", because the rules
+themselves did not change: what may be claimed about an item a buyer could not
+inspect is the same question whether the claim is emailed to an agent or printed
+on a tab. If you are about to rebuild a document that speaks to somebody outside
+this app, read `lib/viewing/status.ts` first — the disposition rule is the part
+that mattered and it survived.
 
-**And it is locked until somebody has been to the house.** The letter used to
-build itself the moment the report did: a costed schedule of defects, read off
-marketing photographs, ready to send to a vendor before anyone had walked
-through the property. `lib/viewing/checklist.ts` collects everything the analysis
-could NOT settle — items it refused to score, findings graded from a Tier 2/3
-read rather than a photograph, documents nobody has uploaded, and the gaps it
-flagged in its own words — and the "For the agent" tab stays shut until every
-line is answered **and** a viewing date is recorded. Both halves are required:
-answering the form at a desk is not a viewing, and the date is the one sentence
-in the letter that says a person stood in the house.
-
-**The gate follows the paywall's shop-window rule, with one difference.** A
-sample id and the embedded landing demo describe fictional properties nobody can
-go and view, so the letter is open on both — a padlock where the product is
-supposed to be sells nothing, and the checklist there says plainly that a real
-report holds it shut. A SHARED report stays gated: the viewing is owner-scoped,
-so the recipient's browser holds none of it, and building the letter from an
-empty viewing would present every finding as unverified.
+**The viewing checklist survived the removal and still earns its place.**
+`lib/viewing/checklist.ts` collects everything the analysis could NOT settle —
+items it refused to score, findings graded from a Tier 2/3 read rather than a
+photograph, documents nobody has uploaded, and the gaps it flagged in its own
+words. It no longer unlocks anything; what it does is replace a guess with an
+observation, and the photographs taken against it are scored for real. A viewing
+DATE is still required before the report may say the property was inspected
+rather than read: answering the form at a desk is not a viewing.
 
 **"Couldn't inspect" is an answer, not a skip.** A subfloor with no hatch and a
 LIM the vendor won't release before an offer are real, and a buyer who did
-everything they could must not be deadlocked. It unlocks the letter — and moves
-that item out of the costed schedule into "Not able to be inspected", where the
-vendor is asked to confirm it. Nothing anyone failed to inspect is ever costed,
-including its remediation: asking for the price of a Certificate of Acceptance
-on the same page that says the consent position could not be established is the
-contradiction an agent reads first.
+everything they could must not be deadlocked. It moves that item out of the
+costed schedule into "Not able to be inspected". Nothing anyone failed to
+inspect is ever costed, including its remediation: pricing a Certificate of
+Acceptance on the same page that says the consent position could not be
+established is a contradiction on its face.
 
-**An item checked and found sound is dropped, and the letter says how many.**
-That count is the strongest line in the document — it shows the remaining
-schedule survived a real inspection. A problem confirmed on something the
-analysis never scored goes in "Observed at the inspection", attributed to the
+**An item checked and found sound is dropped, and the report says how many.**
+A problem confirmed on something the analysis never scored is attributed to the
 purchaser in their own words, with the indicative cost shown but deliberately
-**not** added to the reduction sought: the analysis didn't grade it, so the
-buyer's own read must not set the headline figure.
+**not** added to any headline figure: the analysis didn't grade it, so the
+buyer's own read must not set the number.
 
 **The viewing lives in `reports.viewing`, but the device writes first.** It gets
 filled in at a property, on a phone, on whatever signal is going, so every
 answer lands in localStorage synchronously and is safe the instant it's tapped;
 the server sync is debounced, `keepalive`, and allowed to fail silently forever.
-It is owner-scoped both ways — a Pro subscriber reading somebody else's report
-off the map must not read or overwrite the answers of the person who actually
-went, so a write that matches no row returns `synced: false` rather than an
-error.
+It is owner-scoped both ways — somebody reading another person's report off the
+map must not read or overwrite the answers of the person who actually went, so a
+write that matches no row returns `synced: false` rather than an error.
 
 The two copies are merged **per answer, once, on load** (`lib/viewing/merge.ts`),
 because the night-before laptop and the open-home phone both hold real answers
@@ -535,25 +522,33 @@ A missing `reports.viewing` column throws nowhere: the sync just answers
 `synced: false` forever and every checklist quietly stays on one device.
 `/api/health/db` checks the column by name for exactly that reason.
 
-`lib/viewing/status.ts` holds both rules and imports nothing, so
-`verify:viewing` can assert them with plain node. The letter must also be built
-from the report's **effective** sub-items, not the raw ones, or it claims a
-score the report itself has withdrawn.
+`lib/viewing/status.ts` holds the rules and imports nothing, so `verify:viewing`
+can assert them with plain node. The report must also be rendered from its
+**effective** sub-items, not the raw ones, or it shows a score it has withdrawn.
+
+**An uploaded building inspection is read beside the photo analysis, and it
+wins.** `insp_report` is a document kind like the LIM and the title: Claude is
+asked first whether the file really IS a pre-purchase inspection, and a
+valuation, a builder's quote, a desktop assessment or a report on a different
+address is refused. Where the inspector disagrees with the photo analysis, the
+report follows the inspector — they were there and the camera wasn't. It used to
+be the third condition on a gate; it is evidence now, and nothing is withheld
+for want of it.
 
 **The checklist's real answer is a photograph, not a tick.** The report was
 never short of an opinion about the subfloor — it was short of a picture. So any
 item a camera can settle offers "Take a photo of the …" ABOVE the three answers:
 the photos go to `/api/item-photos`, back through the same vision model, and the
 item is scored properly on the buyer's own photographs. It then leaves the
-checklist by itself (scored and Tier 1 is no longer an unknown), and the letter
-labels it *"Photographed at the property by the purchaser"* — a claim the agent
-can ask to see rather than one they'd have to take on trust.
+checklist by itself (scored and Tier 1 is no longer an unknown), and the report
+labels it *"Photographed at the property by the purchaser"* — a claim traced to
+a picture rather than one taken on trust.
 
 `shows_item` is the whole safety of it. When the photographs don't actually show
 the item — wrong subject, too dark, too far — the model says so, **nothing is
 stored or scored**, and the buyer is asked for another shot. A confident 6/10
 read off the wrong cupboard door would be worse than the gap it replaced,
-because the gap is honest and the 6/10 ends up in a letter. The refusal is not
+because the gap is honest and the 6/10 ends up costed. The refusal is not
 an error path; it is the feature working.
 
 **The paperwork lines take their document inline too**, for the same reason: the
@@ -573,7 +568,7 @@ photograph cannot tell you whether the studio was consented or what the title
 says, and offering an upload there would promise something the analysis can't
 deliver. A photograph also SUPERSEDES any answer that item had: somebody who
 ticked "couldn't inspect" and then got under the house with a torch has settled
-it, and a stale answer would have the letter still reporting it as unreachable.
+it, and a stale answer would have the report still calling it unreachable.
 
 **A LIM comes from the council, never from the agent.** Only a territorial
 authority can issue one (s44A LGOIMA). The agent may hold a copy the vendor
@@ -583,17 +578,18 @@ since, which is why the copy tells the reader to check the date on the front.
 Otherwise anyone can order one on any property. Don't write copy that implies
 the agent is the source, or that a vendor-supplied LIM is current.
 
-**Nothing auto-renews, and the site says so three times.** Purchases are one-off
-(`mode: "payment"`) buying `ACCESS_DAYS` of access — the landing page, the
-pricing page and the FAQ all promise it, so a recurring Stripe price would make
-the copy a lie. `/api/health/billing` fails if a configured price is recurring.
-`users.stripe_subscription_id` and `subscription_status` predate that decision
-and stay unused.
+**Nothing auto-renews, and the site says so.** Purchases are one-off
+(`mode: "payment"`): report credits never expire, and map access runs `MAP_DAYS`
+and stops. There are no Stripe price IDs — the checkout builds its line item
+inline from the table in `lib/billing/plans.ts`, so Stripe cannot charge a
+different number from the one on the page and there is nothing to keep in step.
+`users.stripe_subscription_id` and `subscription_status` predate all of this and
+stay unused.
 
 **Owner mode is the local sign-in bypass, and its guard is NOT a setting.**
-`DEV_OWNER_MODE=true` in `.env.local` makes the app behave as a signed-in Pro:
-no login redirect, `/login` and `/signup` bounce to the dashboard, `getUserPlan()`
-returns pro, and every plan gate opens. `lib/auth/dev-owner.ts` checks
+`DEV_OWNER_MODE=true` in `.env.local` makes the app behave as a fully paid-up
+account: no login redirect, `/login` and `/signup` bounce to the dashboard,
+`getEntitlements()` returns `DEV_OWNER_ENTITLEMENTS`, and every gate opens. `lib/auth/dev-owner.ts` checks
 `NODE_ENV === "production"` FIRST and refuses before it reads the flag — Next
 sets that for `next build`/`next start` and on Vercel, so a stray
 `DEV_OWNER_MODE=true` in a deployed environment is inert rather than a free
@@ -601,14 +597,18 @@ giveaway of the paid product. Don't "improve" it into a configurable override.
 
 It invents no Supabase user and writes nothing as one: reports made in owner
 mode still belong to the browser's own `bdr_owner` cookie, so turning it off
-orphans nothing. The report ALLOWANCE still applies (pro = 20/month) — it guards
-the owner's own Claude spend, not the paywall.
+orphans nothing. Owner mode carries a large but finite credit balance rather
+than an infinite one — it guards the owner's own Claude spend, not the paywall.
 
-**`users.plan` is not access.** It records what was last bought and stays there
-after the month ends. Access is the plan paired with `plan_expires_at` still in
-the future — `effectivePlan()`, behind `getUserPlan()` and `/api/auth/me`. Read
-the column directly and you hand someone Pro forever. It fails closed: a missing
-or unparseable expiry is free.
+**`users.plan` is not access.** It records which package was last bought and
+nothing reads it for entitlement. What somebody HAS is summed from the
+`purchases` rows on every read — `entitlementsFor()` in
+`lib/billing/entitlements.ts`, behind `getEntitlements()` and `/api/auth/me`.
+Credits are summed and spending is counted separately from the `reports` table,
+so nothing is ever decremented: there is no balance to drift, double-spend, or
+be granted twice by a replayed webhook, and a refund is revoked by flipping one
+`status` in the same query that reads it. It fails closed — a read that errors
+returns nothing rather than everything.
 
 **Only the webhook grants a plan.** `/api/webhooks/stripe` — not the checkout
 route, and never the success redirect, which anyone can type. Stripe delivers at
@@ -616,11 +616,11 @@ least once, so the grant is idempotent through the unique constraint on
 `purchases.stripe_session_id`. The root middleware matcher deliberately skips
 `api/webhooks`: the raw body must arrive untouched for the signature to verify.
 
-**Buying again extends, never resets.** `accessUntil()` adds to whatever time is
-left, so paying early doesn't throw away days already paid for. Buying a *lower*
-tier while a higher one runs is refused at checkout with a 409 — one plan column
-can't hold two tiers, and the alternative is silently downgrading someone who
-just paid.
+**Buying again adds, never replaces.** Credits accumulate and `mapAccessUntil()`
+extends whatever map time is left, so paying early doesn't throw away days
+already paid for. There is no "you already have something better" refusal any
+more: buying ten more reports while a Gold is running is a sensible thing to do,
+and the old ladder's 409 would have turned it away.
 
 **The same property is only analysed once.** A finished report is stored whole
 in `reports.report`, so a listing that's been done before is served from there
@@ -667,19 +667,21 @@ only party who saves anything is us. `verifiedDocs` is stripped on the way
 through — a LIM someone uploaded and paid to have read is their work, not a fact
 about the house.
 
-**A report costs about NZ$1.45 to produce, so allowances are enforced, not
-advertised.** `PLAN_ALLOWANCE` in `lib/billing/plans.ts`: free 1 (lifetime,
-never resets), starter 10/month, pro 20/month. Counted from the `reports` table
-by `lib/reports/quota.ts` — user id **and** the pre-signin owner cookie, or the
-report someone runs before creating their account goes uncounted. The gate sits
-before the scrape *and* before the reuse lookup: a cached report still costs the
-reader one of theirs, because the saving from reuse was always ours, not a way
-to run more reports than the plan includes.
+**A report costs about NZ$1.45 to produce, so credits are enforced, not
+advertised.** Free is `FREE_REPORTS` (1, lifetime, never resets); everything
+else is bought. Spending is counted from the `reports` table by
+`lib/reports/quota.ts` — user id **and** the pre-signin owner cookie, or the
+report someone runs before creating their account goes uncounted. There is no
+monthly window to count within: credits are owned, so what was bought in January
+is still there in June and what was spent in January is still spent. The gate
+sits before the scrape *and* before the reuse lookup: a cached report still
+costs the reader a credit, because the saving from reuse was always ours, not a
+way to run more reports than were paid for.
 
 **The free report runs in full and withholds only the conclusion.** Every photo
 is analysed and every finding shown — that is what sells the product — while the
-score out of 1,000, anything valuing the property, and the Financial /
-Renovations / agent tabs are locked. Blurred rather than removed, and the base
+score out of 1,000, anything valuing the property, and the Financial and
+Renovations tabs are locked. Blurred rather than removed, and the base
 score is blurred alongside the total or the total is recoverable by addition.
 It is a paywall, not a vault: the report is the reader's own and is scored in
 their browser, so the numbers are in the DOM. Never lock a shared link, the
@@ -829,7 +831,7 @@ keys, so a `$comment` fails the deploy rather than being ignored.
 
 **The product's name lives in `lib/brand.ts`, nowhere else.** It was spread
 across 44 files and the name isn't settled, so changing it meant an audit
-including AI prompts and the PDF sent to a vendor's agent. Customer-facing copy
+including the AI prompts. Customer-facing copy
 now reads `PRODUCT_NAME`; the domain comes from `displayDomain()`, derived from
 `NEXT_PUBLIC_APP_URL` so it can't disagree with where links actually point.
 Internal identifiers — `roiqScore`, `bdr_owner`, the Supabase project, the repo
@@ -1249,8 +1251,8 @@ URLs**; it links to a search box, it does not read a price off one.
 The citations are gone, `confidence` is `ai_estimate` (a word the type already
 had), and the card says plainly that no local rates have been collected. **This
 is the same rule as the rest of the app** — never claim a source you don't have —
-broken at the root of the costing engine, where a wrong number ends up in a
-letter to a vendor's agent. Don't put a supplier name back unless something here
+broken at the root of the costing engine, where a wrong number ends up in
+somebody's offer. Don't put a supplier name back unless something here
 actually calls one.
 
 **Materials are flat nationwide; only LABOUR carries a regional multiplier.**
@@ -1690,7 +1692,7 @@ year regex walked past, so a decade now parses to its midpoint.
 
 **Never score a thing that might not exist.** `ext_decking` is conditional —
 plenty of NZ houses have no deck, and scoring one anyway put an inferred deck
-into a letter to a vendor's agent as a costed defect. Conditional + absent drops
+into the report as a costed defect. Conditional + absent drops
 out of both sides of the fraction, the same as a chimney or a pool.
 
 **Appliances are chattels.** They stay out of Overview's "Priority repairs — act

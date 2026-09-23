@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ReportGap } from "@/lib/property-tab/gaps";
-import { ClipboardList, ChevronDown, ChevronUp, Upload, FileText } from "lucide-react";
+import { ClipboardList, ChevronDown, ChevronUp, Upload } from "lucide-react";
 
 export function ReportGapBanner({ gaps }: { gaps: ReportGap[] }) {
   const [expanded, setExpanded] = useState(false);
@@ -56,9 +56,9 @@ export function ReportGapBanner({ gaps }: { gaps: ReportGap[] }) {
                     {gap.label}
                   </span>
                   <span style={{ color: "var(--text-secondary)" }}> — {gap.description}</span>
-                  {gap.inAgentLetter && (
+                  {gap.inLimLetter && (
                     <span className="ml-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-                      (agent letter)
+                      (a LIM would settle this)
                     </span>
                   )}
                 </div>
@@ -67,13 +67,6 @@ export function ReportGapBanner({ gaps }: { gaps: ReportGap[] }) {
           </div>
 
           <div className="flex items-center gap-2 pt-2">
-            <button
-              className="btn-primary text-xs py-1.5 px-3 gap-1.5"
-              onClick={() => window.print()}
-            >
-              <FileText size={12} />
-              Generate agent letter PDF
-            </button>
             <button
               className="btn-secondary text-xs py-1.5 px-3 gap-1.5"
             >

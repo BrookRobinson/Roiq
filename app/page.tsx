@@ -3,7 +3,6 @@ import Navbar from "@/components/Navbar";
 import { Reveal } from "@/components/ui/Reveal";
 import { QuestionHero } from "@/components/landing/QuestionHero";
 import { DemoReportSection } from "@/components/landing/DemoReportSection";
-import { AgentLetter } from "@/components/landing/AgentLetter";
 import { LiveMapSection } from "@/components/landing/LiveMapSection";
 import { WhatsInside } from "@/components/landing/WhatsInside";
 import { HowItWorks } from "@/components/landing/HowItWorks";
@@ -55,7 +54,6 @@ export default function LandingPage() {
       <Position />
       <WhatsInside />
       <Scoring />
-      <AgentLetter />
       <LiveMapSection />
       <Pricing />
       <Voices />

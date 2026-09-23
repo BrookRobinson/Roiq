@@ -91,7 +91,7 @@ export interface Database {
           owner_key: string | null;
           /** The full StoredReport as generated — the source of truth. */
           report: Json | null;
-          /** ViewingState — the checklist answers that gate the agent letter. */
+          /** ViewingState — what the buyer found at the viewing. */
           viewing: Json | null;
           photos_analysed: number | null;
           model: string | null;

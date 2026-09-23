@@ -442,8 +442,8 @@ function Faq() {
       a: "One complete analysis of a real listing you paste in — every photo read, every defect and finding shown. What stays locked is the conclusion: the score out of 1,000, the valuation, and the Financial, Renovations and agent tabs. It's one report, not one a month, and buying opens the report you already ran rather than making you run it again.",
     },
     {
-      q: "Silver has the agent document — so why would I need Gold?",
-      a: `Because the agent document doesn't open until a building inspector has been to the property. It puts costed claims in front of somebody whose job is to take them apart, and your own walk-through can't settle whether a stain is an active leak or a repaired one. On Bronze and Silver you bring your own inspector's report and upload it. On Gold we send the inspector and load their report for you — so if you were paying for an inspection anyway, Gold is that inspection with everything else attached. ${INSPECTION_TERMS}`,
+      q: "What does the Gold inspection actually get me?",
+      a: `A qualified person walks the property and writes their own report, and we read it in beside ours. A photo analysis can tell you a ceiling is stained; it cannot tell you whether that is an active leak or one somebody fixed in 2019, and that difference is usually the most expensive line in the report. Where the inspector disagrees with the photo analysis, the report follows the inspector — they were there. If you were going to pay for an inspection anyway, Gold is that inspection with everything else attached. ${INSPECTION_TERMS}`,
     },
     {
       q: "Is this a registered property valuation?",

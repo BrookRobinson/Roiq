@@ -16,7 +16,6 @@ export interface StoredGap {
   gapType: string;
   area: string;
   description: string;
-  includedInAgentLetter: boolean;
   includedInLimLetter: boolean;
 }
 

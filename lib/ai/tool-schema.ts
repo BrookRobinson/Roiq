@@ -92,7 +92,6 @@ export interface RawInformationGap {
   gap_type: string;
   area: string;
   description: string;
-  in_agent_letter?: boolean;
   in_lim_letter?: boolean;
 }
 
@@ -334,8 +333,7 @@ const informationGapsSchema = {
       gap_type: { type: "string", description: "e.g. 'photo', 'document', 'spec'." },
       area: { type: "string", description: "Short label, e.g. 'West wall exterior'." },
       description: { type: "string" },
-      in_agent_letter: { type: "boolean" },
-      in_lim_letter: { type: "boolean" },
+      in_lim_letter: { type: "boolean", description: "True when a LIM would settle this." },
     },
     required: ["area", "description"],
   },

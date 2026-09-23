@@ -88,10 +88,9 @@ function docTool(kind: { label: string; scoreGuide: string }): Anthropic.Tool {
           items: { type: "string" },
           description: "Anything the buyer should worry about or follow up. Empty array if none.",
         },
-        // Only an inspection report fills these, and the letter quotes them to
-        // the vendor's agent — so they are read off the document rather than
-        // typed by the buyer. Anyone can type a date; this one has to be on the
-        // report that is sitting in the file.
+        // Only an inspection report fills these, and the report cites them — so
+        // they are read off the document rather than typed by the buyer. Anyone
+        // can type a date; this one has to be on the file that was uploaded.
         inspector: {
           type: ["string", "null"],
           description:
@@ -114,7 +113,7 @@ Rules:
 - If the PDF is not the expected document type, or is unreadable, set doc_type_confirmed=false, score=null, and say so plainly in the summary.
 - Write the summary in plain English with no legal jargon — imagine explaining it to a first-home buyer.
 - Be honest about red flags; do not soften genuine risks, and do not manufacture risks that aren't there.
-- For a property inspection report specifically: it only counts if a person attended the property. A desktop or drive-by assessment, a valuation, a builder's quote, a council document or a report on a DIFFERENT address is not one — set doc_type_confirmed=false and say which of those it actually is. This document is what unlocks a costed letter to the vendor's agent, so confirming the wrong file puts claims in front of a stranger that nobody qualified has checked.
+- For a property inspection report specifically: it only counts if a person attended the property. A desktop or drive-by assessment, a valuation, a builder's quote, a council document or a report on a DIFFERENT address is not one — set doc_type_confirmed=false and say which of those it actually is. Its findings are shown beside our own photo analysis and outrank it, so confirming the wrong file puts a stranger's conclusions about a different house into this one's report.
 Return your analysis ONLY by calling the submit_document_analysis tool.`;
 
 export async function POST(req: NextRequest) {
