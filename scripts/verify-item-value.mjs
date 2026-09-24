@@ -63,6 +63,18 @@ check("cladding carries scaffold", clad.cost.scaffoldNZD > 0, true);
 check("a kitchen does not", kitchen.cost.scaffoldNZD, 0);
 check("…so the same spend costs more outside", clad.cost.totalNZD > kitchen.cost.totalNZD, true);
 check("it is named in the working", /Scaffold/.test(clad.cost.workings.join(" ")), true);
+// You do not put scaffold round a footing. The flag is what decides it, and
+// anything not flagged must come back at exactly zero so the card can drop the
+// line rather than printing "Scaffold $0" on a foundation.
+const GROUNDED = ["ext_foundation", "ext_decking", "out_driveway", "out_drainage", "out_fencing", "gar_floor", "liv_flooring", "kit_sink"];
+check("nothing reachable from the ground is charged scaffold",
+  GROUNDED.filter((id) => valueItem({ ...base, id, buildYear: 2000, conditionScore: 6 }).cost.scaffoldNZD !== 0), []);
+check("…and their workings never mention it",
+  GROUNDED.filter((id) => /scaffold/i.test(valueItem({ ...base, id, buildYear: 2000, conditionScore: 6 }).cost.workings.join(" "))), []);
+// Everything at height must, or a reclad quote comes in thousands light.
+const AT_HEIGHT = ["ext_cladding", "ext_gutters", "ext_soffits", "ext_paint", "ext_chimney", "ext_solar"];
+check("everything worked at height is",
+  AT_HEIGHT.filter((id) => valueItem({ ...base, id, buildYear: 2000, conditionScore: 6 }).cost.scaffoldNZD <= 0), []);
 
 console.log("\nonly labour is regional");
 const flat = valueItem({ ...base, id: "kit_cabinetry", buildYear: 2000, conditionScore: 6, labourMultiplier: 1 });

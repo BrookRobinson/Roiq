@@ -1353,6 +1353,14 @@ step is real geometry; everything else scales off a figure the report already
 holds, and step 5 SAYS which it is — "scaled, not measured" — because that
 changes how much weight a reader should put on it.
 
+**A zero cost line is not a line.** "Scaffold $0" printed on every foundation,
+driveway, kitchen and floor in the report — you do not put scaffold round a
+footing, and printing the line to say so invites the reader to wonder whether we
+know that. The card drops any component costing nothing on that item.
+`verify:item-value` asserts both directions: nothing reachable from the ground
+is charged scaffold (and its workings never mention it), and everything worked
+at height is.
+
 **The generic model does NOT re-derive the cost.** `rcnNew` already carries this
 property's size and spec tier from `IMPROVEMENT_BASE_COSTS`; re-pricing it would
 be a second cost model disagreeing with the first. What it adds is the split and

@@ -87,11 +87,24 @@ export function ItemValuation({ v }: { v: AnyItemValuation }) {
 
       <Step n={6} title="Cost to replace">
         <Workings lines={v.cost.workings} />
+        {/* A zero line is not information. "Scaffold $0" sat on every
+            foundation, driveway and kitchen in the report — you do not put
+            scaffold round a footing, and printing the line to say so invites
+            the reader to wonder whether we know that. Anything that costs
+            nothing on this item simply isn't a line on this item. */}
         <div className="mt-2 space-y-0.5">
-          <Row label="Materials" amount={v.cost.materialsNZD} />
-          <Row label="Labour" amount={v.cost.labourNZD} />
-          <Row label="Scaffold" amount={v.cost.scaffoldNZD} />
-          <Row label="Strip &amp; disposal" amount={v.cost.disposalNZD} />
+          {(
+            [
+              ["Materials", v.cost.materialsNZD],
+              ["Labour", v.cost.labourNZD],
+              ["Scaffold", v.cost.scaffoldNZD],
+              ["Strip & disposal", v.cost.disposalNZD],
+            ] as [string, number][]
+          )
+            .filter(([, amount]) => amount > 0)
+            .map(([label, amount]) => (
+              <Row key={label} label={label} amount={amount} />
+            ))}
           <Row label="Total to replace" amount={v.cost.totalNZD} strong />
         </div>
         {/* The one thing on this panel nobody fetched. Saying so here beats a
