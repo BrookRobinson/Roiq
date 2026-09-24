@@ -31,6 +31,7 @@ npm run verify:estimated-value # valuing what the photos couldn't show, without 
 npm run verify:healthy-homes # the five legal standards, and when we may not claim compliance
 npm run verify:valuation-method # which method fits which property — tenure decides, not the label
 npm run verify:cross-lease   # what a shared title costs, and the band it may never leave
+npm run verify:land-value    # the section vs a typical one: shape, slope, orientation, access
 npm run verify:development   # the dwelling-you-could-add figure, and what the title says about it
 npm run verify:structures    # what you could build, what it costs, and where the rules let you drag it
 npm run verify:regions       # which region a listing resolves to, and what its labour costs
@@ -1390,6 +1391,15 @@ Renovations line priced at exactly that cost. It gets no three-tier costing: the
 tier engine turned a $944 board repair into a $9,753 re-clad. On an item past
 its life the replacement is the action and the repair is an unticked stop-gap,
 so the plan never pays for both.
+
+**Land starts from a TYPICAL section, not a perfect one.** valueLand's rate comes
+from ordinary sales of ordinary sections, so `adjustLand()` (land-value.ts)
+measures each fact from typical: an average section lands on the base, a better
+one above it. Shape and slope discount only the unusable AREA (slope only on the
+land the shape left workable, so a steep corner isn't counted twice);
+orientation and access apply to the WHOLE site. An unestablished fact moves
+nothing. Every rate lives in LAND_ADJ and is labelled industry-typical on the
+page until sales data calibrates it. Trees are not valued (taste).
 
 **The base rate is only what is HIDDEN behind the linings.** Frame, electrical
 pre-wire, plumbing rough-in, consents, prelims, margin. Anything a photo can show

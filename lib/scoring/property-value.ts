@@ -22,6 +22,7 @@
 import { valueImprovementItems, type RoofInputs } from "./improvement-values";
 import { valueExtraDwellings } from "./extra-dwelling-value";
 import { valueLand, roiqValuation, type RoiqValuation } from "./valuation";
+import { adjustLand, siteFactsFrom, type AdjustedLand } from "./land-value.ts";
 import { methodFor, comparablesMatch, type ValuationMethod } from "./valuation-method";
 import { crossLeaseDiscount, type CrossLeaseSharing, type CrossLeaseDiscount } from "./cross-lease";
 import type { SuburbValue } from "./investment";
@@ -115,6 +116,8 @@ export interface PropertyValue extends RoiqValuation {
    * rather than appearing to have got the section size wrong.
    */
   landAreaValuedSqm?: number;
+  /** The typical section's value and each adjustment to it — the Land tab prints this. */
+  siteAdjustment?: AdjustedLand;
 }
 
 /**
@@ -165,7 +168,18 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
     labourMultiplier: input.labourMultiplier,
     roof: input.roof,
   });
-  const land = valueLand({ landAreaSqm: ownedLandSqm, suburbValue: input.suburbValue });
+  const typicalLand = valueLand({ landAreaSqm: ownedLandSqm, suburbValue: input.suburbValue });
+  // A typical section of this size, then adjusted for THIS one — shape, slope,
+  // orientation, access. See land-value.ts; the Land tab prints every line.
+  const siteAdjustment = typicalLand ? adjustLand(typicalLand.landValue, siteFactsFrom(input.subItems)) : null;
+  const land =
+    typicalLand && siteAdjustment
+      ? {
+          ...typicalLand,
+          landValue: siteAdjustment.valueNZD,
+          ratePerSqm: typicalLand.landAreaSqm > 0 ? Math.round(siteAdjustment.valueNZD / typicalLand.landAreaSqm) : typicalLand.ratePerSqm,
+        }
+      : typicalLand;
 
   // Both halves are required. A building with no land under it, or land with an
   // unvalued house on it, is not a property valuation.
@@ -210,6 +224,7 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
       method,
       crossLease: { ...discount, deduction: rv.total - Math.round(rv.total * factor) },
       landAreaValuedSqm: ownedLandSqm,
+      siteAdjustment: siteAdjustment ?? undefined,
     };
   }
 
@@ -218,6 +233,7 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
     mainBuildingValue: improvements.buildingValue,
     extraDwellingValue: extra,
     method,
+    siteAdjustment: siteAdjustment ?? undefined,
   };
 }
 

@@ -21,6 +21,8 @@ import { actionFor, actionCost } from "@/lib/scoring/depreciation";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
+import { adjustLand, siteFactsFrom } from "@/lib/scoring/land-value";
+import { LandValueWorkings } from "@/components/PropertyInspections/LandValueWorkings";
 import { methodFor, comparablesMatch } from "@/lib/scoring/valuation-method";
 import { valueProperty, type PropertyValue } from "@/lib/scoring/property-value";
 import type { SiteLayout } from "@/lib/scoring/site-layout";
@@ -1111,6 +1113,13 @@ export function RealReportView({
           )}
           {tab === "address" && (
             <div className="space-y-4">
+              {propertyValue?.siteAdjustment && (
+                <LandValueWorkings
+                  land={propertyValue.siteAdjustment}
+                  landAreaSqm={propertyValue.landAreaValuedSqm ?? listing.landAreaSqm}
+                  shareNote={propertyValue.landAreaValuedSqm ? "This is the flat's share of a cross-lease site." : undefined}
+                />
+              )}
               <PropertyInspections mode="address" scored={scored} subItems={effectiveSubItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} development={development} persona={persona} landAreaSqm={listing.landAreaSqm}
                 onAddStructure={(st) => setAddedStructures((prev) => (prev.some((p) => p.id === st.id) ? prev : [...prev, st]))}
                 addedStructureIds={addedStructures.map((st) => st.id)} />
@@ -2798,7 +2807,10 @@ function ValueVerdict({ asking, improvementValuation, landAreaSqm, suburbValue, 
   // The land the OWNER holds, which on a cross lease is their share of the site
   // and not the whole thing. Same function and same argument valueProperty used,
   // so the working shown here is the working that produced the number.
-  const land = valueLand({ landAreaSqm: value?.landAreaValuedSqm ?? landAreaSqm, suburbValue });
+  const typicalLand = valueLand({ landAreaSqm: value?.landAreaValuedSqm ?? landAreaSqm, suburbValue });
+  // The land line is THE valuation's — the typical section adjusted for this
+  // one's shape, slope, orientation and access — never the unadjusted figure.
+  const land = typicalLand && value ? { ...typicalLand, landValue: value.landValue } : typicalLand;
 
   // An apartment, a unit, or anything on a title that gives its owner no
   // section of their own. There is no land line to add because the land is
@@ -3613,7 +3625,11 @@ function LandScoreBreakdown({ scored, locked = false }: { scored: ScoreResult; l
 /** What the section itself is worth. No building, so this is the whole valuation. */
 function LandValueCard({ report }: { report: StoredReport }) {
   const landAreaSqm = report.listing.landAreaSqm ?? null;
-  const land = valueLand({ landAreaSqm, suburbValue: report.suburbValue });
+  const typicalLand = valueLand({ landAreaSqm, suburbValue: report.suburbValue });
+  // Bare land gets the same site adjustments as a house's section.
+  const land = typicalLand
+    ? { ...typicalLand, landValue: adjustLand(typicalLand.landValue, siteFactsFrom(report.subItems)).valueNZD }
+    : null;
   const asking = report.listing.askingPrice ?? null;
   // On a section the land value IS the report, so an unbounded extrapolation
   // from suburb house comps is the whole answer being wrong rather than a
