@@ -179,6 +179,13 @@ function mapTitle(t: ScrapedListing["titleType"]): PropertyContext["titleType"] 
 // ── raw → SubItem ──────────────────────────────────────────────────────────
 
 const SPEC_TIERS = ["deteriorated", "dated", "modern", "luxury"] as const;
+/** The analysis's observations, trimmed and capped — never an empty array. */
+function cleanEvidence(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out = v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean).slice(0, 5);
+  return out.length ? out : undefined;
+}
+
 function normSpecTier(v: string | undefined): SpecTier | undefined {
   if (!v) return undefined;
   if (v === "original") return "dated"; // legacy v4 tier → closest v5 tier (functional but old)
@@ -359,6 +366,7 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
     replacementCostWeight: 0, // v3.1 engine weights by persona points, not this field
     specTier,
     observedDefect: raw.observed_defect?.trim() || undefined,
+    conditionEvidence: cleanEvidence(raw.condition_evidence),
     estimatedSqm: SIZE_ITEM_IDS.has(item.id) ? sizeSqm(raw.estimated_sqm, item.id, ctx.floorAreaSqm, ctx.bedrooms) : undefined,
     // Topography carries the facts its score is derived from (see land-quality.ts).
     slopeBand: item.id === "land_topography" ? normSlopeBand(raw.slope_band) : undefined,

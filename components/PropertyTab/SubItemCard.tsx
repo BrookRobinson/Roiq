@@ -7,7 +7,8 @@ import type { SubItem, RenoControls } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
-import { ItemValuation, ItemValuationWithheld, Step } from "./ItemValuation";
+import { ItemValuation, ItemValuationWithheld, Step, EvidenceList } from "./ItemValuation";
+import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
 import { isRefused, type AnyValuation } from "./valuation-types";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { confidenceMeta } from "./ConfidenceBar";
@@ -291,10 +292,18 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               </div>
             )}
             {valuation && !isRefused(valuation) ? (
-              <ItemValuation v={valuation} lead={{ title: "Listing photos", body: photosStep }} />
+              <ItemValuation v={valuation} lead={{ title: "Listing photos", body: photosStep }} evidence={evidenceFor(item)} />
             ) : (
               <div className="space-y-3">
                 <Step n={1} title="Listing photos">{photosStep}</Step>
+                {!item.noPhotoNotAssessed && ITEM_BY_ID[item.id]?.inspection === "improvements" && (
+                  <Step n={2} title="Visual evidence">
+                    {(() => {
+                      const m = mergeEvidence(item.observedDefect ? [item.observedDefect] : [], evidenceFor(item));
+                      return <EvidenceList concerns={m.concerns} evidence={m.seen} />;
+                    })()}
+                  </Step>
+                )}
                 {valuation && isRefused(valuation) && <ItemValuationWithheld reason={valuation.reason} />}
               </div>
             )}

@@ -442,6 +442,8 @@ export function RealReportView({
             estimatedAge: shot.estimatedAge,
             specTier: shot.specTier ?? s.specTier,
             observedDefect: shot.observedDefect ?? s.observedDefect,
+            // The buyer's own photographs are the better evidence when they have it.
+            conditionEvidence: shot.conditionEvidence?.length ? shot.conditionEvidence : s.conditionEvidence,
             aiSummary: shot.summary || s.aiSummary,
             evidenceSource: `Your own photo${shot.photoCount === 1 ? "" : "s"}, taken at the property`,
             estimatedReplacementCost: shot.estimatedReplacementCost ?? s.estimatedReplacementCost,

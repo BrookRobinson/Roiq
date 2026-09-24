@@ -32,6 +32,7 @@ import { urgencyLabel } from "@/lib/property-tab/types";
 import { emptyListing } from "@/lib/scraper/types";
 import type { PropertyType } from "@/lib/scraper/types";
 import { SCORING_MODEL, usesSpecTier } from "./model";
+import { sampleEvidence } from "./condition-evidence";
 import { SOURCE_TAXONOMY } from "./catalog";
 import { scoreBoth, type Assessment } from "./report";
 import { assessFoundation, type FoundationType } from "./foundation";
@@ -741,6 +742,13 @@ function buildSubItems(profile: SampleProfile): SubItem[] {
       confidenceTier: tier,
       evidenceSource: isImprovement ? "Listing photos" : tax?.source ?? "Listing facts",
       aiSummary: summary,
+      // A defect is its own evidence; everything else gets observations matched
+      // to its condition band, so a sound item still says WHY it reads sound.
+      conditionEvidence: isImprovement
+        ? defect
+          ? summary.match(/[^.!?]+[.!?]+/g)?.map((t) => t.trim())
+          : sampleEvidence(item.id, scored, refs)
+        : undefined,
       estimatedReplacementCost: cost,
       replacementCostWeight: 0,
       specTier: spec,

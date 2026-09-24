@@ -14,6 +14,7 @@
 
 import type { RoofValuation } from "@/lib/scoring/roof-value";
 import type { GenericItemValuation } from "@/lib/scoring/item-value";
+import { mergeEvidence } from "@/lib/scoring/condition-evidence";
 
 /**
  * Either shape. The roof measures its own area, so its step 5 carries real
@@ -34,7 +35,15 @@ const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
  * `lead` is a step drawn BEFORE the seven — the card passes the photographs the
  * item was read from, so the reader sees the evidence before the arithmetic.
  */
-export function ItemValuation({ v, lead }: { v: AnyItemValuation; lead?: { title: string; body: React.ReactNode } }) {
+export function ItemValuation({ v, lead, evidence = [] }: {
+  v: AnyItemValuation;
+  lead?: { title: string; body: React.ReactNode };
+  /** What the photographs show that set the condition and the age. */
+  evidence?: string[];
+}) {
+  // Defects first, in the warning colour; then the rest of what was seen. A
+  // line the defect already says is not repeated.
+  const merged = mergeEvidence(v.concerns, evidence);
   const o = lead ? 1 : 0;
   return (
     <div className="space-y-3">
@@ -53,20 +62,11 @@ export function ItemValuation({ v, lead }: { v: AnyItemValuation; lead?: { title
         </div>
       </Step>
 
-      <Step n={2 + o} title="Visual concerns">
-        {v.concerns.length > 0 ? (
-          <ul className="space-y-0.5">
-            {v.concerns.map((c, i) => (
-              <li key={i} className="text-[13px]" style={{ color: "var(--warn)" }}>
-                — {c}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-            Nothing visibly wrong in the photographs.
-          </div>
-        )}
+      {/* The evidence the condition and the age rest on — wear AND signs of
+          newness. It used to list defects only, so every sound item read
+          "Nothing visibly wrong in the photographs", which says brand new. */}
+      <Step n={2 + o} title="Visual evidence">
+        <EvidenceList concerns={merged.concerns} evidence={merged.seen} />
       </Step>
 
       <Step n={3 + o} title="Estimated age">
@@ -164,6 +164,28 @@ export function ItemValuationWithheld({ reason }: { reason: string }) {
       </div>
       {reason}
     </div>
+  );
+}
+
+/** Defects first in the warning colour, then the rest of what was seen. */
+export function EvidenceList({ concerns = [], evidence }: { concerns?: string[]; evidence: string[] }) {
+  if (concerns.length === 0 && evidence.length === 0) {
+    return (
+      <div className="text-[13px]" style={{ color: "var(--text-muted)" }}>
+        This report holds no recorded observations for this item. Its condition and age come from the
+        assessment below.
+      </div>
+    );
+  }
+  return (
+    <ul className="space-y-0.5">
+      {concerns.map((c, i) => (
+        <li key={`c${i}`} className="text-[13px]" style={{ color: "var(--warn)" }}>— {c}</li>
+      ))}
+      {evidence.map((e, i) => (
+        <li key={`e${i}`} className="text-[13px]" style={{ color: "var(--text-secondary)" }}>— {e}</li>
+      ))}
+    </ul>
   );
 }
 

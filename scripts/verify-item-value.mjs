@@ -121,5 +121,21 @@ check("the bar never overfills", shot.life.usedFraction <= 1, true);
 check("the bar agrees with the value",
   Math.abs((1 - shot.life.usedFraction) - shot.remainingFraction) < 0.01, true);
 
+console.log("\nthe visual evidence behind a condition");
+// A sound item still has evidence. "Nothing visibly wrong" on every card said
+// the whole house was brand new.
+const { sampleEvidence, evidenceFor } = await import(join(root, "lib/scoring/condition-evidence.ts"));
+check("every costed item has evidence phrases",
+  Object.keys(ITEM_LIFE).filter((id) => sampleEvidence(id, 7, [3]).length === 0), []);
+check("a good item gets evidence too", sampleEvidence("ext_roof", 9, [2]).length, 2);
+check("…and it cites the photo", /\(Photo 2\)/.test(sampleEvidence("ext_roof", 9, [2])[0]), true);
+check("a worn item reads worse than a fair one",
+  sampleEvidence("ext_paint", 3, []).join(" ") !== sampleEvidence("ext_paint", 7, []).join(" "), true);
+check("an unscored item gets none rather than a guess", sampleEvidence("ext_roof", null, [2]), []);
+check("recorded evidence wins", evidenceFor({ conditionEvidence: ["a"], aiSummary: "Rust at the laps (Photo 4)." }), ["a"]);
+check("older reports fall back to the photo-citing sentences",
+  evidenceFor({ aiSummary: "It is a roof. Rust at the laps in Photo 4. Otherwise fine." }), ["Rust at the laps in Photo 4."]);
+check("nothing recorded is empty, never 'nothing wrong'", evidenceFor({ aiSummary: "Looks fine overall." }), []);
+
 if (failures) { console.error(`\n${failures} item-value check(s) failed.\n`); process.exit(1); }
 console.log("\nAll item-value checks passed.\n");

@@ -34,6 +34,7 @@ export interface RawSubItem {
   confidence_tier: number;
   spec_tier?: string;
   observed_defect?: string;
+  condition_evidence?: string[];
   estimated_sqm?: number;
   foundation_type?: string;
   foundation_symptoms?: string[];
@@ -475,6 +476,12 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               type: "string",
               description:
                 "IMPROVEMENTS items that need work — what you can ACTUALLY SEE in the photos that needs attention on THIS property. One or two concrete sentences describing the specific visible evidence, not a generic condition statement. GOOD: 'Rust is bleeding through the ridge flashing above the garage and two sheets have lifted at the eastern end.' 'No extractor fan in either bathroom, and there is mould staining on the ceiling above the shower.' BAD: 'Roof is below average.' 'Needs replacing.' If the item is NOT visible in any photo, say what you inferred it from instead (e.g. 'Not visible — inferred from the 1975 build era; ceilings of this era typically have little or no insulation'). Leave empty for items in good order that need no work.",
+            },
+            condition_evidence: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "IMPROVEMENTS items \u2014 REQUIRED for every one you score. 2-4 short observations of what the photos actually show that set THIS item's condition score and your age estimate, each citing its photo. Include the signs of wear AND the signs of age or newness: 'Paint chalking and faded on the north face (Photo 3)', 'Carpet flattened through the hallway traffic lane (Photo 7)', 'Mixer and frameless screen are a style from the last ten years (Photo 11)', 'Flashings crisp with no rust at the laps (Photo 2)'. An item in good order still gets evidence \u2014 say what shows it is sound and how recent it looks. Never write 'nothing wrong' or a generic statement. If no photo shows the item, give one line saying what you inferred it from instead.",
             },
             evidence_source: {
               type: "string",

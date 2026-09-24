@@ -33,6 +33,8 @@ export interface ItemPhotoAnalysis {
   roofForm?: string | null;
   specTier?: SpecTier;
   observedDefect?: string;
+  /** What these photographs show that set the condition and the age, each citing its photo. */
+  conditionEvidence?: string[];
   summary: string;
   estimatedReplacementCost: ReplacementCost | null;
   photoCount: number;

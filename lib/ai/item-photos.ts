@@ -71,6 +71,7 @@ interface RawItemPhoto {
   roof_form?: string | null;
   spec_tier?: string;
   observed_defect?: string;
+  condition_evidence?: string[];
   ai_summary: string;
   replacement_cost?: { low?: number; high?: number; notes?: string };
   foundation_type?: string;
@@ -133,6 +134,12 @@ function tool(itemId: string, label: string): Anthropic.Tool {
           type: "string",
           description:
             "What is ACTUALLY VISIBLE in these photographs that needs work, in specific terms. Empty if nothing is wrong. Never generic.",
+        },
+        condition_evidence: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "2-4 short observations of what these photographs show that set the condition score and the age, each citing its photo: signs of wear (fading, chalking, cracking, rust, staining, lifting) AND signs of age or newness (a fitting's style, a current profile, crisp flashings). An item in good order still gets evidence. Never 'nothing wrong'.",
         },
         ai_summary: {
           type: "string",
@@ -297,6 +304,9 @@ export async function analyseItemPhotos(
     roofForm: raw.roof_form?.trim() || null,
     specTier: usesSpecTier(item) ? normSpec(raw.spec_tier) : undefined,
     observedDefect: raw.observed_defect?.trim() || undefined,
+    conditionEvidence: Array.isArray(raw.condition_evidence)
+      ? raw.condition_evidence.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim()).slice(0, 5)
+      : undefined,
     summary: foundation
       ? [foundation.rationale, raw.ai_summary?.trim()].filter(Boolean).join(" ")
       : raw.ai_summary?.trim() || "",
