@@ -28,7 +28,7 @@
 
 import { SCORING_MODEL } from "./model";
 import { SPEC_MULTIPLIER, conditionFactor } from "./valuation";
-import { effectiveAge, shellLifeRemaining, damageFor, SHELL_LIFE_YEARS, SHELL_RESIDUAL, type EffectiveAge, type Damage } from "./depreciation.ts";
+import { effectiveAge, shellLifeRemaining, actionFor, SHELL_LIFE_YEARS, SHELL_RESIDUAL, type EffectiveAge, type Action } from "./depreciation.ts";
 import { valueItem, isItemWithheld } from "./item-value.ts";
 import { valueRoof, roofMaterialFromText, isWithheld as isRoofWithheld } from "./roof-value.ts";
 import type { SpecTier, SubItem } from "@/lib/property-tab/types";
@@ -180,6 +180,8 @@ export interface ItemValue {
   valueNow: number; // replacementTotal × life remaining (valueItem)
   /** The age it was depreciated by, so the card's Age chip states the same one. */
   ageYears: number;
+  /** No life left: replacing it is the action, and any repair only a stop-gap. */
+  pastLife: boolean;
   valuePotential: number; // value at modern spec, as-new (the reno ceiling)
   valueGap: number; // max(0, potential − now) — the renovation upside
 }
@@ -316,7 +318,7 @@ export function valueImprovementItems(args: {
   // the cards add up to the headline. It used to be rcn × spec × a condition
   // factor here and cost-to-replace × life-left on the card: on a fair 1975
   // house the cards summed to a quarter of what the headline counted.
-  const depreciate = (id: string, rcnNew: number, conditionScore: number, asNew = false, damage: Damage | null = null) => {
+  const depreciate = (id: string, rcnNew: number, conditionScore: number, asNew = false, action: Action | null = null) => {
     const r = valueItem({
       id,
       rcnNew,
@@ -326,7 +328,7 @@ export function valueImprovementItems(args: {
       buildYear: args.buildYear,
       installedYear: asNew ? now.getFullYear() : null,
       labourMultiplier: args.labourMultiplier,
-      damage,
+      action,
       now,
     });
     return isItemWithheld(r) ? null : r;
@@ -364,12 +366,12 @@ export function valueImprovementItems(args: {
         buildYear: args.buildYear,
         conditionScore: condition,
         labourMultiplier: args.labourMultiplier,
-        damage: damageFor(s),
+        action: actionFor(s),
         now,
       });
       if (!isRoofWithheld(r)) {
         const rcn = r.cost.materialsNZD + r.cost.labourNZD;
-        items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew: rcn, replacementTotal: r.cost.totalNZD, valueNow: r.valueNZD, ageYears: r.age.effectiveYears, valuePotential: r.cost.totalNZD, valueGap: r.cost.totalNZD - r.valueNZD });
+        items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew: rcn, replacementTotal: r.cost.totalNZD, valueNow: r.valueNZD, ageYears: r.age.effectiveYears, pastLife: r.remainingFraction <= 0, valuePotential: r.cost.totalNZD, valueGap: r.cost.totalNZD - r.valueNZD });
         componentsValue += r.valueNZD;
         totalValueGap += r.cost.totalNZD - r.valueNZD;
         wRcn += rcn;
@@ -378,14 +380,14 @@ export function valueImprovementItems(args: {
       }
     }
 
-    const v = depreciate(id, rcnNew, condition, false, damageFor(s));
+    const v = depreciate(id, rcnNew, condition, false, actionFor(s));
     if (!v) continue;
     const potential = depreciate(id, Math.round(sized * RENO_TARGET_MULT), 10, true);
     const valueNow = v.valueNZD;
     const valuePotential = potential ? potential.valueNZD : valueNow;
     const valueGap = Math.max(0, valuePotential - valueNow);
 
-    items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew, replacementTotal: v.cost.totalNZD, valueNow, ageYears: v.age.effectiveYears, valuePotential, valueGap });
+    items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew, replacementTotal: v.cost.totalNZD, valueNow, ageYears: v.age.effectiveYears, pastLife: v.remainingFraction <= 0, valuePotential, valueGap });
     componentsValue += valueNow;
     totalValueGap += valueGap;
     wRcn += rcnNew;

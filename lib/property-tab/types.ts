@@ -1,3 +1,4 @@
+import type { UrgentAction } from "@/lib/scoring/depreciation";
 export type ConfidenceTier = 1 | 2 | 3;
 
 export type UrgencyScore = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
@@ -112,8 +113,8 @@ export interface SubItem {
   observedDefect?: string;             // what's actually VISIBLE in this property's photos that needs work
   /** What the photos show that set the condition and the age — wear AND signs of newness, each citing its photo. */
   conditionEvidence?: string[];
-  /** 0–1: how much of it is broken and must be fixed now — damage, not wear. */
-  damageShare?: number;
+  /** Work needed NOW to get it back to a well-maintained state. See actionFor(). */
+  urgentAction?: UrgentAction;
   estimatedSqm?: number;               // for size/area items — the estimated area in m² (shown instead of material/age)
 
   slopeBand?: SlopeBand;               // land_topography only — the measured-ish fact behind its score

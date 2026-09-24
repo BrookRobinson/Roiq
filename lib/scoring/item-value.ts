@@ -21,7 +21,7 @@
 // Dependency-free so verify:item-value can load it with plain node.
 // ============================================================
 
-import { componentAge, lifeRemaining, damageDeduction, type EffectiveAge, type Damage } from "./depreciation.ts";
+import { componentAge, lifeRemaining, actionDeduction, actionCost, type EffectiveAge, type Action } from "./depreciation.ts";
 import { ITEM_LIFE, expectedLife, type ItemLife } from "./item-life.ts";
 
 export interface ItemValuationLife {
@@ -58,8 +58,12 @@ export interface GenericItemValuation {
   size: ItemSize;
   cost: ItemCostBreakdown;
   remainingFraction: number;
-  /** Damage taken off the value, when there is any. */
-  damage: (Damage & { nzd: number }) | null;
+  /** Work needed now, what it costs, and what it took off the value. */
+  /**
+   * `stopGap` is set when the item is already past the end of its life: the
+   * real action is replacing it, and this work only holds it until then.
+   */
+  action: (Action & { costNZD: number; deductedNZD: number; stopGap: boolean }) | null;
   valueNZD: number;
   liabilityNZD: number;
   summary: string;
@@ -102,8 +106,8 @@ export function valueItem(args: {
   installedYear?: number | null;
   labourMultiplier?: number;
   label?: string;
-  /** Broken now, whatever its age — see damageFor(). */
-  damage?: Damage | null;
+  /** Work needed now, whatever its age — see actionFor(). */
+  action?: Action | null;
   now?: Date;
 }): GenericItemValuation | ItemWithheldResult {
   const life: ItemLife | undefined = ITEM_LIFE[args.id];
@@ -182,7 +186,7 @@ export function valueItem(args: {
   };
 
   const beforeDamage = Math.round(cost.totalNZD * remainingFraction);
-  const damageNZD = damageDeduction(beforeDamage, cost.totalNZD, args.damage);
+  const damageNZD = actionDeduction(beforeDamage, cost.totalNZD, args.action);
   const valueNZD = beforeDamage - damageNZD;
   const liabilityNZD = cost.totalNZD - valueNZD;
 
@@ -199,11 +203,13 @@ export function valueItem(args: {
     size: { workings: args.sizeWorkings, summary: args.sizeSummary },
     cost,
     remainingFraction: Math.round(remainingFraction * 1000) / 1000,
-    damage: args.damage && damageNZD > 0 ? { ...args.damage, nzd: damageNZD } : null,
+    action: args.action
+      ? { ...args.action, costNZD: actionCost(cost.totalNZD, args.action), deductedNZD: damageNZD, stopGap: args.action.scope !== "replace" && beforeDamage <= 0 }
+      : null,
     valueNZD,
     liabilityNZD,
     summary: damageNZD > 0
-      ? `Its age leaves ${Math.round(remainingFraction * 100)}% of the $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost, $${beforeDamage.toLocaleString("en-NZ")}, but about ${Math.round((args.damage?.share ?? 0) * 100)}% of it is damaged and has to be fixed now: less $${damageNZD.toLocaleString("en-NZ")}, leaving $${valueNZD.toLocaleString("en-NZ")}.`
+      ? `Its age leaves ${Math.round(remainingFraction * 100)}% of the $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost, $${beforeDamage.toLocaleString("en-NZ")}, but it needs work now that costs about $${actionCost(cost.totalNZD, args.action).toLocaleString("en-NZ")}: less $${damageNZD.toLocaleString("en-NZ")}, leaving $${valueNZD.toLocaleString("en-NZ")}.`
       : yearsRemaining <= 0
         ? `At or past the end of its life. It carries ${remainingFraction > 0 ? `only a residual $${valueNZD.toLocaleString("en-NZ")}` : "no remaining value"}, and replacing it is about $${cost.totalNZD.toLocaleString("en-NZ")}.`
         : `About ${Math.round(yearsRemaining)} of ${expected} years left, so it holds roughly ${Math.round(remainingFraction * 100)}% of its $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost — $${valueNZD.toLocaleString("en-NZ")} of value, with $${liabilityNZD.toLocaleString("en-NZ")} of life already used up.`,

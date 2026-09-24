@@ -230,51 +230,75 @@ export const SHELL_RESIDUAL = 0.25;
 export const shellLifeRemaining = (effectiveYears: number): number =>
   lifeRemaining(effectiveYears, SHELL_LIFE_YEARS, SHELL_RESIDUAL);
 
-// ── Damage ───────────────────────────────────────────────────────────────────
+// ── Urgent action ────────────────────────────────────────────────────────────
 
 /**
- * Damage is not wear, and age can't carry it.
+ * Work an item needs NOW to get back to a well-maintained state, and what it
+ * takes off the value.
  *
- * Condition moves an item's age, which is right for wear: a tired roof has
- * used more of its life. But a one-year-old front door smashed apart with a
- * crowbar has used one year of its life and is worth nothing. Moved by
- * condition, a year becomes a year and a half, and the door still read as 97%
- * of new. So damage is its own step: the share of the item that is broken and
- * must be fixed or replaced NOW, taken off the value at the item's own
- * replacement cost. Never below zero.
+ * Condition moves an item's age, which is right for wear. It can't carry work
+ * that is needed now: a one-year-old front door smashed with a crowbar has used
+ * one year of its life and is worth $0, and a sound roof with two lifted sheets
+ * needs a roofer this month whatever its age. So the action is its own step,
+ * and the value loses what it costs to put right (the valuer's "cost to cure"),
+ * at the item's own replacement cost and never below zero. The same figure is
+ * the line on the Renovations tab, so the plan and the value agree.
  */
-export interface Damage {
-  /** 0–1: how much of the item is broken. A smashed door is 1. */
+export type ActionScope = "maintenance" | "repair" | "replace";
+
+export interface UrgentAction {
+  /** The work, as an instruction: "Replace the cracked pane in the lounge window". */
+  work: string;
+  scope: ActionScope;
+  /** 0–1: the share of the item's full replacement cost this work amounts to. 1 = replace it. */
   share: number;
-  /** Where the share came from — recorded by the analysis, or read from a failed condition. */
+}
+
+export interface Action extends UrgentAction {
+  /** Recorded by the analysis, or read from a failed condition on an older report. */
   basis: "recorded" | "condition";
 }
 
+const firstSentence = (t: string) => (t.match(/^[^.!?;]+/)?.[0] ?? t).trim();
+
 /**
- * The damage on an item, or null.
+ * The urgent action on an item, or null.
  *
- * The analysis records the share directly. Reports analysed before it did hold
- * a defect and a condition, and a defect on an item at 3/10 or worse is damage
- * in proportion to the reading — 1/10 destroyed, 2 two-thirds, 3 a third.
- * With no defect recorded there is nothing to say it is damage rather than
- * wear, so nothing is taken.
+ * The analysis records it. Reports analysed before it did hold a defect and a
+ * condition, and a defect on an item at 3/10 or worse needs putting right in
+ * proportion to the reading — 1/10 replace, 2 two-thirds, 3 a third. With no
+ * defect recorded there is nothing to say work is needed, so nothing is taken.
  */
-export function damageFor(item: {
-  damageShare?: number | null;
+export function actionFor(item: {
+  urgentAction?: UrgentAction | null;
   observedDefect?: string | null;
   score?: number | null;
-}): Damage | null {
-  if (typeof item.damageShare === "number" && Number.isFinite(item.damageShare) && item.damageShare > 0) {
-    return { share: Math.min(1, item.damageShare), basis: "recorded" };
+}): Action | null {
+  const a = item.urgentAction;
+  if (a && a.work?.trim() && Number.isFinite(a.share) && a.share > 0) {
+    const share = a.scope === "replace" ? 1 : Math.min(1, a.share);
+    return { work: a.work.trim(), scope: a.scope, share, basis: "recorded" };
   }
-  if (item.observedDefect?.trim() && item.score != null && item.score <= 3) {
-    return { share: Math.round(((4 - Math.max(1, item.score)) / 3) * 100) / 100, basis: "condition" };
+  // Work comes from something SEEN. "Not visible — inferred from the build
+  // era" is a reason to look, not a job: it put "Put right: not visible in
+  // any photo" into the renovation plan for insulation nobody had seen.
+  const defect = item.observedDefect?.trim() ?? "";
+  if (defect && !/^not visible|\binferred\b/i.test(defect) && item.score != null && item.score <= 3) {
+    const share = Math.round(((4 - Math.max(1, item.score)) / 3) * 100) / 100;
+    return {
+      work: share >= 1 ? "Replace it" : `Put right: ${firstSentence(defect).replace(/^./, (c) => c.toLowerCase())}`,
+      scope: share >= 1 ? "replace" : "repair",
+      share,
+      basis: "condition",
+    };
   }
   return null;
 }
 
-/** What the damage takes off: share × cost to replace, capped at the value it had. */
-export function damageDeduction(valueBefore: number, costToReplace: number, damage: Damage | null | undefined): number {
-  if (!damage || damage.share <= 0) return 0;
-  return Math.min(valueBefore, Math.round(damage.share * costToReplace));
-}
+/** What the action costs: share × the item's cost to replace. */
+export const actionCost = (costToReplace: number, action: Action | null | undefined): number =>
+  action && action.share > 0 ? Math.round(action.share * costToReplace) : 0;
+
+/** What it takes off the value: its cost, capped at the value the item had. */
+export const actionDeduction = (valueBefore: number, costToReplace: number, action: Action | null | undefined): number =>
+  Math.min(valueBefore, actionCost(costToReplace, action));

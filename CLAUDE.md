@@ -1378,12 +1378,18 @@ sets the cost NEW and is never a discount on the value; an ungraded spec is the
 card and the headline can't be fed different inputs. `verify:estimated-value`
 asserts the sums agree.
 
-**Damage is its own step; age can't carry it.** Condition moves the age, which
-is right for wear, but a one-year-old door smashed with a crowbar has used one
-year of life and is worth $0. `damageFor()` gives the broken share (0–1): the
-analysis's `damage_share` when recorded, otherwise a defect at 3/10 or worse
-read from the condition (1 = destroyed). Taken off at share × the item's own
-cost to replace, never below $0, in BOTH the headline and the card.
+**Urgent action is its own step; age can't carry it.** Condition moves the age,
+which is right for wear, but a one-year-old door smashed with a crowbar has used
+one year of life and is worth $0, and a sound roof with lifted sheets needs a
+roofer now. `actionFor()` gives the work, its scope (maintenance / repair /
+replace) and its share of the item's replacement cost: the analysis's
+`urgent_action` when recorded, otherwise a SEEN defect at 3/10 or worse (never an
+"inferred" one). One figure, three places: the card's Action step, the value
+(less cost to cure, never below $0, headline and card alike) and a PRE-TICKED
+Renovations line priced at exactly that cost. It gets no three-tier costing: the
+tier engine turned a $944 board repair into a $9,753 re-clad. On an item past
+its life the replacement is the action and the repair is an unticked stop-gap,
+so the plan never pays for both.
 
 **The base rate is only what is HIDDEN behind the linings.** Frame, electrical
 pre-wire, plumbing rough-in, consents, prelims, margin. Anything a photo can show

@@ -15,6 +15,7 @@ import {
 } from "./tool-schema";
 import { prepareImages, type PreparedImage } from "./images";
 
+import { normAction } from "@/lib/scoring/action-parse";
 import { SCORING_MODEL, LOCATION_PENALTIES, usesSpecTier, SIZE_ITEM_IDS, type ScoringSubItem, type Inspection } from "@/lib/scoring/model";
 import { buildCatalog, INSPECTION_META, SOURCE_TAXONOMY, type CatalogInspection } from "@/lib/scoring/catalog";
 import { scoreBoth, type Assessment } from "@/lib/scoring/report";
@@ -367,10 +368,7 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
     specTier,
     observedDefect: raw.observed_defect?.trim() || undefined,
     conditionEvidence: cleanEvidence(raw.condition_evidence),
-    damageShare:
-      typeof raw.damage_share === "number" && Number.isFinite(raw.damage_share) && raw.damage_share > 0
-        ? Math.min(1, raw.damage_share)
-        : undefined,
+    urgentAction: normAction(raw.urgent_action),
     estimatedSqm: SIZE_ITEM_IDS.has(item.id) ? sizeSqm(raw.estimated_sqm, item.id, ctx.floorAreaSqm, ctx.bedrooms) : undefined,
     // Topography carries the facts its score is derived from (see land-quality.ts).
     slopeBand: item.id === "land_topography" ? normSlopeBand(raw.slope_band) : undefined,

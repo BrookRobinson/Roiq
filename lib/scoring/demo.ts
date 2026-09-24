@@ -7,6 +7,7 @@ import type { SubItem, ExtraDwelling, UrgencyScore, Remediation, SpecTier } from
 import { urgencyLabel } from "@/lib/property-tab/types";
 import { emptyListing } from "@/lib/scraper/types";
 import { SCORING_MODEL, usesSpecTier } from "./model";
+import type { UrgentAction } from "./depreciation";
 import { SOURCE_TAXONOMY } from "./catalog";
 import { scoreBoth, type Assessment } from "./report";
 import { readSiteLayout } from "./site-layout";
@@ -84,6 +85,31 @@ const DEFECTS: Record<string, string> = {
   bed_storage: "Two bedrooms have shallow original wardrobes with sagging hanging rails; the third has no built-in storage at all.",
   gar_floor: "Bare concrete with oil staining under the parking bay and a crack running diagonally from the door opening.",
   out_driveway: "Concrete drive is sound but crazed across the turning area, with weeds through the joints near the street.",
+};
+
+// Work each item needs NOW to get back to a well-maintained state — the Action
+// step on its card and a pre-ticked line in the renovation plan. Only where the
+// defect above calls for it: dated-but-sound items, and things nobody can see
+// (insulation, waterproofing), carry none.
+const ACTIONS: Record<string, UrgentAction> = {
+  ext_roof: { work: "Refix the two lifted sheets with screws in place of the old nails, and replace the rusted ridge flashing above the garage", scope: "repair", share: 0.08 },
+  ext_gutters: { work: "Clear the gutter above the front entry and check the outlet is running", scope: "maintenance", share: 0.03 },
+  ext_soffits: { work: "Refix the sagging soffit sheet at the corner, then scrape and repaint the south soffits", scope: "repair", share: 0.15 },
+  ext_cladding: { work: "Cut out and replace the soft boards at the base of the south wall", scope: "repair", share: 0.03 },
+  ext_paint: { work: "Scrape, prime and repaint the south and west elevations", scope: "maintenance", share: 0.5 },
+  ext_doors: { work: "Replace the rollers and perished seals on the deck slider", scope: "repair", share: 0.08 },
+  ext_decking: { work: "Replace the two cupped boards, re-secure the loose handrail post and oil the deck", scope: "repair", share: 0.2 },
+  bath_ventilation: { work: "Fit a ducted extractor fan in each bathroom and treat the mould on the ceiling", scope: "replace", share: 1 },
+  bath_flooring: { work: "Replace the two cracked tiles and regrout and reseal along the shower edge", scope: "repair", share: 0.15 },
+  bath_shower: { work: "Reseal the shower base and replace the blackened silicone", scope: "maintenance", share: 0.05 },
+  bath_toilet: { work: "Reseal the pan to the floor", scope: "maintenance", share: 0.05 },
+  bath_hotwater: { work: "Replace the corroded original cylinder", scope: "replace", share: 1 },
+  liv_heating: { work: "Replace the rusted flue collar at the ceiling penetration", scope: "repair", share: 0.05 },
+  liv_flooring: { work: "Replace the hallway carpet worn through to the backing and restretch it at the lounge doorway", scope: "repair", share: 0.3 },
+  bed_ceiling: { work: "Replace the two water-stained panels in the back bedroom once the roof above is fixed", scope: "repair", share: 0.15 },
+  kit_flooring: { work: "Re-glue and seal the lifted vinyl seam in front of the dishwasher", scope: "repair", share: 0.1 },
+  gar_door: { work: "Sand, seal and repaint the swollen bottom rail of the garage door", scope: "maintenance", share: 0.1 },
+  out_fencing: { work: "Replace the three missing palings and straighten the leaning run by the driveway", scope: "repair", share: 0.15 },
 };
 
 /** Items no listing photograph can show. They are inferred, so they are Tier 3
@@ -378,6 +404,7 @@ function buildSubItems(): SubItem[] {
       renovationLink: Boolean(cost),
       healthyHomesLink: item.affectsHealthyHomes,
       observedDefect: DEFECTS[item.id],
+      urgentAction: ACTIONS[item.id],
       photoReferences: PHOTOS[item.id] ?? (item.id === "loc_sun" ? [2, 3] : item.id === "leg_unconsented" ? [12] : []),
       ...(isImprovement
         ? {}

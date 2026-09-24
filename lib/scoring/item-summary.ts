@@ -22,6 +22,8 @@ export interface SummaryInput {
   holdYears: number;
   /** What needs work, when anything does. */
   defect?: string | null;
+  /** The urgent action and its cost — outranks the defect when there is one. */
+  action?: { work: string; costNZD: number; stopGap?: boolean } | null;
   /** What the photos show, first line most important. */
   evidence?: string[];
   /** Items with no cost line (layout, size, light) are stated facts. */
@@ -72,7 +74,9 @@ export function itemSummary(i: SummaryInput): string {
 
   // Work needed NOW outranks the replacement date: a roof with ten years left
   // and two lifted sheets needs a roofer this month.
-  const finding = i.defect?.trim()
+  const finding = i.action
+    ? `${i.action.stopGap ? "Stop-gap until then" : "Needs doing now"}: ${lower(i.action.work.replace(/[.!?]+$/, ""))}${i.action.costNZD > 0 ? ` — about ${money(i.action.costNZD)}` : ""}.`
+    : i.defect?.trim()
     ? `${i.score != null && i.score <= 4 ? "Needs attention now: " : "Worth watching: "}${lower(firstSentence(i.defect))}`
     : i.evidence?.[0]
       ? firstSentence(i.evidence[0])

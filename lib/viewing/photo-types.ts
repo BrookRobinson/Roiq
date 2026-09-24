@@ -1,3 +1,4 @@
+import type { UrgentAction } from "@/lib/scoring/depreciation";
 // The shape a buyer's own photograph of one item comes back as.
 //
 // Lives apart from lib/ai/item-photos.ts, which is where it is produced, so
@@ -35,8 +36,8 @@ export interface ItemPhotoAnalysis {
   observedDefect?: string;
   /** What these photographs show that set the condition and the age, each citing its photo. */
   conditionEvidence?: string[];
-  /** 0–1: how much of it is broken and must be fixed now — damage, not wear. */
-  damageShare?: number;
+  /** Work needed NOW to get it back to a well-maintained state. */
+  urgentAction?: UrgentAction;
   summary: string;
   estimatedReplacementCost: ReplacementCost | null;
   photoCount: number;

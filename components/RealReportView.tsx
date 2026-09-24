@@ -17,7 +17,7 @@ import { valueItem } from "@/lib/scoring/item-value";
 import { IMPROVEMENT_BASE_COSTS } from "@/lib/scoring/improvement-values";
 import type { AnyValuation } from "@/components/PropertyTab/valuation-types";
 import { labourMultiplierFor } from "@/lib/labour-rates";
-import { damageFor } from "@/lib/scoring/depreciation";
+import { actionFor, actionCost } from "@/lib/scoring/depreciation";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
@@ -203,10 +203,10 @@ const lineCost = (l: { costing?: ThreeTierCost; low: number; high: number }, t?:
  * true at any hold length.
  */
 const renoIncluded = (
-  l: { key: string; autoInclude: boolean },
+  l: { key: string; autoInclude: boolean; stopGap?: boolean },
   toggles: Record<string, RenoToggle>,
   dueWithinHold = false
-): boolean => toggles[l.key]?.included ?? (l.autoInclude || dueWithinHold);
+): boolean => toggles[l.key]?.included ?? (l.autoInclude || (dueWithinHold && !l.stopGap));
 
 /**
  * Work due within about a year is money you find at settlement; anything later
@@ -445,8 +445,8 @@ export function RealReportView({
             observedDefect: shot.observedDefect ?? s.observedDefect,
             // The buyer's own photographs are the better evidence when they have it.
             conditionEvidence: shot.conditionEvidence?.length ? shot.conditionEvidence : s.conditionEvidence,
-            // The buyer's photos are of the item now; the damage is what THEY show.
-            damageShare: shot.damageShare,
+            // The buyer's photos are of the item now; the work is what THEY show.
+            urgentAction: shot.urgentAction,
             aiSummary: shot.summary || s.aiSummary,
             evidenceSource: `Your own photo${shot.photoCount === 1 ? "" : "s"}, taken at the property`,
             estimatedReplacementCost: shot.estimatedReplacementCost ?? s.estimatedReplacementCost,
@@ -706,8 +706,8 @@ export function RealReportView({
         buildYear: report.listing.buildYear,
         conditionScore: shot?.showsItem ? shot.score : roof.score,
         concerns,
-        // The same damage the headline takes off — read from the effective item.
-        damage: damageFor(effectiveSubItems.find((s) => s.id === "ext_roof") ?? roof),
+        // The same action the headline takes off — read from the effective item.
+        action: actionFor(effectiveSubItems.find((s) => s.id === "ext_roof") ?? roof),
         labourMultiplier: labourMultiplierFor(report.listing),
       })
     );
@@ -733,7 +733,7 @@ export function RealReportView({
           // already carry the buyer's own photograph — so card and headline
           // are the same sum, not two that happen to be close.
           conditionScore: v.condition,
-          damage: damageFor(effectiveSubItems.find((s) => s.id === v.id) ?? {}),
+          action: actionFor(effectiveSubItems.find((s) => s.id === v.id) ?? {}),
           buildYear: report.listing.buildYear,
           label: v.label,
           labourMultiplier: labourMultiplierFor(report.listing),
@@ -1965,6 +1965,8 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
 // ── Renovations ──────────────────────────────────────────────────────────────
 interface RenoLine {
   key: string;
+  /** A repair on an item past its life: listed as an option, never pre-ticked — the replacement is. */
+  stopGap?: boolean;
   name: string;
   detail: string;
   badge?: string; // inspection label for remediation items
@@ -2008,10 +2010,18 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
     floorAreaSqm: listing.floorAreaSqm,
     bathrooms: listing.bathrooms,
     buildYear: listing.buildYear,
+    // Same labour and roof inputs as the cards, so an action costs the same
+    // here as it does in the item's Action step.
+    labourMultiplier: labourMultiplierFor(listing),
+    roof: { footprintM2: listing.siteLayout?.mainBuildingAreaSqm ?? null },
   });
   const valueById = new Map(valuation.items.map((v) => [v.id, v]));
 
   for (const s of subItems) {
+    // The work the item needs NOW. A full replacement ticks the item's own
+    // replacement line below; anything smaller is its own line. Either way it
+    // goes into the plan ticked, and the buyer unticks what they won't do.
+    const urgent = isImprovement(s) ? actionFor(s) : null;
     // Every assessed, cost-bearing improvement item is a renovation candidate — the
     // buyer can tick it to replace it. Auto-ticked into the plan when it scores ≤30%.
     const v = valueById.get(s.id);
@@ -2045,12 +2055,45 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         // `=== false` on purpose: unknown is not a failure. Ticking work nobody
         // has established is needed would put money in a plan for a problem
         // that may not exist.
-        autoInclude: (s.score !== null && frac <= 0.30) || legallyRequired.has(s.id),
+        autoInclude: (s.score !== null && frac <= 0.30) || legallyRequired.has(s.id) || urgent?.scope === "replace" || (!!urgent && !!v?.pastLife),
         valueGap: v?.valueGap,
         observedDefect: s.observedDefect,
         legal: HH_RENO_KEYS.has(s.id),
         nonExisting: s.specTier === "deteriorated",
       });
+    }
+    if (urgent && urgent.scope !== "replace") {
+      const v = valueById.get(s.id);
+      const cost = actionCost(v?.replacementTotal ?? 0, urgent);
+      if (cost > 0) {
+        const category = ITEM_BY_ID[s.id]?.category;
+        const low = Math.round(cost * 0.85);
+        const high = Math.round(cost * 1.15);
+        lines.push({
+          key: `${s.id}_act`,
+          name: urgent.work,
+          detail: `${urgent.scope === "maintenance" ? "Maintenance" : "Repair"} · ${s.name}`,
+          badge: v?.pastLife ? "Stop-gap" : "Needs doing now",
+          low,
+          high,
+          urgencyYears: 0,
+          detailColor: "var(--bad)",
+          uplift: 0,
+          notes: undefined,
+          category,
+          photoRefs: s.photoReferences,
+          observedDefect: s.observedDefect,
+          scopeHint: urgent.work,
+          // No three-tier costing: this is ONE known job at one price — the
+          // same figure the card's Action step shows and the value loses. Run
+          // through the tier engine it came back as a $9,753 re-clad for a
+          // $944 board repair.
+          // Past its life, the replacement is ticked instead; paying for both
+          // would put the same roof in the plan twice.
+          autoInclude: !v?.pastLife,
+          stopGap: !!v?.pastLife,
+        });
+      }
     }
     // Legal / due-diligence remedies (e.g. a LIM report, title checks) are not
     // renovations — keep them out of the reno tab's Patch/Replace cost tiers.

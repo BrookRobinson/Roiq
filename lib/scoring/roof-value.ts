@@ -29,7 +29,7 @@
 // nothing else has to move.
 // ============================================================
 
-import { componentAge, effectiveAge, lifeRemaining, damageDeduction, type EffectiveAge, type Damage } from "./depreciation.ts";
+import { componentAge, effectiveAge, lifeRemaining, actionDeduction, actionCost, type EffectiveAge, type Action } from "./depreciation.ts";
 
 export type RoofMaterialId =
   | "longrun_colorsteel"
@@ -341,8 +341,12 @@ export interface RoofValuation {
   cost: RoofCost;
   /** Share of the material's life still ahead of it, 0–1. */
   remainingFraction: number;
-  /** Damage taken off the value, when there is any. */
-  damage: (Damage & { nzd: number }) | null;
+  /** Work needed now, what it costs, and what it took off the value. */
+  /**
+   * `stopGap` is set when the item is already past the end of its life: the
+   * real action is replacing it, and this work only holds it until then.
+   */
+  action: (Action & { costNZD: number; deductedNZD: number; stopGap: boolean }) | null;
   /** What the roof on this house is worth today. */
   valueNZD: number;
   /** What it will cost to put right — the number a buyer negotiates with. */
@@ -386,8 +390,8 @@ export function valueRoof(args: {
   conditionScore?: number | null;
   concerns?: string[];
   labourMultiplier?: number;
-  /** Broken now, whatever its age — see damageFor(). */
-  damage?: Damage | null;
+  /** Work needed now, whatever its age — see actionFor(). */
+  action?: Action | null;
   now?: Date;
 }): RoofValuation | RoofWithheldResult {
   if (!args.material) {
@@ -467,7 +471,7 @@ export function valueRoof(args: {
   // replacement. Those are two different numbers and the report shows both:
   // one is what you are buying, the other is what you will spend.
   const beforeDamage = Math.round(cost.totalNZD * remainingFraction);
-  const damageNZD = damageDeduction(beforeDamage, cost.totalNZD, args.damage);
+  const damageNZD = actionDeduction(beforeDamage, cost.totalNZD, args.action);
   const valueNZD = beforeDamage - damageNZD;
   const liabilityNZD = cost.totalNZD - valueNZD;
 
@@ -479,12 +483,14 @@ export function valueRoof(args: {
     area,
     cost,
     remainingFraction: Math.round(remainingFraction * 1000) / 1000,
-    damage: args.damage && damageNZD > 0 ? { ...args.damage, nzd: damageNZD } : null,
+    action: args.action
+      ? { ...args.action, costNZD: actionCost(cost.totalNZD, args.action), deductedNZD: damageNZD, stopGap: args.action.scope !== "replace" && beforeDamage <= 0 }
+      : null,
     valueNZD,
     liabilityNZD,
     yearsRemaining,
     summary: damageNZD > 0
-      ? `Its age leaves ${Math.round(remainingFraction * 100)}% of the $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost, $${beforeDamage.toLocaleString("en-NZ")}, but about ${Math.round((args.damage?.share ?? 0) * 100)}% of it is damaged and has to be fixed now: less $${damageNZD.toLocaleString("en-NZ")}, leaving $${valueNZD.toLocaleString("en-NZ")}.`
+      ? `Its age leaves ${Math.round(remainingFraction * 100)}% of the $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost, $${beforeDamage.toLocaleString("en-NZ")}, but it needs work now that costs about $${actionCost(cost.totalNZD, args.action).toLocaleString("en-NZ")}: less $${damageNZD.toLocaleString("en-NZ")}, leaving $${valueNZD.toLocaleString("en-NZ")}.`
       : yearsRemaining <= 0
         ? `This roof is at or past the end of its life. It carries no remaining value, and replacing it is about $${cost.totalNZD.toLocaleString("en-NZ")}.`
         : `About ${yearsRemaining} of ${expectedLife} years left, so it holds roughly ${Math.round(remainingFraction * 100)}% of its $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost — $${valueNZD.toLocaleString("en-NZ")} of value, with $${liabilityNZD.toLocaleString("en-NZ")} of life already used up.`,

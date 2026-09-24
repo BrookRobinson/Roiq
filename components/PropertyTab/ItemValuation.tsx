@@ -87,11 +87,15 @@ export function ItemValuation({ v, lead, evidence = [] }: {
         <LifeBar life={v.life} />
       </Step>
 
-      <Step n={5 + o} title="Size">
+      <Step n={5 + o} title="Action">
+        <ActionBody action={v.action} replaceCost={v.cost.totalNZD} />
+      </Step>
+
+      <Step n={6 + o} title="Size">
         <Workings lines={sizeOf(v).workings} last={sizeOf(v).summary} />
       </Step>
 
-      <Step n={6 + o} title="Cost to replace">
+      <Step n={7 + o} title="Cost to replace">
         <Workings lines={v.cost.workings} />
         {/* A zero line is not information. "Scaffold $0" sat on every
             foundation, driveway and kitchen in the report — you do not put
@@ -121,15 +125,13 @@ export function ItemValuation({ v, lead, evidence = [] }: {
         </div>
       </Step>
 
-      <Step n={7 + o} title="What it's worth">
+      <Step n={8 + o} title="What it's worth">
         <div className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
           {money(v.cost.totalNZD)} to replace × {Math.round(v.remainingFraction * 100)}% of its life
           left
-          {v.damage && (
+          {v.action && v.action.deductedNZD > 0 && (
             <>
-              {" "}− <span style={{ color: "var(--bad)" }}>{money(v.damage.nzd)} of damage</span> (
-              {Math.round(v.damage.share * 100)}% of it broken
-              {v.damage.basis === "condition" ? ", read from its failed condition" : ""})
+              {" "}− <span style={{ color: "var(--bad)" }}>{money(v.action.deductedNZD)} for the work needed now</span>
             </>
           )}
         </div>
@@ -144,7 +146,7 @@ export function ItemValuation({ v, lead, evidence = [] }: {
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              {v.damage ? "Used up or damaged" : "Life already used"}
+              {v.action && v.action.deductedNZD > 0 ? "Used up or needing work" : "Life already used"}
             </div>
             <div className="mono text-lg font-bold" style={{ color: "var(--warn)" }}>
               {money(v.liabilityNZD)}
@@ -170,6 +172,65 @@ export function ItemValuationWithheld({ reason }: { reason: string }) {
         Not valued
       </div>
       {reason}
+    </div>
+  );
+}
+
+const SCOPE_LABEL = { maintenance: "Maintenance", repair: "Repair", replace: "Full replacement" } as const;
+
+/**
+ * The work needed NOW to get the item back to a well-maintained state, and
+ * what it costs. It is on the Renovations tab already, ticked.
+ */
+export function ActionBody({ action, replaceCost }: {
+  action: { work: string; scope: keyof typeof SCOPE_LABEL; costNZD: number; basis: "recorded" | "condition"; stopGap?: boolean } | null | undefined;
+  /** The full replacement, for an item past its life whose action is only a stop-gap. */
+  replaceCost?: number;
+}) {
+  if (action?.stopGap) {
+    return (
+      <div>
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
+            Replace it — it is past the end of its life
+          </div>
+          {replaceCost ? (
+            <div className="mono text-[13px] font-semibold whitespace-nowrap" style={{ color: "var(--bad)" }}>
+              {money(replaceCost)}
+            </div>
+          ) : null}
+        </div>
+        <div className="text-[12px] mt-1" style={{ color: "var(--text-secondary)" }}>
+          Stop-gap if you hold off: {action.work.replace(/^./, (c) => c.toLowerCase())} — about {money(action.costNZD)}.
+        </div>
+        <div className="text-[12px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+          The replacement is ticked in your renovation plan; the stop-gap is listed there unticked.
+        </div>
+      </div>
+    );
+  }
+  if (!action) {
+    return (
+      <div className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+        No urgent work. Normal upkeep keeps it where it is.
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
+          {action.work}
+        </div>
+        <div className="mono text-[13px] font-semibold whitespace-nowrap" style={{ color: "var(--bad)" }}>
+          {money(action.costNZD)}
+        </div>
+      </div>
+      <div className="text-[12px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+        {SCOPE_LABEL[action.scope]}
+        {action.basis === "condition" ? ", read from the defect and its failed condition" : ""}. Added to
+        your renovation plan; untick it there if you won&apos;t do it.
+      </div>
     </div>
   );
 }

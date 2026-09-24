@@ -25,6 +25,7 @@ import { costThreeTier } from "@/lib/reno-costing/three-tier";
 import { valueImprovementItems } from "@/lib/scoring/improvement-values";
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 import { tierBandFraction } from "@/lib/scoring/model";
+import { actionFor, actionCost } from "@/lib/scoring/depreciation";
 import type { SubItem } from "@/lib/property-tab/types";
 
 export interface RepairAllowance {
@@ -69,13 +70,18 @@ export function computeRepairAllowance(subItems: SubItem[], ctx: RepairContext):
     if (meta?.inspection === "improvements" && (s.estimatedReplacementCost || v)) {
       // Same band position the report uses to decide what to pre-tick.
       const frac = s.specTier ? tierBandFraction(s.specTier, s.score ?? 1) : (s.score ?? 6) / 10;
-      if (s.score !== null && frac <= AUTO_INCLUDE_FRACTION) {
+      const urgent = actionFor(s);
+      if (s.score !== null && (frac <= AUTO_INCLUDE_FRACTION || urgent?.scope === "replace" || (!!urgent && !!v?.pastLife))) {
         const low = s.estimatedReplacementCost?.low ?? Math.round((v?.rcnNew ?? 0) * 0.8);
         const high = s.estimatedReplacementCost?.high ?? Math.round((v?.rcnNew ?? 0) * 1.25);
         if (high > 0) {
           const t = costThreeTier({ id: s.id, name: s.name, category: meta.category, ...costCtx, fallback: { low, high } });
           add(s.name, Math.round(t.budget.tradieTotal));
         }
+      } else if (urgent) {
+        // Work needed now that isn't a replacement — the same line the
+        // Renovations tab pre-ticks, at the same cost.
+        add(urgent.work, actionCost(v?.replacementTotal ?? 0, urgent));
       }
     }
 

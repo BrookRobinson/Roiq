@@ -146,23 +146,32 @@ check("older reports fall back to the photo-citing sentences",
   evidenceFor({ aiSummary: "It is a roof. Rust at the laps in Photo 4. Otherwise fine." }), ["Rust at the laps in Photo 4."]);
 check("nothing recorded is empty, never 'nothing wrong'", evidenceFor({ aiSummary: "Looks fine overall." }), []);
 
-console.log("\ndamage counts, whatever the age");
-const { damageFor } = await import(join(root, "lib/scoring/depreciation.ts"));
+console.log("\nwork needed now comes off the value, whatever the age");
+const { actionFor } = await import(join(root, "lib/scoring/depreciation.ts"));
 // The case that set the rule: a brand-new front door smashed apart with a crowbar.
 const smashed = valueItem({ ...base, id: "ext_doors", buildYear: 2025, conditionScore: 1,
-  damage: damageFor({ damageShare: 1, observedDefect: "Front door smashed apart", score: 1 }) });
+  action: actionFor({ urgentAction: { work: "Replace the front door", scope: "replace", share: 1 }, score: 1 }) });
 check("a new door smashed to bits is worth $0", smashed.valueNZD, 0);
-check("…and the value and damage still sum to the cost", smashed.valueNZD + smashed.liabilityNZD, smashed.cost.totalNZD);
-const lifted = valueItem({ ...base, id: "ext_cladding", buildYear: 2025, conditionScore: 5, damage: { share: 0.05, basis: "recorded" } });
+check("…the action is the full replacement", smashed.action.costNZD, smashed.cost.totalNZD);
+check("…and value plus used-up still sum to the cost", smashed.valueNZD + smashed.liabilityNZD, smashed.cost.totalNZD);
+const refix = { work: "Refix the lifted sheets with screws", scope: "repair", share: 0.05 };
+const lifted = valueItem({ ...base, id: "ext_cladding", buildYear: 2025, conditionScore: 5, action: actionFor({ urgentAction: refix }) });
 const clean = valueItem({ ...base, id: "ext_cladding", buildYear: 2025, conditionScore: 5 });
-check("a little damage takes off only its share", clean.valueNZD - lifted.valueNZD, Math.round(0.05 * clean.cost.totalNZD));
+check("a small repair takes off only its cost", clean.valueNZD - lifted.valueNZD, Math.round(0.05 * clean.cost.totalNZD));
+check("…and the card carries the work", lifted.action.work, refix.work);
+check("a replace is always the whole item", actionFor({ urgentAction: { work: "x", scope: "replace", share: 0.3 } }).share, 1);
 check("an old worn-out item can't go below $0",
-  valueItem({ ...base, id: "ext_doors", buildYear: 1960, conditionScore: 1, damage: { share: 1, basis: "recorded" } }).valueNZD, 0);
-check("older reports: a defect at 1/10 is destroyed", damageFor({ observedDefect: "Smashed", score: 1 }).share, 1);
-check("…at 3/10 a third", damageFor({ observedDefect: "Cracked", score: 3 }).share, 0.33);
-check("…at 4/10 it is wear, not damage", damageFor({ observedDefect: "Worn", score: 4 }), null);
-check("no defect, no damage", damageFor({ score: 1 }), null);
-check("the card says what was taken off", /damaged and has to be fixed now/.test(smashed.summary), true);
+  valueItem({ ...base, id: "ext_doors", buildYear: 1960, conditionScore: 1, action: actionFor({ urgentAction: { work: "x", scope: "replace", share: 1 } }) }).valueNZD, 0);
+check("older reports: a defect at 1/10 is a replacement", actionFor({ observedDefect: "Smashed", score: 1 }).scope, "replace");
+check("…at 3/10 a third of it", actionFor({ observedDefect: "Cracked", score: 3 }).share, 0.33);
+check("…at 4/10 it is wear, not urgent work", actionFor({ observedDefect: "Worn", score: 4 }), null);
+check("no defect, no action", actionFor({ score: 1 }), null);
+check("an inferred defect is not work", actionFor({ observedDefect: "Not visible — inferred from the 1975 build era", score: 2 }), null);
+check("no action, nothing taken", clean.action, null);
+// Past its life, the repair only holds it: replacing it is the action.
+const worn = valueItem({ ...base, id: "ext_cladding", buildYear: 1950, conditionScore: 3, action: actionFor({ urgentAction: refix }) });
+check("a repair on a worn-out item is a stop-gap", worn.action.stopGap, true);
+check("…a repair on a sound one is not", lifted.action.stopGap, false);
 
 console.log("\nthe summary leads with when work is due");
 const { itemSummary } = await import(join(root, "lib/scoring/item-summary.ts"));
@@ -172,6 +181,8 @@ check("inside the hold it names the year and the cost",
 check("beyond the hold it says so and skips the cost", /beyond your 10-year hold\.$/.test(sum({ yearsRemaining: 18 })), true);
 check("overdue says by how much", /^Replacement is overdue by about 3 years/.test(sum({ yearsRemaining: -3 })), true);
 check("long overdue just says now", /^Well past the end of its life, so budget to replace it now/.test(sum({ yearsRemaining: -37 })), true);
+check("the action leads the finding, with its cost",
+  sum({ yearsRemaining: 20, action: { work: "Replace the cracked pane", costNZD: 640 } }).endsWith("Needs doing now: replace the cracked pane — about $640."), true);
 check("a defect on a poor item is work now",
   /Needs attention now: rust at the laps\./.test(sum({ yearsRemaining: 2, score: 3, defect: "Rust at the laps. More text." })), true);
 check("no more than two sentences",

@@ -21,6 +21,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { getAnthropic, VISION_MODEL } from "@/lib/ai/client";
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 import { usesSpecTier } from "@/lib/scoring/model";
+import { normAction } from "@/lib/scoring/action-parse";
 import { assessFoundation } from "@/lib/scoring/foundation";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import type { ConfidenceTier, SpecTier, UrgencyScore, ReplacementCost } from "@/lib/property-tab/types";
@@ -72,7 +73,7 @@ interface RawItemPhoto {
   spec_tier?: string;
   observed_defect?: string;
   condition_evidence?: string[];
-  damage_share?: number;
+  urgent_action?: { work?: string; scope?: string; share?: number };
   ai_summary: string;
   replacement_cost?: { low?: number; high?: number; notes?: string };
   foundation_type?: string;
@@ -136,10 +137,16 @@ function tool(itemId: string, label: string): Anthropic.Tool {
           description:
             "What is ACTUALLY VISIBLE in these photographs that needs work, in specific terms. Empty if nothing is wrong. Never generic.",
         },
-        damage_share: {
-          type: "number",
+        urgent_action: {
+          type: "object",
           description:
-            "IMPROVEMENTS items \u2014 DAMAGE only, not wear. The share of this item, 0 to 1, that is broken, failed or missing and must be fixed or replaced NOW whatever its age: a front door smashed apart = 1, a cracked pane in one of eight windows = 0.1, two lifted sheets on a roof = 0.05, a hole punched in one wall = 0.02. Omit or 0 when nothing is damaged. General wear, fading, chalking and old age are NOT damage \u2014 the condition score already carries those. Must match observed_defect.",
+            "IMPROVEMENTS items \u2014 ONLY when work is needed NOW to get this item back to a well-maintained state; omit otherwise. work: the job as an instruction, specific to what the photos show \u2014 'Replace the cracked pane in the lounge window', 'Refix the lifted roof sheets with screws in place of the old nails and replace the rusted ridge flashing', 'Clear the gutter above the entry'. scope: maintenance (clean, reseal, repaint, refix), repair (replace part of it), or replace (the whole item has to go \u2014 a front door smashed apart, a failed cylinder). share: what the work costs as a share of replacing the WHOLE item, 0 to 1 \u2014 a cracked pane in one of eight windows \u2248 0.1, refixing a roof \u2248 0.05, a full replacement = 1. NOT for normal ageing or dated style: an old but sound kitchen needs no urgent action. Must match observed_defect.",
+          properties: {
+            work: { type: "string" },
+            scope: { type: "string", enum: ["maintenance", "repair", "replace"] },
+            share: { type: "number" },
+          },
+          required: ["work", "scope", "share"],
         },
         condition_evidence: {
           type: "array",
@@ -310,10 +317,7 @@ export async function analyseItemPhotos(
     roofForm: raw.roof_form?.trim() || null,
     specTier: usesSpecTier(item) ? normSpec(raw.spec_tier) : undefined,
     observedDefect: raw.observed_defect?.trim() || undefined,
-    damageShare:
-      typeof raw.damage_share === "number" && Number.isFinite(raw.damage_share) && raw.damage_share > 0
-        ? Math.min(1, raw.damage_share)
-        : undefined,
+    urgentAction: normAction(raw.urgent_action),
     conditionEvidence: Array.isArray(raw.condition_evidence)
       ? raw.condition_evidence.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim()).slice(0, 5)
       : undefined,

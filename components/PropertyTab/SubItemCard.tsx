@@ -7,7 +7,8 @@ import type { SubItem, RenoControls } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
-import { ItemValuation, ItemValuationWithheld, Step, EvidenceList } from "./ItemValuation";
+import { ItemValuation, ItemValuationWithheld, Step, EvidenceList, ActionBody } from "./ItemValuation";
+import { actionFor, actionCost } from "@/lib/scoring/depreciation";
 import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
 import { itemSummary } from "@/lib/scoring/item-summary";
 import { ITEM_LIFE, expectedLife } from "@/lib/scoring/item-life";
@@ -112,7 +113,15 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
     detailed && !isRefused(detailed) ? detailed.life.expectedYears - detailed.life.usedYears
     : value && life ? expectedLife(life) - value.ageYears
     : null;
+  // The urgent action — the valuation's when it has one (same cost as the
+  // Renovations line), otherwise read from the item at the itemised cost.
+  const fallbackAction = actionFor(item);
+  const action =
+    detailed && !isRefused(detailed) ? detailed.action
+    : fallbackAction ? { ...fallbackAction, costNZD: actionCost(value?.replacementTotal ?? 0, fallbackAction), deductedNZD: 0, stopGap: fallbackAction.scope !== "replace" && !!value?.pastLife }
+    : null;
   const summary = itemSummary({
+    action,
     yearsRemaining,
     replaceCost: shown?.rcn ?? null,
     score: item.score,
@@ -323,6 +332,9 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                       return <EvidenceList concerns={m.concerns} evidence={m.seen} />;
                     })()}
                   </Step>
+                )}
+                {!item.noPhotoNotAssessed && ITEM_BY_ID[item.id]?.costBearing && (
+                  <Step n={3} title="Action"><ActionBody action={action} replaceCost={value?.replacementTotal} /></Step>
                 )}
                 {valuation && isRefused(valuation) && <ItemValuationWithheld reason={valuation.reason} />}
               </div>
