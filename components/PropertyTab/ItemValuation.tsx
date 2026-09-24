@@ -30,10 +30,16 @@ const sizeOf = (v: AnyItemValuation) =>
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 
-export function ItemValuation({ v }: { v: AnyItemValuation }) {
+/**
+ * `lead` is a step drawn BEFORE the seven — the card passes the photographs the
+ * item was read from, so the reader sees the evidence before the arithmetic.
+ */
+export function ItemValuation({ v, lead }: { v: AnyItemValuation; lead?: { title: string; body: React.ReactNode } }) {
+  const o = lead ? 1 : 0;
   return (
     <div className="space-y-3">
-      <Step n={1} title="Material">
+      {lead && <Step n={1} title={lead.title}>{lead.body}</Step>}
+      <Step n={1 + o} title="Material">
         <div className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
           {v.material.label}
         </div>
@@ -47,7 +53,7 @@ export function ItemValuation({ v }: { v: AnyItemValuation }) {
         </div>
       </Step>
 
-      <Step n={2} title="Visual concerns">
+      <Step n={2 + o} title="Visual concerns">
         {v.concerns.length > 0 ? (
           <ul className="space-y-0.5">
             {v.concerns.map((c, i) => (
@@ -63,7 +69,7 @@ export function ItemValuation({ v }: { v: AnyItemValuation }) {
         )}
       </Step>
 
-      <Step n={3} title="Estimated age">
+      <Step n={3 + o} title="Estimated age">
         <div className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
           ~{v.age.chronologicalYears} years
           {v.age.effectiveYears !== v.age.chronologicalYears && (
@@ -77,15 +83,15 @@ export function ItemValuation({ v }: { v: AnyItemValuation }) {
         </div>
       </Step>
 
-      <Step n={4} title="Material end life">
+      <Step n={4 + o} title="Material end life">
         <LifeBar life={v.life} />
       </Step>
 
-      <Step n={5} title="Size">
+      <Step n={5 + o} title="Size">
         <Workings lines={sizeOf(v).workings} last={sizeOf(v).summary} />
       </Step>
 
-      <Step n={6} title="Cost to replace">
+      <Step n={6 + o} title="Cost to replace">
         <Workings lines={v.cost.workings} />
         {/* A zero line is not information. "Scaffold $0" sat on every
             foundation, driveway and kitchen in the report — you do not put
@@ -115,7 +121,7 @@ export function ItemValuation({ v }: { v: AnyItemValuation }) {
         </div>
       </Step>
 
-      <Step n={7} title="What it's worth">
+      <Step n={7 + o} title="What it's worth">
         <div className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
           {money(v.cost.totalNZD)} to replace × {Math.round(v.remainingFraction * 100)}% of its life
           left

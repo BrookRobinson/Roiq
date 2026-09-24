@@ -7,7 +7,7 @@ import type { SubItem, RenoControls } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
-import { ItemValuation, ItemValuationWithheld } from "./ItemValuation";
+import { ItemValuation, ItemValuationWithheld, Step } from "./ItemValuation";
 import { isRefused, type AnyValuation } from "./valuation-types";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { confidenceMeta } from "./ConfidenceBar";
@@ -87,6 +87,20 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
     : value
       ? { now: value.valueNow, rcn: value.replacementTotal }
       : null;
+  const photosStep = (
+    <div className="flex items-center gap-2 flex-wrap text-[13px]" style={{ color: "var(--text-secondary)" }}>
+      {/* The step is already titled "Listing photos"; only name the source when it's something else. */}
+      {!/^listing photos?$/i.test(item.evidenceSource.trim()) && <span>{item.evidenceSource}</span>}
+      {item.photoReferences.length > 0 ? (
+        <span className="inline-flex items-center gap-1">
+          <Camera size={12} style={{ color: "var(--text-muted)" }} />
+          Photos: {item.photoReferences.join(", ")}
+        </span>
+      ) : (
+        <span style={{ color: "var(--text-muted)" }}>No photograph shows this item.</span>
+      )}
+    </div>
+  );
   const costItem = getCostItem(item, region, floorSqm);
   // Renovation plan: this item can be added if it has a costed reno line.
   const canReno = renoControls?.has(item.id) ?? false;
@@ -183,23 +197,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
           )}
         </div>
 
-        {/* Confidence + photo refs — hidden for no-photo items (no T3 / source shown) */}
-        {!item.noPhotoNotAssessed && (
-          <div className="flex items-center gap-3 flex-wrap mt-1">
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {item.evidenceSource}
-            </span>
-            {item.photoReferences.length > 0 && (
-              <div className="flex items-center gap-1">
-                <Camera size={11} style={{ color: "var(--text-muted)" }} />
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  Photos: {item.photoReferences.join(", ")}
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Outside hold period label — the fallback position. When the card has
             an "Add to renovation plan" control the tag lives beside that instead,
             which is where someone is actually deciding whether to include it. */}
@@ -281,21 +278,27 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
         >
           {/* The valuation, above the prose. The workings are what the reader
               came for; the summary is context for them, not a substitute. */}
-          {valuation && (
-            <div className="pt-4">
+          {/* Step 1 is the evidence: which photographs this item was read from.
+              It leads the valuation when there is one, and stands alone when
+              there isn't, so it is always the first thing in the drop-down. */}
+          <div className="pt-4">
+            {valuation && (
               <div
                 className="text-xs font-semibold uppercase tracking-wider mb-2.5"
                 style={{ color: "var(--text-muted)" }}
               >
                 How this value was worked out
               </div>
-              {isRefused(valuation) ? (
-                <ItemValuationWithheld reason={valuation.reason} />
-              ) : (
-                <ItemValuation v={valuation} />
-              )}
-            </div>
-          )}
+            )}
+            {valuation && !isRefused(valuation) ? (
+              <ItemValuation v={valuation} lead={{ title: "Listing photos", body: photosStep }} />
+            ) : (
+              <div className="space-y-3">
+                <Step n={1} title="Listing photos">{photosStep}</Step>
+                {valuation && isRefused(valuation) && <ItemValuationWithheld reason={valuation.reason} />}
+              </div>
+            )}
+          </div>
 
           {/* AI summary */}
           <div className="pt-4">
