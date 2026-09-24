@@ -10,6 +10,7 @@
     "db:setup-sql": "node scripts/build-setup-sql.mjs",
     "verify:billing": "node --no-warnings scripts/verify-billing.mjs",
     "verify:roof": "node --no-warnings scripts/verify-roof.mjs",
+    "verify:item-value": "node --no-warnings scripts/verify-item-value.mjs",
     "verify:maintenance": "node --no-warnings scripts/verify-maintenance.mjs",
     "verify:listing-key": "node --no-warnings scripts/verify-listing-key.mjs",
     "verify:email-key": "node --no-warnings scripts/verify-email-key.mjs",

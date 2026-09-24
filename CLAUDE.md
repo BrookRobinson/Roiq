@@ -1345,6 +1345,26 @@ cost. A roof at the end of its life is worth nothing AND costs the full
 replacement — those answer different questions (what you are buying, what you
 are about to spend) and a reader needs both.
 
+**EVERY costed item gets the seven steps, not just the roof.**
+`lib/scoring/item-value.ts` is the generic one and `lib/scoring/item-life.ts`
+holds the service life, material/labour split, disposal share and whether the
+job needs scaffold, for all 41. The roof keeps its own module because its SIZE
+step is real geometry; everything else scales off a figure the report already
+holds, and step 5 SAYS which it is — "scaled, not measured" — because that
+changes how much weight a reader should put on it.
+
+**The generic model does NOT re-derive the cost.** `rcnNew` already carries this
+property's size and spec tier from `IMPROVEMENT_BASE_COSTS`; re-pricing it would
+be a second cost model disagreeing with the first. What it adds is the split and
+the life.
+
+**`tsc --noEmit` does not catch a duplicate top-level symbol that SWC rejects.**
+A `function Line` beside recharts' imported `Line` type-checked clean and broke
+the BUILD — and a broken build in `next dev` serves the last good bundle, so the
+page looked fine and simply never showed the new component. Two rounds of
+debugging went into that. If a change renders as though it never happened, read
+the dev server's errors before reading your own code.
+
 **The itemised valuation WINS on the card, and it has to.** `SubItemCard` shows
 the detailed figure where one exists and the blended spec×condition figure only
 as a fallback. It did not, briefly, and the roof showed "$16,417" in its badge

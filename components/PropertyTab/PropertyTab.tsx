@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
-import type { RoofValuation, RoofWithheldResult } from "@/lib/scoring/roof-value";
+import type { AnyValuation } from "./valuation-types";
 import type { PropertyTabData, RenoControls } from "@/lib/property-tab/types";
 import type { DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import type { Persona } from "@/lib/scoring/model";
@@ -27,7 +27,7 @@ interface Props {
   dwellingValues?: DwellingValue[];
 }
 
-export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues, itemValues, itemValuations }: Props & { itemValues?: Map<string, ItemValue>; itemValuations?: Map<string, RoofValuation | RoofWithheldResult> }) {
+export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues, itemValues, itemValuations }: Props & { itemValues?: Map<string, ItemValue>; itemValuations?: Map<string, AnyValuation> }) {
   const [openAll, setOpenAll] = useState(false);
 
   // Tally issues across all categories

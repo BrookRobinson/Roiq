@@ -13,10 +13,24 @@
 // ============================================================
 
 import type { RoofValuation } from "@/lib/scoring/roof-value";
+import type { GenericItemValuation } from "@/lib/scoring/item-value";
+
+/**
+ * Either shape. The roof measures its own area, so its step 5 carries real
+ * geometry; every other item scales off a figure the report already holds and
+ * its step 5 shows that scaling. Same seven questions either way, which is the
+ * whole point — a reader should not have to learn a second card.
+ */
+export type AnyItemValuation = RoofValuation | GenericItemValuation;
+
+const sizeOf = (v: AnyItemValuation) =>
+  "area" in v
+    ? { workings: v.area.workings, summary: `${v.area.roofM2} m²` }
+    : { workings: v.size.workings, summary: v.size.summary };
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 
-export function ItemValuation({ v }: { v: RoofValuation }) {
+export function ItemValuation({ v }: { v: AnyItemValuation }) {
   return (
     <div className="space-y-3">
       <Step n={1} title="Material">
@@ -68,7 +82,7 @@ export function ItemValuation({ v }: { v: RoofValuation }) {
       </Step>
 
       <Step n={5} title="Size">
-        <Workings lines={v.area.workings} last={`${v.area.roofM2} m²`} />
+        <Workings lines={sizeOf(v).workings} last={sizeOf(v).summary} />
       </Step>
 
       <Step n={6} title="Cost to replace">
@@ -162,7 +176,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
  * further through its life than the calendar says — which is the whole reason
  * the condition is read at all.
  */
-function LifeBar({ life }: { life: RoofValuation["life"] }) {
+function LifeBar({ life }: { life: AnyItemValuation["life"] }) {
   const overdue = life.yearsRemaining <= 0;
   const colour = overdue ? "var(--warn)" : life.usedFraction > 0.75 ? "var(--warn)" : "var(--good)";
   return (

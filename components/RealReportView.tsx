@@ -12,7 +12,10 @@ import { urgencyColor, urgencyLabel, type RenoControls } from "@/lib/property-ta
 import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
-import { valueRoof, roofMaterialFromText, type RoofValuation, type RoofWithheldResult } from "@/lib/scoring/roof-value";
+import { valueRoof, roofMaterialFromText } from "@/lib/scoring/roof-value";
+import { valueItem } from "@/lib/scoring/item-value";
+import { IMPROVEMENT_BASE_COSTS } from "@/lib/scoring/improvement-values";
+import type { AnyValuation } from "@/components/PropertyTab/valuation-types";
 import { resolveRegion } from "@/lib/labour-rates";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
@@ -418,48 +421,6 @@ export function RealReportView({
 
   const siteLayout = report.listing.siteLayout ?? fetchedLayout ?? null;
 
-  /**
-   * The itemised valuation, item by item. The roof is the first one done this
-   * way — see lib/scoring/roof-value.ts — and the rest follow its pattern.
-   *
-   * Everything it needs is already on the report except the footprint, which
-   * comes from the LINZ building outline via the site geometry. The MAIN
-   * building's footprint, not every structure's: `builtAreaSqm` would hand the
-   * house a detached garage's roof as well.
-   */
-  const itemValuations = useMemo(() => {
-    const out = new Map<string, RoofValuation | RoofWithheldResult>();
-    const roof = (report.subItems ?? []).find((s) => s.id === "ext_roof");
-    if (!roof) return out;
-
-    const shot = itemPhotos["ext_roof"];
-    const concerns = [roof.observedDefect, shot?.observedDefect].filter(Boolean) as string[];
-
-    out.set(
-      "ext_roof",
-      valueRoof({
-        material: roofMaterialFromText(shot?.material ?? roof.material),
-        footprintM2: siteLayout?.mainBuildingAreaSqm ?? null,
-        // Only ever from a photograph that actually showed the slope. A null
-        // falls back to the form's typical pitch and the card says it did.
-        pitchDegrees: shot?.roofPitchDegrees ?? null,
-        roofForm: shot?.roofForm ?? null,
-        // Scaffold is priced on the face it wraps, and a listing rarely states
-        // the storey count. One is the conservative read: guessing two on a
-        // single-storey house adds thousands of scaffold to the replacement
-        // cost, which flows straight into the value.
-        storeys: 1,
-        buildYear: report.listing.buildYear,
-        conditionScore: shot?.showsItem ? shot.score : roof.score,
-        concerns,
-        labourMultiplier: resolveRegion(
-          [report.listing.city, report.listing.region].filter(Boolean).join(", ")
-        ).multiplier,
-      })
-    );
-    return out;
-  }, [report.subItems, report.listing.buildYear, report.listing.city, report.listing.region, siteLayout, itemPhotos]);
-
   const effectiveSubItems = useMemo(
     () =>
       report.subItems.map((s) => {
@@ -690,6 +651,75 @@ export function RealReportView({
   // report and the map came to disagree about 230 Sewell Street. Effective
   // sub-items, not raw: a valuation must not claim a condition the report has
   // withdrawn.
+  /**
+   * The itemised valuation, item by item. The roof is the first one done this
+   * way — see lib/scoring/roof-value.ts — and the rest follow its pattern.
+   *
+   * Everything it needs is already on the report except the footprint, which
+   * comes from the LINZ building outline via the site geometry. The MAIN
+   * building's footprint, not every structure's: `builtAreaSqm` would hand the
+   * house a detached garage's roof as well.
+   */
+  const itemValuations = useMemo(() => {
+    const out = new Map<string, AnyValuation>();
+    const roof = (report.subItems ?? []).find((s) => s.id === "ext_roof");
+    if (!roof) return out;
+
+    const shot = itemPhotos["ext_roof"];
+    const concerns = [roof.observedDefect, shot?.observedDefect].filter(Boolean) as string[];
+
+    out.set(
+      "ext_roof",
+      valueRoof({
+        material: roofMaterialFromText(shot?.material ?? roof.material),
+        footprintM2: siteLayout?.mainBuildingAreaSqm ?? null,
+        // Only ever from a photograph that actually showed the slope. A null
+        // falls back to the form's typical pitch and the card says it did.
+        pitchDegrees: shot?.roofPitchDegrees ?? null,
+        roofForm: shot?.roofForm ?? null,
+        // Scaffold is priced on the face it wraps, and a listing rarely states
+        // the storey count. One is the conservative read: guessing two on a
+        // single-storey house adds thousands of scaffold to the replacement
+        // cost, which flows straight into the value.
+        storeys: 1,
+        buildYear: report.listing.buildYear,
+        conditionScore: shot?.showsItem ? shot.score : roof.score,
+        concerns,
+        labourMultiplier: resolveRegion(
+          [report.listing.city, report.listing.region].filter(Boolean).join(", ")
+        ).multiplier,
+      })
+    );
+    // Everything else, on the same seven steps. The RCN comes from the
+    // itemised valuation that already sized and spec-adjusted it for this
+    // property — re-pricing it here would be a second cost model disagreeing
+    // with the first, which is the mistake this codebase keeps having to undo.
+    for (const v of improvementValuation.items) {
+      if (v.id === "ext_roof") continue;
+      const item = (report.subItems ?? []).find((s) => s.id === v.id);
+      const shot = itemPhotos[v.id];
+      const concerns = [item?.observedDefect, shot?.observedDefect].filter(Boolean) as string[];
+      out.set(
+        v.id,
+        valueItem({
+          id: v.id,
+          rcnNew: v.rcnNew,
+          sizeWorkings: sizeWorkingsFor(v.id, report.listing.floorAreaSqm, report.listing.bathrooms, v.rcnNew),
+          sizeSummary: `$${Math.round(v.rcnNew).toLocaleString("en-NZ")} to replace on this property`,
+          material: shot?.material ?? item?.material,
+          concerns,
+          conditionScore: shot?.showsItem ? shot.score : item?.score,
+          buildYear: report.listing.buildYear,
+          label: v.label,
+          labourMultiplier: resolveRegion(
+            [report.listing.city, report.listing.region].filter(Boolean).join(", ")
+          ).multiplier,
+        })
+      );
+    }
+    return out;
+  }, [report.subItems, report.listing.buildYear, report.listing.city, report.listing.region, report.listing.floorAreaSqm, report.listing.bathrooms, siteLayout, itemPhotos, improvementValuation]);
+
   const propertyValue = useMemo(
     () =>
       valueProperty({
@@ -1688,6 +1718,41 @@ function LocationFactCard({ subItems, ids, title }: { subItems: SubItem[]; ids: 
 }
 
 // ── Overview ─────────────────────────────────────────────────────────────────
+/**
+ * Step 5 for an item that isn't measured.
+ *
+ * The roof is measured off a surveyed footprint; these are scaled off a figure
+ * the report already holds. The difference matters to a reader deciding how
+ * much weight to put on the number, so it is stated rather than dressed up as
+ * a measurement.
+ */
+function sizeWorkingsFor(
+  id: string,
+  floorAreaSqm: number | null,
+  bathrooms: number | null | undefined,
+  rcn: number
+): string[] {
+  const spec = IMPROVEMENT_BASE_COSTS[id];
+  if (!spec) return [`Replacement cost of about $${Math.round(rcn).toLocaleString("en-NZ")}.`];
+
+  if (spec.scale === "floorM2" && floorAreaSqm) {
+    return [
+      `Scaled to the house: $${spec.baseRCN}/m² × ${floorAreaSqm} m² of floor area.`,
+      "Scaled, not measured — the floor area stands in for the component's own size.",
+    ];
+  }
+  if (spec.scale === "bathroom") {
+    const n = Math.max(1, Math.round(bathrooms ?? 1));
+    return [
+      `$${spec.baseRCN.toLocaleString("en-NZ")} per bathroom × ${n} ${n === 1 ? "bathroom" : "bathrooms"}.`,
+    ];
+  }
+  return [
+    `$${spec.baseRCN.toLocaleString("en-NZ")} for a standard home — one of these per house, so it doesn't scale with floor area.`,
+    ...(spec.note ? [spec.note] : []),
+  ];
+}
+
 function OverviewReal({ locked, report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation, propertyValue, dwellingValue }: {
   locked: boolean;
   report: StoredReport; subItems: SubItem[]; scored: ScoreResult; persona: Persona;

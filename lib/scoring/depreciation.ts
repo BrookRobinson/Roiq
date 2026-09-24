@@ -62,7 +62,10 @@ export function effectiveAge(args: {
 
   const direction =
     factor < 1 ? "better than its age" : factor > 1 ? "worse than its age" : "about right for its age";
-  const seen = args.concerns?.length ? ` Seen: ${args.concerns.join("; ")}.` : "";
+  // The analysis writes its findings as sentences, so they already end in a
+  // full stop. Appending another gave every card "…beneath it..".
+  const joined = args.concerns?.length ? args.concerns.join(" ").trim() : "";
+  const seen = joined ? ` Seen: ${joined.replace(/\.+$/, "")}.` : "";
 
   return {
     chronologicalYears: chron,

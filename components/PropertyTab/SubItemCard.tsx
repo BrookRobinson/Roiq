@@ -8,7 +8,7 @@ import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
 import { ItemValuation, ItemValuationWithheld } from "./ItemValuation";
-import { isWithheld, type RoofValuation, type RoofWithheldResult } from "@/lib/scoring/roof-value";
+import { isRefused, type AnyValuation } from "./valuation-types";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { ConfidenceBar, ConfidenceLabel } from "./ConfidenceBar";
 import { CostWorkings } from "@/components/CostWorkings";
@@ -79,7 +79,7 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
   return null;
 }
 
-export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations, value, valuation }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void; value?: ItemValue | null; valuation?: RoofValuation | RoofWithheldResult | null }) {
+export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations, value, valuation }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void; value?: ItemValue | null; valuation?: AnyValuation | null }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
   const urgencyYears = urgencyScoreToYears(item.score);
@@ -99,8 +99,9 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
   // better answer (it measures the roof rather than scaling the floor area), so
   // it is the one displayed, and the older figure is the fallback for items it
   // does not cover yet.
-  const detailed = valuation && !isWithheld(valuation) ? valuation : null;
-  const shown = detailed
+  const rejected = valuation ? isRefused(valuation) : false;
+  const detailed = valuation && !rejected ? valuation : null;
+  const shown = detailed && !isRefused(detailed)
     ? { now: detailed.valueNZD, rcn: detailed.cost.totalNZD }
     : value
       ? { now: value.valueNow, rcn: value.rcnNew }
@@ -328,7 +329,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               >
                 How this value was worked out
               </div>
-              {isWithheld(valuation) ? (
+              {isRefused(valuation) ? (
                 <ItemValuationWithheld reason={valuation.reason} />
               ) : (
                 <ItemValuation v={valuation} />
