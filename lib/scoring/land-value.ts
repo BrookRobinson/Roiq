@@ -88,6 +88,8 @@ export interface SiteFacts {
   homesOnAccess?: number | null;
   /** Midwinter sun measured on the open ground — replaces direction + shade when present. */
   winterSun?: { hours: number; daylightHours: number; sharePct: number } | null;
+  /** Measured metres of boundary on legal road. */
+  frontageM?: number | null;
 }
 
 export interface LandLine {
@@ -212,7 +214,7 @@ export function adjustLand(baseNZD: number, f: SiteFacts, nearby?: NearbyTypical
       label: "Frontage & access",
       deltaNZD: d,
       established: true,
-      working: `${words(f.access).replace(/^./, (c) => c.toUpperCase())}${p === 0 ? ", which is typical. No adjustment." : ` (${pct(base)})${extra ? `, shared by ${f.homesOnAccess} homes (${pct(extra)})` : ""}, applied to the whole section: ${pct(p)}, ${money(d)}.`}`,
+      working: `${words(f.access).replace(/^./, (c) => c.toUpperCase())}${f.frontageM ? ` with ${f.frontageM} m on the street` : ""}${p === 0 ? ", which is typical. No adjustment." : ` (${pct(base)})${extra ? `, shared by ${f.homesOnAccess} homes (${pct(extra)})` : ""}, applied to the whole section: ${pct(p)}, ${money(d)}.`}`,
     });
   }
 
@@ -230,6 +232,7 @@ export function siteFactsFrom(subItems: {
   winterSun?: { hours: number; daylightHours: number; sharePct: number };
   accessType?: string;
   homesOnAccess?: number;
+  frontageM?: number;
 }[]): SiteFacts {
   const by = (id: string) => subItems.find((s) => s.id === id);
   return {
@@ -240,5 +243,6 @@ export function siteFactsFrom(subItems: {
     access: (by("land_frontage")?.accessType as Access | undefined) ?? null,
     homesOnAccess: by("land_frontage")?.homesOnAccess ?? null,
     winterSun: by("land_aspect")?.winterSun ?? null,
+    frontageM: by("land_frontage")?.frontageM ?? null,
   };
 }

@@ -96,6 +96,7 @@ export function withMeasuredSite(s: SubItem, layout: SiteLayout | null | undefin
     return {
       ...s,
       accessType: m.frontage.access as SubItem["accessType"],
+      frontageM: m.frontage.lengthM,
       ...(m.frontage.homesOnAccess ? { homesOnAccess: m.frontage.homesOnAccess } : {}),
       confidenceTier: tier,
       evidenceSource: `${boundary} + legal road parcels`,

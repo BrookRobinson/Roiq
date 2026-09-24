@@ -122,6 +122,8 @@ export interface SubItem {
   aspectDirection?: AspectDirection;   // land_aspect only — which way the section faces
   /** land_aspect only — midwinter sun MEASURED on the open ground (surface model). */
   winterSun?: { hours: number; daylightHours: number; sharePct: number };
+  /** land_frontage only — metres of boundary on legal road, MEASURED. */
+  frontageM?: number;
   sunObstruction?: SunObstruction;     // land_aspect only — what blocks the sun that aspect promises
   accessType?: AccessType;             // land_frontage only — how you get to the property
   homesOnAccess?: number;              // land_frontage only — dwellings using the driveway, incl. this one

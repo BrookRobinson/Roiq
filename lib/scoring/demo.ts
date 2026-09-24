@@ -11,6 +11,7 @@ import type { UrgentAction } from "./depreciation";
 import { SOURCE_TAXONOMY } from "./catalog";
 import { scoreBoth, type Assessment } from "./report";
 import { readSiteLayout } from "./site-layout";
+import { measureSun } from "./site-sun";
 
 // Hand-tuned 1–10 scores telling a coherent story: prime Remuera location, sunny
 // north aspect, renovated kitchen — but an aging iron roof, no ceiling insulation,
@@ -541,8 +542,71 @@ const DEMO_SITE = (() => {
     // in the country. Citing a genuine survey reference against an invented
     // property would be the demo-address problem wearing a different hat.
     burdenLabels: [{ kind: "Easement", appellation: "Area A DP 900000" }],
+    // ── The measured land facts, from a BUILT world ───────────────────────
+    // A real report measures these off LINZ. The demo is fictional, so there is
+    // nothing to measure — and borrowing a real section's measurements would
+    // pin an invented report onto somebody's actual property, the demo-address
+    // problem again. So the demo gets its own world, built to match its own
+    // story, and the SAME measuring code runs over it: the numbers on the Land
+    // tab come from the real routines, not typed in.
+    //
+    // The street: road reserve along the front (south) boundary.
+    roadParcels: [rect(-40, -20, 97, 20)],
+    neighbourParcels: [rect(-17, 0, 17, 36), rect(17, 0, 17, 36), rect(0, 36, 17, 36)],
+    surveyAccurate: true,
+    // The ground: a gentle 1:17 rise from the street, steepening to about 1:7
+    // over the back eight metres — the demo's "gentle cross-slope to the rear,
+    // most of the section usable".
+    heights: demoHeights(),
+    sun: demoSun(),
+    // What a typical section measures around it. INVENTED, like the
+    // neighbourhood: there is no real street to sample. Chosen to be ordinary
+    // for an Auckland suburb, so the demo's adjustments are modest ones.
+    nearby: { workablePct: 95, usablePct: 88, sunSharePct: 62, sampled: 42, radiusM: 400 },
   });
 })();
+
+/** Ground height on the demo section — see DEMO_SITE. Metres, +y from the street. */
+function demoGround(y: number): number {
+  return 20 + 0.06 * Math.min(y, 28) + (y > 28 ? 0.14 * (y - 28) : 0);
+}
+
+function demoHeights() {
+  const step = 0.5, cols = 34, rows = 72, z: (number | null)[] = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) z.push(Math.round(demoGround((r + 0.5) * step) * 10) / 10);
+  return { step, cols, rows, z };
+}
+
+/**
+ * Midwinter sun on the demo section, traced by the real routine through a
+ * built neighbourhood: a two-storey house over the back fence to the
+ * north-east, a tall tree to the north-west, and the demo's own house and
+ * studio (whose shade, being the owner's, doesn't count). Auckland's latitude.
+ */
+function demoSun() {
+  const inBox = (x: number, y: number, x0: number, y0: number, x1: number, y1: number) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+  const surfaceAt = (x: number, y: number) => {
+    const g = demoGround(Math.max(0, y));
+    if (inBox(x, y, 8, 38, 24, 48)) return g + 7; // two storeys next door, behind
+    if (inBox(x, y, -9, 30, -3, 36)) return g + 13; // the neighbour's big tree
+    return g;
+  };
+  const points: { x: number; y: number; z: number }[] = [];
+  for (let x = 1; x < 17; x += 2) {
+    for (let y = 1; y < 36; y += 2) {
+      // Open ground only: not under the house or the studio.
+      if (inBox(x, y, 2.5, 3, 14.5, 18.4) || inBox(x, y, 10.8, 27, 16.8, 33)) continue;
+      points.push({ x, y, z: demoGround(y) });
+    }
+  }
+  return measureSun({
+    lat: -36.87,
+    points,
+    surfaceAt,
+    terrainAt: () => null,
+    isOwn: (x, y) => inBox(x, y, 0, 0, 17, 36),
+  });
+}
 
 export function buildDemoReport(): StoredReport {
   const assessment = buildDemoAssessment();
