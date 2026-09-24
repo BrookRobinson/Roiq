@@ -120,6 +120,8 @@ export interface SubItem {
   shapeType?: ShapeType;               // land_shape only — the named outline its score derives from
   workableLandPct?: number;            // land_shape only — 0–100, share left in a regular, workable block
   aspectDirection?: AspectDirection;   // land_aspect only — which way the section faces
+  /** land_aspect only — midwinter sun MEASURED on the open ground (surface model). */
+  winterSun?: { hours: number; daylightHours: number; sharePct: number };
   sunObstruction?: SunObstruction;     // land_aspect only — what blocks the sun that aspect promises
   accessType?: AccessType;             // land_frontage only — how you get to the property
   homesOnAccess?: number;              // land_frontage only — dwellings using the driveway, incl. this one

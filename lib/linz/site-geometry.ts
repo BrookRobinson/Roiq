@@ -34,6 +34,8 @@ import type { Pt, Ring } from "@/lib/scoring/site-layout";
 import type { HeightGrid } from "@/lib/scoring/site-slope";
 import { fetchHeightGrid } from "./elevation";
 import { measureNearbyTypical } from "./nearby-typical";
+import { sharedSunTracer } from "./sun";
+import type { SunResult } from "@/lib/scoring/site-sun";
 import type { NearbyTypical } from "@/lib/scoring/land-value";
 
 const PARCELS_LAYER = "layer-50772";
@@ -100,6 +102,8 @@ export interface SiteGeometry {
   heights: HeightGrid | null;
   /** The typical section within a few hundred metres, measured the same way. */
   nearby: NearbyTypical | null;
+  /** Midwinter sun on the section's open ground, traced through the surface model. */
+  sun: SunResult | null;
 }
 
 type Feature = {
@@ -177,7 +181,8 @@ export async function lookupSiteGeometry(
   // Everything else needs only the boundary, so it is all asked for at once.
   // One after another it was the bulk of the wait on every report.
   const frame = { lat: lat0, lng: lon0, mPerDegLat: M_PER_DEG_LAT, mPerDegLon: mPerLon };
-  const [buildingFeatures, roadLines, nonPrimary, around, heights, nearby] = await Promise.all([
+  const tracer = sharedSunTracer(frame, parcel);
+  const [buildingFeatures, roadLines, nonPrimary, around, heights, nearby, sun] = await Promise.all([
     wfs(BUILDINGS_LAYER, bbox(0), 60),
     roadName
       ? wfs(ROADS_LAYER, `full_road_name = '${roadName.replace(/'/g, "''")}' AND ${bbox(0.002)}`, 5).catch(() => [] as Feature[])
@@ -185,7 +190,8 @@ export async function lookupSiteGeometry(
     wfs(NON_PRIMARY_LAYER, bbox(0), 60).catch(() => [] as Feature[]),
     wfs(PARCELS_LAYER, bbox(0.0004), 120).catch(() => [] as Feature[]),
     fetchHeightGrid(frame, parcel).catch(() => null),
-    measureNearbyTypical(frame, wfs).catch(() => null),
+    measureNearbyTypical(frame, wfs, tracer).catch(() => null),
+    tracer.then((t) => (t ? t(parcel, 120) : null)).catch(() => null),
   ]);
   const buildings: Ring[] = [];
   for (const f of buildingFeatures) {
@@ -275,5 +281,6 @@ export async function lookupSiteGeometry(
     surveyAccurate: props.parcel_intent !== "DCDB",
     heights,
     nearby,
+    sun,
   };
 }

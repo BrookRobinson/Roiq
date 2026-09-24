@@ -50,6 +50,13 @@ export const LAND_ADJ = {
   accessPct: {
     prime_frontage: 3, corner_site: 2, road_frontage: 0, shared_driveway: -4, right_of_way: -6, rear_lot: -8,
   } as Record<Access, number>,
+  /**
+   * Measured midwinter sun. Each percentage point of the day's sun on the open
+   * ground, above or below typical, moves the land value by this many percent —
+   * about 6% between a garden in sun most of the day and one in shade most of
+   * it, the same span the direction-and-shade table covered.
+   */
+  sun: { pctPerPoint: 0.1, typicalSharePct: 55, floorPct: -6, capPct: 5 },
   /** Each household sharing the access beyond two. */
   perExtraHomePct: -1,
   /** The access adjustment never goes past this. */
@@ -66,6 +73,8 @@ export interface NearbyTypical {
   workablePct: number;
   /** Null when too few nearby sections were inside the elevation model. */
   usablePct: number | null;
+  /** Median share of midwinter sun on nearby sections' open ground; null if not measured. */
+  sunSharePct?: number | null;
   sampled: number;
   radiusM: number;
 }
@@ -77,6 +86,8 @@ export interface SiteFacts {
   shade?: Shade | null;
   access?: Access | null;
   homesOnAccess?: number | null;
+  /** Midwinter sun measured on the open ground — replaces direction + shade when present. */
+  winterSun?: { hours: number; daylightHours: number; sharePct: number } | null;
 }
 
 export interface LandLine {
@@ -155,7 +166,26 @@ export function adjustLand(baseNZD: number, f: SiteFacts, nearby?: NearbyTypical
   }
 
   // ── Orientation: whole site ──────────────────────────────────────────────
-  if (!f.aspect || !(f.aspect in A.aspectPct)) {
+  // With the sun MEASURED, it is the sun that is priced. The compass direction
+  // was only ever a stand-in for it; pricing both would credit a north face
+  // twice.
+  if (f.winterSun) {
+    const sun = f.winterSun;
+    const typ = nearby?.sunSharePct ?? A.sun.typicalSharePct;
+    const where = nearby?.sunSharePct != null ? `the ${typ}% typical of sections within ${nearby.radiusM} m` : `a typical ${typ}% (a national figure; nothing nearby was measured)`;
+    const p = Math.round(Math.max(A.sun.floorPct, Math.min(A.sun.capPct, (sun.sharePct - typ) * A.sun.pctPerPoint)) * 10) / 10;
+    const d = Math.round((p / 100) * baseNZD);
+    lines.push({
+      id: "land_aspect",
+      label: "Section orientation",
+      deltaNZD: d,
+      established: true,
+      working:
+        `${f.aspect ? `Faces ${words(f.aspect)}. ` : ""}On the shortest day its open ground gets ${sun.hours} of ${sun.daylightHours} hours of sun (${sun.sharePct}%), ` +
+        `against ${where}` +
+        (p === 0 ? ". No adjustment." : `: ${pct(p)} of the land, ${money(d)}.`),
+    });
+  } else if (!f.aspect || !(f.aspect in A.aspectPct)) {
     lines.push({ id: "land_aspect", label: "Section orientation", deltaNZD: 0, established: false, working: "The orientation wasn't established, so no adjustment is made." });
   } else {
     const p = A.aspectPct[f.aspect] + (f.shade ? A.shadePct[f.shade] ?? 0 : 0);
@@ -197,6 +227,7 @@ export function siteFactsFrom(subItems: {
   usableLandPct?: number;
   aspectDirection?: string;
   sunObstruction?: string;
+  winterSun?: { hours: number; daylightHours: number; sharePct: number };
   accessType?: string;
   homesOnAccess?: number;
 }[]): SiteFacts {
@@ -208,5 +239,6 @@ export function siteFactsFrom(subItems: {
     shade: (by("land_aspect")?.sunObstruction as Shade | undefined) ?? null,
     access: (by("land_frontage")?.accessType as Access | undefined) ?? null,
     homesOnAccess: by("land_frontage")?.homesOnAccess ?? null,
+    winterSun: by("land_aspect")?.winterSun ?? null,
   };
 }

@@ -41,6 +41,7 @@ export async function GET(req: Request) {
       surveyAccurate: record.site.surveyAccurate,
       heights: record.site.heights,
       nearby: record.site.nearby,
+      sun: record.site.sun,
     });
 
     return NextResponse.json(

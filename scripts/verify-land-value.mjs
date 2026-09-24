@@ -68,6 +68,18 @@ check("no nearby measurement says the figure is national", /national figure/.tes
 check("nearby shape but no nearby slope keeps the national slope",
   /national figure/.test(line(adjustLand(BASE, steepHere, { workablePct: 95, usablePct: null, sampled: 30, radiusM: 400 }), "land_topography").working), true);
 
+console.log("\nmeasured sun replaces the compass");
+const sunny = adjustLand(BASE, { ...TYPICAL, aspect: "south", winterSun: { hours: 7, daylightHours: 9, sharePct: 78 } },
+  { workablePct: 95, usablePct: 90, sunSharePct: 48, sampled: 40, radiusM: 400 });
+check("a south-facing section in real sun is priced on the sun, not the compass", line(sunny, "land_aspect").deltaNZD > 0, true);
+check("…and says so in hours", /7 of 9 hours/.test(line(sunny, "land_aspect").working), true);
+const same = adjustLand(BASE, { ...TYPICAL, winterSun: { hours: 4, daylightHours: 9, sharePct: 48 } },
+  { workablePct: 95, usablePct: 90, sunSharePct: 48, sampled: 40, radiusM: 400 });
+check("as much sun as its street is no adjustment", line(same, "land_aspect").deltaNZD, 0);
+check("the sun adjustment never passes its floor",
+  line(adjustLand(BASE, { ...TYPICAL, winterSun: { hours: 0, daylightHours: 9, sharePct: 0 } }, { workablePct: 95, usablePct: 90, sunSharePct: 95, sampled: 40, radiusM: 400 }), "land_aspect").deltaNZD,
+  LAND_ADJ.sun.floorPct / 100 * BASE);
+
 console.log("\nguards");
 check("never below zero", adjustLand(1000, { workablePct: 0, usablePct: 0, aspect: "south", shade: "heavily_shaded", access: "rear_lot", homesOnAccess: 30 }).valueNZD >= 0, true);
 check("the lines add up", (() => { const r = adjustLand(BASE, { workablePct: 80, usablePct: 70, aspect: "north_west", shade: "partly_shaded", access: "right_of_way", homesOnAccess: 3 }); return r.baseNZD + r.lines.reduce((s, l) => s + l.deltaNZD, 0) === r.valueNZD; })(), true);

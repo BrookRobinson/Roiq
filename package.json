@@ -36,7 +36,8 @@
     "build:zoning": "node --no-warnings scripts/build-zoning-registry.mjs",
     "verify:land-value": "node --no-warnings scripts/verify-land-value.mjs",
     "verify:site-shape": "node --no-warnings scripts/verify-site-shape.mjs",
-    "verify:terrain": "node --no-warnings scripts/verify-terrain.mjs"
+    "verify:terrain": "node --no-warnings scripts/verify-terrain.mjs",
+    "verify:sun": "node --no-warnings scripts/verify-sun.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",

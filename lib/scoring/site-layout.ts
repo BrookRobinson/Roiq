@@ -33,6 +33,7 @@
 import { measureSite, type SiteMeasure } from "./site-shape.ts";
 import { measureTerrain, type HeightGrid, type Terrain } from "./site-slope.ts";
 import type { NearbyTypical } from "./land-value.ts";
+import type { SunResult } from "./site-sun.ts";
 
 /** The eight compass points the land model scores an aspect on. */
 export type AspectDirection =
@@ -93,6 +94,8 @@ export interface SiteInput {
   heights?: HeightGrid | null;
   /** What a typical section measures nearby — the baseline the land value adjusts from. */
   nearby?: NearbyTypical | null;
+  /** Midwinter sun on the open ground, measured. */
+  sun?: SunResult | null;
 }
 
 export interface SiteLayout {
@@ -158,7 +161,7 @@ export interface SiteLayout {
    * land — see site-shape.ts. `frontage` is null when road land wasn't fetched.
    * Optional because layouts stored before this was measured don't carry it.
    */
-  measured?: (SiteMeasure & { surveyAccurate: boolean; terrain?: Terrain | null; nearby?: NearbyTypical | null }) | null;
+  measured?: (SiteMeasure & { surveyAccurate: boolean; terrain?: Terrain | null; nearby?: NearbyTypical | null; sun?: SunResult | null }) | null;
   /** The margins this assumed, so the report can state rather than imply them. */
   assumed: { boundarySetback: number; buildingGap: number; unit: { width: number; length: number } };
   /**
@@ -515,6 +518,7 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
             surveyAccurate: input.surveyAccurate !== false,
             terrain: input.heights ? measureTerrain(input.heights) : null,
             nearby: input.nearby ?? null,
+            sun: input.sun ?? null,
           }
         : null;
     })(),

@@ -39,14 +39,26 @@ const ACCESS_FINDING = (access: string, m: number, homes?: number): string =>
 export function withMeasuredSite(s: SubItem, layout: SiteLayout | null | undefined): SubItem {
   if (!layout) return s;
 
-  if (s.id === "land_aspect" && layout.aspect) {
+  if (s.id === "land_aspect") {
     const a = layout.aspect;
+    const sun = layout.measured?.sun;
+    if (!a && !sun) return s;
+    const facing = a ? `${a.direction.replace(/_/g, "-")}-facing section — the street runs ${a.roadBearing}` : null;
+    const sunLine = sun ? `${sun.winterSunHours} of ${sun.daylightHours} hours of midwinter sun on its open ground` : null;
     return {
       ...s,
-      aspectDirection: a.direction as SubItem["aspectDirection"],
+      ...(a ? { aspectDirection: a.direction as SubItem["aspectDirection"] } : {}),
+      ...(sun
+        ? {
+            sunObstruction: sun.shade as SubItem["sunObstruction"],
+            winterSun: { hours: sun.winterSunHours, daylightHours: sun.daylightHours, sharePct: sun.sharePct },
+          }
+        : {}),
       confidenceTier: 1 as SubItem["confidenceTier"],
-      evidenceSource: "LINZ parcel boundary + road centreline",
-      finding: `${a.direction.replace(/_/g, "-")}-facing section — the street runs ${a.roadBearing}`,
+      evidenceSource: [a && "LINZ parcel boundary + road centreline", sun && "LINZ surface model (LiDAR), traced for the shortest day"]
+        .filter(Boolean)
+        .join("; "),
+      finding: [facing, sunLine].filter(Boolean).join("; "),
     };
   }
 

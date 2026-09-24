@@ -34,6 +34,7 @@ npm run verify:cross-lease   # what a shared title costs, and the band it may ne
 npm run verify:land-value    # the section vs a typical one: shape, slope, orientation, access
 npm run verify:site-shape    # workable %, shape and frontage measured off the LINZ boundary
 npm run verify:terrain       # slope and usable % from the LINZ elevation model
+npm run verify:sun           # midwinter sun traced through the LINZ surface model
 npm run verify:development   # the dwelling-you-could-add figure, and what the title says about it
 npm run verify:structures    # what you could build, what it costs, and where the rules let you drag it
 npm run verify:regions       # which region a listing resolves to, and what its labour costs
@@ -1421,6 +1422,17 @@ takes the median workable % and usable % by the same rules as the subject, with
 elevation at zoom 16 (4 tiles, not 16). A national 90% usable discounted every
 Kelburn section for slope its suburb's sales had already priced in. Under 15
 samples falls back to national and the working says so.
+
+**Shade is MEASURED: midwinter sun traced through the LINZ surface model**
+("elevation-dsm" tiles, buildings and trees). From open ground in the section,
+every 15 min on the shortest day, toward the sun: surface model to 100 m, ground
+model to 1.5 km for hills. Shade cast from INSIDE the boundary doesn't count
+(the owner can fell a tree). When measured it REPLACES direction + shade in the
+land value — the compass was only a proxy for sun, pricing both credits a north
+face twice. Subject and typical neighbours go through ONE tracer at ONE zoom:
+reading neighbours coarser averaged their trees down and made every section
+look shadier than its street. Lookups use a linear metre→pixel map
+(`inFrame`); per-lookup projection was most of the time.
 
 **Land starts from a TYPICAL section, not a perfect one.** valueLand's rate comes
 from ordinary sales of ordinary sections, so `adjustLand()` (land-value.ts)

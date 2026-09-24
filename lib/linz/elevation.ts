@@ -82,14 +82,22 @@ type Decoded = ReturnType<typeof decodePng>;
  * A reader of the elevation model at one zoom, with the tiles it has fetched
  * kept, so measuring forty neighbouring sections downloads each tile once.
  */
-export function elevationSampler(zoom: number, opts: { signal?: AbortSignal } = {}) {
+export function elevationSampler(
+  zoom: number,
+  opts: {
+    signal?: AbortSignal;
+    /** "elevation" is bare ground; "elevation-dsm" is the surface — buildings and trees included. */
+    tileset?: "elevation" | "elevation-dsm";
+  } = {}
+) {
+  const tileset = opts.tileset ?? "elevation";
   const key = process.env.LINZ_BASEMAP_KEY?.trim();
   const tiles = new Map<string, Promise<Decoded>>();
   const tile = (t: string): Promise<Decoded> => {
     let p = tiles.get(t);
     if (!p) {
       p = fetch(
-        `https://basemaps.linz.govt.nz/v1/tiles/elevation/WebMercatorQuad/${zoom}/${t}.png?pipeline=terrain-rgb&api=${key}`,
+        `https://basemaps.linz.govt.nz/v1/tiles/${tileset}/WebMercatorQuad/${zoom}/${t}.png?pipeline=terrain-rgb&api=${key}`,
         { signal: opts.signal, cache: "force-cache" }
       )
         .then(async (res) => (res.ok ? decodePng(Buffer.from(await res.arrayBuffer())) : null))
@@ -154,7 +162,62 @@ export function elevationSampler(zoom: number, opts: { signal?: AbortSignal } = 
     return { step, cols, rows, z };
   }
 
-  return { grid };
+  const loaded = new Map<string, Decoded>();
+  const pixel = (lat: number, lng: number) => {
+    const sn = Math.sin((lat * Math.PI) / 180);
+    return { px: ((lng + 180) / 360) * scale, py: (0.5 - Math.log((1 + sn) / (1 - sn)) / (4 * Math.PI)) * scale };
+  };
+
+  /**
+   * Fetch every tile over an area so `at` can answer synchronously — the sun
+   * trace makes hundreds of thousands of lookups and can't await each one.
+   * Refuses (false) an area needing more than `maxTiles`.
+   */
+  async function load(minLat: number, minLng: number, maxLat: number, maxLng: number, maxTiles = 36): Promise<boolean> {
+    if (!key) return false;
+    const a = pixel(maxLat, minLng), b = pixel(minLat, maxLng);
+    const x0 = Math.floor(a.px / TILE), x1 = Math.floor(b.px / TILE), y0 = Math.floor(a.py / TILE), y1 = Math.floor(b.py / TILE);
+    if ((x1 - x0 + 1) * (y1 - y0 + 1) > maxTiles) return false;
+    const want: string[] = [];
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) want.push(`${x}/${y}`);
+    await Promise.all(want.map(async (t) => loaded.set(t, await tile(t))));
+    return want.some((t) => loaded.get(t));
+  }
+
+  /** Height at a point from what `load` fetched, nearest pixel; null if not loaded or no data. */
+  function at(lat: number, lng: number): number | null {
+    const { px, py } = pixel(lat, lng);
+    const img = loaded.get(`${Math.floor(px / TILE)}/${Math.floor(py / TILE)}`);
+    if (!img) return null;
+    const x = Math.floor(px) % TILE, y = Math.floor(py) % TILE;
+    const o = (y * img.w + x) * img.ch;
+    const h = -10000 + (img.data[o] * 65536 + img.data[o + 1] * 256 + img.data[o + 2]) * 0.1;
+    return h > NO_DATA ? h : null;
+  }
+
+  /**
+   * `at`, but in a metre frame and with no trigonometry per lookup. Over a
+   * couple of kilometres the web tile grid is linear in metres to well under a
+   * pixel, so the conversion is worked out once at the frame's centre. The sun
+   * trace makes millions of lookups; doing the full projection on each was most
+   * of its time.
+   */
+  function inFrame(frame: MetreFrame): (x: number, y: number) => number | null {
+    const c = pixel(frame.lat, frame.lng);
+    const e = pixel(frame.lat, frame.lng + 1 / frame.mPerDegLon);
+    const n = pixel(frame.lat + 1 / frame.mPerDegLat, frame.lng);
+    const dxdx = e.px - c.px, dydy = n.py - c.py;
+    return (x, y) => {
+      const px = c.px + x * dxdx, py = c.py + y * dydy;
+      const img = loaded.get(`${Math.floor(px / TILE)}/${Math.floor(py / TILE)}`);
+      if (!img) return null;
+      const o = ((Math.floor(py) % TILE) * img.w + (Math.floor(px) % TILE)) * img.ch;
+      const h = -10000 + (img.data[o] * 65536 + img.data[o + 1] * 256 + img.data[o + 2]) * 0.1;
+      return h > NO_DATA ? h : null;
+    };
+  }
+
+  return { grid, load, at, inFrame };
 }
 
 /**

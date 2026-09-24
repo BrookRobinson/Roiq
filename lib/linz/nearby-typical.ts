@@ -17,6 +17,9 @@
 
 import { measureSite, type Pt } from "@/lib/scoring/site-shape";
 import { measureTerrain } from "@/lib/scoring/site-slope";
+import { sunTracer, SUN_REACH_M } from "./sun";
+
+type Tracer = NonNullable<Awaited<ReturnType<typeof sunTracer>>>;
 import type { NearbyTypical } from "@/lib/scoring/land-value";
 import { elevationSampler, type MetreFrame } from "./elevation";
 
@@ -28,6 +31,43 @@ const PER_CELL = 5;
 /** Fewer than this and the median isn't worth more than the national figure. */
 const MIN_SAMPLE = 15;
 
+/** Sun is the costly trace, so fewer sections, and the nearest ones. */
+const SUN_SAMPLE = 20;
+const SUN_MIN = 10;
+const SUN_RADIUS_M = 150;
+
+function inside(p: Pt, r: Pt[]): boolean {
+  let c = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    if (r[i].y > p.y !== r[j].y > p.y && p.x < ((r[j].x - r[i].x) * (p.y - r[i].y)) / (r[j].y - r[i].y) + r[i].x) c = !c;
+  }
+  return c;
+}
+
+/**
+ * Midwinter sun on the nearest sections' open ground, through the SAME routine
+ * and zoom as the subject's — see sun.ts for why that matters. Only sections
+ * within SUN_RADIUS_M, so the few tiles the subject needs cover them too.
+ */
+async function typicalSun(frame: MetreFrame, rings: Pt[][], shared?: Promise<Tracer | null>): Promise<number[]> {
+  const centre = (r: Pt[]) => ({ x: r.reduce((s, p) => s + p.x, 0) / r.length, y: r.reduce((s, p) => s + p.y, 0) / r.length });
+  const near = rings
+    .map((r) => ({ r, d: Math.hypot(centre(r).x, centre(r).y) }))
+    .filter((x) => x.d <= SUN_RADIUS_M)
+    .sort((a, b) => a.d - b.d)
+    .slice(0, SUN_SAMPLE)
+    .map((x) => x.r);
+  if (near.length < SUN_MIN) return [];
+  const trace = await (shared ?? sunTracer(frame, SUN_REACH_M));
+  if (!trace) return [];
+  const out: number[] = [];
+  for (const r of near) {
+    const res = trace(r, 30);
+    if (res) out.push(res.sharePct);
+  }
+  return out;
+}
+
 type Feature = {
   properties?: Record<string, unknown>;
   geometry?: { type?: string; coordinates?: unknown } | null;
@@ -38,9 +78,32 @@ const median = (xs: number[]) => {
   return s[Math.floor(s.length / 2)];
 };
 
-export async function measureNearbyTypical(
+async function closeSections(
   frame: MetreFrame,
   wfs: (layer: string, cql: string, count?: number) => Promise<Feature[]>
+): Promise<Pt[][]> {
+  const dLat = SUN_RADIUS_M / frame.mPerDegLat, dLon = SUN_RADIUS_M / frame.mPerDegLon;
+  const fs = await wfs(
+    PARCELS_LAYER,
+    `parcel_intent IN ('Fee Simple Title','DCDB') AND calc_area > 300 AND calc_area < 2000 AND ` +
+      `BBOX(shape,${frame.lat - dLat},${frame.lng - dLon},${frame.lat + dLat},${frame.lng + dLon},'urn:ogc:def:crs:EPSG::4326')`,
+    40
+  );
+  const toM = (c: number[]): Pt => ({ x: (c[0] - frame.lng) * frame.mPerDegLon, y: (c[1] - frame.lat) * frame.mPerDegLat });
+  const out: Pt[][] = [];
+  for (const f of fs) {
+    const g = f.geometry;
+    const raw = g?.type === "Polygon" ? (g.coordinates as number[][][])[0] : g?.type === "MultiPolygon" ? (g.coordinates as number[][][][])[0][0] : null;
+    if (raw && raw.length >= 3) out.push(raw.map(toM));
+  }
+  return out;
+}
+
+export async function measureNearbyTypical(
+  frame: MetreFrame,
+  wfs: (layer: string, cql: string, count?: number) => Promise<Feature[]>,
+  /** The subject's sun tracer, shared so the same tiles aren't fetched twice. */
+  tracer?: Promise<Tracer | null>
 ): Promise<NearbyTypical | null> {
   const dLat = RADIUS_M / frame.mPerDegLat;
   const dLon = RADIUS_M / frame.mPerDegLon;
@@ -98,10 +161,16 @@ export async function measureNearbyTypical(
     })
   );
 
+  // The 3 × 3 grid puts only its centre cell near enough for the sun trace,
+  // so the nearest sections are asked for separately.
+  const closeRings = await closeSections(frame, wfs).catch(() => [] as Pt[][]);
+  const sun = await typicalSun(frame, closeRings, tracer).catch(() => [] as number[]);
+
   if (workable.length < MIN_SAMPLE) return null;
   return {
     workablePct: median(workable),
     usablePct: usable.length >= MIN_SAMPLE ? median(usable) : null,
+    sunSharePct: sun.length >= SUN_MIN ? median(sun) : null,
     sampled: workable.length,
     radiusM: RADIUS_M,
   };
