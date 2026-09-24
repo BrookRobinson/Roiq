@@ -3,14 +3,14 @@
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 
 import { useState } from "react";
-import type { ConfidenceTier, SubItem, RenoControls } from "@/lib/property-tab/types";
+import type { SubItem, RenoControls } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
 import { ItemValuation, ItemValuationWithheld } from "./ItemValuation";
 import { isRefused, type AnyValuation } from "./valuation-types";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
-import { ConfidenceBar, ConfidenceLabel } from "./ConfidenceBar";
+import { confidenceMeta } from "./ConfidenceBar";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
 import {
@@ -21,7 +21,6 @@ import {
   deckRepairCost,
 } from "@/lib/labour-rates";
 import { Camera, ArrowRight, Wrench, Shield } from "lucide-react";
-import { alpha } from "@/lib/ui/color";
 
 const PTS_RED = "var(--bad)", PTS_ORANGE = "var(--warn)", PTS_GREEN = "var(--good)";
 /** Colour for a points read, banded by fraction of the max. Shared with the
@@ -33,33 +32,15 @@ export function pointsColor(frac: number): string {
 }
 
 /** A small labelled stat bubble — a header word (e.g. "Condition" / "Item") over a value. */
-function StatBubble({ label, value, color, bg, border, title, tier }: {
-  label: string; value: string; color: string; bg: string; border: string; title?: string;
-  /** Drawn BELOW the bubble as a confidence meter — see ConfidenceBar. */
-  tier?: ConfidenceTier;
-}) {
+function Chip({ label, title, children }: { label: string; title?: string; children: React.ReactNode }) {
   return (
-    <div className="inline-flex flex-col items-center">
-      <div
-        title={title}
-        className="flex flex-col items-center rounded-lg"
-        style={{ background: bg, border: `1px solid ${border}`, padding: "2px 10px", minWidth: 70 }}
-      >
-        <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>{label}</span>
-        <span className="font-bold tabular-nums" style={{ color, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>{value}</span>
-      </div>
-      {/* Outside the bubble, as on the Land tab. The bubble is washed with how
-          the item RATES and the bar means how sure we are; sharing one box made
-          the two read as a single verdict. */}
-      {tier != null && (
-        <div className="flex flex-col items-center mt-1.5">
-          {/* Same height as the Land tab's. The bar's LENGTH is the encoding, so
-              two scales across two tabs would make a T1 here shorter than a T2
-              there — the one comparison the bar exists to make. */}
-          <ConfidenceBar tier={tier} />
-          <ConfidenceLabel tier={tier} />
-        </div>
-      )}
+    <div
+      title={title}
+      className="text-xs rounded-md px-2 py-1 max-w-xs"
+      style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+    >
+      <span style={{ color: "var(--text-muted)" }}>{label}: </span>
+      {children}
     </div>
   );
 }
@@ -100,11 +81,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
   // it is the one displayed, and the older figure is the fallback for items it
   // does not cover yet.
   const rejected = valuation ? isRefused(valuation) : false;
-  // The age the shown value was depreciated by — one age per card.
-  const ageShown =
-    valuation && !isRefused(valuation) ? Math.round(valuation.age.effectiveYears)
-    : value ? Math.round(value.ageYears)
-    : null;
   const detailed = valuation && !rejected ? valuation : null;
   const shown = detailed && !isRefused(detailed)
     ? { now: detailed.valueNZD, rcn: detailed.cost.totalNZD }
@@ -167,70 +143,45 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                 <a href="/report/upload" className="inline-flex items-center gap-0.5 font-medium hover:underline" style={{ color: "var(--brand)" }}>Add photos <ArrowRight size={11} /></a>
               </div>
             ) : (
+              // The summary line: what it's worth and how sure we are. Material
+              // and age used to sit here, but both are steps 1 and 3 of the
+              // valuation underneath, so the card said them twice.
               <div className="flex flex-wrap gap-2 mb-2 empty:mb-0">
-                {(SIZE_ITEM_IDS.has(item.id)
-                  ? item.estimatedSqm ? [{ label: "Size", value: `~${item.estimatedSqm} m²` }] : []
-                  : [
-                      // A chip only earns its line if it says something. "Material:
-                      // See assessment" cost a line to tell the reader to read the
-                      // rest of the card, and sat on items where the question makes
-                      // no sense at all — an oven has a brand, not a material.
-                      ...(item.material ? [{ label: "Material", value: item.material }] : []),
-                      // One age per card. When the item is valued, the chip shows
-                      // the age the valuation depreciates it by — a chip saying
-                      // "~54 years" above a value worked out at nine is two answers.
-                      ...(ageShown != null
-                        ? [{ label: "Age", value: `~${ageShown} ${ageShown === 1 ? "year" : "years"} (est.)` }]
-                        : item.estimatedAge && item.estimatedAge !== "—" ? [{ label: "Age", value: item.estimatedAge }] : []),
-                    ]
-                ).map((pill) => (
-                  <div
-                    key={pill.label}
-                    className="text-xs rounded-md px-2 py-1 max-w-xs"
-                    style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+                {shown ? (
+                  <Chip
+                    label="Value"
+                    title={`Costs about $${Math.round(shown.rcn).toLocaleString("en-NZ")} to replace today; this one is worth $${Math.round(shown.now).toLocaleString("en-NZ")} after the share of its life already used.`}
                   >
-                    <span style={{ color: "var(--text-muted)" }}>{pill.label}: </span>
-                    <span className="font-medium" style={{ color: "var(--text-secondary)" }}>
-                      {pill.value}
+                    <span className="font-bold mono" style={{ color }}>${Math.round(shown.now).toLocaleString("en-NZ")}</span>
+                    <span className="mono" style={{ color: "var(--text-muted)" }}> of ${Math.round(shown.rcn).toLocaleString("en-NZ")}</span>
+                  </Chip>
+                ) : SIZE_ITEM_IDS.has(item.id) && item.estimatedSqm ? (
+                  <Chip label="Size"><span className="font-medium" style={{ color: "var(--text-secondary)" }}>~{item.estimatedSqm} m²</span></Chip>
+                ) : (
+                  <Chip label="Condition" title="Condition — how worn or new the item is (1–10).">
+                    <span className="font-bold mono" style={{ color: conditionScoreColor(item.score) }}>
+                      {item.score !== null ? `${item.score}/10` : "Not assessed"}
                     </span>
-                  </div>
-                ))}
+                  </Chip>
+                )}
+                {item.confidenceTier != null && (
+                  <Chip label="Confidence" title={confidenceMeta(item.confidenceTier).full}>
+                    <span className="font-medium" style={{ color: confidenceMeta(item.confidenceTier).color }}>
+                      {confidenceMeta(item.confidenceTier).short.replace(/ confidence$/, "")}
+                    </span>
+                  </Chip>
+                )}
               </div>
             )}
           </div>
 
-          {/* Condition score + spec badge — or "No photos — not assessed" when there were none */}
-          <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
-            {item.noPhotoNotAssessed ? (
+          {item.noPhotoNotAssessed && (
+            <div className="flex-shrink-0">
               <span className="inline-flex items-center gap-1 text-[11px] rounded-lg px-2 py-1 whitespace-nowrap" style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
                 <Camera size={11} /> No photos — not assessed
               </span>
-            ) : (
-              <>
-                {shown ? (
-                  <StatBubble
-                    label="Value"
-                    value={`$${Math.round(shown.now).toLocaleString("en-NZ")}`}
-                    color={color}
-                    bg={`${alpha(color, 12)}`}
-                    border={`${alpha(color, 33)}`}
-                    title={`Costs about $${Math.round(shown.rcn).toLocaleString("en-NZ")} to replace today; this one is worth $${Math.round(shown.now).toLocaleString("en-NZ")} after the share of its life already used.`}
-                    tier={item.confidenceTier}
-                  />
-                ) : (
-                  <StatBubble
-                    label="Condition"
-                    value={item.score !== null ? `${item.score}/10` : "N/A"}
-                    color={conditionScoreColor(item.score)}
-                    bg={`${alpha(conditionScoreColor(item.score), 12)}`}
-                    border={`${alpha(conditionScoreColor(item.score), 33)}`}
-                    title="Condition — how worn or new the item is (1–10)."
-                    tier={item.confidenceTier}
-                  />
-                )}
-              </>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Confidence + photo refs — hidden for no-photo items (no T3 / source shown) */}
