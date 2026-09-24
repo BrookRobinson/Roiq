@@ -36,6 +36,9 @@ export async function GET(req: Request) {
       anchor: record.site.anchor,
       burdens: record.site.burdens.map((b) => b.ring),
       burdenLabels: record.site.burdens.map((b) => ({ kind: b.kind, appellation: b.appellation })),
+      roadParcels: record.site.roadParcels,
+      neighbourParcels: record.site.neighbourParcels,
+      surveyAccurate: record.site.surveyAccurate,
     });
 
     return NextResponse.json(

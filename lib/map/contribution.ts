@@ -16,6 +16,7 @@ import type { ScrapedListing } from "@/lib/scraper/types";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
 import { computeRepairAllowance } from "./repair-allowance";
 import { valueProperty } from "@/lib/scoring/property-value";
+import { withMeasuredSiteAll } from "@/lib/scoring/measured-site";
 import type { CompletenessSignal } from "./report-completeness";
 
 export interface ReportContribution {
@@ -98,7 +99,9 @@ export function contributionFrom(report: StoredReport): ReportContribution {
     // analysis said when it was made, and nobody had been to the property yet.
     roiqValuation:
       valueProperty({
-        subItems: report.subItems ?? [],
+        // Raw analysis, but with the site geometry's measurements in place of
+        // the photo reads — the same facts the report's land value uses.
+        subItems: withMeasuredSiteAll(report.subItems ?? [], report.listing.siteLayout),
         floorAreaSqm: report.listing.floorAreaSqm,
         labourMultiplier: labourMultiplierFor(report.listing),
         roof: { footprintM2: report.listing.siteLayout?.mainBuildingAreaSqm ?? null },

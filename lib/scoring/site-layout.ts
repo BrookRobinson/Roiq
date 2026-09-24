@@ -30,6 +30,8 @@
 // setback" — rather than implying a council has agreed to anything.
 // ============================================================
 
+import { measureSite, type SiteMeasure } from "./site-shape.ts";
+
 /** The eight compass points the land model scores an aspect on. */
 export type AspectDirection =
   | "north" | "north_east" | "north_west" | "east"
@@ -79,6 +81,12 @@ export interface SiteInput {
   buildingGap?: number;
   /** Where the metre frame sits on earth, so imagery can be aligned to it. */
   anchor?: { lat: number; lng: number; mPerDegLat: number; mPerDegLon: number } | null;
+  /** Legal road land around the section, for measuring frontage. */
+  roadParcels?: Ring[] | null;
+  /** The other parcels around it, for finding a shared access lot. */
+  neighbourParcels?: Ring[] | null;
+  /** False for LINZ's older digitised boundaries — measured facts get a lower confidence. */
+  surveyAccurate?: boolean;
 }
 
 export interface SiteLayout {
@@ -139,6 +147,12 @@ export interface SiteLayout {
    * rather than replaced by a second guess.
    */
   aspect: { direction: AspectDirection; roadBearing: string } | null;
+  /**
+   * Shape and frontage, measured off the surveyed boundary and the legal road
+   * land — see site-shape.ts. `frontage` is null when road land wasn't fetched.
+   * Optional because layouts stored before this was measured don't carry it.
+   */
+  measured?: (SiteMeasure & { surveyAccurate: boolean }) | null;
   /** The margins this assumed, so the report can state rather than imply them. */
   assumed: { boundarySetback: number; buildingGap: number; unit: { width: number; length: number } };
   /**
@@ -487,6 +501,10 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
     placement: unitFits && spot ? describePlacement(spot, house, road) : null,
     housePosition: describeHousePosition(house, parcel, road),
     aspect,
+    measured: (() => {
+      const m = measureSite(parcel, input.roadParcels ?? null, input.neighbourParcels ?? null);
+      return m ? { ...m, surveyAccurate: input.surveyAccurate !== false } : null;
+    })(),
     assumed,
     plan: {
       parcel: parcel.map(shift),

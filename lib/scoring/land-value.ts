@@ -106,7 +106,9 @@ export function adjustLand(baseNZD: number, f: SiteFacts): AdjustedLand {
       working:
         w === A.shape.typicalWorkablePct
           ? `${w}% of it is a regular, workable block, which is typical. No adjustment.`
-          : `${w}% of it is a regular, workable block against a typical ${A.shape.typicalWorkablePct}%. The ${w < A.shape.typicalWorkablePct ? "extra awkward" : "extra usable"} ${Math.abs(A.shape.typicalWorkablePct - w)}% is valued at ${Math.round((1 - A.shape.unworkableDiscount) * 100)}% of the rate: ${money(d)}.`,
+          : w < A.shape.typicalWorkablePct
+          ? `${w}% of it is a regular, workable block against a typical ${A.shape.typicalWorkablePct}%. The extra awkward ${A.shape.typicalWorkablePct - w}% is valued at ${Math.round((1 - A.shape.unworkableDiscount) * 100)}% of the rate: ${money(d)}.`
+          : `${w}% of it is a regular, workable block against a typical ${A.shape.typicalWorkablePct}%. That extra ${w - A.shape.typicalWorkablePct}% is usable land where a typical section has awkward corners: ${money(d)}.`,
     });
   }
 

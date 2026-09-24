@@ -175,11 +175,15 @@ export const SOURCE_TAXONOMY: Record<string, SourceRef> = {
   loc_future: { source: "Council district plan / zoning layer", sourceType: "council_data", verifyAgainst: "council district plan" },
   // Land (v4 — flood, liquefaction, coastal, soil, fault, wind erased)
   land_size: { source: "LINZ record of title — title area", sourceType: "linz" },
-  land_topography: { source: "LINZ topographic contours + listing photos", sourceType: "linz" },
-  land_aspect: { source: "LINZ parcel boundary + road centreline", sourceType: "linz" },
-  land_shape: { source: "LINZ title diagram + parcel geometry", sourceType: "linz" },
+  // These three are the DEFAULTS — what's true when nothing was measured and the
+  // analysis read the fact off photos. lib/scoring/measured-site.ts replaces
+  // them with the LINZ source whenever the geometry measured it. They used to
+  // claim "LINZ topographic contours" on every report; nothing fetches contours.
+  land_topography: { source: "Listing photos and aerial imagery — read by the analysis, not measured", sourceType: "photo" },
+  land_aspect: { source: "Listing photos and aerial imagery — read by the analysis, not measured", sourceType: "photo" },
+  land_shape: { source: "Aerial imagery and title diagram — read by the analysis, not measured", sourceType: "photo" },
   land_subdivision: { source: "Zoning + lot size + district-plan minimum-lot rules", sourceType: "council_data", verifyAgainst: "council district plan" },
-  land_frontage: { source: "LINZ record of title + parcel and road geometry", sourceType: "title" },
+  land_frontage: { source: "Listing photos and aerial imagery — read by the analysis, not measured", sourceType: "photo" },
   // Legal
   // No verifyAgainst: the record of title is retrieved from LINZ before the
   // analysis runs (lib/linz/property-records.ts), so the type, estate and legal

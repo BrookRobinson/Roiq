@@ -7,6 +7,7 @@ import { addUserListing } from "@/lib/map/user-listings";
 import { persistMapListing } from "@/lib/map/persist";
 import { computeRepairAllowance } from "@/lib/map/repair-allowance";
 import { valueProperty } from "@/lib/scoring/property-value";
+import { withMeasuredSiteAll } from "@/lib/scoring/measured-site";
 import type { ReportContribution } from "@/lib/map/contribution";
 import { whyIncomplete, INCOMPLETE_REASON } from "@/lib/map/report-completeness";
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       // The same valuation the report would show — one method, one number.
       roiqValuation:
         valueProperty({
-          subItems: result.subItems,
+          subItems: withMeasuredSiteAll(result.subItems, listing.siteLayout),
           floorAreaSqm: listing.floorAreaSqm,
           labourMultiplier: labourMultiplierFor(listing),
           roof: { footprintM2: listing.siteLayout?.mainBuildingAreaSqm ?? null },

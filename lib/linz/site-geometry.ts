@@ -75,6 +75,23 @@ export interface SiteGeometry {
    * unpublished register, and it gets the same treatment in the copy.
    */
   burdens: Burden[];
+  /**
+   * Legal road land around the section (NZ Primary Parcels with intent "Road"),
+   * in the same metre frame. Frontage is measured against these: where the
+   * boundary touches road land, and for how many metres.
+   */
+  roadParcels: Ring[];
+  /**
+   * Other (non-road) parcels around the section, for finding a shared access
+   * lot when the section has no road of its own.
+   */
+  neighbourParcels: Ring[];
+  /**
+   * False when the boundary is still on LINZ's older digitised record ("DCDB")
+   * rather than a modern survey. Those can be a metre or more out, so anything
+   * measured off them is reported at a lower confidence.
+   */
+  surveyAccurate: boolean;
 }
 
 type Feature = {
@@ -213,6 +230,24 @@ export async function lookupSiteGeometry(
     }
   }
 
+  // Road land. The same parcels layer — road reserve is a primary parcel with
+  // intent "Road" — so frontage is measured against the legal road, not the
+  // kerb or the centreline. Padded ~30 m so the reserve along every side is in.
+  //
+  // The same query brings the neighbours, which matter only for a section with
+  // no road of its own — the jointly-owned access lot it hangs off is one of
+  // them, and the sections around that lot are how many homes share it.
+  const roadParcels: Ring[] = [];
+  const neighbourParcels: Ring[] = [];
+  const around = await wfs(PARCELS_LAYER, bbox(0.0004), 120).catch(() => []);
+  for (const f of around) {
+    const intent = typeof f.properties?.parcel_intent === "string" ? f.properties.parcel_intent : "";
+    for (const ring of outerRings(f.geometry)) {
+      if (intent === "Road") roadParcels.push(ring.map(toM));
+      else if (intent !== "Hydro") neighbourParcels.push(ring.map(toM));
+    }
+  }
+
   const props = parcelFeature?.properties ?? {};
   return {
     anchor: { lat: lat0, lng: lon0, mPerDegLat: M_PER_DEG_LAT, mPerDegLon: mPerLon },
@@ -222,5 +257,8 @@ export async function lookupSiteGeometry(
     buildings,
     roadPoint,
     burdens,
+    roadParcels,
+    neighbourParcels,
+    surveyAccurate: props.parcel_intent !== "DCDB",
   };
 }

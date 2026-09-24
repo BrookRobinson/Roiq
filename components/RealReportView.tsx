@@ -23,6 +23,7 @@ import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { adjustLand, siteFactsFrom } from "@/lib/scoring/land-value";
 import { LandValueWorkings } from "@/components/PropertyInspections/LandValueWorkings";
+import { withMeasuredSite } from "@/lib/scoring/measured-site";
 import { methodFor, comparablesMatch } from "@/lib/scoring/valuation-method";
 import { valueProperty, type PropertyValue } from "@/lib/scoring/property-value";
 import type { SiteLayout } from "@/lib/scoring/site-layout";
@@ -532,21 +533,13 @@ export function RealReportView({
         // the best aspect in the country. It turned the property's biggest
         // natural advantage into a mark against it, from an aerial image that
         // carries no compass.
-        if (s.id === "land_aspect" && siteLayout?.aspect) {
-          const a = siteLayout.aspect;
-          return {
-            ...s,
-            aspectDirection: a.direction as typeof s.aspectDirection,
-            // AND THE TIER MOVES WITH IT. The aspect used to be inferred from
-            // photographs and carried "T3 — not visible" for exactly that
-            // reason. It is now measured off the surveyed parcel and the road
-            // centreline, so leaving it red said the least reliable thing on the
-            // card about the most certain: a bearing computed from geometry is
-            // established, not guessed.
-            confidenceTier: 1 as typeof s.confidenceTier,
-            evidenceSource: "LINZ parcel boundary + road centreline",
-            finding: `${a.direction.replace(/_/g, "-")}-facing section — the street runs ${a.roadBearing}`,
-          };
+        // Orientation, shape and frontage are MEASURED off the LINZ parcel,
+        // the legal road land and the road line when those were fetched — see
+        // lib/scoring/measured-site.ts, which the map pin uses too. On 156
+        // Buchanans Road the analysis read a south-west aspect off an aerial
+        // with no compass; the section faces north.
+        if (s.id === "land_aspect" || s.id === "land_shape" || s.id === "land_frontage") {
+          s = withMeasuredSite(s, siteLayout);
         }
         // Section size is scored objectively vs a typical lot, not the AI's guess.
         if (s.id === "land_size") return { ...s, score: assessSectionSize(report.listing.landAreaSqm).score as typeof s.score };

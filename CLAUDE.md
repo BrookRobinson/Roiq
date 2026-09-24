@@ -32,6 +32,7 @@ npm run verify:healthy-homes # the five legal standards, and when we may not cla
 npm run verify:valuation-method # which method fits which property — tenure decides, not the label
 npm run verify:cross-lease   # what a shared title costs, and the band it may never leave
 npm run verify:land-value    # the section vs a typical one: shape, slope, orientation, access
+npm run verify:site-shape    # workable %, shape and frontage measured off the LINZ boundary
 npm run verify:development   # the dwelling-you-could-add figure, and what the title says about it
 npm run verify:structures    # what you could build, what it costs, and where the rules let you drag it
 npm run verify:regions       # which region a listing resolves to, and what its labour costs
@@ -1391,6 +1392,18 @@ Renovations line priced at exactly that cost. It gets no three-tier costing: the
 tier engine turned a $944 board repair into a $9,753 re-clad. On an item past
 its life the replacement is the action and the repair is an unticked stop-gap,
 so the plan never pays for both.
+
+**Shape and frontage are MEASURED off the LINZ boundary, not read off a photo.**
+`measureSite()` (site-shape.ts): workable % = the share at least 6 m wide
+(morphological opening); frontage = metres of boundary on LINZ road parcels
+(intent "Road", same layer as the section), counted only in continuous 3 m+
+stretches after trimming the 1 m touch tolerance off each end (a cul-de-sac head
+is many short segments; a side boundary's first metre is not frontage). No road
+contact → look for a narrow access-lot neighbour touching the road; the homes on
+it are the neighbours touching it WITHOUT their own frontage. `withMeasuredSite()`
+applies it for the report AND the map. Older "DCDB" boundaries are medium
+confidence and say so. The catalog's land sources are the UNMEASURED defaults and
+must never claim LINZ; the measured helper replaces them.
 
 **Land starts from a TYPICAL section, not a perfect one.** valueLand's rate comes
 from ordinary sales of ordinary sections, so `adjustLand()` (land-value.ts)
