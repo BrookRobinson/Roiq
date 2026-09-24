@@ -140,5 +140,20 @@ const unmeasured = valueImprovementItems({ subItems: roofFacts, floorAreaSqm: 15
 check("with a footprint it is valued", measured.items.some((v) => v.id === "ext_roof" && v.valueNow > 0), true);
 check("without one it falls back rather than dropping out", unmeasured.items.some((v) => v.id === "ext_roof" && v.valueNow > 0), true);
 
+console.log("\nthe base rate holds only what is behind the linings");
+// Linings came out of the shell rate and became graded items; the rough-in
+// came out and now scales with bathrooms. On the 150 m², one-bathroom reference
+// house the three must add back to the old all-in $1,100/m² — moved, not changed.
+const { IMPROVEMENT_BASE_COSTS } = await import(join(root, "lib/scoring/improvement-values.ts"));
+const ref = valueImprovementItems({ subItems: [item("kit_cabinetry", 7)], floorAreaSqm: 150, bathrooms: 1, now: NOW });
+const linings = (IMPROVEMENT_BASE_COSTS.liv_walls.baseRCN + IMPROVEMENT_BASE_COSTS.liv_ceiling.baseRCN + IMPROVEMENT_BASE_COSTS.bed_ceiling.baseRCN) * 150;
+check("reference house: frame + rough-in + linings = the old $165,000", ref.shell.costNew + linings, 165000);
+const oneBath = valueImprovementItems({ subItems: [item("kit_cabinetry", 7)], floorAreaSqm: 180, bathrooms: 1, now: NOW });
+const threeBath = valueImprovementItems({ subItems: [item("kit_cabinetry", 7)], floorAreaSqm: 180, bathrooms: 3, now: NOW });
+check("each extra bathroom adds its rough-in", threeBath.shell.roughIn - oneBath.shell.roughIn, 2 * 5500);
+check("…and the frame doesn't move with it", threeBath.shell.structureCost, oneBath.shell.structureCost);
+check("wall linings are a graded item", "liv_walls" in IMPROVEMENT_BASE_COSTS, true);
+check("ceilings scale with the floor now", IMPROVEMENT_BASE_COSTS.liv_ceiling.scale, "floorM2");
+
 console.log(failures === 0 ? "\nEstimated-value rules hold.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);

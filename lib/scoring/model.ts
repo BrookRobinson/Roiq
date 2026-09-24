@@ -138,10 +138,14 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   // --- Living areas (Buyer 61 / Investor 63) ---
   { id: "liv_heating", label: "Heating (primary source)", inspection: "improvements", category: "Living areas", buyerPoints: 15, investorPoints: 20, conditional: false, costBearing: true, affectsHealthyHomes: true },
   { id: "liv_fixtures", label: "Lighting & electrical fixtures (fittings, switches, downlights)", inspection: "improvements", category: "Living areas", buyerPoints: 6, investorPoints: 5, conditional: false, costBearing: true, affectsHealthyHomes: false },
-  { id: "liv_size", label: "Size & flow", inspection: "improvements", category: "Living areas", buyerPoints: 13, investorPoints: 9, conditional: false, costBearing: false, affectsHealthyHomes: false },
+  { id: "liv_size", label: "Size & flow", inspection: "improvements", category: "Living areas", buyerPoints: 9, investorPoints: 6, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "liv_insulation", label: "Insulation (visible / inferred)", inspection: "improvements", category: "Living areas", buyerPoints: 10, investorPoints: 15, conditional: false, costBearing: true, affectsHealthyHomes: true },
   { id: "liv_light", label: "Natural light & aspect", inspection: "improvements", category: "Living areas", buyerPoints: 7, investorPoints: 5, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "liv_flooring", label: "Flooring", inspection: "improvements", category: "Living areas", buyerPoints: 6, investorPoints: 6, conditional: false, costBearing: true, affectsHealthyHomes: false },
+  // Wall linings are visible in every interior photo, so they are graded like
+  // any other surface rather than buried in the base rate. Weight moved from
+  // Size & flow, which is a stated fact now and carries no price.
+  { id: "liv_walls", label: "Wall linings (whole house)", inspection: "improvements", category: "Living areas", buyerPoints: 4, investorPoints: 3, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "liv_ceiling", label: "Ceiling condition & height", inspection: "improvements", category: "Living areas", buyerPoints: 4, investorPoints: 3, conditional: false, costBearing: true, affectsHealthyHomes: false },
 
   // --- Sun & aspect (Buyer 25 / Investor 10) — site orientation & all-day sun.

@@ -45,10 +45,31 @@ export interface ItemCostSpec {
   note?: string;
 }
 
-/** $/floor-m² for the base structure & services shell — the real build cost that
- * ISN'T individually scored (framing, gib, ceilings, wiring, plumbing rough-in,
- * consents, prelims, builder's margin). Depreciated by the blended condition. */
-export const BASE_SHELL_RATE = 1100;
+/**
+ * The base rate of the house: only what is HIDDEN behind the linings.
+ *
+ * Framing, the electrical pre-wire (cable to the boxes, not the switches and
+ * fittings — those are liv_fixtures), consents, preliminaries and the
+ * builder's margin. Linings used to be in here too, but they are visible in
+ * every interior photo, so walls (liv_walls) and ceilings are graded items now.
+ *
+ * $755 is the old all-in $1,100 less linings (~$275/floor m²) and the plumbing
+ * rough-in's share on the 150 m², one-bathroom reference house (~$70) — so the
+ * reference house costs the same $165,000 to build as before, just itemised.
+ */
+export const BASE_SHELL_RATE = 755;
+
+/**
+ * Plumbing rough-in: the supply and waste pipework run through the frame and
+ * floor, ending at capped stub-outs and signed off at the pre-line inspection
+ * before the linings go on. Fit-off (taps, toilets, basins, showers, the
+ * cylinder) happens after the linings and is on those items' own cards.
+ *
+ * It scales with the bathrooms, not the floor: a 200 m² house with one
+ * bathroom has far less pipe in its walls than a 150 m² one with three.
+ */
+export const ROUGH_IN_BASE = 5000; // water in, kitchen, laundry, cylinder feed
+export const ROUGH_IN_PER_BATHROOM = 5500;
 
 /** The spec ceiling used for the "value gap" (uplift if renovated to modern). */
 const RENO_TARGET_MULT = SPEC_MULTIPLIER.modern; // modern, as-new
@@ -90,13 +111,18 @@ export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
   liv_fixtures: { baseRCN: 3000, scale: "fixed", note: "Light fittings, downlights, switches" },
   liv_insulation: { baseRCN: 35, scale: "floorM2", note: "Ceiling + underfloor per floor m²" },
   liv_flooring: { baseRCN: 30, scale: "floorM2" },
-  liv_ceiling: { baseRCN: 2500, scale: "fixed" },
+  // Linings are priced per floor m², out of the old all-in shell rate. Walls
+  // present about 2.5× the floor area in surface, ceilings about 1×, at roughly
+  // $70/m² of surface to supply, fix and stop plasterboard. The ceiling line
+  // here covers every room but the bedrooms; bed_ceiling covers those.
+  liv_walls: { baseRCN: 175, scale: "floorM2", note: "Supply, fix and stop plasterboard to every wall" },
+  liv_ceiling: { baseRCN: 60, scale: "floorM2", note: "Ceilings to living, kitchen, hall and wet areas" },
 
   // Bedrooms (across all)
   bed_heating: { baseRCN: 1500, scale: "fixed" },
   bed_storage: { baseRCN: 2500, scale: "fixed", note: "Wardrobes across bedrooms" },
   bed_flooring: { baseRCN: 3000, scale: "fixed" },
-  bed_ceiling: { baseRCN: 1200, scale: "fixed" },
+  bed_ceiling: { baseRCN: 40, scale: "floorM2", note: "Bedroom ceilings" },
 
   // Garage (skipped automatically if not present / not assessed)
   // Real installs with real replacement costs. They were missing, so they fell
@@ -162,7 +188,16 @@ export interface ItemValue {
 export interface ShellWorkings {
   ratePerSqm: number;
   floorAreaSqm: number;
-  /** rate × floor area: what the shell costs to build today. */
+  /** rate × floor area. */
+  structureCost: number;
+  bathrooms: number;
+  /** False when the listing gave no count and one was assumed. */
+  bathroomsFromListing: boolean;
+  roughInBase: number;
+  roughInPerBathroom: number;
+  /** base + per-bathroom × bathrooms. */
+  roughIn: number;
+  /** structure + rough-in: what the shell costs to build today. */
   costNew: number;
   /** Null when no build year is known — the shell is then treated as new. */
   buildYear: number | null;
@@ -392,11 +427,20 @@ export function valueImprovementItems(args: {
     noun: "structure",
   });
   const shellLifeFactor = args.buildYear ? shellLifeRemaining(shellAge.effectiveYears) : 1;
-  const shellValue = floor > 0 ? Math.round(BASE_SHELL_RATE * floor * shellLifeFactor) : 0;
+  const structureCost = Math.round(BASE_SHELL_RATE * floor);
+  const roughIn = floor > 0 ? ROUGH_IN_BASE + ROUGH_IN_PER_BATHROOM * baths : 0;
+  const shellCostNew = structureCost + roughIn;
+  const shellValue = floor > 0 ? Math.round(shellCostNew * shellLifeFactor) : 0;
   const shell: ShellWorkings = {
     ratePerSqm: BASE_SHELL_RATE,
     floorAreaSqm: floor,
-    costNew: Math.round(BASE_SHELL_RATE * floor),
+    structureCost,
+    bathrooms: baths,
+    bathroomsFromListing: args.bathrooms != null && args.bathrooms > 0,
+    roughInBase: ROUGH_IN_BASE,
+    roughInPerBathroom: ROUGH_IN_PER_BATHROOM,
+    roughIn,
+    costNew: shellCostNew,
     buildYear: args.buildYear ?? null,
     age: shellAge,
     blendedCondition: args.buildYear && wRcn > 0 ? Math.round(blendedScore * 10) / 10 : null,

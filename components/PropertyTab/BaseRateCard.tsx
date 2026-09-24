@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================
-// The house before its fittings: framing, linings, wiring, plumbing rough-in.
+// The house behind its linings: framing, pre-wire, plumbing rough-in.
 //
 // It is the one part of the building value no item card explains, because
 // none of it can be photographed — and it is often the biggest single line in
@@ -46,8 +46,9 @@ export function BaseRateCard({ shell }: { shell: ShellWorkings }) {
             Structure &amp; services
           </div>
           <p className="text-[13px] mt-1 max-w-xl" style={{ color: "var(--text-secondary)" }}>
-            The house before its fittings. It can&apos;t be photographed, so it isn&apos;t an item below. It is
-            priced by floor area and depreciated by age.
+            What sits behind the linings. It can&apos;t be photographed, so it isn&apos;t an item below. The
+            frame is priced by floor area, the plumbing by the number of bathrooms, and both are depreciated
+            by age.
           </p>
         </div>
         <div className="sm:text-right">
@@ -61,20 +62,40 @@ export function BaseRateCard({ shell }: { shell: ShellWorkings }) {
       <div className="mt-4 pt-4 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
         <Step n={1} title="What it covers">
           <div className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-            Framing, wall and ceiling linings, wiring, plumbing rough-in, consents, preliminaries and the
-            builder&apos;s margin. The kitchen, bathrooms, roof, cladding, windows and the rest are valued
-            on their own cards below and aren&apos;t counted here.
+            Everything that goes in before the walls are lined: the frame, the electrical pre-wire (cable to
+            the boxes), the plumbing rough-in, consents, preliminaries and the builder&apos;s margin. The
+            plumbing rough-in is the pipework through the frame and floor. It stops at capped stub-outs,
+            signed off at the council&apos;s pre-line inspection. Everything after the linings is fit-off:
+            taps, toilets, basins, showers, the cylinder, switches and light fittings. Those, the wall and
+            ceiling linings, and the rest of the house are valued on their own cards below and aren&apos;t
+            counted here.
           </div>
         </Step>
 
         <Step n={2} title="Base rate">
           <Workings
             lines={[
-              `${money(shell.ratePerSqm)} per m² of floor, a typical rate for a New Zealand timber-framed shell. It is an industry range, not a quote.`,
-              `${shell.floorAreaSqm} m² of floor area, from the listing.`,
+              `The frame: ${money(shell.ratePerSqm)} per m² of floor, a typical rate for a New Zealand timber-framed house with its linings taken out. ${shell.floorAreaSqm} m² from the listing.`,
             ]}
-            last={`${money(shell.ratePerSqm)} × ${shell.floorAreaSqm} m² = ${money(shell.costNew)} to build new`}
+            last={`${money(shell.ratePerSqm)} × ${shell.floorAreaSqm} m² = ${money(shell.structureCost)}`}
           />
+          <div className="mt-2">
+            <Workings
+              lines={[
+                `Plumbing rough-in: ${money(shell.roughInBase)} for the water supply, kitchen, laundry and cylinder feed, plus ${money(shell.roughInPerBathroom)} for each bathroom's pipework.`,
+                shell.bathroomsFromListing
+                  ? `${shell.bathrooms} ${shell.bathrooms === 1 ? "bathroom" : "bathrooms"}, from the listing.`
+                  : "The listing doesn't give a bathroom count, so one is assumed.",
+              ]}
+              last={`${money(shell.roughInBase)} + ${money(shell.roughInPerBathroom)} × ${shell.bathrooms} = ${money(shell.roughIn)}`}
+            />
+          </div>
+          <div className="mono text-[13px] font-semibold pt-2 mt-2" style={{ color: "var(--text-primary)", borderTop: "1px solid var(--border)" }}>
+            {money(shell.structureCost)} + {money(shell.roughIn)} = {money(shell.costNew)} to build new
+          </div>
+          <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
+            Industry-typical rates, not a quote.
+          </div>
         </Step>
 
         <Step n={3} title="Age">
@@ -88,7 +109,7 @@ export function BaseRateCard({ shell }: { shell: ShellWorkings }) {
               </div>
               <div className="text-[12px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
                 {shell.blendedCondition != null
-                  ? `Nobody can see the frame or the wiring, so the age is moved by how the rest of the house presents: the components average ${shell.blendedCondition}/10. A house whose visible parts are well kept has usually been looked after behind the linings too.`
+                  ? `Nobody can see the frame, the wiring or the pipes, so the age is moved by how the rest of the house presents: the components average ${shell.blendedCondition}/10. A house whose visible parts are well kept has usually been looked after behind the linings too.`
                   : shell.age.basis}
               </div>
             </>
@@ -113,7 +134,7 @@ export function BaseRateCard({ shell }: { shell: ShellWorkings }) {
             </span>
           </div>
           <div className="text-[12px] mt-1" style={{ color: "var(--text-secondary)" }}>
-            A timber-framed shell has an economic life of about {shell.lifeYears} years
+            A timber frame and its services have an economic life of about {shell.lifeYears} years
             {shell.buildYear ? `, and this one is about ${Math.round(used * 100)}% of the way through it` : ""}.
           </div>
           <div className="text-[12px] mt-0.5" style={{ color: shell.atResidual ? "var(--text-primary)" : "var(--text-muted)" }}>

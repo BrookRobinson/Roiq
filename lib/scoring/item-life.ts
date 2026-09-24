@@ -121,6 +121,7 @@ export const ITEM_LIFE: Record<string, ItemLife> = {
     lifeLow: 12, lifeHigh: 35, materialShare: 0.5, disposalShare: 0.06,
     note: "Carpet at the short end, native timber at the long. A wide range on purpose.",
   },
+  liv_walls: { lifeLow: 40, lifeHigh: 60, materialShare: 0.35, disposalShare: 0.07 },
   liv_ceiling: { lifeLow: 40, lifeHigh: 60, materialShare: 0.35, disposalShare: 0.07 },
 
   // ── Bedrooms ───────────────────────────────────────────────────────────────

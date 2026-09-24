@@ -98,47 +98,47 @@ const ENVELOPE: Record<Archetype, Record<string, string>> = {
   renovated: {
     ext_roof: "Long-run coloursteel", ext_cladding: "Bevel-back weatherboard",
     ext_windows: "Aluminium joinery, double glazed", ext_doors: "Aluminium slider, timber front door",
-    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard", liv_walls: "Plasterboard",
   },
   tired70s: {
     ext_roof: "Long-run corrugated steel", ext_cladding: "Bevel-back weatherboard",
     ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider, timber front door",
-    liv_ceiling: "Plasterboard with timber cornice", bed_ceiling: "Plasterboard",
+    liv_ceiling: "Plasterboard with timber cornice", bed_ceiling: "Plasterboard", liv_walls: "Plasterboard",
   },
   newBuild: {
     ext_roof: "Coloursteel tray roofing", ext_cladding: "Fibre-cement weatherboard on cavity",
     ext_windows: "Thermally broken aluminium, double glazed", ext_doors: "Aluminium sliders, double glazed",
-    liv_ceiling: "Plasterboard, square-stopped", bed_ceiling: "Plasterboard, square-stopped",
+    liv_ceiling: "Plasterboard, square-stopped", bed_ceiling: "Plasterboard, square-stopped", liv_walls: "Plasterboard, square-stopped",
   },
   leakyEra: {
     ext_roof: "Concrete tile", ext_cladding: "Monolithic plaster, direct-fixed",
     ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider",
-    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard", liv_walls: "Plasterboard",
   },
   exRental: {
     ext_roof: "Long-run corrugated steel", ext_cladding: "Bevel-back weatherboard",
     ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider",
-    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard", liv_walls: "Plasterboard",
   },
   villa: {
     ext_roof: "Corrugated iron", ext_cladding: "Rusticated weatherboard",
     ext_windows: "Timber double-hung sashes, single glazed", ext_doors: "Panelled timber front door",
-    liv_ceiling: "Lath and plaster with timber scotia", bed_ceiling: "Lath and plaster",
+    liv_ceiling: "Lath and plaster with timber scotia", bed_ceiling: "Lath and plaster", liv_walls: "Lath and plaster",
   },
   coastal: {
     ext_roof: "Long-run coloursteel", ext_cladding: "Bevel-back weatherboard",
     ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider",
-    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard", liv_walls: "Plasterboard",
   },
   brickTile: {
     ext_roof: "Concrete tile", ext_cladding: "Clay brick veneer",
     ext_windows: "Aluminium joinery, single glazed", ext_doors: "Aluminium slider",
-    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard",
+    liv_ceiling: "Plasterboard", bed_ceiling: "Plasterboard", liv_walls: "Plasterboard",
   },
   apartment: {
     ext_roof: "Membrane over concrete", ext_cladding: "Plaster over concrete block",
     ext_windows: "Aluminium joinery, double glazed", ext_doors: "Aluminium slider",
-    liv_ceiling: "Plasterboard, square-stopped", bed_ceiling: "Plasterboard, square-stopped",
+    liv_ceiling: "Plasterboard, square-stopped", bed_ceiling: "Plasterboard, square-stopped", liv_walls: "Plasterboard, square-stopped",
   },
 };
 

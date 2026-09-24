@@ -292,6 +292,17 @@ export const CHECK_GUIDE: Record<string, CheckGuide> = {
     ],
     photos: ["Each main floor surface", "Any stain, slope, gap or soft spot"],
   },
+  liv_walls: {
+    concern: "Whether the walls are sound, dry and what they are made of.",
+    ask: "Have any walls been relined, and was it consented?",
+    steps: [
+      "Knock on the walls as you go. Plasterboard sounds hollow and even; lath and plaster is harder and dead, and patches of it that sound hollow have come away from the laths.",
+      "Look along each wall towards a window with the light behind it. Waves, bulges and a line of nail-pops show up that way and not face-on.",
+      "Check the bottom of the walls on the weather side and behind the wet areas for staining, bubbled paint or skirting that has swollen — that is moisture getting in, and it is the expensive find.",
+      "Cracks running out from the corners of doors and windows are usually movement. Note them, and whether the doors in those walls still close cleanly.",
+    ],
+    photos: ["Any stain, bulge or crack", "The bottom of the walls on the weather side and behind the bathroom"],
+  },
   liv_ceiling: {
     concern: "Whether the ceilings are sound, and whether anything has leaked.",
     steps: [

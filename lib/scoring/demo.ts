@@ -23,7 +23,7 @@ const SCORES: Record<string, number> = {
   // Bathroom
   bath_shower: 6, bath_waterproof: 5, bath_hotwater: 6, bath_vanity: 6, bath_toilet: 7, bath_ventilation: 1, bath_flooring: 6,
   // Living
-  liv_heating: 8, liv_size: 8, liv_insulation: 3, liv_light: 9, liv_flooring: 7, liv_ceiling: 7, liv_fixtures: 6,
+  liv_heating: 8, liv_size: 8, liv_insulation: 3, liv_light: 9, liv_flooring: 7, liv_ceiling: 7, liv_walls: 7, liv_fixtures: 6,
   // Bedrooms
   bed_size: 7, bed_heating: 5, bed_storage: 7, bed_windows: 8, bed_flooring: 7, bed_ceiling: 7,
   // Garage
@@ -132,6 +132,7 @@ const MATERIALS: Record<string, string> = {
   // Living & bedrooms.
   liv_flooring: "Carpet over timber floorboards",
   liv_ceiling: "Plasterboard with timber cornice",
+  liv_walls: "Plasterboard, painted",
   bed_windows: "Aluminium joinery, single glazed",
   bed_flooring: "Carpet over timber floorboards",
   bed_ceiling: "Plasterboard",
@@ -146,7 +147,7 @@ const MATERIALS: Record<string, string> = {
 // Photo numbers backing each observation above.
 const PHOTOS: Record<string, number[]> = {
   ext_roof: [4, 5], bath_ventilation: [6, 11], bath_flooring: [11], bath_hotwater: [14],
-  liv_ceiling: [7], liv_heating: [3, 8], liv_flooring: [7],
+  liv_ceiling: [7], liv_walls: [3, 7], liv_heating: [3, 8], liv_flooring: [7],
   bed_ceiling: [9], bed_heating: [9, 10], bed_flooring: [9, 10],
   out_fencing: [16], ext_gutters: [2], ext_soffits: [4], gar_door: [1, 15],
   ext_paint: [1, 4], ext_doors: [3, 17], ext_cladding: [4], ext_decking: [17],
@@ -247,6 +248,8 @@ const SUMMARIES: Record<string, string> = {
     "North-facing living with large windows to the garden and no significant obstruction from neighbouring buildings (Photos 2 and 3). Excellent all-day sun, which is the single most valued feature in Auckland housing stock and one you cannot retrofit. This is the strongest attribute of the property.",
   liv_flooring:
     "Engineered oak in the living area from the same renovation cycle as the kitchen, roughly eight years old and presenting well. The problem is the carpeted areas next to it: worn through to backing in the hallway traffic path and pulled away from the gripper at the lounge doorway (Photo 7). Re-stretch or replace the carpet; the timber itself needs nothing.",
+  liv_walls:
+    "Painted plasterboard throughout, sound and flat where the photographs show it (Photos 3 and 7). Some scuffing and a patched hole behind the lounge door, which is wear rather than damage. No staining low on the exterior walls in the rooms that are visible. A repaint would freshen it; nothing needs relining.",
   liv_ceiling:
     "Hairline cracking along the cornice line in the lounge (Photo 7), consistent with normal settlement in a house of this age rather than anything structural. Stopping and painting will deal with it. Ceiling height is standard for the era at around 2.4m, which is adequate but not a feature.",
   bed_size:

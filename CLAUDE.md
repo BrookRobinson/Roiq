@@ -1378,6 +1378,15 @@ sets the cost NEW and is never a discount on the value; an ungraded spec is the
 card and the headline can't be fed different inputs. `verify:estimated-value`
 asserts the sums agree.
 
+**The base rate is only what is HIDDEN behind the linings.** Frame, electrical
+pre-wire, plumbing rough-in, consents, prelims, margin. Anything a photo can show
+is a graded item, never shell: wall linings (`liv_walls`) and ceilings are items
+priced per floor m². Plumbing rough-in ends at the capped stub-outs (pre-line
+inspection); fit-off is on the fixtures' own cards, and the rough-in is priced
+per BATHROOM, not per m². On the 150 m², one-bathroom reference house the frame,
+rough-in and linings add back to the old all-in $1,100/m², and
+`verify:estimated-value` holds that.
+
 **The build year is the OLDEST a component can be, not its age.**
 `componentAge()` in depreciation.ts takes the younger of the build year (moved
 by condition) and the age the condition alone implies. Aging every component to
