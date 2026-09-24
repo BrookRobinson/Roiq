@@ -161,7 +161,7 @@ export function ItemValuationWithheld({ reason }: { reason: string }) {
   );
 }
 
-function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+export function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-1">
@@ -219,7 +219,7 @@ function LifeBar({ life }: { life: AnyItemValuation["life"] }) {
   );
 }
 
-function Workings({ lines, last }: { lines: string[]; last?: string }) {
+export function Workings({ lines, last }: { lines: string[]; last?: string }) {
   return (
     <div className="space-y-0.5">
       {lines.map((l, i) => (
@@ -236,7 +236,7 @@ function Workings({ lines, last }: { lines: string[]; last?: string }) {
   );
 }
 
-function Row({ label, amount, strong }: { label: string; amount: number; strong?: boolean }) {
+export function Row({ label, amount, strong }: { label: string; amount: number; strong?: boolean }) {
   return (
     <div
       className="flex items-center justify-between text-[13px]"

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { ItemValue } from "@/lib/scoring/improvement-values";
+import type { ItemValue, ShellWorkings } from "@/lib/scoring/improvement-values";
+import { BaseRateCard } from "./BaseRateCard";
 import type { AnyValuation } from "./valuation-types";
 import type { PropertyTabData, RenoControls } from "@/lib/property-tab/types";
 import type { DwellingValue } from "@/lib/scoring/extra-dwelling-value";
@@ -13,7 +14,6 @@ import { ExtraDwellingCard } from "./ExtraDwellingCard";
 import { buildEraFlags } from "@/lib/scoring/build-era";
 import { Home, AlertTriangle, Info, ArrowRight } from "lucide-react";
 import { PRODUCT_NAME } from "@/lib/brand";
-import { alpha } from "@/lib/ui/color";
 
 interface Props {
   data: PropertyTabData;
@@ -27,22 +27,22 @@ interface Props {
   dwellingValues?: DwellingValue[];
 }
 
-export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues, itemValues, itemValuations }: Props & { itemValues?: Map<string, ItemValue>; itemValuations?: Map<string, AnyValuation> }) {
+export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues, itemValues, itemValuations, shell }: Props & { itemValues?: Map<string, ItemValue>; itemValuations?: Map<string, AnyValuation>; shell?: ShellWorkings }) {
   const [openAll, setOpenAll] = useState(false);
 
   // Tally issues across all categories
   const allSubItems = data.categories.flatMap((c) => c.subItems);
   const critical  = allSubItems.filter((s) => s.score !== null && s.score <= 2).length;
   const urgent    = allSubItems.filter((s) => s.score !== null && s.score >= 3 && s.score <= 4).length;
-  const monitor   = allSubItems.filter((s) => s.score !== null && s.score >= 5 && s.score <= 7).length;
-  const good      = allSubItems.filter((s) => s.score !== null && s.score >= 8).length;
-  const unscored  = allSubItems.filter((s) => s.score === null).length;
   const eraFlags  = buildEraFlags(buildYear);
 
   return (
     <div className="space-y-6">
 
-      {/* Summary strip — or, with no photos, an honest "nothing assessed" notice */}
+      {/* The base rate of the house and its workings — or, with no photos, an
+          honest "nothing assessed" notice. It replaced a Critical / Urgent /
+          Monitor / Good tally: the report is in dollars now, and the shell was
+          the one part of the building value no card explained. */}
       {noPhotos ? (
         <>
           <div className="rounded-2xl p-5 text-center" style={{ background: "var(--surface)", border: "1px solid var(--brand)" }}>
@@ -71,29 +71,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
           )}
         </>
       ) : (
-        <div
-          className="rounded-2xl p-5 grid sm:grid-cols-5 gap-4"
-          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-        >
-          {[
-            { label: "Critical",       count: critical,  color: "var(--bad)",   bg: "var(--bad-wash)"    },
-            { label: "Urgent",         count: urgent,    color: "var(--warn)",   bg: "rgba(251,146,60,0.1)"   },
-            { label: "Monitor",        count: monitor,   color: "var(--warn)",   bg: "var(--warn-wash)"   },
-            { label: "Good",           count: good,      color: "var(--good)",   bg: "var(--good-wash)"    },
-            { label: "Not assessed",   count: unscored,  color: "var(--text-muted)", bg: "var(--surface-2)" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="rounded-xl p-3 text-center"
-              style={{ background: s.bg, border: `1px solid ${alpha(s.color, 13)}` }}
-            >
-              <div className="text-2xl font-bold mono" style={{ color: s.color }}>{s.count}</div>
-              <div className="text-xs font-medium mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
+        shell && <BaseRateCard shell={shell} />
       )}
 
       {/* Key flags */}

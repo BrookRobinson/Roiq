@@ -28,7 +28,7 @@
 
 import { SCORING_MODEL } from "./model";
 import { SPEC_MULTIPLIER, conditionFactor } from "./valuation";
-import { effectiveAge, shellLifeRemaining } from "./depreciation.ts";
+import { effectiveAge, shellLifeRemaining, SHELL_LIFE_YEARS, SHELL_RESIDUAL, type EffectiveAge } from "./depreciation.ts";
 import { valueItem, isItemWithheld } from "./item-value.ts";
 import { valueRoof, roofMaterialFromText, isWithheld as isRoofWithheld } from "./roof-value.ts";
 import type { SpecTier, SubItem } from "@/lib/property-tab/types";
@@ -158,10 +158,32 @@ export interface ItemValue {
   valueGap: number; // max(0, potential − now) — the renovation upside
 }
 
+/** The base structure & services, step by step — the house before its fittings. */
+export interface ShellWorkings {
+  ratePerSqm: number;
+  floorAreaSqm: number;
+  /** rate × floor area: what the shell costs to build today. */
+  costNew: number;
+  /** Null when no build year is known — the shell is then treated as new. */
+  buildYear: number | null;
+  age: EffectiveAge;
+  /** The 1–10 read the components present at, RCN-weighted, which moves the age. */
+  blendedCondition: number | null;
+  lifeYears: number;
+  residual: number;
+  /** Share of the cost-new still there, 0–1, after the residual floor. */
+  remainingFraction: number;
+  /** True when the residual floor, not the straight line, set the value. */
+  atResidual: boolean;
+  value: number;
+}
+
 export interface ImprovementValueResult {
   items: ItemValue[];
   componentsValue: number; // Σ valueNow across scored components
   shellValue: number; // base structure & services (depreciated)
+  /** How the shell got there, for the base-rate card on the Improvements tab. */
+  shell: ShellWorkings;
   buildingValue: number; // shell + components
   totalValueGap: number; // Σ component value gaps (reno upside)
   ratePerSqm: number | null; // buildingValue / floor area
@@ -371,6 +393,19 @@ export function valueImprovementItems(args: {
   });
   const shellLifeFactor = args.buildYear ? shellLifeRemaining(shellAge.effectiveYears) : 1;
   const shellValue = floor > 0 ? Math.round(BASE_SHELL_RATE * floor * shellLifeFactor) : 0;
+  const shell: ShellWorkings = {
+    ratePerSqm: BASE_SHELL_RATE,
+    floorAreaSqm: floor,
+    costNew: Math.round(BASE_SHELL_RATE * floor),
+    buildYear: args.buildYear ?? null,
+    age: shellAge,
+    blendedCondition: args.buildYear && wRcn > 0 ? Math.round(blendedScore * 10) / 10 : null,
+    lifeYears: SHELL_LIFE_YEARS,
+    residual: SHELL_RESIDUAL,
+    remainingFraction: shellLifeFactor,
+    atResidual: !!args.buildYear && 1 - shellAge.effectiveYears / SHELL_LIFE_YEARS <= SHELL_RESIDUAL,
+    value: shellValue,
+  };
 
   // ── What we could not see, estimated from what we could ──────────────────
   // Only ever from a building that was actually assessed. With nothing to
@@ -401,6 +436,7 @@ export function valueImprovementItems(args: {
     items,
     componentsValue,
     shellValue,
+    shell,
     buildingValue,
     totalValueGap,
     confirmedValue,
