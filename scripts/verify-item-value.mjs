@@ -146,6 +146,24 @@ check("older reports fall back to the photo-citing sentences",
   evidenceFor({ aiSummary: "It is a roof. Rust at the laps in Photo 4. Otherwise fine." }), ["Rust at the laps in Photo 4."]);
 check("nothing recorded is empty, never 'nothing wrong'", evidenceFor({ aiSummary: "Looks fine overall." }), []);
 
+console.log("\ndamage counts, whatever the age");
+const { damageFor } = await import(join(root, "lib/scoring/depreciation.ts"));
+// The case that set the rule: a brand-new front door smashed apart with a crowbar.
+const smashed = valueItem({ ...base, id: "ext_doors", buildYear: 2025, conditionScore: 1,
+  damage: damageFor({ damageShare: 1, observedDefect: "Front door smashed apart", score: 1 }) });
+check("a new door smashed to bits is worth $0", smashed.valueNZD, 0);
+check("…and the value and damage still sum to the cost", smashed.valueNZD + smashed.liabilityNZD, smashed.cost.totalNZD);
+const lifted = valueItem({ ...base, id: "ext_cladding", buildYear: 2025, conditionScore: 5, damage: { share: 0.05, basis: "recorded" } });
+const clean = valueItem({ ...base, id: "ext_cladding", buildYear: 2025, conditionScore: 5 });
+check("a little damage takes off only its share", clean.valueNZD - lifted.valueNZD, Math.round(0.05 * clean.cost.totalNZD));
+check("an old worn-out item can't go below $0",
+  valueItem({ ...base, id: "ext_doors", buildYear: 1960, conditionScore: 1, damage: { share: 1, basis: "recorded" } }).valueNZD, 0);
+check("older reports: a defect at 1/10 is destroyed", damageFor({ observedDefect: "Smashed", score: 1 }).share, 1);
+check("…at 3/10 a third", damageFor({ observedDefect: "Cracked", score: 3 }).share, 0.33);
+check("…at 4/10 it is wear, not damage", damageFor({ observedDefect: "Worn", score: 4 }), null);
+check("no defect, no damage", damageFor({ score: 1 }), null);
+check("the card says what was taken off", /damaged and has to be fixed now/.test(smashed.summary), true);
+
 console.log("\nthe summary leads with when work is due");
 const { itemSummary } = await import(join(root, "lib/scoring/item-summary.ts"));
 const sum = (o) => itemSummary({ holdYears: 10, replaceCost: 12000, score: 6, now: NOW, ...o });

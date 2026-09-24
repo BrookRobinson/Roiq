@@ -72,6 +72,7 @@ interface RawItemPhoto {
   spec_tier?: string;
   observed_defect?: string;
   condition_evidence?: string[];
+  damage_share?: number;
   ai_summary: string;
   replacement_cost?: { low?: number; high?: number; notes?: string };
   foundation_type?: string;
@@ -134,6 +135,11 @@ function tool(itemId: string, label: string): Anthropic.Tool {
           type: "string",
           description:
             "What is ACTUALLY VISIBLE in these photographs that needs work, in specific terms. Empty if nothing is wrong. Never generic.",
+        },
+        damage_share: {
+          type: "number",
+          description:
+            "IMPROVEMENTS items \u2014 DAMAGE only, not wear. The share of this item, 0 to 1, that is broken, failed or missing and must be fixed or replaced NOW whatever its age: a front door smashed apart = 1, a cracked pane in one of eight windows = 0.1, two lifted sheets on a roof = 0.05, a hole punched in one wall = 0.02. Omit or 0 when nothing is damaged. General wear, fading, chalking and old age are NOT damage \u2014 the condition score already carries those. Must match observed_defect.",
         },
         condition_evidence: {
           type: "array",
@@ -304,6 +310,10 @@ export async function analyseItemPhotos(
     roofForm: raw.roof_form?.trim() || null,
     specTier: usesSpecTier(item) ? normSpec(raw.spec_tier) : undefined,
     observedDefect: raw.observed_defect?.trim() || undefined,
+    damageShare:
+      typeof raw.damage_share === "number" && Number.isFinite(raw.damage_share) && raw.damage_share > 0
+        ? Math.min(1, raw.damage_share)
+        : undefined,
     conditionEvidence: Array.isArray(raw.condition_evidence)
       ? raw.condition_evidence.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim()).slice(0, 5)
       : undefined,

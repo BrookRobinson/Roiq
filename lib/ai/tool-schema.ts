@@ -35,6 +35,7 @@ export interface RawSubItem {
   spec_tier?: string;
   observed_defect?: string;
   condition_evidence?: string[];
+  damage_share?: number;
   estimated_sqm?: number;
   foundation_type?: string;
   foundation_symptoms?: string[];
@@ -476,6 +477,11 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               type: "string",
               description:
                 "IMPROVEMENTS items that need work — what you can ACTUALLY SEE in the photos that needs attention on THIS property. One or two concrete sentences describing the specific visible evidence, not a generic condition statement. GOOD: 'Rust is bleeding through the ridge flashing above the garage and two sheets have lifted at the eastern end.' 'No extractor fan in either bathroom, and there is mould staining on the ceiling above the shower.' BAD: 'Roof is below average.' 'Needs replacing.' If the item is NOT visible in any photo, say what you inferred it from instead (e.g. 'Not visible — inferred from the 1975 build era; ceilings of this era typically have little or no insulation'). Leave empty for items in good order that need no work.",
+            },
+            damage_share: {
+              type: "number",
+              description:
+                "IMPROVEMENTS items \u2014 DAMAGE only, not wear. The share of this item, 0 to 1, that is broken, failed or missing and must be fixed or replaced NOW whatever its age: a front door smashed apart = 1, a cracked pane in one of eight windows = 0.1, two lifted sheets on a roof = 0.05, a hole punched in one wall = 0.02. Omit or 0 when nothing is damaged. General wear, fading, chalking and old age are NOT damage \u2014 the condition score already carries those. Must match observed_defect.",
             },
             condition_evidence: {
               type: "array",

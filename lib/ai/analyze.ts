@@ -367,6 +367,10 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
     specTier,
     observedDefect: raw.observed_defect?.trim() || undefined,
     conditionEvidence: cleanEvidence(raw.condition_evidence),
+    damageShare:
+      typeof raw.damage_share === "number" && Number.isFinite(raw.damage_share) && raw.damage_share > 0
+        ? Math.min(1, raw.damage_share)
+        : undefined,
     estimatedSqm: SIZE_ITEM_IDS.has(item.id) ? sizeSqm(raw.estimated_sqm, item.id, ctx.floorAreaSqm, ctx.bedrooms) : undefined,
     // Topography carries the facts its score is derived from (see land-quality.ts).
     slopeBand: item.id === "land_topography" ? normSlopeBand(raw.slope_band) : undefined,

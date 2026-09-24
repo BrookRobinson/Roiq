@@ -229,3 +229,52 @@ export const SHELL_RESIDUAL = 0.25;
 
 export const shellLifeRemaining = (effectiveYears: number): number =>
   lifeRemaining(effectiveYears, SHELL_LIFE_YEARS, SHELL_RESIDUAL);
+
+// ── Damage ───────────────────────────────────────────────────────────────────
+
+/**
+ * Damage is not wear, and age can't carry it.
+ *
+ * Condition moves an item's age, which is right for wear: a tired roof has
+ * used more of its life. But a one-year-old front door smashed apart with a
+ * crowbar has used one year of its life and is worth nothing. Moved by
+ * condition, a year becomes a year and a half, and the door still read as 97%
+ * of new. So damage is its own step: the share of the item that is broken and
+ * must be fixed or replaced NOW, taken off the value at the item's own
+ * replacement cost. Never below zero.
+ */
+export interface Damage {
+  /** 0–1: how much of the item is broken. A smashed door is 1. */
+  share: number;
+  /** Where the share came from — recorded by the analysis, or read from a failed condition. */
+  basis: "recorded" | "condition";
+}
+
+/**
+ * The damage on an item, or null.
+ *
+ * The analysis records the share directly. Reports analysed before it did hold
+ * a defect and a condition, and a defect on an item at 3/10 or worse is damage
+ * in proportion to the reading — 1/10 destroyed, 2 two-thirds, 3 a third.
+ * With no defect recorded there is nothing to say it is damage rather than
+ * wear, so nothing is taken.
+ */
+export function damageFor(item: {
+  damageShare?: number | null;
+  observedDefect?: string | null;
+  score?: number | null;
+}): Damage | null {
+  if (typeof item.damageShare === "number" && Number.isFinite(item.damageShare) && item.damageShare > 0) {
+    return { share: Math.min(1, item.damageShare), basis: "recorded" };
+  }
+  if (item.observedDefect?.trim() && item.score != null && item.score <= 3) {
+    return { share: Math.round(((4 - Math.max(1, item.score)) / 3) * 100) / 100, basis: "condition" };
+  }
+  return null;
+}
+
+/** What the damage takes off: share × cost to replace, capped at the value it had. */
+export function damageDeduction(valueBefore: number, costToReplace: number, damage: Damage | null | undefined): number {
+  if (!damage || damage.share <= 0) return 0;
+  return Math.min(valueBefore, Math.round(damage.share * costToReplace));
+}

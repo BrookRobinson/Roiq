@@ -35,6 +35,8 @@ export interface ItemPhotoAnalysis {
   observedDefect?: string;
   /** What these photographs show that set the condition and the age, each citing its photo. */
   conditionEvidence?: string[];
+  /** 0–1: how much of it is broken and must be fixed now — damage, not wear. */
+  damageShare?: number;
   summary: string;
   estimatedReplacementCost: ReplacementCost | null;
   photoCount: number;

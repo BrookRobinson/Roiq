@@ -17,6 +17,7 @@ import { valueItem } from "@/lib/scoring/item-value";
 import { IMPROVEMENT_BASE_COSTS } from "@/lib/scoring/improvement-values";
 import type { AnyValuation } from "@/components/PropertyTab/valuation-types";
 import { labourMultiplierFor } from "@/lib/labour-rates";
+import { damageFor } from "@/lib/scoring/depreciation";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
@@ -444,6 +445,8 @@ export function RealReportView({
             observedDefect: shot.observedDefect ?? s.observedDefect,
             // The buyer's own photographs are the better evidence when they have it.
             conditionEvidence: shot.conditionEvidence?.length ? shot.conditionEvidence : s.conditionEvidence,
+            // The buyer's photos are of the item now; the damage is what THEY show.
+            damageShare: shot.damageShare,
             aiSummary: shot.summary || s.aiSummary,
             evidenceSource: `Your own photo${shot.photoCount === 1 ? "" : "s"}, taken at the property`,
             estimatedReplacementCost: shot.estimatedReplacementCost ?? s.estimatedReplacementCost,
@@ -703,6 +706,8 @@ export function RealReportView({
         buildYear: report.listing.buildYear,
         conditionScore: shot?.showsItem ? shot.score : roof.score,
         concerns,
+        // The same damage the headline takes off — read from the effective item.
+        damage: damageFor(effectiveSubItems.find((s) => s.id === "ext_roof") ?? roof),
         labourMultiplier: labourMultiplierFor(report.listing),
       })
     );
@@ -728,6 +733,7 @@ export function RealReportView({
           // already carry the buyer's own photograph — so card and headline
           // are the same sum, not two that happen to be close.
           conditionScore: v.condition,
+          damage: damageFor(effectiveSubItems.find((s) => s.id === v.id) ?? {}),
           buildYear: report.listing.buildYear,
           label: v.label,
           labourMultiplier: labourMultiplierFor(report.listing),
@@ -735,7 +741,7 @@ export function RealReportView({
       );
     }
     return out;
-  }, [report.subItems, report.listing.buildYear, report.listing.city, report.listing.region, report.listing.floorAreaSqm, report.listing.bathrooms, siteLayout, itemPhotos, improvementValuation]);
+  }, [report.subItems, report.listing.buildYear, report.listing.city, report.listing.region, report.listing.floorAreaSqm, report.listing.bathrooms, siteLayout, itemPhotos, improvementValuation, effectiveSubItems]);
 
   const propertyValue = useMemo(
     () =>

@@ -119,6 +119,16 @@ const cardSum = h.items.reduce((sum, v) => sum + valueItem({
   buildYear: 1975, labourMultiplier: 1.1, now: NOW,
 }).valueNZD, 0);
 check("every card and the headline are the same sum", cardSum, h.componentsValue);
+// …and with damage on one of them, the headline takes off what the card does.
+const { damageFor } = await import(join(root, "lib/scoring/depreciation.ts"));
+const DAMAGED = HOUSE.map((i) => i.id === "ext_windows" ? { ...i, damageShare: 0.25, observedDefect: "Two panes smashed" } : i);
+const hd = valueImprovementItems({ subItems: DAMAGED, floorAreaSqm: 150, bathrooms: 1, buildYear: 1975, labourMultiplier: 1.1, now: NOW });
+const cardSumD = hd.items.reduce((sum, v) => sum + valueItem({
+  id: v.id, rcnNew: v.rcnNew, sizeWorkings: [], sizeSummary: "", conditionScore: v.condition,
+  buildYear: 1975, labourMultiplier: 1.1, now: NOW, damage: damageFor(DAMAGED.find((d) => d.id === v.id)),
+}).valueNZD, 0);
+check("damage: the cards and the headline still agree", cardSumD, hd.componentsValue);
+check("…and the damage lowered the building", hd.componentsValue < h.componentsValue, true);
 check("nothing is worth more than it costs to replace",
   h.items.filter((v) => v.valueNow > v.replacementTotal).map((v) => v.id), []);
 // A fair kitchen in a 1975 house has been replaced since — aging it to the

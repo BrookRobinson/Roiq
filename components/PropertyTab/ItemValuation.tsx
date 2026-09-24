@@ -125,6 +125,13 @@ export function ItemValuation({ v, lead, evidence = [] }: {
         <div className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
           {money(v.cost.totalNZD)} to replace × {Math.round(v.remainingFraction * 100)}% of its life
           left
+          {v.damage && (
+            <>
+              {" "}− <span style={{ color: "var(--bad)" }}>{money(v.damage.nzd)} of damage</span> (
+              {Math.round(v.damage.share * 100)}% of it broken
+              {v.damage.basis === "condition" ? ", read from its failed condition" : ""})
+            </>
+          )}
         </div>
         <div className="mt-1.5 flex items-baseline gap-3 flex-wrap">
           <div>
@@ -137,7 +144,7 @@ export function ItemValuation({ v, lead, evidence = [] }: {
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-              Life already used
+              {v.damage ? "Used up or damaged" : "Life already used"}
             </div>
             <div className="mono text-lg font-bold" style={{ color: "var(--warn)" }}>
               {money(v.liabilityNZD)}

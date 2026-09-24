@@ -29,7 +29,7 @@
 // nothing else has to move.
 // ============================================================
 
-import { componentAge, effectiveAge, lifeRemaining, type EffectiveAge } from "./depreciation.ts";
+import { componentAge, effectiveAge, lifeRemaining, damageDeduction, type EffectiveAge, type Damage } from "./depreciation.ts";
 
 export type RoofMaterialId =
   | "longrun_colorsteel"
@@ -341,6 +341,8 @@ export interface RoofValuation {
   cost: RoofCost;
   /** Share of the material's life still ahead of it, 0–1. */
   remainingFraction: number;
+  /** Damage taken off the value, when there is any. */
+  damage: (Damage & { nzd: number }) | null;
   /** What the roof on this house is worth today. */
   valueNZD: number;
   /** What it will cost to put right — the number a buyer negotiates with. */
@@ -384,6 +386,8 @@ export function valueRoof(args: {
   conditionScore?: number | null;
   concerns?: string[];
   labourMultiplier?: number;
+  /** Broken now, whatever its age — see damageFor(). */
+  damage?: Damage | null;
   now?: Date;
 }): RoofValuation | RoofWithheldResult {
   if (!args.material) {
@@ -462,7 +466,9 @@ export function valueRoof(args: {
   // A roof at the end of its life is worth nothing AND costs the full
   // replacement. Those are two different numbers and the report shows both:
   // one is what you are buying, the other is what you will spend.
-  const valueNZD = Math.round(cost.totalNZD * remainingFraction);
+  const beforeDamage = Math.round(cost.totalNZD * remainingFraction);
+  const damageNZD = damageDeduction(beforeDamage, cost.totalNZD, args.damage);
+  const valueNZD = beforeDamage - damageNZD;
   const liabilityNZD = cost.totalNZD - valueNZD;
 
   return {
@@ -473,11 +479,13 @@ export function valueRoof(args: {
     area,
     cost,
     remainingFraction: Math.round(remainingFraction * 1000) / 1000,
+    damage: args.damage && damageNZD > 0 ? { ...args.damage, nzd: damageNZD } : null,
     valueNZD,
     liabilityNZD,
     yearsRemaining,
-    summary:
-      yearsRemaining <= 0
+    summary: damageNZD > 0
+      ? `Its age leaves ${Math.round(remainingFraction * 100)}% of the $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost, $${beforeDamage.toLocaleString("en-NZ")}, but about ${Math.round((args.damage?.share ?? 0) * 100)}% of it is damaged and has to be fixed now: less $${damageNZD.toLocaleString("en-NZ")}, leaving $${valueNZD.toLocaleString("en-NZ")}.`
+      : yearsRemaining <= 0
         ? `This roof is at or past the end of its life. It carries no remaining value, and replacing it is about $${cost.totalNZD.toLocaleString("en-NZ")}.`
         : `About ${yearsRemaining} of ${expectedLife} years left, so it holds roughly ${Math.round(remainingFraction * 100)}% of its $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost — $${valueNZD.toLocaleString("en-NZ")} of value, with $${liabilityNZD.toLocaleString("en-NZ")} of life already used up.`,
   };

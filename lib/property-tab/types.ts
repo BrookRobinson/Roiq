@@ -112,6 +112,8 @@ export interface SubItem {
   observedDefect?: string;             // what's actually VISIBLE in this property's photos that needs work
   /** What the photos show that set the condition and the age — wear AND signs of newness, each citing its photo. */
   conditionEvidence?: string[];
+  /** 0–1: how much of it is broken and must be fixed now — damage, not wear. */
+  damageShare?: number;
   estimatedSqm?: number;               // for size/area items — the estimated area in m² (shown instead of material/age)
 
   slopeBand?: SlopeBand;               // land_topography only — the measured-ish fact behind its score

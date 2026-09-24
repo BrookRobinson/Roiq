@@ -28,7 +28,7 @@
 
 import { SCORING_MODEL } from "./model";
 import { SPEC_MULTIPLIER, conditionFactor } from "./valuation";
-import { effectiveAge, shellLifeRemaining, SHELL_LIFE_YEARS, SHELL_RESIDUAL, type EffectiveAge } from "./depreciation.ts";
+import { effectiveAge, shellLifeRemaining, damageFor, SHELL_LIFE_YEARS, SHELL_RESIDUAL, type EffectiveAge, type Damage } from "./depreciation.ts";
 import { valueItem, isItemWithheld } from "./item-value.ts";
 import { valueRoof, roofMaterialFromText, isWithheld as isRoofWithheld } from "./roof-value.ts";
 import type { SpecTier, SubItem } from "@/lib/property-tab/types";
@@ -316,7 +316,7 @@ export function valueImprovementItems(args: {
   // the cards add up to the headline. It used to be rcn × spec × a condition
   // factor here and cost-to-replace × life-left on the card: on a fair 1975
   // house the cards summed to a quarter of what the headline counted.
-  const depreciate = (id: string, rcnNew: number, conditionScore: number, asNew = false) => {
+  const depreciate = (id: string, rcnNew: number, conditionScore: number, asNew = false, damage: Damage | null = null) => {
     const r = valueItem({
       id,
       rcnNew,
@@ -326,6 +326,7 @@ export function valueImprovementItems(args: {
       buildYear: args.buildYear,
       installedYear: asNew ? now.getFullYear() : null,
       labourMultiplier: args.labourMultiplier,
+      damage,
       now,
     });
     return isItemWithheld(r) ? null : r;
@@ -363,6 +364,7 @@ export function valueImprovementItems(args: {
         buildYear: args.buildYear,
         conditionScore: condition,
         labourMultiplier: args.labourMultiplier,
+        damage: damageFor(s),
         now,
       });
       if (!isRoofWithheld(r)) {
@@ -376,7 +378,7 @@ export function valueImprovementItems(args: {
       }
     }
 
-    const v = depreciate(id, rcnNew, condition);
+    const v = depreciate(id, rcnNew, condition, false, damageFor(s));
     if (!v) continue;
     const potential = depreciate(id, Math.round(sized * RENO_TARGET_MULT), 10, true);
     const valueNow = v.valueNZD;

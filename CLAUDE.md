@@ -1378,6 +1378,13 @@ sets the cost NEW and is never a discount on the value; an ungraded spec is the
 card and the headline can't be fed different inputs. `verify:estimated-value`
 asserts the sums agree.
 
+**Damage is its own step; age can't carry it.** Condition moves the age, which
+is right for wear, but a one-year-old door smashed with a crowbar has used one
+year of life and is worth $0. `damageFor()` gives the broken share (0–1): the
+analysis's `damage_share` when recorded, otherwise a defect at 3/10 or worse
+read from the condition (1 = destroyed). Taken off at share × the item's own
+cost to replace, never below $0, in BOTH the headline and the card.
+
 **The base rate is only what is HIDDEN behind the linings.** Frame, electrical
 pre-wire, plumbing rough-in, consents, prelims, margin. Anything a photo can show
 is a graded item, never shell: wall linings (`liv_walls`) and ceilings are items

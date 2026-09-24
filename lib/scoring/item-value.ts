@@ -21,7 +21,7 @@
 // Dependency-free so verify:item-value can load it with plain node.
 // ============================================================
 
-import { componentAge, lifeRemaining, type EffectiveAge } from "./depreciation.ts";
+import { componentAge, lifeRemaining, damageDeduction, type EffectiveAge, type Damage } from "./depreciation.ts";
 import { ITEM_LIFE, expectedLife, type ItemLife } from "./item-life.ts";
 
 export interface ItemValuationLife {
@@ -58,6 +58,8 @@ export interface GenericItemValuation {
   size: ItemSize;
   cost: ItemCostBreakdown;
   remainingFraction: number;
+  /** Damage taken off the value, when there is any. */
+  damage: (Damage & { nzd: number }) | null;
   valueNZD: number;
   liabilityNZD: number;
   summary: string;
@@ -100,6 +102,8 @@ export function valueItem(args: {
   installedYear?: number | null;
   labourMultiplier?: number;
   label?: string;
+  /** Broken now, whatever its age — see damageFor(). */
+  damage?: Damage | null;
   now?: Date;
 }): GenericItemValuation | ItemWithheldResult {
   const life: ItemLife | undefined = ITEM_LIFE[args.id];
@@ -177,7 +181,9 @@ export function valueItem(args: {
           : `${Math.round(yearsRemaining)} ${Math.round(yearsRemaining) === 1 ? "year" : "years"} left till replacement — about ${year + Math.round(yearsRemaining)}`,
   };
 
-  const valueNZD = Math.round(cost.totalNZD * remainingFraction);
+  const beforeDamage = Math.round(cost.totalNZD * remainingFraction);
+  const damageNZD = damageDeduction(beforeDamage, cost.totalNZD, args.damage);
+  const valueNZD = beforeDamage - damageNZD;
   const liabilityNZD = cost.totalNZD - valueNZD;
 
   return {
@@ -193,10 +199,12 @@ export function valueItem(args: {
     size: { workings: args.sizeWorkings, summary: args.sizeSummary },
     cost,
     remainingFraction: Math.round(remainingFraction * 1000) / 1000,
+    damage: args.damage && damageNZD > 0 ? { ...args.damage, nzd: damageNZD } : null,
     valueNZD,
     liabilityNZD,
-    summary:
-      yearsRemaining <= 0
+    summary: damageNZD > 0
+      ? `Its age leaves ${Math.round(remainingFraction * 100)}% of the $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost, $${beforeDamage.toLocaleString("en-NZ")}, but about ${Math.round((args.damage?.share ?? 0) * 100)}% of it is damaged and has to be fixed now: less $${damageNZD.toLocaleString("en-NZ")}, leaving $${valueNZD.toLocaleString("en-NZ")}.`
+      : yearsRemaining <= 0
         ? `At or past the end of its life. It carries ${remainingFraction > 0 ? `only a residual $${valueNZD.toLocaleString("en-NZ")}` : "no remaining value"}, and replacing it is about $${cost.totalNZD.toLocaleString("en-NZ")}.`
         : `About ${Math.round(yearsRemaining)} of ${expected} years left, so it holds roughly ${Math.round(remainingFraction * 100)}% of its $${cost.totalNZD.toLocaleString("en-NZ")} replacement cost — $${valueNZD.toLocaleString("en-NZ")} of value, with $${liabilityNZD.toLocaleString("en-NZ")} of life already used up.`,
   };
