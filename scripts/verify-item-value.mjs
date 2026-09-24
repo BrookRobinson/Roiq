@@ -137,5 +137,18 @@ check("older reports fall back to the photo-citing sentences",
   evidenceFor({ aiSummary: "It is a roof. Rust at the laps in Photo 4. Otherwise fine." }), ["Rust at the laps in Photo 4."]);
 check("nothing recorded is empty, never 'nothing wrong'", evidenceFor({ aiSummary: "Looks fine overall." }), []);
 
+console.log("\nthe summary leads with when work is due");
+const { itemSummary } = await import(join(root, "lib/scoring/item-summary.ts"));
+const sum = (o) => itemSummary({ holdYears: 10, replaceCost: 12000, score: 6, now: NOW, ...o });
+check("inside the hold it names the year and the cost",
+  sum({ yearsRemaining: 4 }), "Needs replacing in about 4 years (around 2030), inside your 10-year hold — about $12,000 to replace today.");
+check("beyond the hold it says so and skips the cost", /beyond your 10-year hold\.$/.test(sum({ yearsRemaining: 18 })), true);
+check("overdue says by how much", /^Replacement is overdue by about 3 years/.test(sum({ yearsRemaining: -3 })), true);
+check("a defect on a poor item is work now",
+  /Needs attention now: rust at the laps\./.test(sum({ yearsRemaining: 2, score: 3, defect: "Rust at the laps. More text." })), true);
+check("no more than two sentences",
+  (sum({ yearsRemaining: 4, evidence: ["Paint chalked (Photo 3). Also faded."] }).match(/[.!?](\s|$)/g) ?? []).length <= 2, true);
+check("an unassessed item never claims a date", /Not assessed/.test(sum({ yearsRemaining: 4, score: null })), true);
+
 if (failures) { console.error(`\n${failures} item-value check(s) failed.\n`); process.exit(1); }
 console.log("\nAll item-value checks passed.\n");

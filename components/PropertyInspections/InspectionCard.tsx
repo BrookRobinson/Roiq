@@ -244,7 +244,7 @@ export function InspectionCard({
         </div>
 
         {/* Expand hint — makes the click-for-reasoning affordance obvious (mirrors the
-            Improvements tab's "Read AI assessment" cue). */}
+            Improvements tab's "See breakdown" cue). */}
         {!isDoc && item.aiSummary && (
           <div className="flex items-center gap-1 mt-2">
             <span className="text-xs font-medium" style={{ color: "var(--brand)" }}>

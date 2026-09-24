@@ -9,6 +9,9 @@ import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
 import { ItemValuation, ItemValuationWithheld, Step, EvidenceList } from "./ItemValuation";
 import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
+import { itemSummary } from "@/lib/scoring/item-summary";
+import { ITEM_LIFE, expectedLife } from "@/lib/scoring/item-life";
+import { isFactOnly } from "@/lib/scoring/improvement-values";
 import { isRefused, type AnyValuation } from "./valuation-types";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { confidenceMeta } from "./ConfidenceBar";
@@ -102,6 +105,23 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
       )}
     </div>
   );
+  // Life left on the SAME reading the card's valuation uses: its own when it
+  // has one, otherwise the itemised value's age against the item's service life.
+  const life = ITEM_LIFE[item.id];
+  const yearsRemaining =
+    detailed && !isRefused(detailed) ? detailed.life.expectedYears - detailed.life.usedYears
+    : value && life ? expectedLife(life) - value.ageYears
+    : null;
+  const summary = itemSummary({
+    yearsRemaining,
+    replaceCost: shown?.rcn ?? null,
+    score: item.score,
+    holdYears,
+    defect: item.observedDefect,
+    evidence: evidenceFor(item),
+    factOnly: isFactOnly(item.id) || !ITEM_BY_ID[item.id]?.costBearing,
+    aiSummary: item.aiSummary,
+  });
   const costItem = getCostItem(item, region, floorSqm);
   // Renovation plan: this item can be added if it has a costed reno line.
   const canReno = renoControls?.has(item.id) ?? false;
@@ -217,7 +237,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
         {!item.noPhotoNotAssessed && (
           <div className="flex items-center gap-1 mt-2">
             <span className="text-xs" style={{ color: "var(--brand)" }}>
-              {expanded ? "Hide detail" : "Read AI assessment"}
+              {expanded ? "Hide detail" : "See breakdown"}
             </span>
             <ArrowRight
               size={11}
@@ -309,19 +329,19 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
             )}
           </div>
 
-          {/* AI summary */}
+          {/* The summary: when work is due and what it costs, then the finding
+              behind it. Built from the same life and cost as the valuation above
+              so the two can't disagree. It replaced the AI's full paragraph,
+              whose substance is now the visual evidence step. */}
           <div className="pt-4">
             <div
               className="text-xs font-semibold uppercase tracking-wider mb-2"
               style={{ color: "var(--text-muted)" }}
             >
-              AI Assessment
+              Summary
             </div>
-            <p
-              className="text-sm leading-relaxed"
-              style={{ color: "var(--text-secondary)", lineHeight: 1.75 }}
-            >
-              {item.aiSummary}
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)", lineHeight: 1.7 }}>
+              {summary}
             </p>
           </div>
 
