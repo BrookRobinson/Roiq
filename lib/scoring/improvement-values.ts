@@ -25,6 +25,7 @@
 
 import { SCORING_MODEL } from "./model";
 import { SPEC_MULTIPLIER, conditionFactor } from "./valuation";
+import { effectiveAge, shellLifeRemaining } from "./depreciation.ts";
 import type { SpecTier, SubItem } from "@/lib/property-tab/types";
 
 /** How a component's base cost scales to THIS property. */
@@ -188,6 +189,9 @@ export function valueImprovementItems(args: {
   subItems: SubItem[];
   floorAreaSqm: number | null;
   bathrooms?: number | null;
+  /** Drives the shell's depreciation. Without it the shell reads as new. */
+  buildYear?: number | null;
+  now?: Date;
 }): ImprovementValueResult {
   const floor = args.floorAreaSqm && args.floorAreaSqm > 0 ? args.floorAreaSqm : 0;
   const baths = Math.max(1, Math.round(args.bathrooms ?? 1));
@@ -234,9 +238,31 @@ export function valueImprovementItems(args: {
     rcnPossible += rcn;
   }
 
-  // Base shell depreciates by the components' blended (RCN-weighted) condition.
-  const shellCondFactor = wRcn > 0 ? wRcnCond / wRcn : conditionFactor(6);
-  const shellValue = floor > 0 ? Math.round(BASE_SHELL_RATE * floor * shellCondFactor) : 0;
+  // ── The shell, depreciated by its AGE rather than by a condition factor ───
+  //
+  // It costs the same to build a shell today whatever year the house went up —
+  // what differs is how much of its life is left. So the age does the work, and
+  // the components' blended condition only shifts the EFFECTIVE age: a house
+  // whose visible parts are all shot has probably not had its wiring done
+  // either. Applying both a condition factor and a life fraction would discount
+  // the same wear twice.
+  //
+  // It floors at SHELL_RESIDUAL. A 1925 villa's frame is a hundred years old
+  // and holding a house up; straight-lining it to zero would say the structure
+  // of every pre-war house in New Zealand is worth nothing.
+  const blendedCond = wRcn > 0 ? wRcnCond / wRcn : conditionFactor(6);
+  // conditionFactor maps 1→0.37 and 10→1.0; invert it back to a 1–10 read so
+  // the shared effectiveAge() rule sees the same scale every other item does.
+  const blendedScore = Math.max(1, Math.min(10, (blendedCond - 0.3) / 0.07));
+  const year = (args.now ?? new Date()).getFullYear();
+  const shellChronYears = args.buildYear ? Math.max(0, year - args.buildYear) : 0;
+  const shellAge = effectiveAge({
+    chronologicalYears: shellChronYears,
+    conditionScore: args.buildYear ? blendedScore : null,
+    noun: "structure",
+  });
+  const shellLifeFactor = args.buildYear ? shellLifeRemaining(shellAge.effectiveYears) : 1;
+  const shellValue = floor > 0 ? Math.round(BASE_SHELL_RATE * floor * shellLifeFactor) : 0;
 
   // ── What we could not see, estimated from what we could ──────────────────
   // Only ever from a building that was actually assessed. With nothing to
@@ -255,7 +281,7 @@ export function valueImprovementItems(args: {
       if (seen && seen.score != null) continue; // already valued for real
       const rcnNew = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths));
       if (rcnNew <= 0) continue;
-      const valueNow = Math.round(rcnNew * blendedSpec * shellCondFactor);
+      const valueNow = Math.round(rcnNew * blendedSpec * blendedCond);
       estimatedItems.push({ id, label: meta.label, category: meta.category, rcnNew, valueNow });
       estimatedValue += valueNow;
     }

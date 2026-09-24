@@ -630,8 +630,14 @@ export function RealReportView({
         subItems: effectiveSubItems,
         floorAreaSqm: report.listing.floorAreaSqm,
         bathrooms: report.listing.bathrooms,
+        buildYear: report.listing.buildYear,
       }),
-    [effectiveSubItems, report.listing.floorAreaSqm, report.listing.bathrooms]
+    [
+      effectiveSubItems,
+      report.listing.floorAreaSqm,
+      report.listing.bathrooms,
+      report.listing.buildYear,
+    ]
   );
 
   // THE valuation — the same lib/scoring/property-value.ts call the map pin
@@ -647,6 +653,7 @@ export function RealReportView({
         floorAreaSqm: report.listing.floorAreaSqm,
         bathrooms: report.listing.bathrooms,
         landAreaSqm: report.listing.landAreaSqm,
+        buildYear: report.listing.buildYear,
         extraDwellings: report.extraDwellings,
         suburbValue: report.suburbValue,
         titleType: report.listing.titleType,
@@ -1804,7 +1811,12 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
     bedrooms: listing.bedrooms ?? null,
   };
   // Per-item building values → replacement-cost fallback + renovation upside (value gap).
-  const valuation = valueImprovementItems({ subItems, floorAreaSqm: listing.floorAreaSqm, bathrooms: listing.bathrooms });
+  const valuation = valueImprovementItems({
+    subItems,
+    floorAreaSqm: listing.floorAreaSqm,
+    bathrooms: listing.bathrooms,
+    buildYear: listing.buildYear,
+  });
   const valueById = new Map(valuation.items.map((v) => [v.id, v]));
 
   for (const s of subItems) {

@@ -28,6 +28,9 @@ export interface ItemPhotoAnalysis {
    * photograph, and "~14 years" is not.
    */
   dataPlate?: string | null;
+  /** Roof only. Drives the roof AREA, so a null here is better than a guess. */
+  roofPitchDegrees?: number | null;
+  roofForm?: string | null;
   specTier?: SpecTier;
   observedDefect?: string;
   summary: string;

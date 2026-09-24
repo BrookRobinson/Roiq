@@ -1279,10 +1279,27 @@ rest and is pure so `verify:roof` can assert it.
 
 Three things in it are load-bearing and easy to get wrong later:
 
-**Condition moves the AGE; it never multiplies the value.** A 1–10 read maps to
-an effective age either side of the chronological one — 10 presents 25% younger,
-1 presents 50% older, and 5.5 moves nothing. Applying a condition factor AND an
-age/life fraction discounts the same wear twice and halves the value for free.
+**Condition moves the AGE; it never multiplies the value.** `lib/scoring/depreciation.ts`
+holds the one rule every priced item shares. A 1–10 read maps to an effective
+age either side of the chronological one — 10 presents 25% younger, 1 presents
+50% older, and 5.5 moves nothing. Applying a condition factor AND an age/life
+fraction discounts the same wear twice and halves the value for free.
+
+**The base shell depreciates by AGE now, not by a condition factor.** It costs
+the same to build a shell today whatever year the house went up; what differs is
+how much life is left in it. `SHELL_LIFE_YEARS` is 70 and `SHELL_RESIDUAL` is
+25%, and the residual is the load-bearing half — a 1925 villa's frame is a
+hundred years old and holding a house up, so straight-lining it to zero would
+say the structure of every pre-war house in New Zealand is worth nothing. Both
+are tunable in one place. This moved the demo's shell from ~$119k to ~$48k on a
+1975 house, which is the intended direction: the old number was flattering a
+51-year-old building.
+
+**A module that another dependency-free module imports needs the `.ts`
+extension** — `import … from "./depreciation.ts"`. Node's type stripping needs
+it to resolve the file in the verify scripts, and `allowImportingTsExtensions`
+in tsconfig lets `tsc` accept it. Without the extension `verify:roof` dies with
+ERR_MODULE_NOT_FOUND and nothing else notices.
 
 **A roof is not a floor, and it is not its own footprint.** `ext_roof` was
 priced at `roof area ≈ floor area`, which overstates a two-storey roof by about

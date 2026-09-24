@@ -89,6 +89,22 @@ check("value never exceeds the cost to replace", newRoof.valueNZD <= newRoof.cos
 check("remaining fraction stays inside 0–1",
   [oldRoof.remainingFraction >= 0, newRoof.remainingFraction <= 1], [true, true]);
 
+console.log("\nlife bar and replacement due — the part a reader looks at first");
+const mid = valueRoof({ material: "longrun_colorsteel", footprintM2: 150, pitchDegrees: 25, roofLaidYear: 2011, conditionScore: 5.5, now: NOW });
+check("a 15-year-old Colorsteel roof is part-way through its life",
+  mid.life.usedFraction > 0.3 && mid.life.usedFraction < 0.6, true);
+check("the bar and the value agree",
+  Math.abs((1 - mid.life.usedFraction) - mid.remainingFraction) < 0.01, true);
+check("it names the year it falls due", mid.life.dueYear, 2026 + Math.round(mid.life.yearsRemaining));
+check("…and says it in words", /left till replacement/.test(mid.life.label), true);
+// "Overdue by four years" is a different conversation with a vendor from "due
+// now", and the buyer is the one who has to have it.
+check("an overdue roof says by how much", /overdue by/i.test(oldRoof.life.label), true);
+check("…and has no due year left to give", oldRoof.life.dueYear, null);
+check("the bar never overfills", oldRoof.life.usedFraction <= 1, true);
+const fresh = valueRoof({ material: "longrun_colorsteel", footprintM2: 150, roofLaidYear: 2026, conditionScore: 10, now: NOW });
+check("a brand new roof reads nearly empty", fresh.life.usedFraction < 0.05, true);
+
 console.log("\nrefusals — a guessed input must not become a five-figure number");
 const noMat = valueRoof({ material: null, footprintM2: 150, now: NOW });
 check("no material identified is refused", isWithheld(noMat) && noMat.withheld, "no_material");

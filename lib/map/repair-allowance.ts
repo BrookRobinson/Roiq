@@ -37,6 +37,7 @@ const AUTO_INCLUDE_FRACTION = 0.3;
 
 export interface RepairContext {
   floorAreaSqm: number | null;
+  buildYear?: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
 }
@@ -56,6 +57,7 @@ export function computeRepairAllowance(subItems: SubItem[], ctx: RepairContext):
     subItems: items,
     floorAreaSqm: ctx.floorAreaSqm,
     bathrooms: ctx.bathrooms,
+    buildYear: ctx.buildYear,
   });
   const valueById = new Map(valuation.items.map((v) => [v.id, v]));
   const costCtx = { floorSqm: ctx.floorAreaSqm, bedrooms: ctx.bedrooms };

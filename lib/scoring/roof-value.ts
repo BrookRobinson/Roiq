@@ -29,6 +29,8 @@
 // nothing else has to move.
 // ============================================================
 
+import { effectiveAge, lifeRemaining, type EffectiveAge } from "./depreciation.ts";
+
 export type RoofMaterialId =
   | "longrun_colorsteel"
   | "longrun_zincalume"
@@ -197,59 +199,18 @@ export function roofArea(args: {
 }
 
 // ── 3 · Age, adjusted by what can be seen ────────────────────────────────────
+//
+// The rule lives in ./depreciation so that every priced item shares one. A roof
+// carries NO residual: at the end of its life it is scrap and the house needs a
+// new one. That is the difference between a component and a structure.
 
-export interface RoofAge {
-  /** Years since the roof was laid, as far as anyone knows. */
-  chronologicalYears: number;
-  /**
-   * The age the roof PRESENTS as. A well-kept roof is younger than its years
-   * and a neglected one is older, and it is the effective age that depreciates
-   * it — which is how a valuer does it, and why a condition score and an age
-   * must not both be applied or the value is discounted twice.
-   */
-  effectiveYears: number;
-  basis: string;
-}
+export type RoofAge = EffectiveAge;
 
-/**
- * Condition moves the age, it does not multiply the value.
- *
- * A 1–10 condition read maps to a factor either side of 1.0: a 10 makes the
- * roof present 25% younger than it is, a 1 makes it present 50% older. The
- * midpoint (5–6) leaves it alone, because "average for its age" means exactly
- * that and should move nothing.
- */
-export function effectiveRoofAge(args: {
+export const effectiveRoofAge = (args: {
   chronologicalYears: number;
   conditionScore?: number | null;
   concerns?: string[];
-}): RoofAge {
-  const chron = Math.max(0, args.chronologicalYears);
-  const score = args.conditionScore;
-
-  if (score == null) {
-    return {
-      chronologicalYears: chron,
-      effectiveYears: chron,
-      basis: "No condition read, so the roof is depreciated on its age alone.",
-    };
-  }
-
-  const s = Math.max(1, Math.min(10, score));
-  // 10 → 0.75, 5.5 → 1.00, 1 → 1.50
-  const factor = s >= 5.5 ? 1 - ((s - 5.5) / 4.5) * 0.25 : 1 + ((5.5 - s) / 4.5) * 0.5;
-  const effective = Math.round(chron * factor * 10) / 10;
-
-  const direction =
-    factor < 1 ? "better than its age" : factor > 1 ? "worse than its age" : "about right for its age";
-  const seen = args.concerns?.length ? ` Seen: ${args.concerns.join("; ")}.` : "";
-
-  return {
-    chronologicalYears: chron,
-    effectiveYears: effective,
-    basis: `Laid about ${chron} years ago and presenting ${direction} (condition ${s}/10), so it is depreciated as though it were ${effective} years old.${seen}`,
-  };
-}
+}): RoofAge => effectiveAge({ ...args, noun: "roof" });
 
 // ── 6 · Cost to replace ──────────────────────────────────────────────────────
 
@@ -314,11 +275,33 @@ export function roofReplacementCost(args: {
 
 // ── 7 · The valuation ────────────────────────────────────────────────────────
 
+/**
+ * Step 4 on the card: the life bar and the date it falls due.
+ *
+ * `usedFraction` is what fills the bar, and it is driven by the EFFECTIVE age,
+ * not the chronological one — a roof that presents badly should show as further
+ * through its life, which is the whole point of reading the condition.
+ */
+export interface RoofLife {
+  lowYears: number;
+  highYears: number;
+  expectedYears: number;
+  /** Effective years consumed. Can exceed expectedYears on an overdue roof. */
+  usedYears: number;
+  yearsRemaining: number;
+  /** Calendar year it falls due. Null once it already has. */
+  dueYear: number | null;
+  /** 0–1, clamped, for the bar. 1 means full and overdue. */
+  usedFraction: number;
+  /** "3 years left till replacement" / "Replacement overdue by 4 years". */
+  label: string;
+}
+
 export interface RoofValuation {
   material: { id: RoofMaterialId; label: string; note?: string };
   concerns: string[];
   age: RoofAge;
-  life: { lowYears: number; highYears: number; expectedYears: number };
+  life: RoofLife;
   area: RoofArea;
   cost: RoofCost;
   /** Share of the material's life still ahead of it, 0–1. */
@@ -420,8 +403,29 @@ export function valueRoof(args: {
   const expectedLife = Math.round((m.lifeLow + m.lifeHigh) / 2);
   const cost = roofReplacementCost({ area, material: id, storeys: args.storeys, labourMultiplier: args.labourMultiplier });
 
-  const yearsRemaining = Math.max(0, Math.round((expectedLife - age.effectiveYears) * 10) / 10);
-  const remainingFraction = Math.max(0, Math.min(1, yearsRemaining / expectedLife));
+  const rawRemaining = Math.round((expectedLife - age.effectiveYears) * 10) / 10;
+  const yearsRemaining = Math.max(0, rawRemaining);
+  const remainingFraction = lifeRemaining(age.effectiveYears, expectedLife, 0);
+
+  // Overdue is reported as a number, not rounded up to zero. "Overdue by four
+  // years" is a different conversation with a vendor from "due now", and the
+  // buyer is the one who has to have it.
+  const overdueBy = rawRemaining < 0 ? Math.abs(rawRemaining) : 0;
+  const life: RoofLife = {
+    lowYears: m.lifeLow,
+    highYears: m.lifeHigh,
+    expectedYears: expectedLife,
+    usedYears: age.effectiveYears,
+    yearsRemaining,
+    dueYear: yearsRemaining > 0 ? year + Math.round(yearsRemaining) : null,
+    usedFraction: Math.min(1, Math.round((age.effectiveYears / expectedLife) * 1000) / 1000),
+    label:
+      overdueBy > 0
+        ? `Replacement overdue by about ${Math.round(overdueBy)} ${Math.round(overdueBy) === 1 ? "year" : "years"}`
+        : yearsRemaining < 1
+          ? "Due for replacement now"
+          : `${Math.round(yearsRemaining)} ${Math.round(yearsRemaining) === 1 ? "year" : "years"} left till replacement — about ${year + Math.round(yearsRemaining)}`,
+  };
 
   // A roof at the end of its life is worth nothing AND costs the full
   // replacement. Those are two different numbers and the report shows both:
@@ -433,7 +437,7 @@ export function valueRoof(args: {
     material: { id, label: m.label, note: m.note },
     concerns: args.concerns ?? [],
     age,
-    life: { lowYears: m.lifeLow, highYears: m.lifeHigh, expectedYears: expectedLife },
+    life,
     area,
     cost,
     remainingFraction: Math.round(remainingFraction * 1000) / 1000,

@@ -100,6 +100,7 @@ export function contributionFrom(report: StoredReport): ReportContribution {
         subItems: report.subItems ?? [],
         floorAreaSqm: report.listing.floorAreaSqm,
         bathrooms: report.listing.bathrooms,
+        buildYear: report.listing.buildYear,
         landAreaSqm: report.listing.landAreaSqm,
         extraDwellings: report.extraDwellings,
         suburbValue: report.suburbValue,

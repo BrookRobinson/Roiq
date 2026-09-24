@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
           subItems: result.subItems,
           floorAreaSqm: listing.floorAreaSqm,
           bathrooms: listing.bathrooms,
+          buildYear: listing.buildYear,
           landAreaSqm: listing.landAreaSqm,
           extraDwellings: result.extraDwellings,
           suburbValue: result.suburbValue,

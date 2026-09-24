@@ -9,6 +9,10 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // Lets a dependency-free module import another one with an explicit .ts
+    // extension, which is what Node needs to run it under type stripping in the
+    // verify scripts. Emit is off (noEmit), so this costs nothing at build time.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",

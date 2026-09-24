@@ -56,7 +56,7 @@ const WHAT_THE_PHOTO_SHOULD_SHOW: Record<string, string> = {
   bath_hotwater:
     "The hot water cylinder or gas califont: its label and date if legible, lagging, corrosion, and any wet tray or staining beneath it.",
   ext_roof:
-    "The roof from ground level on as many sides as possible: rust, lifted or cracked sheets or tiles, moss, and the flashings around the chimney and penetrations.",
+    "The roof from ground level on as many sides as possible: rust, lifted or cracked sheets or tiles, moss, and the flashings around the chimney and penetrations. Also judge the PITCH — how steep it is in degrees — and the roof form, because the area is calculated from them.",
 };
 
 interface RawItemPhoto {
@@ -67,6 +67,8 @@ interface RawItemPhoto {
   material?: string;
   estimated_age?: string;
   data_plate?: string | null;
+  roof_pitch_degrees?: number | null;
+  roof_form?: string | null;
   spec_tier?: string;
   observed_defect?: string;
   ai_summary: string;
@@ -106,6 +108,16 @@ function tool(itemId: string, label: string): Anthropic.Tool {
           type: "string",
           description:
             "Approximate age or era, e.g. \"~20 years\" or \"original to the house\". If a data plate, label or model/serial number is legible in any photograph, DATE IT FROM THAT and say so — e.g. \"2009, from the serial on the data plate\".",
+        },
+        roof_pitch_degrees: {
+          type: ["number", "null"],
+          description:
+            "ROOF ONLY: the pitch in degrees, judged against the gable end or the eave line. New Zealand roofs run about 3° (flat/membrane), 8–12° (low-pitch long-run), 20–30° (typical gable or hip) and 35–45° (steep or older villa). Null if no photograph shows the slope side-on — the area is calculated from this, so a guess is expensive.",
+        },
+        roof_form: {
+          type: ["string", "null"],
+          enum: ["flat", "skillion", "gable", "hip", "gambrel", null],
+          description: "ROOF ONLY: the roof's shape. Null when the photographs don't show enough of it.",
         },
         data_plate: {
           type: ["string", "null"],
@@ -169,6 +181,7 @@ Rules:
 - Never infer condition from the building's era here. The whole point of these photographs is that somebody finally looked. If you cannot see it, say you cannot see it.
 - Be specific about defects: name what is visible and where. "Below average" is useless to a buyer and worthless in a negotiation.
 - Do not soften a real problem, and do not manufacture one that isn't in the frame.
+- For the ROOF: judge the pitch in degrees from a side-on or gable-end view and give the roof form. The roof AREA is computed as footprint ÷ cos(pitch), so the pitch multiplies a five-figure replacement cost — if no photograph shows the slope side-on, return null rather than a guess, and a typical pitch for the form will be used and labelled as an assumption.
 - If a DATA PLATE, label or model/serial number is legible in any photograph, read it and use it. A model or serial number dates a hot water cylinder, a heat pump or an appliance far more precisely than its appearance does, and that date changes what the item is worth. Copy what is printed there verbatim into data_plate; do not guess at characters you cannot actually read, and do not infer a manufacture date from a serial number format you are not sure of — an age stated from a misread plate is worse than no age at all.
 Return your assessment ONLY by calling the ${TOOL_NAME} tool.`;
 
@@ -274,6 +287,14 @@ export async function analyseItemPhotos(
     material: raw.material?.trim() || undefined,
     estimatedAge: raw.estimated_age?.trim() || "—",
     dataPlate: raw.data_plate?.trim() || null,
+    // Clamped to what a roof can physically be. A model that answers 90 has
+    // misread a gable end for a wall, and 1/cos(90°) is infinity — which would
+    // arrive downstream as an infinite roof area rather than as an error.
+    roofPitchDegrees:
+      typeof raw.roof_pitch_degrees === "number" && Number.isFinite(raw.roof_pitch_degrees)
+        ? Math.max(0, Math.min(60, Math.round(raw.roof_pitch_degrees)))
+        : null,
+    roofForm: raw.roof_form?.trim() || null,
     specTier: usesSpecTier(item) ? normSpec(raw.spec_tier) : undefined,
     observedDefect: raw.observed_defect?.trim() || undefined,
     summary: foundation
