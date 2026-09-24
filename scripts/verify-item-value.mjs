@@ -43,16 +43,34 @@ check("structural items carry a residual",
 
 console.log("\nthe valuation");
 const newish = valueItem({ ...base, id: "kit_cabinetry", buildYear: 2024, conditionScore: 9 });
-const shot = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, conditionScore: 3 });
+const shot = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, conditionScore: 1 });
 check("a new kitchen holds nearly all its cost", newish.remainingFraction > 0.9, true);
-check("a 51-year-old one holds none", shot.remainingFraction, 0);
+check("one at the end of its life holds none", shot.remainingFraction, 0);
+// The build year is the OLDEST a component can be, not its age. A kitchen that
+// presents as fair in a 1975 house has been replaced since — aging it to the
+// house put every kitchen in every pre-2000 house at $0.
+const fair75 = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, conditionScore: 6 });
+check("a fair kitchen in a 1975 house is not aged to the house", fair75.remainingFraction > 0.4, true);
+check("…and the card says why", /replaced since/.test(fair75.age.basis), true);
+const tired75 = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, conditionScore: 3 });
+check("a tired one holds less than a fair one", tired75.remainingFraction < fair75.remainingFraction, true);
+// A new house's components are never aged past the house.
+const new24 = valueItem({ ...base, id: "kit_cabinetry", buildYear: 2024, conditionScore: 5 });
+check("a component is never older than its house", new24.age.effectiveYears <= 2 * 1.06, true);
+// No cliff the year a house outlives a kitchen.
+const edge = [2003, 2004, 2005].map((y) => valueItem({ ...base, id: "kit_cabinetry", buildYear: y, conditionScore: 6 }).remainingFraction);
+check("no jump as the house passes the component's life",
+  Math.max(...edge) - Math.min(...edge) < 0.1, true);
+// A replacement date is a fact and beats the condition reading.
+const dated = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, installedYear: 1995, conditionScore: 6 });
+check("a known replacement date is used as the age", dated.age.chronologicalYears, 31);
 check("value and liability sum to the replacement cost",
   newish.valueNZD + newish.liabilityNZD, newish.cost.totalNZD);
 check("the four cost lines add up",
   shot.cost.materialsNZD + shot.cost.labourNZD + shot.cost.scaffoldNZD + shot.cost.disposalNZD,
   shot.cost.totalNZD);
 // A foundation at 150 years old still holds a house up.
-const oldFooting = valueItem({ ...base, id: "ext_foundation", buildYear: 1880, conditionScore: 4 });
+const oldFooting = valueItem({ ...base, id: "ext_foundation", buildYear: 1880, conditionScore: 1 });
 check("a residual item never reaches zero", oldFooting.valueNZD > 0, true);
 check("…and says it is a residual", /residual/.test(oldFooting.summary), true);
 
@@ -89,13 +107,16 @@ check("an item with no service life is refused",
 const noCost = valueItem({ ...base, id: "kit_cabinetry", rcnNew: 0, buildYear: 2000 });
 check("an item with no replacement cost is refused",
   isItemWithheld(noCost) && noCost.withheld, "no_cost");
-const noAge = valueItem({ ...base, id: "kit_cabinetry", conditionScore: 7 });
-check("an unknown age says the figure is a ceiling", /ceiling/.test(noAge.age.basis), true);
+const noAge = valueItem({ ...base, id: "kit_cabinetry" });
+check("no age and no condition says the figure is a ceiling", /ceiling/.test(noAge.age.basis), true);
+const condOnly = valueItem({ ...base, id: "kit_cabinetry", conditionScore: 7 });
+check("no age but a condition read is aged from the condition", /read from its condition/.test(condOnly.age.basis), true);
 
 console.log("\nthe replacement-due line");
 const mid = valueItem({ ...base, id: "ext_decking", buildYear: 2016, conditionScore: 5.5 });
 check("it names the year", mid.life.dueYear, 2026 + Math.round(mid.life.yearsRemaining));
-check("an overdue item says by how much", /overdue by/i.test(shot.life.label), true);
+const overdue = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, installedYear: 1990, conditionScore: 3 });
+check("an overdue item says by how much", /overdue by/i.test(overdue.life.label), true);
 check("the bar never overfills", shot.life.usedFraction <= 1, true);
 check("the bar agrees with the value",
   Math.abs((1 - shot.life.usedFraction) - shot.remainingFraction) < 0.01, true);

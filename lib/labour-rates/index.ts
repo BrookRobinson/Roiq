@@ -361,3 +361,12 @@ export function deckRepairCost(deckSqm: number, region: string): CostItem {
     labourRateOverride: 65,
   });
 }
+
+/**
+ * The labour multiplier for a listing — the one call every valuation makes, so
+ * the headline, the map pin and the item cards can't resolve a region three
+ * different ways and disagree about the same house.
+ */
+export function labourMultiplierFor(listing: { city?: string | null; region?: string | null }): number {
+  return resolveRegion([listing.city, listing.region].filter(Boolean).join(", ")).multiplier;
+}

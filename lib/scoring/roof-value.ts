@@ -29,7 +29,7 @@
 // nothing else has to move.
 // ============================================================
 
-import { effectiveAge, lifeRemaining, type EffectiveAge } from "./depreciation.ts";
+import { componentAge, effectiveAge, lifeRemaining, type EffectiveAge } from "./depreciation.ts";
 
 export type RoofMaterialId =
   | "longrun_colorsteel"
@@ -423,19 +423,16 @@ export function valueRoof(args: {
     area.workings[1] += ` The pitch wasn't established from the photographs, so this is the typical ${args.roofForm ?? "roof"} pitch.`;
   }
 
-  const laid = args.roofLaidYear ?? args.buildYear ?? null;
-  const chron = laid ? Math.max(0, year - laid) : 0;
-  const age = effectiveRoofAge({
-    chronologicalYears: chron,
-    conditionScore: args.conditionScore,
-    concerns: args.concerns,
-  });
-  if (!laid) {
-    age.basis =
-      "Neither a build year nor a reroof date is known, so the roof is treated as new — which will overstate it. Treat this figure as a ceiling.";
-  }
-
   const expectedLife = Math.round((m.lifeLow + m.lifeHigh) / 2);
+  const age: RoofAge = componentAge({
+    installedYear: args.roofLaidYear,
+    buildYear: args.buildYear,
+    conditionScore: args.conditionScore,
+    expectedLifeYears: expectedLife,
+    concerns: args.concerns,
+    noun: "roof",
+    now: args.now,
+  });
   const cost = roofReplacementCost({ area, material: id, storeys: args.storeys, labourMultiplier: args.labourMultiplier });
 
   const rawRemaining = Math.round((expectedLife - age.effectiveYears) * 10) / 10;

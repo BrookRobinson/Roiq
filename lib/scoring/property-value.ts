@@ -19,7 +19,7 @@
 // and the server-side pin write all call THIS, so they cannot drift apart again.
 // ============================================================
 
-import { valueImprovementItems } from "./improvement-values";
+import { valueImprovementItems, type RoofInputs } from "./improvement-values";
 import { valueExtraDwellings } from "./extra-dwelling-value";
 import { valueLand, roiqValuation, type RoiqValuation } from "./valuation";
 import { methodFor, comparablesMatch, type ValuationMethod } from "./valuation-method";
@@ -39,6 +39,14 @@ export interface PropertyValueInput {
    */
   subItems: SubItem[];
   floorAreaSqm: number | null;
+  /**
+   * The region's labour multiplier (resolveRegion on "city, region"). The item
+   * cards price labour regionally, so the headline has to as well or the cards
+   * stop adding up to it.
+   */
+  labourMultiplier?: number;
+  /** What the roof is measured from — see valueImprovementItems. */
+  roof?: RoofInputs;
   /** Depreciates the structure. Without it the shell reads as brand new. */
   buildYear?: number | null;
   bathrooms?: number | null;
@@ -154,6 +162,8 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
     floorAreaSqm: input.floorAreaSqm,
     bathrooms: input.bathrooms,
     buildYear: input.buildYear,
+    labourMultiplier: input.labourMultiplier,
+    roof: input.roof,
   });
   const land = valueLand({ landAreaSqm: ownedLandSqm, suburbValue: input.suburbValue });
 

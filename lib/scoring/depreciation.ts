@@ -75,6 +75,87 @@ export function effectiveAge(args: {
 }
 
 /**
+ * How old a COMPONENT is, when what we usually know is how old the HOUSE is.
+ *
+ * The build year is not the component's age. It is only the oldest the
+ * component could be. A kitchen in a 1975 house that presents as fair is not a
+ * 51-year-old kitchen, because a 51-year-old kitchen would not present as fair.
+ * The condition shows it has been replaced since. Reading its age off the build
+ * year put every kitchen, bathroom and window in every pre-2000 house at $0.
+ *
+ * So when the component's own date is unknown, there are two readings and we
+ * take the younger:
+ *   • the build year, moved by condition (the effectiveAge rule), which
+ *     is right for anything that is plausibly original, and
+ *   • the condition alone, read as a share of the component's life:
+ *     10 → just installed, 5.5 → half way, 1 → at the end of it.
+ * Taking the younger means a new house's components are never aged past the
+ * house, and an old house's replaced components are never aged to the house.
+ * The two readings meet, so there is no jump the year a house outlives a
+ * kitchen.
+ *
+ * A known replacement date is a fact and beats both.
+ */
+export function componentAge(args: {
+  /** When the component itself went in, if anything says so. */
+  installedYear?: number | null;
+  buildYear?: number | null;
+  conditionScore?: number | null;
+  expectedLifeYears: number;
+  concerns?: string[];
+  noun?: string;
+  now?: Date;
+}): EffectiveAge {
+  const year = (args.now ?? new Date()).getFullYear();
+  const noun = args.noun ?? "item";
+
+  if (args.installedYear) {
+    return effectiveAge({
+      chronologicalYears: Math.max(0, year - args.installedYear),
+      conditionScore: args.conditionScore,
+      concerns: args.concerns,
+      noun,
+    });
+  }
+
+  const score = args.conditionScore;
+  const fromCondition =
+    score == null
+      ? null
+      : Math.round(args.expectedLifeYears * Math.max(0, Math.min(1, (10 - Math.max(1, Math.min(10, score))) / 9)) * 10) / 10;
+
+  if (!args.buildYear) {
+    if (fromCondition == null) {
+      return {
+        chronologicalYears: 0,
+        effectiveYears: 0,
+        basis: `Neither a build year, a replacement date nor a condition read is known, so the ${noun} is treated as new — which will overstate it. Treat the figure as a ceiling.`,
+      };
+    }
+    return {
+      chronologicalYears: 0,
+      effectiveYears: fromCondition,
+      basis: `No build year or replacement date is known, so its age is read from its condition (${score}/10): about ${fromCondition} of a ${args.expectedLifeYears}-year life used.`,
+    };
+  }
+
+  const fromHouse = effectiveAge({
+    chronologicalYears: Math.max(0, year - args.buildYear),
+    conditionScore: score,
+    concerns: args.concerns,
+    noun,
+  });
+  if (fromCondition == null || fromCondition >= fromHouse.effectiveYears) return fromHouse;
+
+  const seen = fromHouse.basis.match(/ Seen: .*$/)?.[0] ?? "";
+  return {
+    chronologicalYears: fromHouse.chronologicalYears,
+    effectiveYears: fromCondition,
+    basis: `The house is about ${fromHouse.chronologicalYears} years old, but a ${noun} in this condition (${score}/10) has not been there that long, so it has been replaced since. With no date for that, its age is read from its condition: about ${fromCondition} of a ${args.expectedLifeYears}-year life used.${seen}`,
+  };
+}
+
+/**
  * Share of an item's value still there, 0–1.
  *
  * `residual` is the floor it may never fall below. Zero for anything that wears

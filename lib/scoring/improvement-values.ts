@@ -4,12 +4,15 @@
 // Turns the Improvements scores into a dollar value, one line per component,
 // using the Depreciated Replacement Cost (cost approach) method:
 //
-//   item value = Replacement-Cost-New × spec multiplier × condition factor
-//                    (base $ per item)    (tier = quality)   (depreciation)
+//   item value = cost to replace it new × share of its life left
+//                (base $ × size × spec)    (valueItem / valueRoof)
 //
 // The two axes are exactly the two we already score:
 //   • spec TIER      → sets what it costs to build NEW (SPEC_MULTIPLIER).
-//   • CONDITION 1–10 → depreciates it (conditionFactor: new→1.0, poor→0.37).
+//     Never a discount on the value — an ungraded item is the 1.0 reference.
+//   • CONDITION 1–10 → moves the item's effective AGE, and the life left does
+//     the depreciating (lib/scoring/depreciation.ts). It is the same
+//     valueItem() every item card shows, so the cards add up to this.
 //
 // Building value = a base structure/services SHELL (framing, linings, wiring,
 // plumbing rough-in, prelims & margin — real cost, but NOT individually visible
@@ -26,6 +29,8 @@
 import { SCORING_MODEL } from "./model";
 import { SPEC_MULTIPLIER, conditionFactor } from "./valuation";
 import { effectiveAge, shellLifeRemaining } from "./depreciation.ts";
+import { valueItem, isItemWithheld } from "./item-value.ts";
+import { valueRoof, roofMaterialFromText, isWithheld as isRoofWithheld } from "./roof-value.ts";
 import type { SpecTier, SubItem } from "@/lib/property-tab/types";
 
 /** How a component's base cost scales to THIS property. */
@@ -140,10 +145,15 @@ export interface ItemValue {
   id: string;
   label: string;
   category: string;
-  tier: SpecTier;
+  /** Null when the analysis didn't grade it — priced at the 1.0 reference. */
+  tier: SpecTier | null;
   condition: number;
-  rcnNew: number; // replacement cost new at THIS property's size, 1.0 reference spec
-  valueNow: number; // depreciated current value (tier × condition)
+  rcnNew: number; // replacement cost new at THIS property's size and spec
+  /** rcnNew plus scaffold, disposal and regional labour — what the card calls the cost to replace. */
+  replacementTotal: number;
+  valueNow: number; // replacementTotal × life remaining (valueItem)
+  /** The age it was depreciated by, so the card's Age chip states the same one. */
+  ageYears: number;
   valuePotential: number; // value at modern spec, as-new (the reno ceiling)
   valueGap: number; // max(0, potential − now) — the renovation upside
 }
@@ -203,6 +213,16 @@ export interface ImprovementValueResult {
   estimatedItems: { id: string; label: string; category: string; rcnNew: number; valueNow: number }[];
 }
 
+export interface RoofInputs {
+  footprintM2?: number | null;
+  pitchDegrees?: number | null;
+  roofForm?: string | null;
+  /** Material text, when something better than the sub-item's own is known. */
+  material?: string | null;
+}
+
+const specMult = (tier: SpecTier | null | undefined): number => (tier ? SPEC_MULTIPLIER[tier] : 1);
+
 function sizeFor(scale: ScaleBasis, floor: number, baths: number): number {
   if (scale === "floorM2") return floor;
   if (scale === "bathroom") return baths;
@@ -220,11 +240,39 @@ export function valueImprovementItems(args: {
   bathrooms?: number | null;
   /** Drives the shell's depreciation. Without it the shell reads as new. */
   buildYear?: number | null;
+  /** The region's labour multiplier (resolveRegion). Only labour moves with it. */
+  labourMultiplier?: number;
+  /**
+   * What the roof card measures the roof from. With a material and a footprint
+   * the roof is valued exactly as its card values it; without them it falls
+   * back to the floor-scaled figure rather than dropping out of the building.
+   */
+  roof?: RoofInputs;
   now?: Date;
 }): ImprovementValueResult {
   const floor = args.floorAreaSqm && args.floorAreaSqm > 0 ? args.floorAreaSqm : 0;
   const baths = Math.max(1, Math.round(args.bathrooms ?? 1));
   const byId = new Map(args.subItems.map((s) => [s.id, s]));
+  const now = args.now ?? new Date();
+
+  // THE per-item value — the same seven-step valueItem() every card shows, so
+  // the cards add up to the headline. It used to be rcn × spec × a condition
+  // factor here and cost-to-replace × life-left on the card: on a fair 1975
+  // house the cards summed to a quarter of what the headline counted.
+  const depreciate = (id: string, rcnNew: number, conditionScore: number, asNew = false) => {
+    const r = valueItem({
+      id,
+      rcnNew,
+      sizeWorkings: [],
+      sizeSummary: "",
+      conditionScore,
+      buildYear: args.buildYear,
+      installedYear: asNew ? now.getFullYear() : null,
+      labourMultiplier: args.labourMultiplier,
+      now,
+    });
+    return isItemWithheld(r) ? null : r;
+  };
 
   const items: ItemValue[] = [];
   let componentsValue = 0;
@@ -238,16 +286,47 @@ export function valueImprovementItems(args: {
     const s = byId.get(id);
     if (!s || s.score == null) continue; // not present / not assessed → no phantom value
 
-    const tier: SpecTier = s.specTier ?? "dated";
+    // Spec sets what it costs to build NEW; it is never a discount on the
+    // value. Applied to the value it let a modern kitchen be "worth" more than
+    // it costs to replace. An unread spec is the 1.0 reference — not "dated",
+    // which silently took 10% off anything the model didn't grade.
+    const tier: SpecTier | null = s.specTier ?? null;
     const condition = s.score;
-    const rcnNew = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths));
+    const sized = spec.baseRCN * sizeFor(spec.scale, floor, baths);
+    const rcnNew = Math.round(sized * specMult(tier));
     if (rcnNew <= 0) continue;
 
-    const valueNow = Math.round(rcnNew * SPEC_MULTIPLIER[tier] * conditionFactor(condition));
-    const valuePotential = Math.round(rcnNew * RENO_TARGET_MULT * conditionFactor(10));
+    if (id === "ext_roof") {
+      const r = valueRoof({
+        material: roofMaterialFromText(args.roof?.material ?? s.material),
+        footprintM2: args.roof?.footprintM2 ?? null,
+        pitchDegrees: args.roof?.pitchDegrees ?? null,
+        roofForm: args.roof?.roofForm ?? null,
+        storeys: 1, // same conservative read as the card
+        buildYear: args.buildYear,
+        conditionScore: condition,
+        labourMultiplier: args.labourMultiplier,
+        now,
+      });
+      if (!isRoofWithheld(r)) {
+        const rcn = r.cost.materialsNZD + r.cost.labourNZD;
+        items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew: rcn, replacementTotal: r.cost.totalNZD, valueNow: r.valueNZD, ageYears: r.age.effectiveYears, valuePotential: r.cost.totalNZD, valueGap: r.cost.totalNZD - r.valueNZD });
+        componentsValue += r.valueNZD;
+        totalValueGap += r.cost.totalNZD - r.valueNZD;
+        wRcn += rcn;
+        wRcnCond += rcn * conditionFactor(condition);
+        continue;
+      }
+    }
+
+    const v = depreciate(id, rcnNew, condition);
+    if (!v) continue;
+    const potential = depreciate(id, Math.round(sized * RENO_TARGET_MULT), 10, true);
+    const valueNow = v.valueNZD;
+    const valuePotential = potential ? potential.valueNZD : valueNow;
     const valueGap = Math.max(0, valuePotential - valueNow);
 
-    items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew, valueNow, valuePotential, valueGap });
+    items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew, replacementTotal: v.cost.totalNZD, valueNow, ageYears: v.age.effectiveYears, valuePotential, valueGap });
     componentsValue += valueNow;
     totalValueGap += valueGap;
     wRcn += rcnNew;
@@ -300,7 +379,7 @@ export function valueImprovementItems(args: {
   let estimatedValue = 0;
   if (wRcn > 0 && items.length > 0) {
     const blendedSpec = Math.min(
-      items.reduce((sum, i) => sum + SPEC_MULTIPLIER[i.tier] * i.rcnNew, 0) / wRcn,
+      items.reduce((sum, i) => sum + specMult(i.tier) * i.rcnNew, 0) / wRcn,
       SPEC_MULTIPLIER.modern // never luxury without evidence
     );
     for (const [id, spec] of Object.entries(IMPROVEMENT_BASE_COSTS)) {
@@ -308,9 +387,9 @@ export function valueImprovementItems(args: {
       if (!meta) continue;
       const seen = byId.get(id);
       if (seen && seen.score != null) continue; // already valued for real
-      const rcnNew = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths));
+      const rcnNew = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths) * blendedSpec);
       if (rcnNew <= 0) continue;
-      const valueNow = Math.round(rcnNew * blendedSpec * blendedCond);
+      const valueNow = depreciate(id, rcnNew, blendedScore)?.valueNZD ?? 0;
       estimatedItems.push({ id, label: meta.label, category: meta.category, rcnNew, valueNow });
       estimatedValue += valueNow;
     }

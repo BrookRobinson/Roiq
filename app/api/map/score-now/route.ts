@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { labourMultiplierFor } from "@/lib/labour-rates";
 import { resolveListing, resolveListingByAddress } from "@/lib/listing-resolver";
 import { analyseProperty } from "@/lib/ai/analyze";
 import { buildMapListing } from "@/lib/map/from-analysis";
@@ -59,6 +60,8 @@ export async function POST(req: NextRequest) {
         valueProperty({
           subItems: result.subItems,
           floorAreaSqm: listing.floorAreaSqm,
+          labourMultiplier: labourMultiplierFor(listing),
+          roof: { footprintM2: listing.siteLayout?.mainBuildingAreaSqm ?? null },
           bathrooms: listing.bathrooms,
           buildYear: listing.buildYear,
           landAreaSqm: listing.landAreaSqm,

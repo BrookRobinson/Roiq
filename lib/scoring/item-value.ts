@@ -21,7 +21,7 @@
 // Dependency-free so verify:item-value can load it with plain node.
 // ============================================================
 
-import { effectiveAge, lifeRemaining, type EffectiveAge } from "./depreciation.ts";
+import { componentAge, lifeRemaining, type EffectiveAge } from "./depreciation.ts";
 import { ITEM_LIFE, expectedLife, type ItemLife } from "./item-life.ts";
 
 export interface ItemValuationLife {
@@ -119,21 +119,17 @@ export function valueItem(args: {
   }
 
   const year = (args.now ?? new Date()).getFullYear();
-  const from = args.installedYear ?? args.buildYear ?? null;
-  const chron = from ? Math.max(0, year - from) : 0;
-
-  const age = effectiveAge({
-    chronologicalYears: chron,
+  const expected = expectedLife(life);
+  const age = componentAge({
+    installedYear: args.installedYear,
+    buildYear: args.buildYear,
     conditionScore: args.conditionScore,
+    expectedLifeYears: expected,
     concerns: args.concerns,
     noun: (args.label ?? "component").toLowerCase(),
+    now: args.now,
   });
-  if (!from) {
-    age.basis =
-      "Neither a build year nor a replacement date is known, so this is treated as new — which will overstate it. Treat the figure as a ceiling.";
-  }
 
-  const expected = expectedLife(life);
   const labourMult = args.labourMultiplier ?? 1;
 
   // Only labour and scaffold move with the region. Gib is Gib in Gore and in

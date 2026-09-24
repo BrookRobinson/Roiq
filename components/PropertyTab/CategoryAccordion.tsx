@@ -7,7 +7,7 @@ import { worstSubItemScore } from "@/lib/property-tab/types";
 import { SubItemCard, pointsColor } from "./SubItemCard";
 import { ConditionScore, conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
-import type { AnyValuation } from "./valuation-types";
+import { isRefused, type AnyValuation } from "./valuation-types";
 import type { Persona } from "@/lib/scoring/model";
 import type { RenoControls } from "@/lib/property-tab/types";
 import { alpha } from "@/lib/ui/color";
@@ -36,8 +36,13 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
   // the totals on screen add up to the category header above them.
   const catPts = category.subItems.reduce(
     (acc, s) => {
+      // Exactly the pair the card shows: its seven-step valuation when it has
+      // one, the itemised value otherwise. Summing a different pair here is how
+      // the header came to read "$27,409 of $25,200" above cards that didn't.
+      const d = itemValuations?.get(s.id);
       const v = itemValues?.get(s.id);
-      if (v) { acc.earned += v.valueNow; acc.max += v.rcnNew; acc.any = true; }
+      if (d && !isRefused(d)) { acc.earned += d.valueNZD; acc.max += d.cost.totalNZD; acc.any = true; }
+      else if (v) { acc.earned += v.valueNow; acc.max += v.replacementTotal; acc.any = true; }
       return acc;
     },
     { earned: 0, max: 0, any: false }

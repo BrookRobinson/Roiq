@@ -100,11 +100,16 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
   // it is the one displayed, and the older figure is the fallback for items it
   // does not cover yet.
   const rejected = valuation ? isRefused(valuation) : false;
+  // The age the shown value was depreciated by — one age per card.
+  const ageShown =
+    valuation && !isRefused(valuation) ? Math.round(valuation.age.effectiveYears)
+    : value ? Math.round(value.ageYears)
+    : null;
   const detailed = valuation && !rejected ? valuation : null;
   const shown = detailed && !isRefused(detailed)
     ? { now: detailed.valueNZD, rcn: detailed.cost.totalNZD }
     : value
-      ? { now: value.valueNow, rcn: value.rcnNew }
+      ? { now: value.valueNow, rcn: value.replacementTotal }
       : null;
   const costItem = getCostItem(item, region, floorSqm);
   // Renovation plan: this item can be added if it has a costed reno line.
@@ -171,7 +176,12 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                       // rest of the card, and sat on items where the question makes
                       // no sense at all — an oven has a brand, not a material.
                       ...(item.material ? [{ label: "Material", value: item.material }] : []),
-                      ...(item.estimatedAge && item.estimatedAge !== "—" ? [{ label: "Age", value: item.estimatedAge }] : []),
+                      // One age per card. When the item is valued, the chip shows
+                      // the age the valuation depreciates it by — a chip saying
+                      // "~54 years" above a value worked out at nine is two answers.
+                      ...(ageShown != null
+                        ? [{ label: "Age", value: `~${ageShown} ${ageShown === 1 ? "year" : "years"} (est.)` }]
+                        : item.estimatedAge && item.estimatedAge !== "—" ? [{ label: "Age", value: item.estimatedAge }] : []),
                     ]
                 ).map((pill) => (
                   <div

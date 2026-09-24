@@ -11,6 +11,7 @@
 // ============================================================
 
 import type { StoredReport } from "@/lib/report-store";
+import { labourMultiplierFor } from "@/lib/labour-rates";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
 import { computeRepairAllowance } from "./repair-allowance";
@@ -99,6 +100,8 @@ export function contributionFrom(report: StoredReport): ReportContribution {
       valueProperty({
         subItems: report.subItems ?? [],
         floorAreaSqm: report.listing.floorAreaSqm,
+        labourMultiplier: labourMultiplierFor(report.listing),
+        roof: { footprintM2: report.listing.siteLayout?.mainBuildingAreaSqm ?? null },
         bathrooms: report.listing.bathrooms,
         buildYear: report.listing.buildYear,
         landAreaSqm: report.listing.landAreaSqm,

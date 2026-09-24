@@ -67,8 +67,11 @@ check("…and it is listed so the reader can see what was estimated", roof.label
 console.log("\nthe estimate follows the building it came from");
 const tired = run(TIRED);
 const tiredRoof = tired.estimatedItems.find((i) => i.id === "ext_roof");
-// Same roof, same replacement cost — a tired house estimates it tired.
-check("same component, same replacement cost either way", roof.rcnNew, tiredRoof.rcnNew);
+// Spec sets what it costs to build new, and an unseen component inherits the
+// spec of the building around it (capped at modern) — so the tired, dated house
+// prices the roof's replacement at dated, and nothing else moves the cost.
+check("an estimate's cost moves only with the spec it inherits",
+  Math.round((roof.rcnNew / tiredRoof.rcnNew) * 100) / 100, Math.round((1.2 / 0.9) * 100) / 100);
 check("a well-kept house estimates its unseen roof higher", roof.valueNow > tiredRoof.valueNow, true);
 check("a tired house doesn't get a flattering roof", tiredRoof.valueNow < roof.valueNow / 2, true);
 
@@ -100,6 +103,42 @@ console.log("\nan estimate never beats the real thing");
 // A component that WAS seen is valued from what was seen, never re-estimated.
 check("assessed components are not in the estimated list",
   good.estimatedItems.some((e) => GOOD.some((g) => g.id === e.id)), false);
+
+console.log("\nthe cards add up to the headline");
+// The headline used to be rcn × spec × a condition factor while every card was
+// cost-to-replace × life-left: on a fair 1975 house the cards summed to a
+// quarter of what the headline counted. One method now, so they must agree to
+// the dollar.
+const { valueItem } = await import(join(root, "lib/scoring/item-value.ts"));
+const HOUSE = ["ext_cladding", "ext_windows", "kit_cabinetry", "bath_shower", "liv_flooring", "ext_foundation", "out_driveway"]
+  .map((id) => item(id, 6, "dated"));
+const NOW = new Date("2026-09-24T00:00:00Z");
+const h = valueImprovementItems({ subItems: HOUSE, floorAreaSqm: 150, bathrooms: 1, buildYear: 1975, labourMultiplier: 1.1, now: NOW });
+const cardSum = h.items.reduce((sum, v) => sum + valueItem({
+  id: v.id, rcnNew: v.rcnNew, sizeWorkings: [], sizeSummary: "", conditionScore: v.condition,
+  buildYear: 1975, labourMultiplier: 1.1, now: NOW,
+}).valueNZD, 0);
+check("every card and the headline are the same sum", cardSum, h.componentsValue);
+check("nothing is worth more than it costs to replace",
+  h.items.filter((v) => v.valueNow > v.replacementTotal).map((v) => v.id), []);
+// A fair kitchen in a 1975 house has been replaced since — aging it to the
+// house valued it at nothing.
+check("a fair component in an old house still holds value",
+  h.items.find((v) => v.id === "kit_cabinetry").valueNow > 0, true);
+
+console.log("\nan ungraded spec is not a guess");
+const graded = valueImprovementItems({ subItems: [{ id: "kit_cabinetry", score: 7, specTier: "dated" }], floorAreaSqm: 150, bathrooms: 1, buildYear: 2000, now: NOW });
+const ungraded = valueImprovementItems({ subItems: [{ id: "kit_cabinetry", score: 7 }], floorAreaSqm: 150, bathrooms: 1, buildYear: 2000, now: NOW });
+check("it carries no tier rather than an invented 'dated'", ungraded.items[0].tier, null);
+check("…and is priced at the 1.0 reference, not 0.9",
+  Math.round((ungraded.items[0].rcnNew / graded.items[0].rcnNew) * 100) / 100, Math.round((1 / 0.9) * 100) / 100);
+
+console.log("\nthe roof is in the building either way");
+const roofFacts = [{ id: "ext_roof", score: 7, specTier: "modern", material: "Long-run corrugated steel" }];
+const measured = valueImprovementItems({ subItems: roofFacts, floorAreaSqm: 150, bathrooms: 1, buildYear: 2000, roof: { footprintM2: 160 }, now: NOW });
+const unmeasured = valueImprovementItems({ subItems: roofFacts, floorAreaSqm: 150, bathrooms: 1, buildYear: 2000, now: NOW });
+check("with a footprint it is valued", measured.items.some((v) => v.id === "ext_roof" && v.valueNow > 0), true);
+check("without one it falls back rather than dropping out", unmeasured.items.some((v) => v.id === "ext_roof" && v.valueNow > 0), true);
 
 console.log(failures === 0 ? "\nEstimated-value rules hold.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);

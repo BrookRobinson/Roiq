@@ -16,7 +16,7 @@ import { valueRoof, roofMaterialFromText } from "@/lib/scoring/roof-value";
 import { valueItem } from "@/lib/scoring/item-value";
 import { IMPROVEMENT_BASE_COSTS } from "@/lib/scoring/improvement-values";
 import type { AnyValuation } from "@/components/PropertyTab/valuation-types";
-import { resolveRegion } from "@/lib/labour-rates";
+import { labourMultiplierFor } from "@/lib/labour-rates";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
@@ -629,6 +629,19 @@ export function RealReportView({
   // Itemised improvement (building) value — depreciated replacement cost per
   // component + a base structure/services shell (v5.1). Persona-neutral, computed
   // once; shared by the Overview card, the per-item cards and the Value Verdict.
+  // What the roof is measured from — the same inputs its card uses, handed to
+  // the headline too so the roof card and the building value are one figure.
+  const roofShot = itemPhotos["ext_roof"];
+  const roofInputs = useMemo(
+    () => ({
+      footprintM2: siteLayout?.mainBuildingAreaSqm ?? null,
+      pitchDegrees: roofShot?.roofPitchDegrees ?? null,
+      roofForm: roofShot?.roofForm ?? null,
+      material: roofShot?.material ?? null,
+    }),
+    [siteLayout, roofShot]
+  );
+
   const improvementValuation = useMemo(
     () =>
       valueImprovementItems({
@@ -636,8 +649,11 @@ export function RealReportView({
         floorAreaSqm: report.listing.floorAreaSqm,
         bathrooms: report.listing.bathrooms,
         buildYear: report.listing.buildYear,
+        labourMultiplier: labourMultiplierFor(report.listing),
+        roof: roofInputs,
       }),
     [
+      roofInputs,
       effectiveSubItems,
       report.listing.floorAreaSqm,
       report.listing.bathrooms,
@@ -685,9 +701,7 @@ export function RealReportView({
         buildYear: report.listing.buildYear,
         conditionScore: shot?.showsItem ? shot.score : roof.score,
         concerns,
-        labourMultiplier: resolveRegion(
-          [report.listing.city, report.listing.region].filter(Boolean).join(", ")
-        ).multiplier,
+        labourMultiplier: labourMultiplierFor(report.listing),
       })
     );
     // Everything else, on the same seven steps. The RCN comes from the
@@ -708,12 +722,13 @@ export function RealReportView({
           sizeSummary: `$${Math.round(v.rcnNew).toLocaleString("en-NZ")} to replace on this property`,
           material: shot?.material ?? item?.material,
           concerns,
-          conditionScore: shot?.showsItem ? shot.score : item?.score,
+          // The condition the headline valued it at — effective sub-items
+          // already carry the buyer's own photograph — so card and headline
+          // are the same sum, not two that happen to be close.
+          conditionScore: v.condition,
           buildYear: report.listing.buildYear,
           label: v.label,
-          labourMultiplier: resolveRegion(
-            [report.listing.city, report.listing.region].filter(Boolean).join(", ")
-          ).multiplier,
+          labourMultiplier: labourMultiplierFor(report.listing),
         })
       );
     }
@@ -725,6 +740,8 @@ export function RealReportView({
       valueProperty({
         subItems: effectiveSubItems,
         floorAreaSqm: report.listing.floorAreaSqm,
+        labourMultiplier: labourMultiplierFor(report.listing),
+        roof: roofInputs,
         bathrooms: report.listing.bathrooms,
         landAreaSqm: report.listing.landAreaSqm,
         buildYear: report.listing.buildYear,
@@ -736,7 +753,7 @@ export function RealReportView({
         landCoOwners: report.listing.landCoOwners,
         crossLeaseSharing: report.context?.crossLeaseSharing,
       }),
-    [effectiveSubItems, report.listing, report.extraDwellings, report.suburbValue, report.context]
+    [effectiveSubItems, report.listing, report.extraDwellings, report.suburbValue, report.context, roofInputs]
   );
 
   const checklist = useMemo(
@@ -1551,7 +1568,7 @@ function ImprovementValueCard({ iv }: { iv: ImprovementValueResult }) {
         <div>
           <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Improvement (building) value</div>
           <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-            Built up <strong style={{ color: "var(--text-secondary)" }}>item by item</strong> — each component&apos;s replacement cost, adjusted for its spec &amp; condition, plus the base structure &amp; services.
+            Built up <strong style={{ color: "var(--text-secondary)" }}>item by item</strong> — each component&apos;s cost to replace at its spec, less the share of its life already used, plus the base structure &amp; services. The same figures as the cards on the Improvements tab.
           </div>
         </div>
         <div className="text-right flex-shrink-0">

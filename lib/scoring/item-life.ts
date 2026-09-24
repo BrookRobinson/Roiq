@@ -51,6 +51,14 @@ export const ITEM_LIFE: Record<string, ItemLife> = {
     lifeLow: 80, lifeHigh: 120, materialShare: 0.45, disposalShare: 0.05, residual: 0.3,
     note: "A foundation is replaced almost never; it is repaired, re-piled or re-levelled.",
   },
+  // Only the FALLBACK for a roof we can't measure. The roof is valued by
+  // roof-value.ts — its own material's life, measured area — whenever the
+  // material and the building footprint are known; this is the floor-scaled
+  // figure the headline uses when they aren't, spanning the common materials.
+  ext_roof: {
+    lifeLow: 25, lifeHigh: 50, materialShare: 0.5, disposalShare: 0.06, scaffold: true,
+    note: "Concrete tile and long-run steel at the long end, older butyl and membranes at the short.",
+  },
   ext_cladding: {
     lifeLow: 40, lifeHigh: 60, materialShare: 0.4, disposalShare: 0.08, scaffold: true,
     note: "Weatherboard at the long end, monolithic plaster at the short.",

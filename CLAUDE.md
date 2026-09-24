@@ -1366,6 +1366,24 @@ property's size and spec tier from `IMPROVEMENT_BASE_COSTS`; re-pricing it would
 be a second cost model disagreeing with the first. What it adds is the split and
 the life.
 
+**The headline IS the cards.** `valueImprovementItems` values every item with
+the same `valueItem()` / `valueRoof()` the cards call, so the headline, the map
+pin and the category totals are the sum of the cards to the dollar. It used to
+be rcn × spec × a condition factor while the cards were cost × life left: on a
+fair 1975 house the cards summed to a quarter of the headline, and a "modern"
+kitchen read "$27,409 of $25,200", worth more than it costs to replace. Spec
+sets the cost NEW and is never a discount on the value; an ungraded spec is the
+1.0 reference, never a silent `"dated"`. Every valuation takes
+`labourMultiplierFor(listing)` and the report passes the roof's footprint, so a
+card and the headline can't be fed different inputs. `verify:estimated-value`
+asserts the sums agree.
+
+**The build year is the OLDEST a component can be, not its age.**
+`componentAge()` in depreciation.ts takes the younger of the build year (moved
+by condition) and the age the condition alone implies. Aging every component to
+the house put every kitchen, bathroom and window in every pre-2000 house at $0,
+including renovated ones. A known replacement date beats both.
+
 **`tsc --noEmit` does not catch a duplicate top-level symbol that SWC rejects.**
 A `function Line` beside recharts' imported `Line` type-checked clean and broke
 the BUILD — and a broken build in `next dev` serves the last good bundle, so the
@@ -1374,8 +1392,9 @@ debugging went into that. If a change renders as though it never happened, read
 the dev server's errors before reading your own code.
 
 **The itemised valuation WINS on the card, and it has to.** `SubItemCard` shows
-the detailed figure where one exists and the blended spec×condition figure only
-as a fallback. It did not, briefly, and the roof showed "$16,417" in its badge
+the detailed figure where one exists and the itemised figure only as a fallback
+(the two are now the same method; the fallback exists for a roof with no
+footprint). It did not, briefly, and the roof showed "$16,417" in its badge
 and "$0" at the bottom of the same card — the rival-valuation mistake this file
 already records twice, reappearing the instant a second method existed. One
 item, one number, and the better method is the one displayed.
