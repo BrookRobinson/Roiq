@@ -10,7 +10,7 @@ import { isFactsOnly } from "@/lib/scoring/model";
 import { DEV_TIERS, developmentBonus, type DevelopmentPotential } from "@/lib/scoring/development";
 import { AddStructure, type PlacedStructure } from "./AddStructure";
 import {
-  landBandLabel, sectionSizeStat, topographyStat, shapeStat, treesStat, aspectStat, frontageStat,
+  landBandLabel, sectionSizeStat, topographyStat, shapeStat, aspectStat, frontageStat,
 } from "@/lib/scoring/land-quality";
 import { InspectionCard } from "./InspectionCard";
 import { ChevronRight, Info, Home, Check, AlertTriangle } from "lucide-react";
@@ -277,7 +277,7 @@ function Section({
                 inspectionLabel={meta.label}
                 bandLabel={
                   inspection === "land"
-                    ? landBandLabel(item.id, item.score, landAreaSqm, item.slopeBand, item.shapeType, item.treeMaturity, item.aspectDirection, item.accessType)
+                    ? landBandLabel(item.id, item.score, landAreaSqm, item.slopeBand, item.shapeType, item.aspectDirection, item.accessType)
                     : undefined
                 }
                 statOverride={
@@ -287,8 +287,6 @@ function Section({
                     ? topographyStat(item.slopeBand, item.usableLandPct, landAreaSqm) ?? undefined
                     : item.id === "land_shape"
                     ? shapeStat(item.shapeType, item.workableLandPct, landAreaSqm) ?? undefined
-                    : item.id === "land_trees"
-                    ? treesStat(item.treeMaturity, item.treeUpkeep, item.treesProtected) ?? undefined
                     : item.id === "land_aspect"
                     ? aspectStat(item.aspectDirection, item.sunObstruction) ?? undefined
                     : item.id === "land_frontage"

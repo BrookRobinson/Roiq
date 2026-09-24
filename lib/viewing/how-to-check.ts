@@ -444,16 +444,7 @@ export const CHECK_GUIDE: Record<string, CheckGuide> = {
     ],
     photos: ["The property from the road", "The entrance and sight lines both ways"],
   },
-  land_trees: {
-    concern: "What's growing, how close it is, and whether you're allowed to touch it.",
-    ask: "Are any of the trees protected or scheduled in the district plan?",
-    steps: [
-      "Look at what is within a tree's height of the house, the drive and the boundary — that is the fall radius.",
-      "Large trees close to the house mean roots near the foundations and drains, and leaves in the spouting forever.",
-      "A protected or scheduled tree cannot be removed or heavily trimmed without a resource consent, whoever owns it.",
-    ],
-    photos: ["Any large tree near the house or drive", "The canopy relative to the roof"],
-  },
+
 
   // ── Paperwork ──────────────────────────────────────────────────────────────
   leg_lim: {

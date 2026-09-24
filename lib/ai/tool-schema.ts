@@ -44,9 +44,6 @@ export interface RawSubItem {
   usable_land_pct?: number;
   shape_type?: string;
   workable_land_pct?: number;
-  tree_maturity?: string;
-  tree_upkeep?: string;
-  trees_protected?: boolean;
   aspect_direction?: string;
   sun_obstruction?: string;
   access_type?: string;
@@ -432,23 +429,6 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               type: "integer",
               description:
                 "land_shape ONLY — REQUIRED for it. Roughly what percentage (0-100) of the section sits in a REGULAR BLOCK you could actually build on or lay out, once you discount narrow ends, odd corners, return legs and a rear lot's driveway strip. This is about the OUTLINE only — ignore slope entirely, that is handled by land_topography. A clean rectangle is 95-100. An approximate whole number is much better than omitting it.",
-            },
-            tree_maturity: {
-              type: "string",
-              enum: ["bare", "young", "established", "mature"],
-              description:
-                "land_trees ONLY — REQUIRED for it. How far along the planting is: bare = little or no established planting, mostly lawn or new ground; young = planted but still filling out, thin trunks, no real canopy yet; established = settled planting that already gives shade, screening or privacy; mature = large, fully grown specimen trees with a substantial canopy. Judge from the photos — canopy size relative to the house, trunk thickness, and how much of the boundary is screened.",
-            },
-            tree_upkeep: {
-              type: "string",
-              enum: ["well_maintained", "tidy", "overgrown", "neglected"],
-              description:
-                "land_trees ONLY — REQUIRED for it. What STATE the planting and grounds have been kept in, which is separate from how mature they are: well_maintained = clearly pruned, shaped and cared for, edges and beds in order; tidy = ordinary, reasonably kept grounds; overgrown = growth has got away — shaggy hedges, branches into gutters, fences or a neighbour's airspace, beds swallowed; neglected = long unmaintained, dead or dying limbs, self-sown scrub, obvious arborist work needed. A mature tree that has been left alone is overgrown or neglected, NOT mature-and-fine — the two facts are independent.",
-            },
-            trees_protected: {
-              type: "boolean",
-              description:
-                "land_trees ONLY. True only if there is real evidence of a protected or notable tree (listing text, a council notable-tree register reference, or an obviously significant specimen). Protected trees can't be heavily pruned or removed without council consent. Default false if there is no evidence — do not guess.",
             },
             aspect_direction: {
               type: "string",

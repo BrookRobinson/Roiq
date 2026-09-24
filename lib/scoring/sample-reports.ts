@@ -260,10 +260,6 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
           "Grounds are still builder's-finish — lawn established but no planting, and the fence lines look temporary in {photos}. Not a fault, just money most buyers spend in the first year.",
         cost: { low: 6000, high: 18000, notes: "Planting, fencing and basic hard landscaping" },
       },
-      land_trees: {
-        score: 4,
-        summary: "Nothing established on the section yet — expected on a build of this age, and a decade off any real shade or privacy.",
-      },
       // A new build genuinely needs little remedial work, but "nothing at all"
       // is not a useful report. These are the two things buyers actually spend
       // on in the first year of a new subdivision home, and both carry cost in

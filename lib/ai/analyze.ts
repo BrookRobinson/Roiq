@@ -37,8 +37,6 @@ import type {
   SpecTier,
   SlopeBand,
   ShapeType,
-  TreeMaturity,
-  TreeUpkeep,
   AspectDirection,
   SunObstruction,
   AccessType,
@@ -216,19 +214,6 @@ function normShapeType(v: string | undefined): ShapeType | undefined {
   return (SHAPE_TYPES_IN as readonly string[]).includes(s) ? (s as ShapeType) : undefined;
 }
 
-const TREE_MATURITY_IN = ["bare", "young", "established", "mature"] as const;
-function normTreeMaturity(v: string | undefined): TreeMaturity | undefined {
-  if (!v) return undefined;
-  const s = v.trim().toLowerCase();
-  return (TREE_MATURITY_IN as readonly string[]).includes(s) ? (s as TreeMaturity) : undefined;
-}
-
-const TREE_UPKEEP_IN = ["well_maintained", "tidy", "overgrown", "neglected"] as const;
-function normTreeUpkeep(v: string | undefined): TreeUpkeep | undefined {
-  if (!v) return undefined;
-  const s = v.trim().toLowerCase();
-  return (TREE_UPKEEP_IN as readonly string[]).includes(s) ? (s as TreeUpkeep) : undefined;
-}
 
 const ASPECT_DIRS_IN = [
   "north", "north_east", "north_west", "east", "west", "south_east", "south_west", "south",
@@ -375,9 +360,6 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
     usableLandPct: item.id === "land_topography" ? normUsablePct(raw.usable_land_pct) : undefined,
     shapeType: item.id === "land_shape" ? normShapeType(raw.shape_type) : undefined,
     workableLandPct: item.id === "land_shape" ? normUsablePct(raw.workable_land_pct) : undefined,
-    treeMaturity: item.id === "land_trees" ? normTreeMaturity(raw.tree_maturity) : undefined,
-    treeUpkeep: item.id === "land_trees" ? normTreeUpkeep(raw.tree_upkeep) : undefined,
-    treesProtected: item.id === "land_trees" ? Boolean(raw.trees_protected) : undefined,
     aspectDirection: item.id === "land_aspect" ? normAspectDirection(raw.aspect_direction) : undefined,
     sunObstruction: item.id === "land_aspect" ? normSunObstruction(raw.sun_obstruction) : undefined,
     accessType: item.id === "land_frontage" ? normAccessType(raw.access_type) : undefined,

@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { loadReport, type StoredReport } from "@/lib/report-store";
 import { RealReportView } from "@/components/RealReportView";
 import { buildDemoReport } from "@/lib/scoring/demo";
+import { RETIRED_ITEM_IDS } from "@/lib/scoring/model";
 import { buildSampleReport } from "@/lib/scoring/sample-reports";
 import { SHARE_ID_PREFIX } from "@/lib/share";
 import { fetchSavedReport } from "@/lib/reports/client";
@@ -186,5 +187,11 @@ export default function ReportPage() {
   // A freshly generated real analysis renders the live report; otherwise the
   // built-in demo (e.g. /report/rpt_001 from the dashboard) renders — both go
   // through the same persona-aware viewer. Shared reports render read-only.
-  return <RealReportView report={report ?? DEMO_REPORT} shared={isShared} />;
+  // A report saved before an item was retired still carries it; drop it here,
+  // the one door every stored report comes through.
+  const shown = report ?? DEMO_REPORT;
+  const current = shown.subItems.some((s) => RETIRED_ITEM_IDS.has(s.id))
+    ? { ...shown, subItems: shown.subItems.filter((s) => !RETIRED_ITEM_IDS.has(s.id)) }
+    : shown;
+  return <RealReportView report={current} shared={isShared} />;
 }

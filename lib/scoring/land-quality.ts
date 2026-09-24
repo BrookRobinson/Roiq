@@ -14,8 +14,6 @@ import type {
   ShapeType,
   SlopeBand,
   SunObstruction,
-  TreeMaturity,
-  TreeUpkeep,
 } from "@/lib/property-tab/types";
 
 /** Typical NZ residential section (m²) used as the section-size benchmark. */
@@ -174,72 +172,6 @@ export const SHAPE_TYPES: Record<
   },
 };
 
-// ── Trees & planting ─────────────────────────────────────────────────────────
-// Two plain facts a buyer can check from the photos, instead of an opaque 1–10:
-// how ESTABLISHED the planting is (the asset) and what STATE it has been kept in
-// (the liability). Maturity sets the points band, upkeep positions the item
-// inside it — so mature-but-neglected can't outscore mature-and-cared-for.
-
-export const TREE_MATURITY: Record<
-  TreeMaturity,
-  { label: string; bandIndex: number; scoreRange: [number, number]; asset: string }
-> = {
-  bare: {
-    label: "Bare / minimal",
-    bandIndex: 0,
-    scoreRange: [3, 5],
-    asset: "Little established planting — no shade, screening or privacy yet, and anything you want will take years to grow in.",
-  },
-  young: {
-    label: "Young planting",
-    bandIndex: 1,
-    scoreRange: [5, 7],
-    asset: "Planting is in but still filling out — the screening and shade benefit is a few years away.",
-  },
-  established: {
-    label: "Established",
-    bandIndex: 2,
-    scoreRange: [6, 9],
-    asset: "Settled planting that already gives shade, screening and privacy — a genuine amenity you would otherwise wait years for.",
-  },
-  mature: {
-    label: "Mature planting",
-    bandIndex: 3,
-    scoreRange: [6, 10],
-    asset: "Large, fully grown specimens — the biggest amenity a section can carry, but also the most to go wrong if they have been left alone.",
-  },
-};
-
-export const TREE_UPKEEP: Record<
-  TreeUpkeep,
-  { label: string; position: number; upkeep: string; consequence: string }
-> = {
-  well_maintained: {
-    label: "Well maintained",
-    position: 1,
-    upkeep: "Low",
-    consequence: "It has clearly been pruned and cared for, so you inherit it in good order rather than paying to catch up.",
-  },
-  tidy: {
-    label: "Tidy",
-    position: 0.7,
-    upkeep: "Some",
-    consequence: "Kept in reasonable order — expect normal seasonal pruning and green waste, nothing unusual.",
-  },
-  overgrown: {
-    label: "Overgrown",
-    position: 0.33,
-    upkeep: "High",
-    consequence: "It has got away on someone. Budget for a catch-up prune, and check nothing is growing into gutters, fences, drains or a neighbour's airspace.",
-  },
-  neglected: {
-    label: "Neglected",
-    position: 0,
-    upkeep: "High",
-    consequence: "Left alone long enough to become a liability — get an arborist's read on dead limbs, roots near foundations and drains, and anything overhanging a boundary before you commit.",
-  },
-};
-
 // ── Section orientation ──────────────────────────────────────────────────────
 // The compass direction is the fact; what BLOCKS that sun positions the score.
 // A north section under a hill or a two-storey neighbour is not a sunny section.
@@ -366,29 +298,6 @@ export function assessFrontage(
   return { score: clamp(Math.round(lo + (hi - lo) * t), 1, 10), band: meta.bandIndex, homes, meta };
 }
 
-/** Trees from the facts: maturity sets the band, upkeep positions the item inside it. */
-export function assessTrees(
-  maturity: TreeMaturity | null | undefined,
-  upkeep: TreeUpkeep | null | undefined
-): {
-  score: number;
-  band: number;
-  maturityMeta: (typeof TREE_MATURITY)[TreeMaturity];
-  upkeepMeta: (typeof TREE_UPKEEP)[TreeUpkeep];
-} | null {
-  if (!maturity || !TREE_MATURITY[maturity]) return null;
-  const m = TREE_MATURITY[maturity];
-  // No stated upkeep → assume ordinary, kept-tidy grounds rather than guessing badly.
-  const u = TREE_UPKEEP[upkeep ?? "tidy"] ?? TREE_UPKEEP.tidy;
-  const [lo, hi] = m.scoreRange;
-  return {
-    score: clamp(Math.round(lo + (hi - lo) * u.position), 1, 10),
-    band: m.bandIndex,
-    maturityMeta: m,
-    upkeepMeta: u,
-  };
-}
-
 /** Shape from the facts: the named outline sets the points band, the workable share positions it within. */
 export function assessShape(
   shapeType: ShapeType | null | undefined,
@@ -444,7 +353,6 @@ export const LAND_BANDS: Record<string, [string, string, string, string]> = {
   land_shape: ["Awkward", "Irregular", "Mostly regular", "Regular & usable"],
   land_aspect: ["Shaded", "Mixed sun", "Good sun", "North-facing"],
   land_frontage: ["ROW / rear lot", "Shared access", "Road frontage", "Prime frontage"],
-  land_trees: ["Protected constraint", "Minimal planting", "Some established", "Established asset"],
 };
 
 /** Band index (0–3) from a 1–10 score. */
@@ -474,7 +382,6 @@ export function landBandLabel(
   landAreaSqm?: number | null,
   slopeBand?: SlopeBand | null,
   shapeType?: ShapeType | null,
-  treeMaturity?: TreeMaturity | null,
   aspectDirection?: AspectDirection | null,
   accessType?: AccessType | null
 ): string {
@@ -484,7 +391,6 @@ export function landBandLabel(
   // Prefer the AI's stated category over reverse-engineering one from the score.
   if (id === "land_topography" && slopeBand && SLOPE_BANDS[slopeBand]) return SLOPE_BANDS[slopeBand].label;
   if (id === "land_shape" && shapeType && SHAPE_TYPES[shapeType]) return SHAPE_TYPES[shapeType].label;
-  if (id === "land_trees" && treeMaturity && TREE_MATURITY[treeMaturity]) return TREE_MATURITY[treeMaturity].label;
   if (id === "land_aspect" && aspectDirection && ASPECT_DIRECTIONS[aspectDirection]) return ASPECT_DIRECTIONS[aspectDirection].label;
   if (id === "land_frontage" && accessType && ACCESS_TYPES[accessType]) return ACCESS_TYPES[accessType].label;
   return bands[bandFromScore(score)];
@@ -572,31 +478,6 @@ export function shapeStat(
     note:
       `${s.meta.label}. About ${s.workablePct}% of the section${est} sits in a regular block you can actually build on or lay out${area}. ` +
       `${s.meta.consequence} That contributes ${s.score}/10 to the Land score.`,
-  };
-}
-
-/**
- * Trees badge — the upkeep you are signing up for. The maturity (the asset) sits
- * in the pill beside the item name, so the two facts read together: what you get,
- * and what it will ask of you.
- */
-export function treesStat(
-  maturity: TreeMaturity | null | undefined,
-  upkeep: TreeUpkeep | null | undefined,
-  protectedTree?: boolean
-): { value: string; unit: string; note: string } | null {
-  const t = assessTrees(maturity, upkeep);
-  if (!t) return null;
-  const assumed = upkeep == null ? " (assumed — the photos don't show the grounds clearly)" : "";
-  const prot = protectedTree
-    ? " A protected or notable tree is flagged here: it can't be pruned heavily or removed without council consent, which is a genuine constraint on any build or extension near it."
-    : "";
-  return {
-    value: t.upkeepMeta.upkeep,
-    unit: "upkeep",
-    note:
-      `${t.maturityMeta.label}, ${t.upkeepMeta.label.toLowerCase()}${assumed}. ${t.maturityMeta.asset} ` +
-      `${t.upkeepMeta.consequence}${prot} Together that contributes ${t.score}/10 to the Land score.`,
   };
 }
 

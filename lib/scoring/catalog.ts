@@ -180,7 +180,6 @@ export const SOURCE_TAXONOMY: Record<string, SourceRef> = {
   land_shape: { source: "LINZ title diagram + parcel geometry", sourceType: "linz" },
   land_subdivision: { source: "Zoning + lot size + district-plan minimum-lot rules", sourceType: "council_data", verifyAgainst: "council district plan" },
   land_frontage: { source: "LINZ record of title + parcel and road geometry", sourceType: "title" },
-  land_trees: { source: "Listing photos", sourceType: "photo" },
   // Legal
   // No verifyAgainst: the record of title is retrieved from LINZ before the
   // analysis runs (lib/linz/property-records.ts), so the type, estate and legal

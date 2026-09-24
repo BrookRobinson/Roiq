@@ -78,6 +78,13 @@ export const NON_TIERED_IMPROVEMENT_IDS = new Set<string>(["loc_sun", "liv_size"
 export const SIZE_ITEM_IDS = new Set<string>(["liv_size", "bed_size"]);
 
 /** True when an item is scored via the spec-tier band (a material Improvements item). */
+/**
+ * Items that no longer exist but may still sit in a stored report. Filtered out
+ * when a report loads. land_trees went 2026-09-24: planting is taste, and the
+ * Land tab is working toward a dollar value, which taste can't give.
+ */
+export const RETIRED_ITEM_IDS = new Set<string>(["land_trees"]);
+
 export function usesSpecTier(item: { inspection: Inspection; id: string }): boolean {
   return item.inspection === "improvements" && !NON_TIERED_IMPROVEMENT_IDS.has(item.id);
 }
@@ -191,14 +198,13 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   // Removed: flood, liquefaction, coastal, soil, fault, wind — too hard to
   // judge reliably from a listing. Only site-specific, judgeable items remain.
   // ========================================================
-  { id: "land_size", label: "Section size", inspection: "land", category: "Hazard & site", buyerPoints: 18, investorPoints: 14, conditional: false, costBearing: false, affectsHealthyHomes: false },
+  { id: "land_size", label: "Section size", inspection: "land", category: "Hazard & site", buyerPoints: 21, investorPoints: 16, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_topography", label: "Topography / contour (flat vs steep)", inspection: "land", category: "Hazard & site", buyerPoints: 14, investorPoints: 9, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_aspect", label: "Section orientation", inspection: "land", category: "Hazard & site", buyerPoints: 10, investorPoints: 7, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "land_shape", label: "Section shape", inspection: "land", category: "Hazard & site", buyerPoints: 9, investorPoints: 6, conditional: false, costBearing: false, affectsHealthyHomes: false },
   // (land_subdivision removed — development potential is now a headline OPPORTUNITY
   //  scored as a persona-weighted bonus + value uplift, see lib/scoring/development.ts)
   { id: "land_frontage", label: "Frontage & access", inspection: "land", category: "Hazard & site", buyerPoints: 5, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
-  { id: "land_trees", label: "Trees & planting", inspection: "land", category: "Hazard & site", buyerPoints: 3, investorPoints: 2, conditional: false, costBearing: false, affectsHealthyHomes: false },
 
   // ========================================================
   // INSPECTION 4 — LEGAL  (Buyer 110 / Investor 130)

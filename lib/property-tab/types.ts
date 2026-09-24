@@ -45,9 +45,7 @@ export type AccessType =
   | "rear_lot";
 
 /** How far along the planting is — the asset side of trees & vegetation. */
-export type TreeMaturity = "bare" | "young" | "established" | "mature";
 /** What state it has been kept in — the liability side. Together these set the score. */
-export type TreeUpkeep = "well_maintained" | "tidy" | "overgrown" | "neglected";
 
 export type ShapeType =
   | "rectangular"
@@ -121,9 +119,6 @@ export interface SubItem {
   usableLandPct?: number;              // land_topography only — 0–100, share of the section flat enough to use
   shapeType?: ShapeType;               // land_shape only — the named outline its score derives from
   workableLandPct?: number;            // land_shape only — 0–100, share left in a regular, workable block
-  treeMaturity?: TreeMaturity;         // land_trees only — how established the planting is
-  treeUpkeep?: TreeUpkeep;             // land_trees only — what state it has been kept in
-  treesProtected?: boolean;            // land_trees only — a protected/notable tree constrains removal
   aspectDirection?: AspectDirection;   // land_aspect only — which way the section faces
   sunObstruction?: SunObstruction;     // land_aspect only — what blocks the sun that aspect promises
   accessType?: AccessType;             // land_frontage only — how you get to the property

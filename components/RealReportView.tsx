@@ -32,7 +32,7 @@ import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scorin
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
 import type { PlacedStructure } from "@/components/PropertyInspections/AddStructure";
-import { assessSectionSize, assessTopography, assessShape, assessTrees, assessAspect, assessFrontage } from "@/lib/scoring/land-quality";
+import { assessSectionSize, assessTopography, assessShape, assessAspect, assessFrontage } from "@/lib/scoring/land-quality";
 import { assessTitleType, assessEncumbrances, assessEasements } from "@/lib/scoring/title";
 import { valueExtraDwellings, dwellingComplianceWork, type ExtraDwellingValueResult, type DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
@@ -558,11 +558,6 @@ export function RealReportView({
         if (s.id === "land_shape") {
           const sh = assessShape(s.shapeType, s.workableLandPct);
           if (sh) return { ...s, score: sh.score as typeof s.score };
-        }
-        // Trees: maturity (what you inherit) × upkeep (what it will ask of you).
-        if (s.id === "land_trees") {
-          const tr = assessTrees(s.treeMaturity, s.treeUpkeep);
-          if (tr) return { ...s, score: tr.score as typeof s.score };
         }
         // Aspect: compass direction × what blocks the sun it promises.
         if (s.id === "land_aspect") {
