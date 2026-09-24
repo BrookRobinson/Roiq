@@ -13,11 +13,13 @@ import type { AdjustedLand } from "@/lib/scoring/land-value";
 const money = (n: number) => `$${Math.round(Math.abs(n)).toLocaleString("en-NZ")}`;
 const signed = (n: number) => (n === 0 ? "$0" : `${n < 0 ? "−" : "+"}${money(n)}`);
 
-export function LandValueWorkings({ land, landAreaSqm, shareNote }: {
+export function LandValueWorkings({ land, landAreaSqm, shareNote, sources = {} }: {
   land: AdjustedLand;
   landAreaSqm: number | null;
   /** On a cross lease, the share of the site being valued. */
   shareNote?: string;
+  /** Where each fact came from, by land item id — a figure keeps its source. */
+  sources?: Record<string, string | undefined>;
 }) {
   return (
     <div className="rounded-2xl p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
@@ -48,6 +50,7 @@ export function LandValueWorkings({ land, landAreaSqm, shareNote }: {
         <Line
           label="Section size — a typical section"
           amount={money(land.baseNZD)}
+          source={sources.land_size}
           working={`What a typical ${landAreaSqm ? `${Math.round(landAreaSqm).toLocaleString("en-NZ")} m² ` : ""}section fetches in the suburb, from recent house sales less the buildings on them. The first ~500 m² carry most of the value.${shareNote ? ` ${shareNote}` : ""}`}
         />
         {land.lines.map((l) => (
@@ -57,6 +60,7 @@ export function LandValueWorkings({ land, landAreaSqm, shareNote }: {
             amount={l.established ? signed(l.deltaNZD) : "—"}
             tone={!l.established ? "muted" : l.deltaNZD > 0 ? "good" : l.deltaNZD < 0 ? "bad" : "neutral"}
             working={l.working}
+            source={sources[l.id]}
           />
         ))}
         <div className="flex items-baseline justify-between pt-2" style={{ borderTop: "1px solid var(--border)" }}>
@@ -72,10 +76,11 @@ export function LandValueWorkings({ land, landAreaSqm, shareNote }: {
   );
 }
 
-function Line({ label, amount, working, tone = "neutral" }: {
+function Line({ label, amount, working, source, tone = "neutral" }: {
   label: string;
   amount: string;
   working: string;
+  source?: string;
   tone?: "good" | "bad" | "neutral" | "muted";
 }) {
   const color = tone === "good" ? "var(--good)" : tone === "bad" ? "var(--bad)" : tone === "muted" ? "var(--text-muted)" : "var(--text-primary)";
@@ -86,6 +91,9 @@ function Line({ label, amount, working, tone = "neutral" }: {
         <span className="mono text-[13px] font-semibold whitespace-nowrap" style={{ color }}>{amount}</span>
       </div>
       <div className="text-[12px] mt-0.5" style={{ color: "var(--text-secondary)" }}>{working}</div>
+      {source && (
+        <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>Source: {source}</div>
+      )}
     </div>
   );
 }

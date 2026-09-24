@@ -126,6 +126,7 @@ export function PropertyInspections({
   landAreaSqm,
   onAddStructure,
   addedStructureIds,
+  landValued = false,
 }: {
   scored: ScoreResult;
   subItems: SubItem[];
@@ -139,9 +140,15 @@ export function PropertyInspections({
   /** A structure the reader placed on their own section, bound for Renovations. */
   onAddStructure?: (s: PlacedStructure) => void;
   addedStructureIds?: string[];
+  /**
+   * The Land value card is showing, with a line per site fact. The old Land
+   * item cards said the same things without a dollar figure, so they go. When
+   * the land can't be valued they stay; they are then the only land content.
+   */
+  landValued?: boolean;
 }) {
   const town = mode === "town";
-  const SECTIONS = town ? TOWN_SECTIONS : ADDRESS_SECTIONS;
+  const SECTIONS = town ? TOWN_SECTIONS : landValued ? ADDRESS_SECTIONS.filter((s) => s !== "land") : ADDRESS_SECTIONS;
   const byInspection: Record<string, SubItem[]> = {};
   for (const s of subItems) {
     const insp = ITEM_BY_ID[s.id]?.inspection;
@@ -161,6 +168,8 @@ export function PropertyInspections({
         <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
         {town
           ? "Location facts — schools, transport, amenities, sun, views and outlook. Shown so you can weigh them yourself; location is subjective, so it is NOT counted in the score. Objective location negatives (highway, flight path…) are handled as penalties on the Overview."
+          : landValued
+          ? "Legal factors specific to THIS address — each carries a rating, a named source, a confidence tier, and reasoning. Ordered worst-first; remediable findings link to the Renovations tab."
           : "Land and Legal factors specific to THIS address — each carries a rating (section size shows its actual area), a named source, a confidence tier, and reasoning. Ordered worst-first; remediable findings link to the Renovations tab."}
       </div>
 

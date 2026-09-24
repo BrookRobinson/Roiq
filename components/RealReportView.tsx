@@ -1118,9 +1118,14 @@ export function RealReportView({
                   land={propertyValue.siteAdjustment}
                   landAreaSqm={propertyValue.landAreaValuedSqm ?? listing.landAreaSqm}
                   shareNote={propertyValue.landAreaValuedSqm ? "This is the flat's share of a cross-lease site." : undefined}
+                  sources={Object.fromEntries(
+                    effectiveSubItems
+                      .filter((s) => s.id.startsWith("land_"))
+                      .map((s) => [s.id, s.evidenceSource || s.source || undefined])
+                  )}
                 />
               )}
-              <PropertyInspections mode="address" scored={scored} subItems={effectiveSubItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} development={development} persona={persona} landAreaSqm={listing.landAreaSqm}
+              <PropertyInspections mode="address" landValued={!!propertyValue?.siteAdjustment} scored={scored} subItems={effectiveSubItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} development={development} persona={persona} landAreaSqm={listing.landAreaSqm}
                 onAddStructure={(st) => setAddedStructures((prev) => (prev.some((p) => p.id === st.id) ? prev : [...prev, st]))}
                 addedStructureIds={addedStructures.map((st) => st.id)} />
               <LocationFactCard subItems={subItems} ids={["loc_noise", "loc_views"]} title="Noise & outlook" />
