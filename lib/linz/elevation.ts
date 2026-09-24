@@ -76,96 +76,103 @@ function inside(p: Pt, r: Pt[]): boolean {
   return c;
 }
 
+type Decoded = ReturnType<typeof decodePng>;
+
 /**
- * Heights on a grid over the section, or null when the model couldn't be read.
+ * A reader of the elevation model at one zoom, with the tiles it has fetched
+ * kept, so measuring forty neighbouring sections downloads each tile once.
+ */
+export function elevationSampler(zoom: number, opts: { signal?: AbortSignal } = {}) {
+  const key = process.env.LINZ_BASEMAP_KEY?.trim();
+  const tiles = new Map<string, Promise<Decoded>>();
+  const tile = (t: string): Promise<Decoded> => {
+    let p = tiles.get(t);
+    if (!p) {
+      p = fetch(
+        `https://basemaps.linz.govt.nz/v1/tiles/elevation/WebMercatorQuad/${zoom}/${t}.png?pipeline=terrain-rgb&api=${key}`,
+        { signal: opts.signal, cache: "force-cache" }
+      )
+        .then(async (res) => (res.ok ? decodePng(Buffer.from(await res.arrayBuffer())) : null))
+        .catch(() => null);
+      tiles.set(t, p);
+    }
+    return p;
+  };
+  const scale = TILE * 2 ** zoom;
+
+  /** Heights on a grid over the section, or null when the model couldn't be read. */
+  async function grid(frame: MetreFrame, parcel: Pt[], step: number): Promise<HeightGrid | null> {
+    if (!key || parcel.length < 3) return null;
+    const xs = parcel.map((p) => p.x), ys = parcel.map((p) => p.y);
+    const minX = Math.min(...xs), minY = Math.min(...ys);
+    const cols = Math.max(1, Math.ceil((Math.max(...xs) - minX) / step));
+    const rows = Math.max(1, Math.ceil((Math.max(...ys) - minY) / step));
+
+    const cells: { i: number; px: number; py: number }[] = [];
+    const need = new Set<string>();
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const p = { x: minX + (c + 0.5) * step, y: minY + (r + 0.5) * step };
+        if (!inside(p, parcel)) continue;
+        const lat = frame.lat + p.y / frame.mPerDegLat;
+        const lng = frame.lng + p.x / frame.mPerDegLon;
+        const sn = Math.sin((lat * Math.PI) / 180);
+        const px = ((lng + 180) / 360) * scale;
+        const py = (0.5 - Math.log((1 + sn) / (1 - sn)) / (4 * Math.PI)) * scale;
+        cells.push({ i: r * cols + c, px, py });
+        // Bilinear sampling can reach one pixel over a tile edge.
+        for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) need.add(`${Math.floor((px + dx) / TILE)}/${Math.floor((py + dy) / TILE)}`);
+      }
+    }
+    if (!cells.length || need.size > 16) return null;
+    const decoded = new Map<string, Decoded>();
+    await Promise.all([...need].map(async (t) => decoded.set(t, await tile(t))));
+
+    const heightAt = (gx: number, gy: number): number | null => {
+      const img = decoded.get(`${Math.floor(gx / TILE)}/${Math.floor(gy / TILE)}`);
+      if (!img) return null;
+      const x = Math.min(img.w - 1, Math.max(0, Math.floor(gx) % TILE));
+      const y = Math.min(img.h - 1, Math.max(0, Math.floor(gy) % TILE));
+      const o = (y * img.w + x) * img.ch;
+      const h = -10000 + (img.data[o] * 65536 + img.data[o + 1] * 256 + img.data[o + 2]) * 0.1;
+      return h > NO_DATA ? h : null;
+    };
+
+    const z: (number | null)[] = new Array(cols * rows).fill(null);
+    let got = 0;
+    for (const { i, px, py } of cells) {
+      const fx = px - 0.5, fy = py - 0.5;
+      const x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
+      const q = [heightAt(x0, y0), heightAt(x0 + 1, y0), heightAt(x0, y0 + 1), heightAt(x0 + 1, y0 + 1)];
+      if (q.some((v) => v == null)) continue;
+      const [a, b, c, d] = q as number[];
+      z[i] = a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + d * tx * ty;
+      got++;
+    }
+    // Too little of the section inside the model's coverage to call it measured.
+    if (got < cells.length * 0.8) return null;
+    return { step, cols, rows, z };
+  }
+
+  return { grid };
+}
+
+/**
+ * Heights on a grid over ONE section, or null when the model couldn't be read.
  *
  * Null, never a guess: no key, a failed tile, or a section outside the model's
  * coverage all leave topography to the analysis's read, which is labelled as a
- * read. A section with SOME cells missing is measured on the cells it has.
+ * read. Half-metre cells on a town section; coarser on a big block.
  */
 export async function fetchHeightGrid(
   frame: MetreFrame,
   parcel: Pt[],
   opts: { signal?: AbortSignal } = {}
 ): Promise<HeightGrid | null> {
-  const key = process.env.LINZ_BASEMAP_KEY?.trim();
-  if (!key || parcel.length < 3) return null;
-
+  if (parcel.length < 3) return null;
   const xs = parcel.map((p) => p.x), ys = parcel.map((p) => p.y);
-  const minX = Math.min(...xs), minY = Math.min(...ys);
-  const w = Math.max(...xs) - minX, l = Math.max(...ys) - minY;
-  // Half-metre cells on a town section; coarser on a big block so it stays quick.
+  const w = Math.max(...xs) - Math.min(...xs), l = Math.max(...ys) - Math.min(...ys);
   const step = Math.max(0.5, Math.sqrt(w * l) / 150);
   const zoom = step <= 0.6 ? 18 : step <= 1.2 ? 17 : 16;
-  const cols = Math.max(1, Math.ceil(w / step)), rows = Math.max(1, Math.ceil(l / step));
-  const scale = TILE * 2 ** zoom;
-
-  const toPx = (p: Pt) => {
-    const lat = frame.lat + p.y / frame.mPerDegLat;
-    const lng = frame.lng + p.x / frame.mPerDegLon;
-    const s = Math.sin((lat * Math.PI) / 180);
-    return {
-      px: ((lng + 180) / 360) * scale,
-      py: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * scale,
-    };
-  };
-
-  // Which cells are inside, and which tiles they need.
-  const cells: { i: number; px: number; py: number }[] = [];
-  const tiles = new Set<string>();
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const p = { x: minX + (c + 0.5) * step, y: minY + (r + 0.5) * step };
-      if (!inside(p, parcel)) continue;
-      const { px, py } = toPx(p);
-      cells.push({ i: r * cols + c, px, py });
-      // Bilinear sampling can reach one pixel over a tile edge.
-      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-        tiles.add(`${Math.floor((px + dx) / TILE)}/${Math.floor((py + dy) / TILE)}`);
-      }
-    }
-  }
-  if (!cells.length || tiles.size > 16) return null;
-
-  const decoded = new Map<string, ReturnType<typeof decodePng>>();
-  try {
-    await Promise.all(
-      [...tiles].map(async (t) => {
-        const res = await fetch(
-          `https://basemaps.linz.govt.nz/v1/tiles/elevation/WebMercatorQuad/${zoom}/${t}.png?pipeline=terrain-rgb&api=${key}`,
-          { signal: opts.signal, cache: "force-cache" }
-        );
-        decoded.set(t, res.ok ? decodePng(Buffer.from(await res.arrayBuffer())) : null);
-      })
-    );
-  } catch (err) {
-    console.warn("[elevation] tiles failed:", (err as Error)?.message);
-    return null;
-  }
-
-  const heightAt = (gx: number, gy: number): number | null => {
-    const img = decoded.get(`${Math.floor(gx / TILE)}/${Math.floor(gy / TILE)}`);
-    if (!img) return null;
-    const x = Math.min(img.w - 1, Math.max(0, Math.floor(gx) % TILE));
-    const y = Math.min(img.h - 1, Math.max(0, Math.floor(gy) % TILE));
-    const o = (y * img.w + x) * img.ch;
-    const h = -10000 + (img.data[o] * 65536 + img.data[o + 1] * 256 + img.data[o + 2]) * 0.1;
-    return h > NO_DATA ? h : null;
-  };
-
-  const z: (number | null)[] = new Array(cols * rows).fill(null);
-  let got = 0;
-  for (const { i, px, py } of cells) {
-    // Bilinear between the four surrounding pixel centres.
-    const fx = px - 0.5, fy = py - 0.5;
-    const x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
-    const q = [heightAt(x0, y0), heightAt(x0 + 1, y0), heightAt(x0, y0 + 1), heightAt(x0 + 1, y0 + 1)];
-    if (q.some((v) => v == null)) continue;
-    const [a, b, c, d] = q as number[];
-    z[i] = a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + d * tx * ty;
-    got++;
-  }
-  // Too little of the section inside the model's coverage to call it measured.
-  if (got < cells.length * 0.8) return null;
-  return { step, cols, rows, z };
+  return elevationSampler(zoom, opts).grid(frame, parcel, step);
 }

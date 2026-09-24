@@ -105,6 +105,7 @@ export function contributionFrom(report: StoredReport): ReportContribution {
         floorAreaSqm: report.listing.floorAreaSqm,
         labourMultiplier: labourMultiplierFor(report.listing),
         roof: { footprintM2: report.listing.siteLayout?.mainBuildingAreaSqm ?? null },
+        nearbyTypical: report.listing.siteLayout?.measured?.nearby ?? null,
         bathrooms: report.listing.bathrooms,
         buildYear: report.listing.buildYear,
         landAreaSqm: report.listing.landAreaSqm,

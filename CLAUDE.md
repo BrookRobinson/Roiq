@@ -1414,6 +1414,14 @@ neighbour difference (that is mostly rounding). Usable = no steeper than 1:10;
 bands match land-quality.ts. Under 80% coverage → null, and the analysis's read
 stands, labelled as a read.
 
+**"Typical" is MEASURED nearby, not national.** `measureNearbyTypical()`
+(lib/linz/nearby-typical.ts) samples ~45 residential sections within 400 m — a
+3×3 grid of small parallel LINZ queries (one 400-parcel query took 9 s) — and
+takes the median workable % and usable % by the same rules as the subject, with
+elevation at zoom 16 (4 tiles, not 16). A national 90% usable discounted every
+Kelburn section for slope its suburb's sales had already priced in. Under 15
+samples falls back to national and the working says so.
+
 **Land starts from a TYPICAL section, not a perfect one.** valueLand's rate comes
 from ordinary sales of ordinary sections, so `adjustLand()` (land-value.ts)
 measures each fact from typical: an average section lands on the base, a better

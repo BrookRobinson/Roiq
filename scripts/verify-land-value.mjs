@@ -53,6 +53,21 @@ const blind = adjustLand(BASE, {});
 check("no facts, no adjustment", blind.valueNZD, BASE);
 check("…and every line says it wasn't established", blind.lines.every((l) => !l.established && /wasn't established/.test(l.working)), true);
 
+console.log("\ntypical is measured nearby when it can be");
+// The case that set the rule: a steep section in a steep suburb. The suburb's
+// sales already price the slope, so against ITS typical there's little to take.
+const steepHere = { ...TYPICAL, usablePct: 10 };
+const national = adjustLand(BASE, steepHere);
+const hilly = adjustLand(BASE, steepHere, { workablePct: 95, usablePct: 15, sampled: 40, radiusM: 400 });
+check("against a steep neighbourhood a steep section loses far less",
+  line(hilly, "land_topography").deltaNZD > line(national, "land_topography").deltaNZD / 5, true);
+check("…and the working names the neighbourhood", /typical of sections within 400 m/.test(line(hilly, "land_topography").working), true);
+check("a section typical of its neighbourhood is worth the base",
+  adjustLand(BASE, { ...TYPICAL, workablePct: 88, usablePct: 40 }, { workablePct: 88, usablePct: 40, sampled: 30, radiusM: 400 }).valueNZD, BASE);
+check("no nearby measurement says the figure is national", /national figure/.test(line(national, "land_topography").working), true);
+check("nearby shape but no nearby slope keeps the national slope",
+  /national figure/.test(line(adjustLand(BASE, steepHere, { workablePct: 95, usablePct: null, sampled: 30, radiusM: 400 }), "land_topography").working), true);
+
 console.log("\nguards");
 check("never below zero", adjustLand(1000, { workablePct: 0, usablePct: 0, aspect: "south", shade: "heavily_shaded", access: "rear_lot", homesOnAccess: 30 }).valueNZD >= 0, true);
 check("the lines add up", (() => { const r = adjustLand(BASE, { workablePct: 80, usablePct: 70, aspect: "north_west", shade: "partly_shaded", access: "right_of_way", homesOnAccess: 3 }); return r.baseNZD + r.lines.reduce((s, l) => s + l.deltaNZD, 0) === r.valueNZD; })(), true);

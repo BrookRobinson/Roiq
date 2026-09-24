@@ -33,6 +33,8 @@
 import type { Pt, Ring } from "@/lib/scoring/site-layout";
 import type { HeightGrid } from "@/lib/scoring/site-slope";
 import { fetchHeightGrid } from "./elevation";
+import { measureNearbyTypical } from "./nearby-typical";
+import type { NearbyTypical } from "@/lib/scoring/land-value";
 
 const PARCELS_LAYER = "layer-50772";
 const BUILDINGS_LAYER = "layer-101290";
@@ -96,6 +98,8 @@ export interface SiteGeometry {
   surveyAccurate: boolean;
   /** Ground heights across the section from the LINZ elevation model; null if it couldn't be read. */
   heights: HeightGrid | null;
+  /** The typical section within a few hundred metres, measured the same way. */
+  nearby: NearbyTypical | null;
 }
 
 type Feature = {
@@ -170,7 +174,19 @@ export async function lookupSiteGeometry(
   const bbox = (pad: number) =>
     `BBOX(shape,${minLat - pad},${minLon - pad},${maxLat + pad},${maxLon + pad},'urn:ogc:def:crs:EPSG::4326')`;
 
-  const buildingFeatures = await wfs(BUILDINGS_LAYER, bbox(0), 60);
+  // Everything else needs only the boundary, so it is all asked for at once.
+  // One after another it was the bulk of the wait on every report.
+  const frame = { lat: lat0, lng: lon0, mPerDegLat: M_PER_DEG_LAT, mPerDegLon: mPerLon };
+  const [buildingFeatures, roadLines, nonPrimary, around, heights, nearby] = await Promise.all([
+    wfs(BUILDINGS_LAYER, bbox(0), 60),
+    roadName
+      ? wfs(ROADS_LAYER, `full_road_name = '${roadName.replace(/'/g, "''")}' AND ${bbox(0.002)}`, 5).catch(() => [] as Feature[])
+      : Promise.resolve([] as Feature[]),
+    wfs(NON_PRIMARY_LAYER, bbox(0), 60).catch(() => [] as Feature[]),
+    wfs(PARCELS_LAYER, bbox(0.0004), 120).catch(() => [] as Feature[]),
+    fetchHeightGrid(frame, parcel).catch(() => null),
+    measureNearbyTypical(frame, wfs).catch(() => null),
+  ]);
   const buildings: Ring[] = [];
   for (const f of buildingFeatures) {
     for (const ring of outerRings(f.geometry)) {
@@ -191,12 +207,7 @@ export async function lookupSiteGeometry(
   // back in the copy.
   let roadPoint: Pt | null = null;
   if (roadName) {
-    const escaped = roadName.replace(/'/g, "''");
-    const roads = await wfs(
-      ROADS_LAYER,
-      `full_road_name = '${escaped}' AND ${bbox(0.002)}`,
-      5
-    ).catch(() => []);
+    const roads = roadLines;
     let best: { d: number; p: Pt } | null = null;
     const centre = { x: 0, y: 0 };
     for (const r of roads) {
@@ -215,7 +226,6 @@ export async function lookupSiteGeometry(
   // came back with twenty of them that way. A polygon counts if any of its
   // corners sits inside this parcel, or if it swallows a corner of it.
   const burdens: Burden[] = [];
-  const nonPrimary = await wfs(NON_PRIMARY_LAYER, bbox(0), 60).catch(() => []);
   for (const f of nonPrimary) {
     const intent = typeof f.properties?.parcel_intent === "string" ? f.properties.parcel_intent : "";
     if (!/^(easement|covenant)/i.test(intent)) continue;
@@ -243,7 +253,6 @@ export async function lookupSiteGeometry(
   // them, and the sections around that lot are how many homes share it.
   const roadParcels: Ring[] = [];
   const neighbourParcels: Ring[] = [];
-  const around = await wfs(PARCELS_LAYER, bbox(0.0004), 120).catch(() => []);
   for (const f of around) {
     const intent = typeof f.properties?.parcel_intent === "string" ? f.properties.parcel_intent : "";
     for (const ring of outerRings(f.geometry)) {
@@ -251,14 +260,6 @@ export async function lookupSiteGeometry(
       else if (intent !== "Hydro") neighbourParcels.push(ring.map(toM));
     }
   }
-
-  // Ground height across the section. Fetched alongside rather than after —
-  // it only needs the boundary — and a failure leaves topography to the
-  // analysis's read rather than failing the whole site.
-  const heights = await fetchHeightGrid(
-    { lat: lat0, lng: lon0, mPerDegLat: M_PER_DEG_LAT, mPerDegLon: mPerLon },
-    parcel
-  ).catch(() => null);
 
   const props = parcelFeature?.properties ?? {};
   return {
@@ -273,5 +274,6 @@ export async function lookupSiteGeometry(
     neighbourParcels,
     surveyAccurate: props.parcel_intent !== "DCDB",
     heights,
+    nearby,
   };
 }

@@ -56,6 +56,20 @@ export const LAND_ADJ = {
   accessFloorPct: -15,
 };
 
+/**
+ * What a typical section measures NEAR THIS ONE — median of the residential
+ * sections within `radiusM`, by the same rules as the subject. Replaces the
+ * national defaults in LAND_ADJ when present; a hilly suburb's typical section
+ * is itself sloping, and its sale prices already say so.
+ */
+export interface NearbyTypical {
+  workablePct: number;
+  /** Null when too few nearby sections were inside the elevation model. */
+  usablePct: number | null;
+  sampled: number;
+  radiusM: number;
+}
+
 export interface SiteFacts {
   workablePct?: number | null;
   usablePct?: number | null;
@@ -88,27 +102,36 @@ const clampPct = (n: number | null | undefined) =>
   n == null || !Number.isFinite(n) ? null : Math.max(0, Math.min(100, Math.round(n)));
 const words = (s: string) => s.replace(/_/g, " ");
 
-export function adjustLand(baseNZD: number, f: SiteFacts): AdjustedLand {
+export function adjustLand(baseNZD: number, f: SiteFacts, nearby?: NearbyTypical | null): AdjustedLand {
   const lines: LandLine[] = [];
   const A = LAND_ADJ;
+  // Typical, measured nearby when we could; the national default otherwise,
+  // and the working says which.
+  const typW = nearby?.workablePct ?? A.shape.typicalWorkablePct;
+  const typU = nearby?.usablePct ?? A.slope.typicalUsablePct;
+  const whereW = nearby ? `the ${typW}% typical of ${nearby.sampled} sections within ${nearby.radiusM} m` : `a typical ${typW}% (a national figure; nothing nearby was measured)`;
+  const whereU =
+    nearby?.usablePct != null
+      ? `the ${typU}% typical of sections within ${nearby.radiusM} m`
+      : `a typical ${typU}% (a national figure; nothing nearby was measured)`;
 
   // ── Shape: the unworkable part, at a discount ────────────────────────────
   const w = clampPct(f.workablePct);
   if (w == null) {
     lines.push({ id: "land_shape", label: "Section shape", deltaNZD: 0, established: false, working: "The shape wasn't established, so no adjustment is made." });
   } else {
-    const d = Math.round(((w - A.shape.typicalWorkablePct) / 100) * baseNZD * A.shape.unworkableDiscount);
+    const d = Math.round(((w - typW) / 100) * baseNZD * A.shape.unworkableDiscount);
     lines.push({
       id: "land_shape",
       label: "Section shape",
       deltaNZD: d,
       established: true,
       working:
-        w === A.shape.typicalWorkablePct
-          ? `${w}% of it is a regular, workable block, which is typical. No adjustment.`
-          : w < A.shape.typicalWorkablePct
-          ? `${w}% of it is a regular, workable block against a typical ${A.shape.typicalWorkablePct}%. The extra awkward ${A.shape.typicalWorkablePct - w}% is valued at ${Math.round((1 - A.shape.unworkableDiscount) * 100)}% of the rate: ${money(d)}.`
-          : `${w}% of it is a regular, workable block against a typical ${A.shape.typicalWorkablePct}%. That extra ${w - A.shape.typicalWorkablePct}% is usable land where a typical section has awkward corners: ${money(d)}.`,
+        w === typW
+          ? `${w}% of it is a regular, workable block, the same as ${whereW}. No adjustment.`
+          : w < typW
+          ? `${w}% of it is a regular, workable block against ${whereW}. The extra awkward ${typW - w}% is valued at ${Math.round((1 - A.shape.unworkableDiscount) * 100)}% of the rate: ${money(d)}.`
+          : `${w}% of it is a regular, workable block against ${whereW}. That extra ${w - typW}% is usable land where a typical section has awkward corners: ${money(d)}.`,
     });
   }
 
@@ -118,16 +141,16 @@ export function adjustLand(baseNZD: number, f: SiteFacts): AdjustedLand {
     lines.push({ id: "land_topography", label: "Topography", deltaNZD: 0, established: false, working: "The contour wasn't established, so no adjustment is made." });
   } else {
     const share = (w ?? 100) / 100;
-    const d = Math.round(share * ((u - A.slope.typicalUsablePct) / 100) * baseNZD * A.slope.unusableDiscount);
+    const d = Math.round(share * ((u - typU) / 100) * baseNZD * A.slope.unusableDiscount);
     lines.push({
       id: "land_topography",
       label: "Topography",
       deltaNZD: d,
       established: true,
       working:
-        u === A.slope.typicalUsablePct
-          ? `${u}% of it is flat enough to use, which is typical. No adjustment.`
-          : `${u}% of it is flat enough to use against a typical ${A.slope.typicalUsablePct}%, counted only on the ${w ?? 100}% the shape leaves workable so a steep corner isn't discounted twice. That difference is valued at ${Math.round((1 - A.slope.unusableDiscount) * 100)}% of the rate: ${money(d)}.`,
+        u === typU
+          ? `${u}% of it is flat enough to use, the same as ${whereU}. No adjustment.`
+          : `${u}% of it is flat enough to use against ${whereU}, counted only on the ${w ?? 100}% the shape leaves workable so a steep corner isn't discounted twice. That difference is valued at ${Math.round((1 - A.slope.unusableDiscount) * 100)}% of the rate: ${money(d)}.`,
     });
   }
 

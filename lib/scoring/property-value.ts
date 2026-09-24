@@ -22,7 +22,7 @@
 import { valueImprovementItems, type RoofInputs } from "./improvement-values";
 import { valueExtraDwellings } from "./extra-dwelling-value";
 import { valueLand, roiqValuation, type RoiqValuation } from "./valuation";
-import { adjustLand, siteFactsFrom, type AdjustedLand } from "./land-value.ts";
+import { adjustLand, siteFactsFrom, type AdjustedLand, type NearbyTypical } from "./land-value.ts";
 import { methodFor, comparablesMatch, type ValuationMethod } from "./valuation-method";
 import { crossLeaseDiscount, type CrossLeaseSharing, type CrossLeaseDiscount } from "./cross-lease";
 import type { SuburbValue } from "./investment";
@@ -48,6 +48,8 @@ export interface PropertyValueInput {
   labourMultiplier?: number;
   /** What the roof is measured from — see valueImprovementItems. */
   roof?: RoofInputs;
+  /** The typical section nearby, measured — the baseline the land adjusts from. */
+  nearbyTypical?: NearbyTypical | null;
   /** Depreciates the structure. Without it the shell reads as brand new. */
   buildYear?: number | null;
   bathrooms?: number | null;
@@ -171,7 +173,7 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
   const typicalLand = valueLand({ landAreaSqm: ownedLandSqm, suburbValue: input.suburbValue });
   // A typical section of this size, then adjusted for THIS one — shape, slope,
   // orientation, access. See land-value.ts; the Land tab prints every line.
-  const siteAdjustment = typicalLand ? adjustLand(typicalLand.landValue, siteFactsFrom(input.subItems)) : null;
+  const siteAdjustment = typicalLand ? adjustLand(typicalLand.landValue, siteFactsFrom(input.subItems), input.nearbyTypical) : null;
   const land =
     typicalLand && siteAdjustment
       ? {

@@ -40,6 +40,7 @@ export async function GET(req: Request) {
       neighbourParcels: record.site.neighbourParcels,
       surveyAccurate: record.site.surveyAccurate,
       heights: record.site.heights,
+      nearby: record.site.nearby,
     });
 
     return NextResponse.json(

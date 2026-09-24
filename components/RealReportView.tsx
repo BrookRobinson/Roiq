@@ -740,6 +740,7 @@ export function RealReportView({
         floorAreaSqm: report.listing.floorAreaSqm,
         labourMultiplier: labourMultiplierFor(report.listing),
         roof: roofInputs,
+        nearbyTypical: siteLayout?.measured?.nearby ?? null,
         bathrooms: report.listing.bathrooms,
         landAreaSqm: report.listing.landAreaSqm,
         buildYear: report.listing.buildYear,
@@ -3626,7 +3627,7 @@ function LandValueCard({ report }: { report: StoredReport }) {
   const typicalLand = valueLand({ landAreaSqm, suburbValue: report.suburbValue });
   // Bare land gets the same site adjustments as a house's section.
   const land = typicalLand
-    ? { ...typicalLand, landValue: adjustLand(typicalLand.landValue, siteFactsFrom(report.subItems)).valueNZD }
+    ? { ...typicalLand, landValue: adjustLand(typicalLand.landValue, siteFactsFrom(report.subItems), report.listing.siteLayout?.measured?.nearby).valueNZD }
     : null;
   const asking = report.listing.askingPrice ?? null;
   // On a section the land value IS the report, so an unbounded extrapolation
