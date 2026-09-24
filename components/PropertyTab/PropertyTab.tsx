@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
+import type { RoofValuation, RoofWithheldResult } from "@/lib/scoring/roof-value";
 import type { PropertyTabData, RenoControls } from "@/lib/property-tab/types";
 import type { DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import type { Persona } from "@/lib/scoring/model";
@@ -26,7 +27,7 @@ interface Props {
   dwellingValues?: DwellingValue[];
 }
 
-export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues, itemValues }: Props & { itemValues?: Map<string, ItemValue> }) {
+export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues, itemValues, itemValuations }: Props & { itemValues?: Map<string, ItemValue>; itemValuations?: Map<string, RoofValuation | RoofWithheldResult> }) {
   const [openAll, setOpenAll] = useState(false);
 
   // Tally issues across all categories
@@ -157,6 +158,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
             <CategoryAccordion
               key={category.id}
               itemValues={itemValues}
+              itemValuations={itemValuations}
               category={category}
               defaultOpen={openAll || isUrgent || i === 0}
               region={region}

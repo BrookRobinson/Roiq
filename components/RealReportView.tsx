@@ -12,6 +12,8 @@ import { urgencyColor, urgencyLabel, type RenoControls } from "@/lib/property-ta
 import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
+import { valueRoof, roofMaterialFromText, type RoofValuation, type RoofWithheldResult } from "@/lib/scoring/roof-value";
+import { resolveRegion } from "@/lib/labour-rates";
 import { scoreFor, improvementsCategories } from "@/lib/scoring/report";
 import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
@@ -415,6 +417,48 @@ export function RealReportView({
   }, [report.listing.siteLayout, report.listing.address, report.listing.suburb, report.listing.city, fetchedLayout]);
 
   const siteLayout = report.listing.siteLayout ?? fetchedLayout ?? null;
+
+  /**
+   * The itemised valuation, item by item. The roof is the first one done this
+   * way — see lib/scoring/roof-value.ts — and the rest follow its pattern.
+   *
+   * Everything it needs is already on the report except the footprint, which
+   * comes from the LINZ building outline via the site geometry. The MAIN
+   * building's footprint, not every structure's: `builtAreaSqm` would hand the
+   * house a detached garage's roof as well.
+   */
+  const itemValuations = useMemo(() => {
+    const out = new Map<string, RoofValuation | RoofWithheldResult>();
+    const roof = (report.subItems ?? []).find((s) => s.id === "ext_roof");
+    if (!roof) return out;
+
+    const shot = itemPhotos["ext_roof"];
+    const concerns = [roof.observedDefect, shot?.observedDefect].filter(Boolean) as string[];
+
+    out.set(
+      "ext_roof",
+      valueRoof({
+        material: roofMaterialFromText(shot?.material ?? roof.material),
+        footprintM2: siteLayout?.mainBuildingAreaSqm ?? null,
+        // Only ever from a photograph that actually showed the slope. A null
+        // falls back to the form's typical pitch and the card says it did.
+        pitchDegrees: shot?.roofPitchDegrees ?? null,
+        roofForm: shot?.roofForm ?? null,
+        // Scaffold is priced on the face it wraps, and a listing rarely states
+        // the storey count. One is the conservative read: guessing two on a
+        // single-storey house adds thousands of scaffold to the replacement
+        // cost, which flows straight into the value.
+        storeys: 1,
+        buildYear: report.listing.buildYear,
+        conditionScore: shot?.showsItem ? shot.score : roof.score,
+        concerns,
+        labourMultiplier: resolveRegion(
+          [report.listing.city, report.listing.region].filter(Boolean).join(", ")
+        ).multiplier,
+      })
+    );
+    return out;
+  }, [report.subItems, report.listing.buildYear, report.listing.city, report.listing.region, siteLayout, itemPhotos]);
 
   const effectiveSubItems = useMemo(
     () =>
@@ -1011,7 +1055,7 @@ export function RealReportView({
           {tab === "overview" && <OverviewReal locked={locked} report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} propertyValue={propertyValue} dwellingValue={dwellingValue} />}
           {tab === "improvements" && (
             <div className="space-y-4">
-              <PropertyTab itemValues={new Map(improvementValuation.items.map((v) => [v.id, v]))} data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: 0 }} region={[listing.city, listing.region].filter(Boolean).join(", ") || undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
+              <PropertyTab itemValues={new Map(improvementValuation.items.map((v) => [v.id, v]))} itemValuations={itemValuations} data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: 0 }} region={[listing.city, listing.region].filter(Boolean).join(", ") || undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
               {persona === "investor" && <HealthyHomesSection subItems={effectiveSubItems} buildYear={listing.buildYear} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} hhAssessed={report.context?.healthyHomes} />}
             </div>
           )}

@@ -84,8 +84,16 @@ export interface SiteInput {
 export interface SiteLayout {
   /** Parcel area in m², from the geometry itself. */
   parcelAreaSqm: number;
-  /** Ground covered by existing buildings, m². */
+  /** Ground covered by existing buildings, m² — ALL of them. */
   builtAreaSqm: number;
+  /**
+   * The largest single building's footprint, m².
+   *
+   * This is the house, and it is what the roof is measured from. `builtAreaSqm`
+   * would hand the house a detached garage's roof as well — on a section with a
+   * double garage that is a third of a reroof quote added to the wrong line.
+   */
+  mainBuildingAreaSqm: number;
   /** How many separate structures stand on the parcel. */
   buildingCount: number;
   /** Ground inside a surveyed easement or covenant area, m². */
@@ -466,6 +474,9 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
   return {
     parcelAreaSqm,
     builtAreaSqm,
+    mainBuildingAreaSqm: buildings.length
+      ? Math.round(Math.max(...buildings.map(polygonArea)))
+      : 0,
     buildingCount: buildings.length,
     clearAreaSqm: Math.round(freeCells * STEP * STEP),
     burdenedAreaSqm: Math.round(burdened * STEP * STEP),

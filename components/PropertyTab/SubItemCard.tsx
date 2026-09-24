@@ -7,6 +7,8 @@ import type { ConfidenceTier, SubItem, RenoControls } from "@/lib/property-tab/t
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
+import { ItemValuation, ItemValuationWithheld } from "./ItemValuation";
+import { isWithheld, type RoofValuation, type RoofWithheldResult } from "@/lib/scoring/roof-value";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { ConfidenceBar, ConfidenceLabel } from "./ConfidenceBar";
 import { CostWorkings } from "@/components/CostWorkings";
@@ -77,7 +79,7 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
   return null;
 }
 
-export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations, value }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void; value?: ItemValue | null }) {
+export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations, value, valuation }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void; value?: ItemValue | null; valuation?: RoofValuation | RoofWithheldResult | null }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
   const urgencyYears = urgencyScoreToYears(item.score);
@@ -86,6 +88,23 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
   // follows the condition read, which is the thing the colour was always really
   // about: points were condition wearing a rubric's clothes.
   const color = conditionScoreColor(item.score);
+
+  // ONE value per item, and the itemised model wins where it exists.
+  //
+  // The badge used to read the blended spec×condition figure while the panel
+  // underneath worked the item through cost-to-replace × life-remaining — so a
+  // roof showed "$16,417" at the top and "$0" at the bottom of the same card.
+  // That is the rival-valuation mistake this codebase has deleted twice, and it
+  // reappeared the moment a second method existed. The itemised one is the
+  // better answer (it measures the roof rather than scaling the floor area), so
+  // it is the one displayed, and the older figure is the fallback for items it
+  // does not cover yet.
+  const detailed = valuation && !isWithheld(valuation) ? valuation : null;
+  const shown = detailed
+    ? { now: detailed.valueNZD, rcn: detailed.cost.totalNZD }
+    : value
+      ? { now: value.valueNow, rcn: value.rcnNew }
+      : null;
   const costItem = getCostItem(item, region, floorSqm);
   // Renovation plan: this item can be added if it has a costed reno line.
   const canReno = renoControls?.has(item.id) ?? false;
@@ -177,14 +196,14 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               </span>
             ) : (
               <>
-                {value ? (
+                {shown ? (
                   <StatBubble
                     label="Value"
-                    value={`$${Math.round(value.valueNow).toLocaleString("en-NZ")}`}
+                    value={`$${Math.round(shown.now).toLocaleString("en-NZ")}`}
                     color={color}
                     bg={`${alpha(color, 12)}`}
                     border={`${alpha(color, 33)}`}
-                    title={`Costs about $${Math.round(value.rcnNew).toLocaleString("en-NZ")} to replace today; this one is worth $${Math.round(value.valueNow).toLocaleString("en-NZ")} after the share of its life already used.`}
+                    title={`Costs about $${Math.round(shown.rcn).toLocaleString("en-NZ")} to replace today; this one is worth $${Math.round(shown.now).toLocaleString("en-NZ")} after the share of its life already used.`}
                     tier={item.confidenceTier}
                   />
                 ) : (
@@ -299,6 +318,24 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
           className="px-4 pb-4 space-y-4"
           style={{ borderTop: "1px solid var(--border)" }}
         >
+          {/* The valuation, above the prose. The workings are what the reader
+              came for; the summary is context for them, not a substitute. */}
+          {valuation && (
+            <div className="pt-4">
+              <div
+                className="text-xs font-semibold uppercase tracking-wider mb-2.5"
+                style={{ color: "var(--text-muted)" }}
+              >
+                How this value was worked out
+              </div>
+              {isWithheld(valuation) ? (
+                <ItemValuationWithheld reason={valuation.reason} />
+              ) : (
+                <ItemValuation v={valuation} />
+              )}
+            </div>
+          )}
+
           {/* AI summary */}
           <div className="pt-4">
             <div

@@ -7,6 +7,7 @@ import { worstSubItemScore } from "@/lib/property-tab/types";
 import { SubItemCard, pointsColor } from "./SubItemCard";
 import { ConditionScore, conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
+import type { RoofValuation, RoofWithheldResult } from "@/lib/scoring/roof-value";
 import type { Persona } from "@/lib/scoring/model";
 import type { RenoControls } from "@/lib/property-tab/types";
 import { alpha } from "@/lib/ui/color";
@@ -21,7 +22,7 @@ interface Props {
   onOpenRenovations?: () => void;
 }
 
-export function CategoryAccordion({ category, defaultOpen = false, region, floorSqm, persona = "buyer", renoControls, onOpenRenovations, itemValues }: Props & { itemValues?: Map<string, ItemValue> }) {
+export function CategoryAccordion({ category, defaultOpen = false, region, floorSqm, persona = "buyer", renoControls, onOpenRenovations, itemValues, itemValuations }: Props & { itemValues?: Map<string, ItemValue>; itemValuations?: Map<string, RoofValuation | RoofWithheldResult> }) {
   // Only the two rooms that are genuinely gutted as a unit. A "whole Exterior"
   // or "whole Bedrooms" is not a job anybody quotes.
   const roomKey =
@@ -164,7 +165,7 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
           )}
 
           {category.subItems.map((item) => (
-            <SubItemCard key={item.id} item={item} region={region} floorSqm={floorSqm} persona={persona} renoControls={renoControls} onOpenRenovations={onOpenRenovations} value={itemValues?.get(item.id) ?? null} />
+            <SubItemCard key={item.id} item={item} region={region} floorSqm={floorSqm} persona={persona} renoControls={renoControls} onOpenRenovations={onOpenRenovations} value={itemValues?.get(item.id) ?? null} valuation={itemValuations?.get(item.id) ?? null} />
           ))}
         </div>
       )}

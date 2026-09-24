@@ -1345,6 +1345,25 @@ cost. A roof at the end of its life is worth nothing AND costs the full
 replacement — those answer different questions (what you are buying, what you
 are about to spend) and a reader needs both.
 
+**The itemised valuation WINS on the card, and it has to.** `SubItemCard` shows
+the detailed figure where one exists and the blended spec×condition figure only
+as a fallback. It did not, briefly, and the roof showed "$16,417" in its badge
+and "$0" at the bottom of the same card — the rival-valuation mistake this file
+already records twice, reappearing the instant a second method existed. One
+item, one number, and the better method is the one displayed.
+
+**The roof is measured off the MAIN building, not every structure.**
+`siteLayout.mainBuildingAreaSqm` is the largest footprint on the parcel;
+`builtAreaSqm` is all of them, and using it hands the house a detached garage's
+roof as well — a third of a reroof quote on the wrong line.
+
+**`roofMaterialFromText()` returns null rather than the nearest match.** The
+analysis writes the material in its own words and the whole valuation hangs off
+that one field: pricing a clay-tile roof as concrete is a $20,000 error that
+looks exactly like a correct number. Pattern ORDER is load-bearing — "pressed
+metal tile" contains both "metal" and "tile", and "concrete tile" contains
+"tile", so the specific patterns are tested first. `verify:roof` asserts it.
+
 **No trade rate or material price in this codebase has ever been verified, and
 the code used to claim otherwise.** `lib/labour-rates/index.ts` carried
 `dataSource: "Builderscrack <region>"`, `jobCount: 23` and `confidence: "high"`

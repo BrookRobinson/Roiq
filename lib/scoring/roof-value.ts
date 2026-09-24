@@ -124,6 +124,41 @@ export const ROOF_MATERIALS: Record<RoofMaterialId, RoofMaterial> = {
   },
 };
 
+/**
+ * The analysis writes the material in its own words — "Long-run corrugated
+ * steel", "Decramastic tile, stone chip shedding". This maps that to something
+ * we can price.
+ *
+ * It returns NULL rather than the nearest match on purpose. The whole valuation
+ * hangs off this one field: pricing a clay-tile roof as concrete is a $20,000
+ * error that looks exactly like a correct number, and "we could not identify
+ * the material" is a finding a reader can act on. Order matters — the more
+ * specific patterns are tested first, because "pressed metal tile" contains
+ * "metal" and "concrete tile" contains "tile".
+ */
+const MATERIAL_PATTERNS: [RegExp, RoofMaterialId][] = [
+  [/asbestos|super\s*six|fibrolite|fibre[- ]?cement\s+(sheet|roof)/i, "asbestos_cement"],
+  [/decramastic|pressed\s*metal|metal\s*tile|stone[- ]?chip/i, "pressed_metal"],
+  [/slate/i, "slate"],
+  [/clay\s*tile|terracotta|marseille/i, "tile_clay"],
+  [/concrete\s*tile|cement\s*tile/i, "tile_concrete"],
+  [/butynol|membrane|torch[- ]?on|tpo|epdm|malthoid/i, "membrane"],
+  [/shingle|asphalt/i, "asphalt_shingle"],
+  [/colou?rsteel|coloursteel|pre[- ]?painted|coated\s+steel|colorbond/i, "longrun_colorsteel"],
+  [/zincalume|zinc[- ]?alume/i, "longrun_zincalume"],
+  // Last of the steels: an unqualified "corrugated iron" or "long-run steel"
+  // with no coating named is the old galvanised stuff more often than not, and
+  // it is the shorter-lived read — which errs toward flagging a roof that has
+  // life left rather than missing one that hasn't.
+  [/galvanis|corrugated|long[- ]?run|profiled\s+steel|\biron\b/i, "longrun_galv"],
+];
+
+export function roofMaterialFromText(text: string | null | undefined): RoofMaterialId | null {
+  if (!text) return null;
+  for (const [re, id] of MATERIAL_PATTERNS) if (re.test(text)) return id;
+  return null;
+}
+
 /** Typical pitch by roof form, for when the photographs don't establish one. */
 export const TYPICAL_PITCH: Record<string, number> = {
   flat: 3,

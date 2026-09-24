@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const {
   valueRoof, roofArea, effectiveRoofAge, roofReplacementCost, estimatePerimeter,
-  isWithheld, ROOF_MATERIALS, TYPICAL_PITCH,
+  isWithheld, ROOF_MATERIALS, TYPICAL_PITCH, roofMaterialFromText,
 } = await import(join(root, "lib/scoring/roof-value.ts"));
 
 let failures = 0;
@@ -104,6 +104,24 @@ check("…and has no due year left to give", oldRoof.life.dueYear, null);
 check("the bar never overfills", oldRoof.life.usedFraction <= 1, true);
 const fresh = valueRoof({ material: "longrun_colorsteel", footprintM2: 150, roofLaidYear: 2026, conditionScore: 10, now: NOW });
 check("a brand new roof reads nearly empty", fresh.life.usedFraction < 0.05, true);
+
+console.log("\nreading the material out of the analysis's own words");
+check("long-run corrugated steel", roofMaterialFromText("Long-run corrugated steel"), "longrun_galv");
+check("Colorsteel beats the generic steel pattern",
+  roofMaterialFromText("Long-run Colorsteel, pre-painted"), "longrun_colorsteel");
+// "pressed metal tile" contains "metal" AND "tile"; "concrete tile" contains
+// "tile". Specific patterns have to win or a Decramastic roof gets priced as
+// concrete tiles, which is a five-figure error that looks correct.
+check("pressed metal tile is not a concrete tile",
+  roofMaterialFromText("Decramastic pressed metal tile, stone chip shedding"), "pressed_metal");
+check("concrete tile", roofMaterialFromText("Concrete tile roof"), "tile_concrete");
+check("clay beats concrete", roofMaterialFromText("Clay tile, terracotta"), "tile_clay");
+check("asbestos is caught before the fibre-cement generic",
+  roofMaterialFromText("Corrugated asbestos-cement (Super Six)"), "asbestos_cement");
+check("butynol is a membrane", roofMaterialFromText("Butynol membrane over ply"), "membrane");
+// A guessed material is a five-figure number with nothing behind it.
+check("nonsense is null, never the nearest match", roofMaterialFromText("thatched with reeds"), null);
+check("empty is null", [roofMaterialFromText(""), roofMaterialFromText(null)], [null, null]);
 
 console.log("\nrefusals — a guessed input must not become a five-figure number");
 const noMat = valueRoof({ material: null, footprintM2: 150, now: NOW });
