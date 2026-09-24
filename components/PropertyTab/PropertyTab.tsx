@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ItemValue } from "@/lib/scoring/improvement-values";
 import type { PropertyTabData, RenoControls } from "@/lib/property-tab/types";
 import type { DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import type { Persona } from "@/lib/scoring/model";
@@ -25,7 +26,7 @@ interface Props {
   dwellingValues?: DwellingValue[];
 }
 
-export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues }: Props) {
+export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues, itemValues }: Props & { itemValues?: Map<string, ItemValue> }) {
   const [openAll, setOpenAll] = useState(false);
 
   // Tally issues across all categories
@@ -155,6 +156,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
           return (
             <CategoryAccordion
               key={category.id}
+              itemValues={itemValues}
               category={category}
               defaultOpen={openAll || isUrgent || i === 0}
               region={region}
@@ -202,7 +204,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
         <p style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
           <strong style={{ color: "var(--text-secondary)" }}>Scoring methodology:</strong>{" "}
           This is the <strong>Improvements</strong> inspection — one of four (Improvements, Location,
-          Land, Legal) in {PRODUCT_NAME}&apos;s 1,000-point model. Each sub-item is scored 1–10, then weighted by
+          Land, Legal) in {PRODUCT_NAME}&apos;s model. Each sub-item is read 1–10 for condition, which sets how much of its life is left and therefore what it is worth. Weighted by
           persona-specific points that differ for Home Buyers and Investors; toggle the mode in the
           header to re-weight the whole score. Extra dwellings add a bonus of up to 50 points.
           Tier 3 (unscored) items are excluded from the denominator and flagged for inspection.

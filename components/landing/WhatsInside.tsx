@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Reveal } from "@/components/ui/Reveal";
+import { valueImprovementItems } from "@/lib/scoring/improvement-values";
 import { buildDemoReport } from "@/lib/scoring/demo";
 import { DEAL_HEX } from "@/lib/map/calc";
 import { ArrowRight } from "lucide-react";
@@ -42,7 +43,15 @@ export function WhatsInside() {
       cost: s.estimatedReplacementCost,
     }));
 
-  const scoreTotal = Math.round(report.scores.buyer.total);
+  // The building valued component by component — the same figure the report
+  // leads with now. A quality score out of 1,000 used to sit here, and it was
+  // the thing readers said they couldn't interpret.
+  const buildingValue = valueImprovementItems({
+    subItems: report.subItems ?? [],
+    floorAreaSqm: report.listing.floorAreaSqm,
+    bathrooms: report.listing.bathrooms,
+    buildYear: report.listing.buildYear,
+  }).buildingValue;
 
   return (
     <section className="border-b py-24 lg:py-28" style={{ borderColor: "var(--border)" }}>
@@ -179,9 +188,8 @@ export function WhatsInside() {
                   value={money(sv?.medianSalePrice ?? 0)}
                 />
                 <Big
-                  label="Quality score"
-                  value={`${scoreTotal}`}
-                  suffix="/1000"
+                  label="Building value"
+                  value={money(buildingValue)}
                   tone="var(--accent-text)"
                 />
               </div>

@@ -1272,6 +1272,35 @@ longer read "likely", the instrument number is named in the summary and the
 blockers, and the badge SAYS the bonus was withheld rather than letting the
 points quietly vanish.
 
+**THE 1,000-POINT SCORE IS GONE — removed 24 September 2026.** It was a rubric:
+a thousand points shared across 48 items by weights somebody chose, which asked
+every reader to learn what 600 meant before it told them anything. A dollar
+figure needs no key. The report now leads with what the property is worth and
+what it is built from, and the Improvements tab shows each item's value against
+its cost to replace new rather than "X/max pts".
+
+What did NOT go, and must not: the **per-item 1–10 condition read**. It is more
+load-bearing than ever — it sets the EFFECTIVE age, which sets how much life is
+left, which is what depreciates the item. `scoreProperty` still runs and still
+reports COVERAGE (`assessedPoints`, `unassessed`, `byInspection`), because a
+valuation built on two thirds of a house is honest only if the reader is told
+the fraction. What is no longer surfaced anywhere is the aggregate total.
+
+**Items with no replacement cost are STATED FACTS with no number.**
+`isFactOnly(id)` — an improvements item with no line in `IMPROVEMENT_BASE_COSTS`
+— covers kit_layout, liv_size, liv_light, bed_size, bed_windows, gar_type and
+out_landscaping. A room's proportions and where the light falls are worth real
+money, but through the LAND and the market; there is no line item for
+"north-facing", and inventing a dollar value for one is the invented-staircase
+habit in a new place. Derived rather than listed, so adding a cost line is all
+it takes to stop an item being a fact. `ext_solar` and `gar_power` were on that
+list by accident and now carry costs — a set of solar panels is plainly not an
+intrinsic quality.
+
+The former score **penalties and bonuses** (highway, flight path, rail) are
+reported the same way: facts about the site, stated and not priced. What a
+flight path costs is a question only comparable sales can answer.
+
 **The itemised valuation (v6, roof first) prices an item in seven reported
 steps** — material, visible concerns, effective age, material life, measured
 area, cost split, and value. `lib/scoring/roof-value.ts` is the template for the

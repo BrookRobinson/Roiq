@@ -150,13 +150,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Is there a building to score? ──────────────────────────────────────
-    // The 1,000-point model describes a DWELLING — roof, kitchen, bathroom,
+    // The improvements model describes a DWELLING — roof, kitchen, bathroom,
     // joinery. Run it against a bare section and every item is scored from
     // photographs of an empty paddock, which is how a two-lot section came back
-    // as "house · 195m² floor · 805/1000".
+    // as a house with a 195m² floor area it does not have.
     //
     // So land gets a land report instead: the Land and Legal inspections only,
-    // scored out of their own total, with the section valued on its own terms.
+    // with the section valued on its own terms.
     // The improvements half is never asked for and never assembled — see
     // `landOnly` in lib/ai/analyze.ts.
     const landOnly = !assessDwelling(listing).hasDwelling;
@@ -251,8 +251,8 @@ export async function POST(req: NextRequest) {
       ok: true,
       listing,
       ...result,
-      // The report view needs this to lock the Improvements tab and show a land
-      // score rather than a condition score out of 1,000.
+      // The report view needs this to hide the Improvements tab and value the
+      // section on its own terms rather than as a building.
       landOnly,
       photoCoverage,
       quota: { ...quota, used: quota.used + 1, remaining: quota.remaining - 1 },

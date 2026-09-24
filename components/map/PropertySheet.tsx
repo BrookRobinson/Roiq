@@ -144,23 +144,20 @@ export function PropertySheet({
                 <div>
                   <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
                     We know this property is for sale, but nobody has analysed it yet — so there&apos;s
-                    no score, valuation or yield to show.
+                    no valuation or yield to show.
                   </p>
                   <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-                    Running it reads every listing photo and scores the property out of 1,000. It uses
-                    one of your reports, and once it&apos;s done everyone sees the result here.
+                    Running it reads every listing photo and values the property component by
+                    component. It uses one of your reports, and once it&apos;s done everyone sees
+                    the result here.
                   </p>
                 </div>
               ) : mode === "homebuyer" ? (
                 <div className="space-y-2.5">
-                  {/* NO SCORE HERE, deliberately.
-                      A score out of 1,000 sitting directly above a dollar
-                      figure reads as though the two track each other, and they
-                      do not: a 900/1000 twenty-square-metre house is worth less
-                      than an 850/1000 five-hundred-square-metre one. The score
-                      is a condition verdict, not a price, and it belongs in the
-                      report where there is room to say so. The map shows what
-                      it is for — what we think the property is worth. */}
+                  {/* The map shows the valuation and the gap to the asking
+                      price, which is what somebody scanning pins is choosing
+                      between. The condition read behind it belongs in the
+                      report, where there is room to say what it is built on. */}
                   {c.roiqValuation == null || c.valuationGapPct == null ? (
                     /* This pin carries the report's figure and has no fallback
                        of its own, so when the report couldn't value it, neither

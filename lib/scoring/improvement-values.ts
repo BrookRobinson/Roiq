@@ -94,6 +94,11 @@ export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
   bed_ceiling: { baseRCN: 1200, scale: "fixed" },
 
   // Garage (skipped automatically if not present / not assessed)
+  // Real installs with real replacement costs. They were missing, so they fell
+  // through to "intrinsic quality, priced by the market" — which is true of a
+  // room's proportions and plainly false of a set of solar panels.
+  ext_solar: { baseRCN: 13000, scale: "fixed", note: "Rooftop PV array and inverter" },
+  gar_power: { baseRCN: 2200, scale: "fixed", note: "Subcircuit, board and outlets to a garage" },
   gar_construction: { baseRCN: 14000, scale: "fixed" },
   gar_door: { baseRCN: 2500, scale: "fixed" },
   gar_floor: { baseRCN: 2500, scale: "fixed" },
@@ -106,6 +111,30 @@ export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
 };
 
 const ITEM_META = new Map(SCORING_MODEL.map((i) => [i.id, i]));
+
+/**
+ * An item that has no replacement cost, and never will.
+ *
+ * A room's proportions, where the light falls, how the kitchen flows, whether
+ * the garage is attached — these are real things a buyer cares about and they
+ * are worth money, but they are worth it through the LAND and the market, not
+ * as a component you could price a tradesman to rebuild. There is no line item
+ * for "north-facing".
+ *
+ * They used to carry points, which is how they said anything at all. With the
+ * score gone they are reported as STATED FACTS with no number against them —
+ * the same rule Location has always followed. Inventing a dollar value for them
+ * would be the invented-staircase habit in a new place, and rounding them to
+ * zero would say they don't matter.
+ *
+ * Derived rather than listed, so adding a cost line is all it takes to stop an
+ * item being a fact. Improvements only: a title finding or a hazard is not an
+ * "intrinsic quality", it is a risk with a source, and those items report
+ * themselves.
+ */
+export function isFactOnly(id: string): boolean {
+  return ITEM_META.get(id)?.inspection === "improvements" && !(id in IMPROVEMENT_BASE_COSTS);
+}
 
 export interface ItemValue {
   id: string;

@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { ConfidenceTier, SubItem, RenoControls } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
-import { improvementItemPoints } from "@/lib/scoring/engine";
+import type { ItemValue } from "@/lib/scoring/improvement-values";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { ConfidenceBar, ConfidenceLabel } from "./ConfidenceBar";
 import { CostWorkings } from "@/components/CostWorkings";
@@ -77,15 +77,15 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
   return null;
 }
 
-export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void }) {
+export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations, value }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void; value?: ItemValue | null }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
   const urgencyYears = urgencyScoreToYears(item.score);
   const isWithinHold = withinHold(urgencyYears);
-  // v5 — Improvements are scored as tier-band points; colour + border follow the
-  // points read (falls back to raw condition for any legacy untiered item).
-  const pts = improvementItemPoints(item.id, item.specTier, item.score, persona);
-  const color = pts ? pointsColor(pts.earned / pts.max) : conditionScoreColor(item.score);
+  // v6 — the card shows what the item is WORTH, not what it scored. Colour
+  // follows the condition read, which is the thing the colour was always really
+  // about: points were condition wearing a rubric's clothes.
+  const color = conditionScoreColor(item.score);
   const costItem = getCostItem(item, region, floorSqm);
   // Renovation plan: this item can be added if it has a costed reno line.
   const canReno = renoControls?.has(item.id) ?? false;
@@ -177,14 +177,14 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               </span>
             ) : (
               <>
-                {pts ? (
+                {value ? (
                   <StatBubble
-                    label="Points"
-                    value={`${pts.earned}/${pts.max}`}
+                    label="Value"
+                    value={`$${Math.round(value.valueNow).toLocaleString("en-NZ")}`}
                     color={color}
                     bg={`${alpha(color, 12)}`}
                     border={`${alpha(color, 33)}`}
-                    title="Points earned toward the score — the spec tier sets the band (its max), and condition positions the item within it."
+                    title={`Costs about $${Math.round(value.rcnNew).toLocaleString("en-NZ")} to replace today; this one is worth $${Math.round(value.valueNow).toLocaleString("en-NZ")} after the share of its life already used.`}
                     tier={item.confidenceTier}
                   />
                 ) : (

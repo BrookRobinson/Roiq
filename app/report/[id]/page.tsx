@@ -168,7 +168,7 @@ export default function ReportPage() {
           </h1>
           <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
             {PACKAGE_LABEL[packageFor("mapReports")]} opens every report on the map — every property
-            anyone has analysed, scored out of 1,000 and valued against its asking price.
+            anyone has analysed, valued component by component and compared against its asking price.
           </p>
           <a
             href="/pricing"

@@ -118,7 +118,7 @@ export default function AnalyzePage() {
         </div>
         <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
           Paste a NZ listing URL. {PRODUCT_NAME} scrapes it, sends the photos to {PRODUCT_NAME} vision, and returns a real
-          condition report and 1,000-point score. This is the actual pipeline — not the demo.
+          condition report and itemised valuation. This is the actual pipeline — not the demo.
         </p>
 
         {/* Input */}
@@ -221,7 +221,7 @@ export default function AnalyzePage() {
                       <div key={p}>
                         <div className="text-3xl font-bold mono" style={{ color: "var(--brand)" }}>
                           {scores[p].total}
-                          <span className="text-sm" style={{ color: "var(--text-muted)" }}>/1000</span>
+
                         </div>
                         <div className="text-xs mt-1 capitalize" style={{ color: "var(--text-muted)" }}>
                           {p} · base {scores[p].base}

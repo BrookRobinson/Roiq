@@ -35,7 +35,7 @@ const STEPS = [
   {
     n: "03",
     title: "You get the report",
-    body: `Scored out of 1,000, in one to three minutes, with a cost attached to every finding and the ten year financial position worked through.`,
+    body: `Every component valued in one to three minutes — what it costs to replace today, less the life already used — with the ten year financial position worked through.`,
   },
 ];
 

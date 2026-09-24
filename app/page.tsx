@@ -41,7 +41,7 @@ import {
 export const metadata = {
   title: `${PRODUCT_NAME} — Know before you buy.`,
   description:
-    "Property analysis for New Zealand buyers and investors. Every photo assessed, every score sourced, scored out of 1,000.",
+    "Property analysis for New Zealand buyers and investors. Every photo assessed, every component valued, every figure sourced.",
 };
 
 export default function LandingPage() {

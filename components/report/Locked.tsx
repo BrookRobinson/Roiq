@@ -6,7 +6,7 @@
 // The free report runs the full analysis — every photo read, every defect
 // found — because seeing the vision analysis land on your own listing is the
 // thing that sells the product. What it withholds is the conclusion: the score
-// out of 1,000 and anything that values the property.
+// and anything that values the property.
 //
 // Blurred rather than absent, deliberately. An empty space says the feature
 // doesn't exist; a blurred number says it's been worked out and is waiting.

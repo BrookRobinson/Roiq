@@ -35,7 +35,7 @@ const PIPELINE_STEPS = [
   { id: "scrape", label: "Scraping the listing", sub: "Address, price, details, photos" },
   { id: "photos", label: "Downloading & resizing photos", sub: `Preparing images for ${PRODUCT_NAME}` },
   { id: "vision", label: `Analysing with ${PRODUCT_NAME} vision`, sub: "Scoring every visible element" },
-  { id: "score", label: "Calculating quality score", sub: "Persona-aware 1,000-point rubric" },
+  { id: "score", label: "Valuing each component", sub: "Cost to replace, less the life already used" },
   { id: "report", label: "Building your report", sub: "Compiling findings and gaps" },
 ];
 

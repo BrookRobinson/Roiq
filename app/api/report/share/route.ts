@@ -49,7 +49,9 @@ export async function POST(req: NextRequest) {
     token,
     report: report as unknown as Json,
     address: report.listing.address ?? null,
-    score: report.scores.buyer?.total ?? null,
+    // The column predates the valuation and nothing reads it for display any
+    // more. Kept null rather than filled with a score that no longer exists.
+    score: null,
     shared_by: authUser?.id ?? null,
     recipient: recipientEmail || null,
     note,
@@ -142,14 +144,12 @@ async function sendShareEmail(args: {
   note: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const address = args.report.listing.address ?? "a property";
-  const score = args.report.scores.buyer?.total;
+
 
   const html = `
     <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0f172a">
       <h2 style="margin:0 0 4px">A ${PRODUCT_NAME} property report has been shared with you</h2>
-      <p style="color:#475569;margin:0 0 20px">${escapeHtml(address)}${
-        typeof score === "number" ? ` — ${PRODUCT_SHORT_NAME} score ${score}/1000` : ""
-      }</p>
+      <p style="color:#475569;margin:0 0 20px">${escapeHtml(address)}</p>
       ${
         args.note
           ? `<blockquote style="border-left:3px solid #14b8a6;margin:0 0 20px;padding:6px 0 6px 14px;color:#334155">${escapeHtml(

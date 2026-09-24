@@ -136,7 +136,8 @@ export function ExtraDwellingCard({ dwelling, noPhotos, value, renoControls, onO
               )}
               {value.note && <div className="text-[11px] pt-1" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>{value.note}</div>}
               <div className="text-[11px] pt-1.5 mt-1" style={{ color: "var(--text-muted)", lineHeight: 1.5, borderTop: "1px solid var(--accent-wash)" }}>
-                Standalone structures add <strong style={{ color: "var(--text-secondary)" }}>value, not points</strong> — whether you want one is subjective, so the /1000 score stays comparable across every property.
+                A standalone structure is valued the same way the house is — what it would cost to
+                build today, less the life already used, less anything needed to make it compliant.
               </div>
             </div>
           ) : null}

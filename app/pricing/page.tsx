@@ -439,7 +439,7 @@ function Faq() {
     },
     {
       q: "What do I actually get for free?",
-      a: "One complete analysis of a real listing you paste in — every photo read, every defect and finding shown. What stays locked is the conclusion: the score out of 1,000, the valuation, and the Financial, Renovations and agent tabs. It's one report, not one a month, and buying opens the report you already ran rather than making you run it again.",
+      a: "One complete analysis of a real listing you paste in — every photo read, every defect and finding shown. What stays locked is the conclusion: the valuation and the Financial and Renovations tabs. It's one report, not one a month, and buying opens the report you already ran rather than making you run it again.",
     },
     {
       q: "What does the Gold inspection actually get me?",

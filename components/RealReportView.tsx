@@ -783,7 +783,7 @@ export function RealReportView({
 
   // Bare land. There is no building, so the Improvements inspection was never
   // run and the tab has nothing to show — and the headline number is a LAND
-  // score, not a condition score out of 1,000.
+  // valuation, not a building one.
   const landOnly = report.landOnly === true;
 
   const tabs = TAB_DEFS
@@ -1008,10 +1008,10 @@ export function RealReportView({
               <a href="/report/upload" className="text-xs mt-1.5 inline-block hover:underline" style={{ color: "var(--brand)" }}>Upload additional photos →</a>
             </div>
           )}
-          {tab === "overview" && <OverviewReal locked={locked} report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} dwellingValue={dwellingValue} />}
+          {tab === "overview" && <OverviewReal locked={locked} report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} propertyValue={propertyValue} dwellingValue={dwellingValue} />}
           {tab === "improvements" && (
             <div className="space-y-4">
-              <PropertyTab data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: scored.total }} region={[listing.city, listing.region].filter(Boolean).join(", ") || undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
+              <PropertyTab itemValues={new Map(improvementValuation.items.map((v) => [v.id, v]))} data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: 0 }} region={[listing.city, listing.region].filter(Boolean).join(", ") || undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
               {persona === "investor" && <HealthyHomesSection subItems={effectiveSubItems} buildYear={listing.buildYear} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} hhAssessed={report.context?.healthyHomes} />}
             </div>
           )}
@@ -1324,95 +1324,146 @@ function CategoryBars({ scored }: { scored: ScoreResult }) {
   );
 }
 
-// ── Condition & Quality Score breakdown (base − penalties + bonuses) ──────────
-function ScoreBreakdown({ scored, locked = false }: { scored: ScoreResult; locked?: boolean }) {
-  const penaltySum = scored.penalties.reduce((s, a) => s - a.points, 0); // points are negative
-  const bonusSum = scored.bonuses.reduce((s, a) => s + a.points, 0);
-  const penaltyCapped = penaltySum > scored.penaltyTotal;
-  const bonusCapped = bonusSum > scored.bonusTotal;
-  const hasAdj = scored.penalties.length > 0 || scored.bonuses.length > 0;
+// ── What the property is worth ───────────────────────────────────────────────
+//
+// This replaced the score out of 1,000 on 24 September 2026. The score was a
+// rubric — 1,000 points shared out across 48 items by weights somebody chose —
+// and it asked every reader to learn what 600 meant before it told them
+// anything. A dollar figure needs no key.
+//
+// It is NOT a simpler version of the score. It is a different claim, built the
+// way a valuer builds one: land plus a building depreciated by what is left of
+// its life. Everything under it is arithmetic a reader can disagree with line
+// by line, which a weighted rubric never was.
+function ValueSummary({
+  value,
+  improvements,
+  scored,
+  locked = false,
+}: {
+  value: PropertyValue | null;
+  improvements: ImprovementValueResult | null;
+  scored: ScoreResult;
+  locked?: boolean;
+}) {
+  // The old penalties and bonuses were score adjustments. With no score to
+  // adjust they are reported as what they always were underneath: objective
+  // facts about the site. A highway at the end of the garden is real and worth
+  // knowing; what it costs is a question only comparable sales can answer, and
+  // inventing a dollar figure for it would be the invented-staircase habit in
+  // a new place.
+  const facts = [...scored.penalties, ...scored.bonuses];
 
   return (
     <div className="card p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Condition &amp; Quality Score</div>
+          <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            What this property is worth
+          </div>
           <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>
-            The property itself, minus objective location negatives, plus on-site value-adds. Location desirability is shown as facts, never scored. Always out of 1000, so properties stay comparable — an extra dwelling adds value, not points.
-            {scored.unassessed.length > 0 && (
-              <>
-                {" "}
-                Scored on <strong style={{ color: "var(--text-secondary)" }}>what the photos actually show</strong> — items
-                nobody can see in a listing are left out rather than guessed at.
-              </>
-            )}
+            The land, plus the building valued component by component — each one&rsquo;s cost to
+            replace today, less the share of its life already used. Every figure below is built
+            from what the photographs actually showed; anything nobody could see is left out
+            rather than guessed at.
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <div className="text-3xl font-bold mono" style={{ color: "var(--text-primary)" }}>
-            {locked ? (
-              <BlurredValue label="Your score needs a paid plan">{scored.total}</BlurredValue>
-            ) : (
-              scored.total
-            )}
-            <span className="text-sm" style={{ color: "var(--text-muted)" }}>/1000</span>
-          </div>
+          {value ? (
+            <>
+              <div className="text-3xl font-bold mono" style={{ color: "var(--text-primary)" }}>
+                {locked ? (
+                  <BlurredValue label="The valuation needs a paid plan">{fmt(value.total)}</BlurredValue>
+                ) : (
+                  fmt(value.total)
+                )}
+              </div>
+              <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                {fmt(value.low)} – {fmt(value.high)}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm" style={{ color: "var(--text-muted)" }}>Not valued</div>
+          )}
         </div>
       </div>
 
-      <div className="mt-4 space-y-1.5 text-sm">
-        <div className="flex items-center justify-between">
-          <span style={{ color: "var(--text-secondary)" }}>Building &amp; land quality</span>
-          <span className="mono" style={{ color: "var(--text-primary)" }}>
-            {locked ? <BlurredValue amount={6} label="Your score needs a paid plan">{scored.base}</BlurredValue> : scored.base}
-          </span>
-        </div>
-
-        {scored.penalties.map((p) => (
-          <div key={p.id} className="flex items-start justify-between gap-3">
-            <span style={{ color: "var(--text-secondary)" }}>
-              {p.label}
-              {p.note && <span className="text-[11px] block" style={{ color: "var(--text-muted)" }}>{p.note}</span>}
+      {value && (
+        <div className="mt-4 space-y-1.5 text-sm">
+          <ValueLine label="Land" amount={value.landValue} locked={locked} />
+          <ValueLine label="Building, depreciated" amount={value.mainBuildingValue} locked={locked} />
+          {value.extraDwellingValue > 0 && (
+            <ValueLine label="Extra dwelling" amount={value.extraDwellingValue} locked={locked} />
+          )}
+          {improvements && improvements.shellValue > 0 && (
+            <div className="text-[11px] pl-1" style={{ color: "var(--text-muted)" }}>
+              Of the building, {fmt(improvements.shellValue)} is the structure and services —
+              framing, linings, wiring and plumbing — which nobody can photograph and which is
+              depreciated on the building&rsquo;s age.
+            </div>
+          )}
+          <div
+            className="flex items-center justify-between pt-2 mt-1"
+            style={{ borderTop: "1px solid var(--border)" }}
+          >
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Total</span>
+            <span className="mono font-bold" style={{ color: "var(--text-primary)" }}>
+              {locked ? (
+                <BlurredValue amount={6} label="The valuation needs a paid plan">{fmt(value.total)}</BlurredValue>
+              ) : (
+                fmt(value.total)
+              )}
             </span>
-            <span className="mono flex-shrink-0" style={{ color: "var(--bad)" }}>{p.points}</span>
           </div>
-        ))}
-        {penaltyCapped && (
-          <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>Location penalties capped at −{scored.penaltyTotal} (of −{penaltySum}).</div>
-        )}
-
-        {scored.bonuses.map((b) => (
-          <div key={b.id} className="flex items-center justify-between gap-3">
-            <span style={{ color: "var(--text-secondary)" }}>{b.label}</span>
-            <span className="mono flex-shrink-0" style={{ color: "var(--good)" }}>+{b.points}</span>
-          </div>
-        ))}
-
-        {/* What we could NOT see. Shown next to the score rather than buried,
-            because a score means one thing when everything was visible and
-            something else when the biggest item on the list wasn't. */}
-        {scored.unassessed.length > 0 && <NotAssessed scored={scored} />}
-        {bonusCapped && (
-          <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>On-site value-adds capped at +{scored.bonusTotal} (of +{bonusSum}).</div>
-        )}
-
-        {!hasAdj && (
-          <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>No location penalties or on-site value-adds applied — clear of highways, flight paths, rail and industry.</div>
-        )}
-
-        <div className="flex items-center justify-between pt-2 mt-1" style={{ borderTop: "1px solid var(--border)" }}>
-          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Total</span>
-          <span className="mono font-bold" style={{ color: "var(--text-primary)" }}>
-            {locked ? <BlurredValue amount={6} label="Your score needs a paid plan">{scored.total}</BlurredValue> : scored.total}
-          </span>
         </div>
-      </div>
+      )}
+
+      {/* Coverage. A valuation built on two thirds of a house is still a
+          valuation, but the reader is owed the fraction. */}
+      {scored.unassessed.length > 0 && (
+        <div className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
+          {scored.unassessed.length}{" "}
+          {scored.unassessed.length === 1 ? "thing" : "things"} couldn&rsquo;t be seen in the
+          photographs, so {scored.unassessed.length === 1 ? "it was" : "they were"} left out rather
+          than guessed at.
+        </div>
+      )}
+
+      {facts.length > 0 && (
+        <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="text-[11px] font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+            Worth knowing about the site
+          </div>
+          <ul className="space-y-0.5">
+            {facts.map((f, i) => (
+              <li key={i} className="text-[12px]" style={{ color: "var(--text-muted)" }}>
+                {f.label}
+              </li>
+            ))}
+          </ul>
+          <div className="text-[11px] mt-1.5" style={{ color: "var(--text-muted)" }}>
+            Stated as facts, not priced. What a flight path costs is a question only comparable
+            sales can answer.
+          </div>
+        </div>
+      )}
 
       {locked && (
         <div className="mt-4">
-          <UpgradeNote what="Your score out of 1,000" />
+          <UpgradeNote what="The valuation and how it was built" />
         </div>
       )}
+    </div>
+  );
+}
+
+function ValueLine({ label, amount, locked }: { label: string; amount: number; locked: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span style={{ color: "var(--text-secondary)" }}>{label}</span>
+      <span className="mono" style={{ color: "var(--text-primary)" }}>
+        {locked ? <BlurredValue amount={5} label="Needs a paid plan">{fmt(amount)}</BlurredValue> : fmt(amount)}
+      </span>
     </div>
   );
 }
@@ -1593,11 +1644,12 @@ function LocationFactCard({ subItems, ids, title }: { subItems: SubItem[]; ids: 
 }
 
 // ── Overview ─────────────────────────────────────────────────────────────────
-function OverviewReal({ locked, report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation, dwellingValue }: {
+function OverviewReal({ locked, report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation, propertyValue, dwellingValue }: {
   locked: boolean;
   report: StoredReport; subItems: SubItem[]; scored: ScoreResult; persona: Persona;
   renoLines: RenoLine[]; renoToggles: Record<string, RenoToggle>; askingPrice: number | null;
   improvementValuation: ImprovementValueResult;
+  propertyValue: PropertyValue | null;
   dwellingValue: ExtraDwellingValueResult;
 }) {
   const subs = subItems;
@@ -1624,13 +1676,19 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
 
   return (
     <div className="space-y-6">
-      {/* Condition & Quality Score — base − location penalties + on-site value-adds.
-          On land there is no condition to score, so the land + title assessment
-          is shown against its OWN total instead of a 1,000-point score that
-          would look comparable to a house's and isn't. */}
-      {landOnly
-        ? <LandScoreBreakdown scored={scored} locked={locked} />
-        : <ScoreBreakdown scored={scored} locked={locked} />}
+      {/* What the property is worth, and what it is built from. On bare land
+          there is no building to depreciate, so the land report keeps its own
+          summary rather than showing a building line that would read as zero. */}
+      {landOnly ? (
+        <LandScoreBreakdown scored={scored} locked={locked} />
+      ) : (
+        <ValueSummary
+          value={propertyValue}
+          improvements={improvementValuation}
+          scored={scored}
+          locked={locked}
+        />
+      )}
 
       {/* What the register says — title type and, where published, the rating
           valuation. Above the estimates, because it is the only part of the
