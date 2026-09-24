@@ -153,7 +153,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                     title={`Costs about $${Math.round(shown.rcn).toLocaleString("en-NZ")} to replace today; this one is worth $${Math.round(shown.now).toLocaleString("en-NZ")} after the share of its life already used.`}
                   >
                     <span className="font-bold mono" style={{ color }}>${Math.round(shown.now).toLocaleString("en-NZ")}</span>
-                    <span className="mono" style={{ color: "var(--text-muted)" }}> of ${Math.round(shown.rcn).toLocaleString("en-NZ")}</span>
                   </Chip>
                 ) : SIZE_ITEM_IDS.has(item.id) && item.estimatedSqm ? (
                   <Chip label="Size"><span className="font-medium" style={{ color: "var(--text-secondary)" }}>~{item.estimatedSqm} m²</span></Chip>
