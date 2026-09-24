@@ -1391,7 +1391,11 @@ rough-in and linings add back to the old all-in $1,100/m², and
 `componentAge()` in depreciation.ts takes the younger of the build year (moved
 by condition) and the age the condition alone implies. Aging every component to
 the house put every kitchen, bathroom and window in every pre-2000 house at $0,
-including renovated ones. A known replacement date beats both.
+including renovated ones. A known replacement date beats both. But only GOOD
+condition proves a replacement: the credit is zero at 4/10 and below (a worn
+item looks exactly like the original) and full from 7/10, phased in between as
+LIFE LEFT, not years. Blending years on an old house lands past the item's life
+and puts a fair kitchen back at $0.
 
 **`tsc --noEmit` does not catch a duplicate top-level symbol that SWC rejects.**
 A `function Line` beside recharts' imported `Line` type-checked clean and broke

@@ -83,8 +83,9 @@ export function effectiveAge(args: {
  * The condition shows it has been replaced since. Reading its age off the build
  * year put every kitchen, bathroom and window in every pre-2000 house at $0.
  *
- * So when the component's own date is unknown, there are two readings and we
- * take the younger:
+ * So when the component's own date is unknown, there are two readings, and the
+ * younger one is taken only as far as the condition PROVES a replacement
+ * (fully from 7/10 up, not at all from 4/10 down — see REPLACED_FROM):
  *   • the build year, moved by condition (the effectiveAge rule), which
  *     is right for anything that is plausibly original, and
  *   • the condition alone, read as a share of the component's life:
@@ -147,13 +148,45 @@ export function componentAge(args: {
   });
   if (fromCondition == null || fromCondition >= fromHouse.effectiveYears) return fromHouse;
 
+  // Only GOOD condition proves a replacement. A 9/10 kitchen in a 1975 house
+  // can't be the 1975 kitchen; a 4/10 roof with rust through the flashing
+  // looks exactly like the original, so crediting it as a newer replacement
+  // flattered the one item a buyer is about to pay for. The credit phases in
+  // between REPLACED_FROM and REPLACED_BY rather than switching at one score,
+  // so a 5 and a 6 don't land thousands of dollars apart.
+  const s = Math.max(1, Math.min(10, score as number));
+  const credit = Math.max(0, Math.min(1, (s - REPLACED_FROM) / (REPLACED_BY - REPLACED_FROM)));
+  if (credit === 0) {
+    return {
+      ...fromHouse,
+      basis: `${fromHouse.basis} At ${s}/10 it looks as worn as an original would, so nothing suggests it has been replaced and it is aged with the house.`,
+    };
+  }
+  // Blended as LIFE LEFT, not as years. On an old house the house reading is
+  // decades past the component's life, so averaging the years lands past it
+  // too and a fair kitchen went back to $0. Blending the share of life left
+  // moves the value evenly from one reading to the other.
+  const life = args.expectedLifeYears;
+  const leftHouse = Math.max(0, Math.min(1, 1 - fromHouse.effectiveYears / life));
+  const leftCond = Math.max(0, Math.min(1, 1 - fromCondition / life));
+  const left = leftHouse + credit * (leftCond - leftHouse);
+  const effective = Math.round(life * (1 - left) * 10) / 10;
+
   const seen = fromHouse.basis.match(/ Seen: .*$/)?.[0] ?? "";
   return {
     chronologicalYears: fromHouse.chronologicalYears,
-    effectiveYears: fromCondition,
-    basis: `The house is about ${fromHouse.chronologicalYears} years old, but a ${noun} in this condition (${score}/10) has not been there that long, so it has been replaced since. With no date for that, its age is read from its condition: about ${fromCondition} of a ${args.expectedLifeYears}-year life used.${seen}`,
+    effectiveYears: effective,
+    basis:
+      credit === 1
+        ? `The house is about ${fromHouse.chronologicalYears} years old, but a ${noun} in this condition (${s}/10) has not been there that long, so it has been replaced since. With no date for that, its age is read from its condition: about ${effective} of a ${args.expectedLifeYears}-year life used.${seen}`
+        : `The house is about ${fromHouse.chronologicalYears} years old. At ${s}/10 this ${noun} may have been replaced since, but its condition doesn't prove it, so it is aged part-way between the house (${fromHouse.effectiveYears} years) and its condition (${fromCondition}): about ${effective} years.${seen}`,
   };
 }
+
+/** At or below this condition, nothing suggests a component was replaced. */
+export const REPLACED_FROM = 4;
+/** At or above this, the condition alone proves it was. */
+export const REPLACED_BY = 7;
 
 /**
  * Share of an item's value still there, 0–1.

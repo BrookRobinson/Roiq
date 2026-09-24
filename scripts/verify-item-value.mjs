@@ -50,8 +50,17 @@ check("one at the end of its life holds none", shot.remainingFraction, 0);
 // presents as fair in a 1975 house has been replaced since — aging it to the
 // house put every kitchen in every pre-2000 house at $0.
 const fair75 = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, conditionScore: 6 });
-check("a fair kitchen in a 1975 house is not aged to the house", fair75.remainingFraction > 0.4, true);
+check("a fair kitchen in a 1975 house is not aged to the house", fair75.remainingFraction > 0.3, true);
 check("…and the card says why", /replaced since/.test(fair75.age.basis), true);
+// Only GOOD condition proves a replacement. A poor one looks like the original.
+const good75 = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, conditionScore: 8 });
+check("a good kitchen in a 1975 house is credited as replaced", /has been replaced since/.test(good75.age.basis), true);
+const poor75 = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, conditionScore: 4 });
+check("a poor one is aged with the house", poor75.remainingFraction, 0);
+check("…and says nothing suggests it was replaced", /aged with the house/.test(poor75.age.basis), true);
+const steps = [4, 4.5, 5, 5.5, 6, 6.5, 7].map((c) => valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, conditionScore: c }).remainingFraction);
+check("the credit phases in without a jump",
+  steps.every((v, i) => i === 0 || (v >= steps[i - 1] && v - steps[i - 1] < 0.2)), true);
 const tired75 = valueItem({ ...base, id: "kit_cabinetry", buildYear: 1975, conditionScore: 3 });
 check("a tired one holds less than a fair one", tired75.remainingFraction < fair75.remainingFraction, true);
 // A new house's components are never aged past the house.
@@ -144,6 +153,7 @@ check("inside the hold it names the year and the cost",
   sum({ yearsRemaining: 4 }), "Needs replacing in about 4 years (around 2030), inside your 10-year hold — about $12,000 to replace today.");
 check("beyond the hold it says so and skips the cost", /beyond your 10-year hold\.$/.test(sum({ yearsRemaining: 18 })), true);
 check("overdue says by how much", /^Replacement is overdue by about 3 years/.test(sum({ yearsRemaining: -3 })), true);
+check("long overdue just says now", /^Well past the end of its life, so budget to replace it now/.test(sum({ yearsRemaining: -37 })), true);
 check("a defect on a poor item is work now",
   /Needs attention now: rust at the laps\./.test(sum({ yearsRemaining: 2, score: 3, defect: "Rust at the laps. More text." })), true);
 check("no more than two sentences",

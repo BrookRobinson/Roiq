@@ -53,6 +53,10 @@ export function itemSummary(i: SummaryInput): string {
       i.score <= 4 ? "Needs work now."
       : i.score <= 7 ? "Serviceable for now, but it will need work within the next several years."
       : "In good order, with no work expected soon.";
+  } else if (i.yearsRemaining < -10) {
+    // "Overdue by 37 years" is arithmetic, not advice. Past a decade the
+    // number stops meaning anything to a buyer; the message is: now.
+    when = `Well past the end of its life, so budget to replace it now${cost}.`;
   } else if (i.yearsRemaining < 0) {
     when = `Replacement is overdue by about ${years(Math.round(-i.yearsRemaining))}${cost}.`;
   } else if (i.yearsRemaining < 1) {
