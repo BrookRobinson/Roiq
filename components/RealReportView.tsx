@@ -538,7 +538,7 @@ export function RealReportView({
         // lib/scoring/measured-site.ts, which the map pin uses too. On 156
         // Buchanans Road the analysis read a south-west aspect off an aerial
         // with no compass; the section faces north.
-        if (s.id === "land_aspect" || s.id === "land_shape" || s.id === "land_frontage") {
+        if (s.id === "land_aspect" || s.id === "land_shape" || s.id === "land_frontage" || s.id === "land_topography") {
           s = withMeasuredSite(s, siteLayout);
         }
         // Section size is scored objectively vs a typical lot, not the AI's guess.

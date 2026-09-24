@@ -39,6 +39,7 @@ export async function GET(req: Request) {
       roadParcels: record.site.roadParcels,
       neighbourParcels: record.site.neighbourParcels,
       surveyAccurate: record.site.surveyAccurate,
+      heights: record.site.heights,
     });
 
     return NextResponse.json(

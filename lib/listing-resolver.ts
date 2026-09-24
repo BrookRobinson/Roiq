@@ -205,6 +205,7 @@ async function enrichFromLinz(listing: ScrapedListing): Promise<ScrapedListing> 
       roadParcels: record.site.roadParcels,
       neighbourParcels: record.site.neighbourParcels,
       surveyAccurate: record.site.surveyAccurate,
+      heights: record.site.heights,
     });
     // The surveyed parcel area beats a scraped one, the same way the title's does.
     if (listing.landAreaSqm == null && record.site.parcelAreaSqm) {

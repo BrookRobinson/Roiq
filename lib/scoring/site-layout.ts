@@ -31,6 +31,7 @@
 // ============================================================
 
 import { measureSite, type SiteMeasure } from "./site-shape.ts";
+import { measureTerrain, type HeightGrid, type Terrain } from "./site-slope.ts";
 
 /** The eight compass points the land model scores an aspect on. */
 export type AspectDirection =
@@ -87,6 +88,8 @@ export interface SiteInput {
   neighbourParcels?: Ring[] | null;
   /** False for LINZ's older digitised boundaries — measured facts get a lower confidence. */
   surveyAccurate?: boolean;
+  /** Ground heights across the section, for measuring its slope. */
+  heights?: HeightGrid | null;
 }
 
 export interface SiteLayout {
@@ -152,7 +155,7 @@ export interface SiteLayout {
    * land — see site-shape.ts. `frontage` is null when road land wasn't fetched.
    * Optional because layouts stored before this was measured don't carry it.
    */
-  measured?: (SiteMeasure & { surveyAccurate: boolean }) | null;
+  measured?: (SiteMeasure & { surveyAccurate: boolean; terrain?: Terrain | null }) | null;
   /** The margins this assumed, so the report can state rather than imply them. */
   assumed: { boundarySetback: number; buildingGap: number; unit: { width: number; length: number } };
   /**
@@ -503,7 +506,9 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
     aspect,
     measured: (() => {
       const m = measureSite(parcel, input.roadParcels ?? null, input.neighbourParcels ?? null);
-      return m ? { ...m, surveyAccurate: input.surveyAccurate !== false } : null;
+      return m
+        ? { ...m, surveyAccurate: input.surveyAccurate !== false, terrain: input.heights ? measureTerrain(input.heights) : null }
+        : null;
     })(),
     assumed,
     plan: {

@@ -33,6 +33,7 @@ npm run verify:valuation-method # which method fits which property — tenure de
 npm run verify:cross-lease   # what a shared title costs, and the band it may never leave
 npm run verify:land-value    # the section vs a typical one: shape, slope, orientation, access
 npm run verify:site-shape    # workable %, shape and frontage measured off the LINZ boundary
+npm run verify:terrain       # slope and usable % from the LINZ elevation model
 npm run verify:development   # the dwelling-you-could-add figure, and what the title says about it
 npm run verify:structures    # what you could build, what it costs, and where the rules let you drag it
 npm run verify:regions       # which region a listing resolves to, and what its labour costs
@@ -1404,6 +1405,14 @@ it are the neighbours touching it WITHOUT their own frontage. `withMeasuredSite(
 applies it for the report AND the map. Older "DCDB" boundaries are medium
 confidence and say so. The catalog's land sources are the UNMEASURED defaults and
 must never claim LINZ; the measured helper replaces them.
+
+**Topography is MEASURED from the LINZ elevation model** — Basemaps
+"terrain-rgb" tiles (height = −10000 + (R·65536+G·256+B)·0.1 m), same key as the
+aerials, PNG decoded with node:zlib (lib/linz/elevation.ts). Heights come in
+0.1 m steps, so slope is a least-squares PLANE over a 2.5 m radius, never a
+neighbour difference (that is mostly rounding). Usable = no steeper than 1:10;
+bands match land-quality.ts. Under 80% coverage → null, and the analysis's read
+stands, labelled as a read.
 
 **Land starts from a TYPICAL section, not a perfect one.** valueLand's rate comes
 from ordinary sales of ordinary sections, so `adjustLand()` (land-value.ts)

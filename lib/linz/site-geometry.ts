@@ -31,6 +31,8 @@
 // ============================================================
 
 import type { Pt, Ring } from "@/lib/scoring/site-layout";
+import type { HeightGrid } from "@/lib/scoring/site-slope";
+import { fetchHeightGrid } from "./elevation";
 
 const PARCELS_LAYER = "layer-50772";
 const BUILDINGS_LAYER = "layer-101290";
@@ -92,6 +94,8 @@ export interface SiteGeometry {
    * measured off them is reported at a lower confidence.
    */
   surveyAccurate: boolean;
+  /** Ground heights across the section from the LINZ elevation model; null if it couldn't be read. */
+  heights: HeightGrid | null;
 }
 
 type Feature = {
@@ -248,6 +252,14 @@ export async function lookupSiteGeometry(
     }
   }
 
+  // Ground height across the section. Fetched alongside rather than after —
+  // it only needs the boundary — and a failure leaves topography to the
+  // analysis's read rather than failing the whole site.
+  const heights = await fetchHeightGrid(
+    { lat: lat0, lng: lon0, mPerDegLat: M_PER_DEG_LAT, mPerDegLon: mPerLon },
+    parcel
+  ).catch(() => null);
+
   const props = parcelFeature?.properties ?? {};
   return {
     anchor: { lat: lat0, lng: lon0, mPerDegLat: M_PER_DEG_LAT, mPerDegLon: mPerLon },
@@ -260,5 +272,6 @@ export async function lookupSiteGeometry(
     roadParcels,
     neighbourParcels,
     surveyAccurate: props.parcel_intent !== "DCDB",
+    heights,
   };
 }

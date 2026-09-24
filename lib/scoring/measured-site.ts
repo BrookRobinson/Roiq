@@ -11,6 +11,9 @@
 
 import type { SubItem } from "@/lib/property-tab/types";
 import type { SiteLayout } from "./site-layout";
+import { asRatio } from "./site-slope";
+
+const BAND_LABEL: Record<string, string> = { flat: "Flat", gentle: "Gentle slope", moderate: "Moderate slope", steep: "Steep" };
 
 const SHAPE_LABEL: Record<string, string> = {
   rectangular: "Rectangular",
@@ -53,6 +56,18 @@ export function withMeasuredSite(s: SubItem, layout: SiteLayout | null | undefin
   // be a metre or more out, which matters on a narrow access leg — say so.
   const tier = (m.surveyAccurate ? 1 : 2) as SubItem["confidenceTier"];
   const boundary = m.surveyAccurate ? "LINZ parcel boundary (surveyed)" : "LINZ parcel boundary (older digitised record, can be a metre or more out)";
+
+  if (s.id === "land_topography" && m.terrain) {
+    const t = m.terrain;
+    return {
+      ...s,
+      slopeBand: t.slopeBand as SubItem["slopeBand"],
+      usableLandPct: t.usablePct,
+      confidenceTier: 1 as SubItem["confidenceTier"],
+      evidenceSource: "LINZ national elevation model (LiDAR where flown)",
+      finding: `${BAND_LABEL[t.slopeBand]} — ${asRatio(t.medianGradientPct)} on average, ${t.usablePct}% no steeper than 1:10, ${t.fallM} m fall across the section`,
+    };
+  }
 
   if (s.id === "land_shape") {
     return {
