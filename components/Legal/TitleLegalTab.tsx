@@ -20,6 +20,7 @@ import type { DocAnalysis } from "@/lib/report-store";
 import type { TitleEncumbrances, Encumbrance } from "@/lib/linz/encumbrances";
 import { ITEM_BY_ID, VERIFIED_DOC_ITEMS } from "@/lib/scoring/catalog";
 import { DocUpload } from "@/components/PropertyInspections/DocUpload";
+import { legalItemApplies } from "@/lib/scoring/applies";
 import { ArrowRight, Check, FileText } from "lucide-react";
 
 const TITLE_ITEMS = ["leg_title", "leg_easements", "leg_encumbrances"];
@@ -86,6 +87,9 @@ const DOC_ABOUT: Record<string, { name: string; answers: string }> = {
 export function TitleLegalTab({
   subItems,
   buildYear,
+  region,
+  city,
+  statedBodyCorporate,
   titleType,
   encumbrances,
   burdens = [],
@@ -95,6 +99,10 @@ export function TitleLegalTab({
 }: {
   subItems: SubItem[];
   buildYear?: number | null;
+  /** For whether EQC and a body corporate apply at all. */
+  region?: string | null;
+  city?: string | null;
+  statedBodyCorporate?: boolean;
   titleType?: string | null;
   encumbrances?: TitleEncumbrances | null;
   /** Surveyed easement / covenant areas drawn on the section. */
@@ -103,7 +111,9 @@ export function TitleLegalTab({
   onVerified?: (itemId: string, doc: DocAnalysis) => void;
   onSeeRenovations: () => void;
 }) {
-  const legal = subItems.filter((s) => ITEM_BY_ID[s.id]?.inspection === "legal");
+  const applies = (id: string) => legalItemApplies(id, { titleType, statedBodyCorporate, region, city });
+  const legal = subItems.filter((s) => ITEM_BY_ID[s.id]?.inspection === "legal" && applies(s.id));
+  const docs = VERIFIED_DOC_ITEMS.filter((id) => applies(id));
   const byId = (id: string) => legal.find((s) => s.id === id);
   const risks = legal.filter(
     (s) =>
@@ -113,7 +123,7 @@ export function TitleLegalTab({
   );
   const title = byId("leg_title");
   const registerRead = !!encumbrances && encumbrances.memorialsFound > 0;
-  const docsHeld = VERIFIED_DOC_ITEMS.filter((id) => verifiedDocs[id]).length;
+  const docsHeld = docs.filter((id) => verifiedDocs[id]).length;
   const firstEasement = registerRead ? encumbrances!.live.findIndex((e) => e.kind === "easement") : -1;
 
   return (
@@ -216,9 +226,9 @@ export function TitleLegalTab({
       <Group
         n={3}
         title="Documents you can add"
-        sub={`${docsHeld} of ${VERIFIED_DOC_ITEMS.length} added. Councils and EQC don't publish these as data, so we can only read them if you add them — anything they turn up goes into the groups above.`}
+        sub={`${docsHeld} of ${docs.length} added. ${(docs as readonly string[]).includes("leg_eqc") ? "Councils and EQC don't" : "Councils don't"} publish these as data, so we can only read them if you add them — anything they turn up goes into the groups above.`}
       >
-        {VERIFIED_DOC_ITEMS.map((id) => {
+        {docs.map((id) => {
           const doc = verifiedDocs[id];
           const about = DOC_ABOUT[id];
           return (

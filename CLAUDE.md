@@ -26,6 +26,7 @@ npm run verify:floor-area    # advertised floor area vs the rating roll, and wha
 npm run verify:foundation    # foundation scoring from type, era and visible movement
 npm run verify:viewing       # when the report may say a person stood in the house, and what it may claim
 npm run verify:title         # title scored from tenure, and the warnings a buyer must not miss
+npm run verify:applies       # when EQC and a body corporate apply at all
 npm run verify:map-valuation # when the map may show a valuation, and what it must say when it can't
 npm run verify:estimated-value # valuing what the photos couldn't show, without inventing it
 npm run verify:healthy-homes # the five legal standards, and when we may not claim compliance
@@ -1444,6 +1445,15 @@ easement area is folded into its instrument, not listed twice; (2) RISKS TO
 CHECK — Low / Check / Problem, and a Tier 3 read is capped at Check (a "may be"
 is never a Problem); (3) DOCUMENTS YOU CAN ADD — LIM, consents, EQC in one panel.
 The Land tab keeps the land value and add-a-structure.
+
+**An item that can't apply isn't shown, anywhere.** `legalItemApplies()`
+(lib/scoring/applies.ts): a body corporate needs a unit title, or a cross
+lease / unknown title where something STATES one; never freehold. It used to
+"apply" whenever the model returned the item (`has("leg_bodycorp")` in
+analyze.ts), which is circular. EQC claim history applies only in regions with a
+major claims event (Canterbury, Wellington, Marlborough, Hawke's Bay, Gisborne,
+Auckland, Nelson/Tasman, Buller). Same rule on the Title & legal tab and the
+viewing checklist.
 
 **Land starts from a TYPICAL section, not a perfect one.** valueLand's rate comes
 from ordinary sales of ordinary sections, so `adjustLand()` (land-value.ts)

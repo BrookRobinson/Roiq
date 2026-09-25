@@ -438,7 +438,9 @@ function buildContext(raw: RawAnalysis, listing: ScrapedListing, subItems: SubIt
     hasSolar: Boolean(rc.has_solar) || has("ext_solar"),
     hasRetainingWalls: Boolean(rc.has_retaining_walls) || has("out_retaining"),
     hasPool: Boolean(rc.has_pool) || has("out_pool"),
-    hasBodyCorporate: Boolean(rc.has_body_corporate) || has("leg_bodycorp") || titleType === "unit_title",
+    // NOT `has("leg_bodycorp")`: the model returning the item is not evidence
+    // there is a body corporate, and that circle put one on freehold houses.
+    hasBodyCorporate: Boolean(rc.has_body_corporate) || titleType === "unit_title",
     // Only carried on a cross lease, and only for the fields the model actually
     // answered. `normSharing` drops anything non-boolean rather than coercing
     // it — an absent observation must stay absent all the way to the discount.

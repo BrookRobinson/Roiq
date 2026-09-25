@@ -21,6 +21,7 @@
 // we could have fetched ourselves.
 // ============================================================
 
+import { legalItemApplies } from "@/lib/scoring/applies";
 import { ITEM_BY_ID, isVerifiedDocItem } from "@/lib/scoring/catalog";
 import { CHECK_GUIDE, type CheckGuide } from "./how-to-check";
 
@@ -183,6 +184,17 @@ export function buildViewingChecklist(
   for (const s of subItems) {
     // Nothing that describes a building belongs on a bare section's list.
     if (landOnly && DWELLING_ONLY_ITEMS.has(s.id)) continue;
+    // Nor anything that can't apply here: a body corporate on a freehold
+    // title, an EQC claim history where there has been no claims event.
+    if (
+      !legalItemApplies(s.id, {
+        titleType: tt,
+        statedBodyCorporate: report.context?.hasBodyCorporate,
+        region: report.listing?.region,
+        city: report.listing?.city,
+      })
+    )
+      continue;
 
     // Location is never on this list. Suburb growth, demand and market trend are
     // desk research; putting "Suburb growth trend & demand" on a list of things
