@@ -600,7 +600,7 @@ an error path; it is the feature working.
 **The paperwork lines take their document inline too**, for the same reason: the
 buyer is at an open home holding the LIM the agent just handed them, and sending
 them to another tab to use it is how a checklist stops getting finished. The
-full reading still lands on the Land tab; the checklist line simply disappears,
+full reading lands on the Title & legal tab; the checklist line simply disappears,
 because the report now has the document.
 
 `DocUpload` must SHOW a `docTypeConfirmed: false`, never store it. It used to
@@ -1433,6 +1433,17 @@ face twice. Subject and typical neighbours go through ONE tracer at ONE zoom:
 reading neighbours coarser averaged their trees down and made every section
 look shadier than its street. Lookups use a linear metre→pixel map
 (`inFrame`); per-lookup projection was most of the time.
+
+**Title & legal is its own tab, in three groups, with no scores.** It was ten
+cards in one worst-first list on the Land tab with marks out of ten ("Easements
+7/10", "Moderate — verify"), mixing register facts, inferred risks and missing
+documents. `components/Legal/TitleLegalTab.tsx`: (1) WHAT THE TITLE SAYS — the
+live register instruments, each named in a buyer's words ("Easement", not LINZ's
+"Easement Instrument") with what it means and its instrument number; a surveyed
+easement area is folded into its instrument, not listed twice; (2) RISKS TO
+CHECK — Low / Check / Problem, and a Tier 3 read is capped at Check (a "may be"
+is never a Problem); (3) DOCUMENTS YOU CAN ADD — LIM, consents, EQC in one panel.
+The Land tab keeps the land value and add-a-structure.
 
 **Land starts from a TYPICAL section, not a perfect one.** valueLand's rate comes
 from ordinary sales of ordinary sections, so `adjustLand()` (land-value.ts)
