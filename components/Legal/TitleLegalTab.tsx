@@ -91,6 +91,7 @@ export function TitleLegalTab({
   city,
   statedBodyCorporate,
   unconsentedSignal,
+  knownUnconsented = false,
   titleType,
   encumbrances,
   burdens = [],
@@ -106,6 +107,8 @@ export function TitleLegalTab({
   statedBodyCorporate?: boolean;
   /** Another structure found, or a floor-area gap — see lib/scoring/applies.ts. */
   unconsentedSignal?: boolean;
+  /** A structure the listing or a document says is unconsented. Without one, consent is assumed. */
+  knownUnconsented?: boolean;
   titleType?: string | null;
   encumbrances?: TitleEncumbrances | null;
   /** Surveyed easement / covenant areas drawn on the section. */
@@ -128,6 +131,13 @@ export function TitleLegalTab({
   const title = byId("leg_title");
   const registerRead = !!encumbrances && encumbrances.memorialsFound > 0;
   const docsHeld = docs.filter((id) => verifiedDocs[id]).length;
+  // Consent can't be looked up, so it is ASSUMED unless something says
+  // otherwise: the risk stays as a Check with a request to confirm it, never a
+  // Problem and never a Certificate of Acceptance priced against a guess.
+  const assumedConsented = (s: SubItem) =>
+    s.id === "leg_unconsented" && !knownUnconsented && s.confidenceTier !== 1;
+  const riskStatus = (s: SubItem): Status =>
+    assumedConsented(s) ? "check" : statusOf(s.score, s.confidenceTier);
   const firstEasement = registerRead ? encumbrances!.live.findIndex((e) => e.kind === "easement") : -1;
 
   return (
@@ -190,9 +200,10 @@ export function TitleLegalTab({
           </div>
         )}
         {[...risks]
-          .sort((a, b) => order(statusOf(a.score, a.confidenceTier)) - order(statusOf(b.score, b.confidenceTier)))
+          .sort((a, b) => order(riskStatus(a)) - order(riskStatus(b)))
           .map((s) => {
-            const st = STATUS[statusOf(s.score, s.confidenceTier)];
+            const st = STATUS[riskStatus(s)];
+            const assumed = assumedConsented(s);
             return (
               <div key={s.id} className="flex items-start gap-3">
                 <span
@@ -212,7 +223,13 @@ export function TitleLegalTab({
                   <div className="text-[12px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
                     {lead(s.aiSummary)}
                   </div>
-                  {s.remediation && (
+                  {assumed && (
+                    <div className="text-[12px] mt-1 font-medium" style={{ color: "var(--warn)" }}>
+                      We&apos;ve assumed it was consented. Please check this: council consent records aren&apos;t
+                      public, so the LIM or the council property file is where to confirm it.
+                    </div>
+                  )}
+                  {s.remediation && !assumed && (
                     <button
                       onClick={onSeeRenovations}
                       className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium"

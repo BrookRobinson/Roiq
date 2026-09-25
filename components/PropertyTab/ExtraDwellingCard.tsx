@@ -3,6 +3,7 @@
 import { AlertTriangle, Camera, BedDouble, Shield, Wrench, ArrowRight } from "lucide-react";
 import type { ExtraDwelling, DwellingHHStandard, DwellingHHStatus, RenoControls } from "@/lib/property-tab/types";
 import type { DwellingValue } from "@/lib/scoring/extra-dwelling-value";
+import { isPool } from "@/lib/scoring/structures";
 import { ConditionScore } from "./ConditionScore";
 
 const HH_LABEL: Record<DwellingHHStandard, string> = {
@@ -32,9 +33,15 @@ export function ExtraDwellingCard({ dwelling, noPhotos, value, renoControls, onO
   const consentColors = {
     consented:   { bg: "var(--good-wash)",  text: "var(--good)",  label: "Consented" },
     unconsented: { bg: "var(--bad-wash)",   text: "var(--bad)",  label: "Unconsented — verify" },
-    unknown:     { bg: "var(--warn-wash)",  text: "var(--warn)",  label: "Consent unknown — LIM check required" },
+    // Consent can't be looked up, so it is assumed — and the reader is asked to check.
+    unknown:     { bg: "var(--warn-wash)",  text: "var(--warn)",  label: "Assumed consented — please check this. Council consent records aren't public, so the LIM or the council property file is where to confirm it." },
   };
-  const consent = consentColors[dwelling.consentStatus];
+  // On a pool the status is the safety FENCE, not a building consent, and an
+  // unconfirmed fence is still costed — so it must not read "assumed consented".
+  const consent =
+    isPool(dwelling.structureType) && dwelling.consentStatus === "unknown"
+      ? { ...consentColors.unknown, label: "Pool fence compliance can't be confirmed from the photos — check it at the viewing. A compliant fence is a legal requirement." }
+      : consentColors[dwelling.consentStatus];
   const mid = (dwelling.estimatedReplacementCost.low + dwelling.estimatedReplacementCost.high) / 2;
 
   return (
@@ -50,7 +57,7 @@ export function ExtraDwellingCard({ dwelling, noPhotos, value, renoControls, onO
         className="flex items-center gap-2 px-5 py-2.5 text-xs font-semibold"
         style={{ background: consent.bg, color: consent.text }}
       >
-        <AlertTriangle size={13} />
+        <AlertTriangle size={13} className="flex-shrink-0" />
         {consent.label}
       </div>
 

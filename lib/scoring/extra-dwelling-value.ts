@@ -11,8 +11,14 @@
 //   added value       = depreciated value − cost to make it compliant
 //
 // Condition is assessed the same way the house is; the compliance deduction is
-// the real cost of getting it consented + up to Healthy Homes (see
+// the real cost of getting it up to Healthy Homes, plus a Certificate of
+// Acceptance ONLY when something says it is unconsented (see
 // dwellingComplianceWork), because that's what a buyer would knock off.
+//
+// Consent is ASSUMED, not deducted. No public record says whether a structure
+// was consented — councils don't publish consents as data — so charging every
+// sleepout a Certificate of Acceptance priced a problem nobody had found. The
+// card says it was assumed and asks the reader to check the LIM.
 // ============================================================
 
 import type { ExtraDwelling } from "@/lib/property-tab/types";
@@ -35,7 +41,7 @@ export interface DwellingComplianceWork {
   scope: string[]; // what the work covers
 }
 
-/** Cost of getting a habitable extra dwelling consented + up to Healthy Homes. */
+/** Cost of getting a habitable extra dwelling up to Healthy Homes (+ consent, only if known unconsented). */
 export function dwellingComplianceWork(d: ExtraDwelling): DwellingComplianceWork {
   const scope: string[] = [];
   let low = 0;
@@ -53,7 +59,7 @@ export function dwellingComplianceWork(d: ExtraDwelling): DwellingComplianceWork
 
   if (!d.habitable) return { needed: false, low: 0, high: 0, scope };
 
-  if (d.consentStatus !== "consented") {
+  if (d.consentStatus === "unconsented") {
     low += 4000;
     high += 12000;
     scope.push("Certificate of Acceptance / consent regularisation");

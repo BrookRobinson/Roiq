@@ -1150,6 +1150,7 @@ export function RealReportView({
                     rollEffectiveDate: listing.linz?.valuation?.effectiveDate ?? null,
                   }).status === "listing_larger",
               })}
+              knownUnconsented={(report.extraDwellings ?? []).some((d) => d.consentStatus === "unconsented")}
               titleType={listing.titleType}
               encumbrances={report.listing.encumbrances ?? null}
               burdens={siteLayout?.plan.burdens.map((b) => ({ kind: b.kind, appellation: b.appellation })) ?? []}
@@ -2160,7 +2161,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
     if (!work.needed) continue;
     lines.push({
       key: `${d.id}_compliance`,
-      name: `${d.type} — consent & compliance`,
+      name: d.consentStatus === "unconsented" ? `${d.type} — consent & compliance` : `${d.type} — compliance`,
       detail: `Make it legally rentable: ${work.scope.join(", ")}`,
       badge: "Extra dwelling",
       low: work.low,
@@ -2173,7 +2174,9 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
       autoInclude: false,
       // Paperwork, not a visible defect: the WHY is the missing paperwork, the
       // WORK is the scope — the generic costing text would say "full replacement".
-      observedDefect: `Consent and compliance status for this structure isn't confirmed, so it can't be legally rented as it stands.`,
+      observedDefect: d.consentStatus === "unconsented"
+        ? `This structure is recorded as unconsented, so it can't be legally rented as it stands.`
+        : `It doesn't meet every standard a rented dwelling must, so it can't be legally rented as it stands.`,
       scopeHint: work.scope.join(", "),
       legal: true,
       nonExisting: true,

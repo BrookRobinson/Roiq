@@ -1458,6 +1458,15 @@ it: a second dwelling or structure, the advertised floor area materially over
 the rating record, or the analysis flagging it on a real (not Tier 3) read or
 with a fix attached. "Nothing suggests a problem" is not a risk to check.
 
+**An extra structure's consent is ASSUMED, and the reader is asked to check.**
+Nothing public says whether a sleepout was consented, so charging every one a
+Certificate of Acceptance priced a problem nobody had found. The CoA is costed
+only when `consentStatus === "unconsented"` (the listing or a document says so);
+`unknown` reads "Assumed consented — please check this" on the structure card
+and as a Check (never a Problem, no cost) on Title & legal. Never write "no
+consent on record" — we have no record to consult. A POOL's status is its safety
+fence, not a consent: an unconfirmed fence is still costed and says so.
+
 **Land starts from a TYPICAL section, not a perfect one.** valueLand's rate comes
 from ordinary sales of ordinary sections, so `adjustLand()` (land-value.ts)
 measures each fact from typical: an average section lands on the base, a better

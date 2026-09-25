@@ -38,7 +38,7 @@ const SCORES: Record<string, number> = {
   // Land (v4 — flood, liquefaction, coastal, soil, fault, wind erased)
   land_size: 7, land_topography: 8, land_aspect: 9, land_shape: 9, land_frontage: 9,
   // Legal (unconsented rear studio flagged — drives the remediation example)
-  leg_title: 10, leg_weathertight: 8, leg_unconsented: 4, leg_consents: 7, leg_eqc: 9,
+  leg_title: 10, leg_weathertight: 8, leg_unconsented: 6, leg_consents: 7, leg_eqc: 9,
   leg_easements: 7, leg_lim: 7, leg_encumbrances: 9,
 };
 
@@ -196,19 +196,11 @@ const FINDINGS: Record<string, string> = {
   land_topography: "Gentle cross-slope to the rear — most of the section is usable",
   leg_title: "Freehold — no encumbrances",
   leg_weathertight: "Low risk — 1975 weatherboard, pre-leaky era",
-  leg_unconsented: "Flagged: rear studio may be unconsented",
+  leg_unconsented: "Rear studio — assumed consented, please check",
 };
 
 // Remediable findings → cost + Renovations line item (Section 8).
 const REMEDIATIONS: Record<string, Remediation> = {
-  leg_unconsented: {
-    description: "Certificate of Acceptance for the rear studio",
-    low: 4000,
-    mid: 6500,
-    high: 9000,
-    urgencyYears: 2,
-    renovationLineItem: "Certificate of Acceptance — rear studio",
-  },
 };
 
 const bandFinding = (score: number) =>
@@ -325,7 +317,7 @@ const SUMMARIES: Record<string, string> = {
   leg_weathertight:
     "Built c.1975 in weatherboard — predates the 1994–2004 leaky-building era and uses a forgiving cladding system, so weathertightness risk is low. Still confirm any later monolithic-clad additions.",
   leg_unconsented:
-    "Source: the photo set — the rear studio in photo 12 has the look of a later addition. We can't tell you whether it was consented: councils don't publish consent records as data we can query, so nothing here has been checked against a council file. Unconsented work is a material legal risk: it can complicate finance and insurance, and a future buyer's lawyer will require it resolved. The usual remedy is a Certificate of Acceptance from the council, which involves an inspection and a fee — we've added an estimated $4,000–$9,000 to the Renovations tab. A LIM or the council property file is the only thing that settles it, and it is worth having before you go unconditional — if the work is structurally non-compliant, remediation could cost materially more.",
+    "Source: the photo set. The rear studio in photo 12 has the look of a later addition, and nothing here has been checked against a council file. The LIM or the council property file settles it, and it is worth having before you go unconditional. If it turns out to be unconsented, the usual remedy is a Certificate of Acceptance from the council, which involves an inspection and a fee; unconsented work can complicate finance and insurance, and a future buyer's lawyer will require it resolved.",
 };
 
 const COSTS: Record<string, { low: number; high: number; notes: string }> = {
@@ -436,7 +428,6 @@ const EXTRA_DWELLINGS: ExtraDwelling[] = [
     aiSummary:
       "A separate ~45m² weatherboard studio sits at the rear (Photo 12) — lined, powered, with its own entry and windows to two elevations. Externally it presents as a self-contained sleepout. We cannot see inside: the interior fit-out, any kitchen or bathroom, insulation and the state of the services are all unverified from the listing photos.",
     redFlags: [
-      "Sleeping space with no consent on record — it can't legally be rented until that's confirmed or regularised (LIM check).",
       "No heat pump head or flue visible on any elevation — likely no fixed heating, which a tenanted dwelling must have.",
       "Sits close to ground level with little visible clearance — check subfloor ventilation and damp.",
     ],

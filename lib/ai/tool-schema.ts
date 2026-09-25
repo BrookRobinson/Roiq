@@ -203,7 +203,7 @@ const extraDwellingsSchema = {
         type: "array",
         items: { type: "string" },
         description:
-          "Material risks an investor must know, one short line each. Only genuine risks — e.g. 'Sleeping space with no consent on record — can't legally be rented until regularised', 'No visible heat source', 'Ground-level timber with no clearance — damp risk'. Omit if there are none. Do NOT list ordinary missing fittings (splashback, tapware, etc.).",
+          "Material risks an investor must know, one short line each. Only genuine risks — e.g. 'No visible heat source', 'Ground-level timber with no clearance — damp risk'. Omit if there are none. Do NOT list ordinary missing fittings (splashback, tapware, etc.).",
       },
       healthy_homes: {
         type: "array",
