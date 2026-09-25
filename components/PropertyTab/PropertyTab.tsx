@@ -161,7 +161,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
               className="text-xs px-2 py-0.5 rounded-full"
               style={{ background: "var(--brand-light)", color: "var(--brand)" }}
             >
-              Adds value to score
+              Adds value
             </div>
           </div>
           <div className="space-y-4">
