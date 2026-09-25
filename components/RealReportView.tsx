@@ -1136,6 +1136,7 @@ export function RealReportView({
           {tab === "legal" && (
             <TitleLegalTab
               subItems={effectiveSubItems}
+              buildYear={listing.buildYear}
               titleType={listing.titleType}
               encumbrances={report.listing.encumbrances ?? null}
               burdens={siteLayout?.plan.burdens.map((b) => ({ kind: b.kind, appellation: b.appellation })) ?? []}

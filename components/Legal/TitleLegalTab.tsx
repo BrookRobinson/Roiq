@@ -85,6 +85,7 @@ const DOC_ABOUT: Record<string, { name: string; answers: string }> = {
 
 export function TitleLegalTab({
   subItems,
+  buildYear,
   titleType,
   encumbrances,
   burdens = [],
@@ -93,6 +94,7 @@ export function TitleLegalTab({
   onSeeRenovations,
 }: {
   subItems: SubItem[];
+  buildYear?: number | null;
   titleType?: string | null;
   encumbrances?: TitleEncumbrances | null;
   /** Surveyed easement / covenant areas drawn on the section. */
@@ -103,7 +105,12 @@ export function TitleLegalTab({
 }) {
   const legal = subItems.filter((s) => ITEM_BY_ID[s.id]?.inspection === "legal");
   const byId = (id: string) => legal.find((s) => s.id === id);
-  const risks = legal.filter((s) => !TITLE_ITEMS.includes(s.id) && !(VERIFIED_DOC_ITEMS as readonly string[]).includes(s.id));
+  const risks = legal.filter(
+    (s) =>
+      !TITLE_ITEMS.includes(s.id) &&
+      !(VERIFIED_DOC_ITEMS as readonly string[]).includes(s.id) &&
+      !outOfLeakyEra(s, buildYear)
+  );
   const title = byId("leg_title");
   const registerRead = !!encumbrances && encumbrances.memorialsFound > 0;
   const docsHeld = VERIFIED_DOC_ITEMS.filter((id) => verifiedDocs[id]).length;
@@ -177,8 +184,11 @@ export function TitleLegalTab({
                 </span>
                 <div className="min-w-0">
                   <div className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
-                    {ITEM_BY_ID[s.id]?.label.replace(/\s*\(.*\)$/, "").replace(/\s+risk$/i, "")}:{" "}
-                    {(s.finding || s.condition).replace(/^flagged:\s*/i, "")}
+                    {ITEM_BY_ID[s.id]?.label.replace(/\s*\(.*\)$/, "").replace(/\s+risk$/i, "")}
+                    {/* Only a legal FINDING goes here. Without one, the fallback was
+                        the condition label — "Very poor — replace urgently" on a
+                        weathertightness risk — which is repair wording, not a finding. */}
+                    {s.finding ? `: ${s.finding.replace(/^flagged:\s*/i, "")}` : ""}
                   </div>
                   <div className="text-[12px] mt-0.5" style={{ color: "var(--text-secondary)" }}>
                     {lead(s.aiSummary)}
@@ -244,6 +254,20 @@ export function TitleLegalTab({
       </Group>
     </div>
   );
+}
+
+/**
+ * Weathertightness is a question about the leaky-building era, 1994–2004. On a
+ * house built outside it, "low risk, pre-leaky era" is a line telling the
+ * reader about a problem this house doesn't have. It stays when the build year
+ * is unknown, and whenever the analysis actually flagged a concern — monolithic
+ * cladding on a later extension can put an older house in the era.
+ */
+function outOfLeakyEra(s: SubItem, buildYear?: number | null): boolean {
+  if (s.id !== "leg_weathertight" || !buildYear) return false;
+  const inEra = buildYear >= 1994 && buildYear <= 2004;
+  const flagged = s.score != null && s.score <= 7;
+  return !inEra && !flagged;
 }
 
 const order = (s: Status) => ({ problem: 0, check: 1, unknown: 2, low: 3 })[s];

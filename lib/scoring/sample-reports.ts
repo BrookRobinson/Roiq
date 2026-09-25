@@ -651,6 +651,17 @@ function bandSummary(label: string, score: number, era: number, refs: number[]):
   return `${label} is worn enough to need attention${inPhoto}, and at ${age} years replacement is likely to be better value than repair.`;
 }
 
+/**
+ * Land, legal and location items are RISKS, not things that wear out. They were
+ * given the improvements wording — "Unconsented works risk is showing its age —
+ * functional, dated" — which is kitchen language on a legal question.
+ */
+function riskSummary(score: number): string {
+  if (score >= 8) return "Nothing in the listing or the public record suggests a problem here.";
+  if (score >= 5) return "Nothing conclusive either way — worth a question to the agent and a look at the LIM before you go unconditional.";
+  return "This looks like a real risk. Get it answered in writing before you go unconditional.";
+}
+
 function foundationFor(profile: SampleProfile): { score: UrgencyScore; tier: 1 | 2 | 3; summary: string } {
   const arch = ARCHETYPES[profile.archetype];
   // Older piled houses on the demo map show the classic tell; newer ones don't.
@@ -720,7 +731,7 @@ function buildSubItems(profile: SampleProfile): SubItem[] {
       tier = unseeable ? 3 : isImprovement ? 2 : tax && ["title", "photo", "linz", "moe_zones"].includes(tax.sourceType) ? 1 : 3;
       summary = isImprovement
         ? bandSummary(item.label, score, profile.buildYear, refs)
-        : `Source: ${tax?.source ?? "listing facts"}. ${bandSummary(item.label, score, profile.buildYear, [])}`;
+        : `Source: ${tax?.source ?? "listing facts"}. ${riskSummary(score)}`;
     }
 
     // A Tier 3 item does not carry a score — the engine drops it either way, and
