@@ -629,6 +629,18 @@ export function buildDemoReport(): StoredReport {
     landAreaSqm: 612,
     propertyType: "house" as const,
     titleType: "freehold" as const,
+    // The demo's register — BUILT, like its site. The drainage easement is the
+    // one drawn across its back yard (Area A DP 900000). Instrument numbers
+    // are placeholders in a range that doesn't reach the live register, so no
+    // real title can be read into them.
+    encumbrances: {
+      memorialsFound: 4,
+      historicCount: 2,
+      live: [
+        { instrumentNo: "900000.1", label: "Easement Instrument", kind: "easement" as const, lodged: "1975-06-12" },
+        { instrumentNo: "900000.2", label: "Mortgage", kind: "mortgage" as const, lodged: "2019-03-28" },
+      ],
+    },
     buildYear: 1975,
     siteLayout: DEMO_SITE,
     description: "Sun-drenched 1970s family home in the double-grammar zone, renovated kitchen, separate studio.",

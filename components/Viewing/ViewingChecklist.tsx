@@ -645,9 +645,9 @@ function Row({
                 onVerified={(doc) => onVerifiedDoc(item.itemId as string, doc)}
               />
               <p className="mt-1.5 text-[12px]" style={{ color: "var(--text-muted)" }}>
-                PDF. {PRODUCT_NAME} reads the whole thing and scores it — the full reading lands on the{" "}
+                PDF. {PRODUCT_NAME} reads the whole thing — the full reading lands on the{" "}
                 <button onClick={onOpenLand} className="underline" style={{ color: "var(--brand)" }}>
-                  Land tab
+                  Title &amp; legal tab
                 </button>
                 .
               </p>

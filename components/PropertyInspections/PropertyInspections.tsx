@@ -127,6 +127,7 @@ export function PropertyInspections({
   onAddStructure,
   addedStructureIds,
   landValued = false,
+  sections,
 }: {
   scored: ScoreResult;
   subItems: SubItem[];
@@ -146,9 +147,11 @@ export function PropertyInspections({
    * the land can't be valued they stay; they are then the only land content.
    */
   landValued?: boolean;
+  /** Which inspections to list. Legal has its own tab now; the Land tab passes land only, or nothing. */
+  sections?: Inspection[];
 }) {
   const town = mode === "town";
-  const SECTIONS = town ? TOWN_SECTIONS : landValued ? ADDRESS_SECTIONS.filter((s) => s !== "land") : ADDRESS_SECTIONS;
+  const SECTIONS = sections ?? (town ? TOWN_SECTIONS : landValued ? ADDRESS_SECTIONS.filter((s) => s !== "land") : ADDRESS_SECTIONS);
   const byInspection: Record<string, SubItem[]> = {};
   for (const s of subItems) {
     const insp = ITEM_BY_ID[s.id]?.inspection;
@@ -164,14 +167,14 @@ export function PropertyInspections({
 
   return (
     <div className="space-y-3">
+      {SECTIONS.length > 0 && (
       <div className="card p-4 text-sm flex items-start gap-2" style={{ color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
         <Info size={14} className="mt-0.5 flex-shrink-0" style={{ color: "var(--text-muted)" }} />
         {town
           ? "Location facts — schools, transport, amenities, sun, views and outlook. Shown so you can weigh them yourself; location is subjective, so it is NOT counted in the score. Objective location negatives (highway, flight path…) are handled as penalties on the Overview."
-          : landValued
-          ? "Legal factors specific to THIS address — each carries a rating, a named source, a confidence tier, and reasoning. Ordered worst-first; remediable findings link to the Renovations tab."
-          : "Land and Legal factors specific to THIS address — each carries a rating (section size shows its actual area), a named source, a confidence tier, and reasoning. Ordered worst-first; remediable findings link to the Renovations tab."}
+          : "The site facts for THIS address — each with a named source, how sure we are, and the reasoning. The title and legal findings are on the Title & legal tab."}
       </div>
+      )}
 
       {SECTIONS.map((insp, i) => {
         const items = byInspection[insp] ?? [];

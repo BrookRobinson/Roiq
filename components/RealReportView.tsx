@@ -23,6 +23,7 @@ import type { ScrapedListing } from "@/lib/scraper/types";
 import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { adjustLand, siteFactsFrom } from "@/lib/scoring/land-value";
 import { LandValueWorkings } from "@/components/PropertyInspections/LandValueWorkings";
+import { TitleLegalTab } from "@/components/Legal/TitleLegalTab";
 import { withMeasuredSite } from "@/lib/scoring/measured-site";
 import { methodFor, comparablesMatch } from "@/lib/scoring/valuation-method";
 import { valueProperty, type PropertyValue } from "@/lib/scoring/property-value";
@@ -69,7 +70,7 @@ import {
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, ClipboardCheck, Shield, MapPin, Handshake,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
-  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send, History, Lock,
+  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send, History, Lock, FileText,
 } from "lucide-react";
 
 import Link from "next/link";
@@ -81,12 +82,13 @@ import { type InspectionEvidence } from "@/lib/viewing/status";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 import { alpha } from "@/lib/ui/color";
 
-type Tab = "overview" | "improvements" | "address" | "citytown" | "renovations" | "financial" | "viewing" | "methodology";
+type Tab = "overview" | "improvements" | "address" | "legal" | "citytown" | "renovations" | "financial" | "viewing" | "methodology";
 
 const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?: boolean }[] = [
   { id: "overview", label: "Overview", icon: Home },
   { id: "improvements", label: "Improvements", icon: Building2 },
   { id: "address", label: "Land", icon: ClipboardList },
+  { id: "legal", label: "Title & legal", icon: FileText },
   { id: "renovations", label: "Renovations", icon: Wrench },
   { id: "financial", label: "Financial", icon: Calculator },
   { id: "viewing", label: "Before you view", icon: ClipboardCheck },
@@ -1119,7 +1121,10 @@ export function RealReportView({
                   )}
                 />
               )}
-              <PropertyInspections mode="address" landValued={!!propertyValue?.siteAdjustment} scored={scored} subItems={effectiveSubItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} development={development} persona={persona} landAreaSqm={listing.landAreaSqm}
+              {/* Land only now — the title and legal findings have their own tab.
+                  With the land valued, the land items are the Land value card's
+                  lines, so nothing is listed and only add-a-structure remains. */}
+              <PropertyInspections mode="address" sections={propertyValue?.siteAdjustment ? [] : ["land"]} landValued={!!propertyValue?.siteAdjustment} scored={scored} subItems={effectiveSubItems} onSeeRenovations={() => setTab("renovations")} verifiedDocs={verifiedDocs} onVerified={onVerified} development={development} persona={persona} landAreaSqm={listing.landAreaSqm}
                 onAddStructure={(st) => setAddedStructures((prev) => (prev.some((p) => p.id === st.id) ? prev : [...prev, st]))}
                 addedStructureIds={addedStructures.map((st) => st.id)} />
               <LocationFactCard subItems={subItems} ids={["loc_noise", "loc_views"]} title="Noise & outlook" />
@@ -1127,6 +1132,17 @@ export function RealReportView({
           )}
           {tabLocked(tab) && (
             <LockedTab {...LOCKED_TABS[tab]} />
+          )}
+          {tab === "legal" && (
+            <TitleLegalTab
+              subItems={effectiveSubItems}
+              titleType={listing.titleType}
+              encumbrances={report.listing.encumbrances ?? null}
+              burdens={siteLayout?.plan.burdens.map((b) => ({ kind: b.kind, appellation: b.appellation })) ?? []}
+              verifiedDocs={verifiedDocs}
+              onVerified={onVerified}
+              onSeeRenovations={() => setTab("renovations")}
+            />
           )}
           {tab === "renovations" && !tabLocked("renovations") && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}
           {tab === "financial" && !tabLocked("financial") && (
@@ -1151,7 +1167,7 @@ export function RealReportView({
               onItemPhoto={(id, a: ItemPhotoAnalysis) => updateViewing(setItemPhoto(viewing, id, a))}
               onClearItemPhoto={(id) => updateViewing(clearItemPhoto(viewing, id))}
               onVerifiedDoc={onVerified}
-              onOpenLand={() => setTab("address")}
+              onOpenLand={() => setTab("legal")}
             />
           )}
           {tab === "methodology" && <MethodologyTab />}
