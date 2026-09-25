@@ -99,7 +99,9 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
         <div className="flex items-center gap-3 flex-shrink-0">
           {catPts.any ? (
             <span
-              className="inline-flex items-baseline gap-1 rounded-lg font-bold tabular-nums"
+              // Stacks on a phone: side by side it squeezed the category name
+              // into a one-word column.
+              className="inline-flex flex-col items-end sm:flex-row sm:items-baseline sm:gap-1 rounded-lg font-bold tabular-nums"
               style={{
                 background: `${alpha(catColor, 12)}`,
                 border: `1px solid ${alpha(catColor, 33)}`,
@@ -110,9 +112,12 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
               }}
               title={`What this category is worth today, against about $${Math.round(catPts.max).toLocaleString("en-NZ")} to replace it new.`}
             >
-              ${Math.round(catPts.earned).toLocaleString("en-NZ")}
+              <span>
+                ${Math.round(catPts.earned).toLocaleString("en-NZ")}
+                <span className="font-medium" style={{ fontSize: 10, opacity: 0.8 }}> now</span>
+              </span>
               <span className="font-medium" style={{ fontSize: 10, opacity: 0.8 }}>
-                {" "}of ${Math.round(catPts.max).toLocaleString("en-NZ")}
+                <span className="hidden sm:inline">· </span>${Math.round(catPts.max).toLocaleString("en-NZ")} new
               </span>
             </span>
           ) : (
