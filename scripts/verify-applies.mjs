@@ -25,6 +25,16 @@ check("Westport (2021 floods), though the region is the West Coast", a("leg_eqc"
 check("Hokitika has had no claims event", a("leg_eqc", { city: "Hokitika", region: "West Coast" }), false);
 check("Dunedin has had no claims event", a("leg_eqc", { city: "Dunedin", region: "Otago" }), false);
 
+console.log("\nunconsented works");
+check("nothing points to it: not shown", a("leg_unconsented", {}, { score: null, confidenceTier: 3 }), false);
+check("a Tier 3 guess alone doesn't raise it", a("leg_unconsented", {}, { score: 4, confidenceTier: 3 }), false);
+check("a studio or sleepout on the site raises it", a("leg_unconsented", { unconsentedSignal: true }, { score: null, confidenceTier: 3 }), true);
+check("the analysis flagging it on a real read raises it", a("leg_unconsented", {}, { score: 5, confidenceTier: 2 }), true);
+check("a fix attached raises it", a("leg_unconsented", {}, { score: null, confidenceTier: 3, remediation: { low: 4000 } }), true);
+const { unconsentedSignal: sig } = await import(join(root, "lib/scoring/applies.ts"));
+check("a floor-area gap is a signal", sig({ extraStructures: 0, floorAreaLarger: true }), true);
+check("no structure and no gap is not", sig({ extraStructures: 0, floorAreaLarger: false }), false);
+
 console.log("\neverything else");
 check("the LIM always applies", a("leg_lim", { city: "Hokitika" }), true);
 

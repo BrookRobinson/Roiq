@@ -1453,7 +1453,10 @@ lease / unknown title where something STATES one; never freehold. It used to
 analyze.ts), which is circular. EQC claim history applies only in regions with a
 major claims event (Canterbury, Wellington, Marlborough, Hawke's Bay, Gisborne,
 Auckland, Nelson/Tasman, Buller). Same rule on the Title & legal tab and the
-viewing checklist.
+viewing checklist. Unconsented works shows only when something RAISES
+it: a second dwelling or structure, the advertised floor area materially over
+the rating record, or the analysis flagging it on a real (not Tier 3) read or
+with a fix attached. "Nothing suggests a problem" is not a risk to check.
 
 **Land starts from a TYPICAL section, not a perfect one.** valueLand's rate comes
 from ordinary sales of ordinary sections, so `adjustLand()` (land-value.ts)

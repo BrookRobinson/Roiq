@@ -21,7 +21,8 @@
 // we could have fetched ourselves.
 // ============================================================
 
-import { legalItemApplies } from "@/lib/scoring/applies";
+import { legalItemApplies, unconsentedSignal } from "@/lib/scoring/applies";
+import { compareFloorArea } from "@/lib/property/floor-area-check";
 import { ITEM_BY_ID, isVerifiedDocItem } from "@/lib/scoring/catalog";
 import { CHECK_GUIDE, type CheckGuide } from "./how-to-check";
 
@@ -187,12 +188,25 @@ export function buildViewingChecklist(
     // Nor anything that can't apply here: a body corporate on a freehold
     // title, an EQC claim history where there has been no claims event.
     if (
-      !legalItemApplies(s.id, {
-        titleType: tt,
-        statedBodyCorporate: report.context?.hasBodyCorporate,
-        region: report.listing?.region,
-        city: report.listing?.city,
-      })
+      !legalItemApplies(
+        s.id,
+        {
+          titleType: tt,
+          statedBodyCorporate: report.context?.hasBodyCorporate,
+          region: report.listing?.region,
+          city: report.listing?.city,
+          unconsentedSignal: unconsentedSignal({
+            extraStructures: report.extraDwellings?.length ?? 0,
+            floorAreaLarger:
+              compareFloorArea({
+                listingSqm: report.listing?.floorAreaSqm,
+                rollSqm: report.listing?.linz?.valuation?.floorAreaSqm ?? null,
+                rollEffectiveDate: report.listing?.linz?.valuation?.effectiveDate ?? null,
+              }).status === "listing_larger",
+          }),
+        },
+        s
+      )
     )
       continue;
 

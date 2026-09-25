@@ -24,6 +24,7 @@ import { valueLand, roiqValuation } from "@/lib/scoring/valuation";
 import { adjustLand, siteFactsFrom } from "@/lib/scoring/land-value";
 import { LandValueWorkings } from "@/components/PropertyInspections/LandValueWorkings";
 import { TitleLegalTab } from "@/components/Legal/TitleLegalTab";
+import { unconsentedSignal } from "@/lib/scoring/applies";
 import { withMeasuredSite } from "@/lib/scoring/measured-site";
 import { methodFor, comparablesMatch } from "@/lib/scoring/valuation-method";
 import { valueProperty, type PropertyValue } from "@/lib/scoring/property-value";
@@ -1140,6 +1141,15 @@ export function RealReportView({
               region={listing.region}
               city={listing.city}
               statedBodyCorporate={report.context?.hasBodyCorporate}
+              unconsentedSignal={unconsentedSignal({
+                extraStructures: report.extraDwellings?.length ?? 0,
+                floorAreaLarger:
+                  compareFloorArea({
+                    listingSqm: listing.floorAreaSqm,
+                    rollSqm: listing.linz?.valuation?.floorAreaSqm ?? null,
+                    rollEffectiveDate: listing.linz?.valuation?.effectiveDate ?? null,
+                  }).status === "listing_larger",
+              })}
               titleType={listing.titleType}
               encumbrances={report.listing.encumbrances ?? null}
               burdens={siteLayout?.plan.burdens.map((b) => ({ kind: b.kind, appellation: b.appellation })) ?? []}

@@ -41,9 +41,31 @@ export interface ApplicabilityInput {
   statedBodyCorporate?: boolean;
   region?: string | null;
   city?: string | null;
+  /**
+   * Something outside the item points at unconsented work: a second dwelling
+   * or structure was found, or the advertised floor area is materially bigger
+   * than the rating record. See unconsentedSignal().
+   */
+  unconsentedSignal?: boolean;
 }
 
-export function legalItemApplies(id: string, p: ApplicabilityInput): boolean {
+/** The item as the analysis left it — only its own read, never its existence. */
+export interface ItemRead {
+  score?: number | null;
+  confidenceTier?: number;
+  remediation?: unknown;
+}
+
+export function legalItemApplies(id: string, p: ApplicabilityInput, item?: ItemRead): boolean {
+  if (id === "leg_unconsented") {
+    // Only when something actually raises it. "Nothing in the listing or the
+    // public record suggests a problem" is not a risk to check — it was sitting
+    // under that heading as "Not established" on houses with nothing to ask.
+    // The analysis's own read counts only when it is a real one: a Tier 3
+    // guess from nothing is exactly the line being removed.
+    const flagged = !!item && ((item.score != null && item.score <= 7 && item.confidenceTier !== 3) || !!item.remediation);
+    return p.unconsentedSignal === true || flagged;
+  }
   if (id === "leg_bodycorp") {
     // A body corporate comes with a UNIT TITLE. A cross lease or an unknown
     // title can have one only if something actually says so; a freehold title
@@ -58,3 +80,7 @@ export function legalItemApplies(id: string, p: ApplicabilityInput): boolean {
   }
   return true;
 }
+
+/** The outside evidence for unconsented work: another structure, or a floor-area gap. */
+export const unconsentedSignal = (a: { extraStructures: number; floorAreaLarger: boolean }): boolean =>
+  a.extraStructures > 0 || a.floorAreaLarger;

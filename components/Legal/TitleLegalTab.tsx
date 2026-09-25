@@ -90,6 +90,7 @@ export function TitleLegalTab({
   region,
   city,
   statedBodyCorporate,
+  unconsentedSignal,
   titleType,
   encumbrances,
   burdens = [],
@@ -103,6 +104,8 @@ export function TitleLegalTab({
   region?: string | null;
   city?: string | null;
   statedBodyCorporate?: boolean;
+  /** Another structure found, or a floor-area gap — see lib/scoring/applies.ts. */
+  unconsentedSignal?: boolean;
   titleType?: string | null;
   encumbrances?: TitleEncumbrances | null;
   /** Surveyed easement / covenant areas drawn on the section. */
@@ -111,8 +114,9 @@ export function TitleLegalTab({
   onVerified?: (itemId: string, doc: DocAnalysis) => void;
   onSeeRenovations: () => void;
 }) {
-  const applies = (id: string) => legalItemApplies(id, { titleType, statedBodyCorporate, region, city });
-  const legal = subItems.filter((s) => ITEM_BY_ID[s.id]?.inspection === "legal" && applies(s.id));
+  const applies = (id: string, item?: SubItem) =>
+    legalItemApplies(id, { titleType, statedBodyCorporate, region, city, unconsentedSignal }, item);
+  const legal = subItems.filter((s) => ITEM_BY_ID[s.id]?.inspection === "legal" && applies(s.id, s));
   const docs = VERIFIED_DOC_ITEMS.filter((id) => applies(id));
   const byId = (id: string) => legal.find((s) => s.id === id);
   const risks = legal.filter(
@@ -179,7 +183,12 @@ export function TitleLegalTab({
 
       {/* ── 2 Risks to check ────────────────────────────────────────────── */}
       <Group n={2} title="Risks to check" sub="What we can see or infer. Each says how sure we are and why.">
-        {risks.length === 0 && <div className="text-[13px]" style={{ color: "var(--text-muted)" }}>Nothing to flag.</div>}
+        {risks.length === 0 && (
+          <div className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+            Nothing to flag. There's no second dwelling or structure on the site, and nothing in the listing, the
+            photos or the public record points to a title or consent risk.
+          </div>
+        )}
         {[...risks]
           .sort((a, b) => order(statusOf(a.score, a.confidenceTier)) - order(statusOf(b.score, b.confidenceTier)))
           .map((s) => {
