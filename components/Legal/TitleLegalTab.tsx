@@ -151,16 +151,17 @@ export function TitleLegalTab({
 
   return (
     <div className="space-y-4">
-      <TitleValueCard titleType={titleType} value={propertyValue} landAreaSqm={landAreaSqm} locked={locked} />
+      <TitleValueCard
+        titleType={titleType}
+        value={propertyValue}
+        landAreaSqm={landAreaSqm}
+        locked={locked}
+        source={title ? title.evidenceSource || "LINZ record of title" : null}
+      />
       {/* ── 1 What the title says ───────────────────────────────────────── */}
-      <Group n={1} title="What the title says" sub="Read from the LINZ record of title. These are facts, not opinions.">
-        {title && (
-          <Fact
-            head={title.finding || title.condition}
-            body={lead(title.aiSummary)}
-            source={title.evidenceSource || "LINZ record of title"}
-          />
-        )}
+      <Group n={1} title="What's registered against the title" sub="Read from the LINZ record of title. These are facts, not opinions.">
+        {/* The kind of title is the card above — saying it here too printed
+            "Freehold" twice. This group is what is registered against it. */}
         {registerRead ? (
           encumbrances!.live.length ? (
             encumbrances!.live.map((e, i) => (

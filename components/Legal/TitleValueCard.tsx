@@ -97,12 +97,15 @@ export function TitleValueCard({
   value,
   landAreaSqm,
   locked = false,
+  source,
 }: {
   titleType?: string | null;
   /** The report's one valuation — read, never recomputed. */
   value?: PropertyValue | null;
   landAreaSqm?: number | null;
   locked?: boolean;
+  /** Where the title type came from — the register, usually. */
+  source?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const title = (titleType && titleType in ABOUT ? titleType : "unknown") as Title;
@@ -158,6 +161,9 @@ export function TitleValueCard({
           <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{about.name}</span>
           <span className="mono text-[14px] font-bold">{effect}</span>
         </div>
+        {source && (
+          <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>Source: {source}</div>
+        )}
         <div className="flex items-center gap-1 mt-2">
           <span className="text-xs" style={{ color: "var(--brand)" }}>{open ? "Hide detail" : "See breakdown"}</span>
           <ArrowRight size={11} style={{ color: "var(--brand)", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
