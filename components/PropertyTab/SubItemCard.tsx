@@ -6,7 +6,7 @@ import { useState } from "react";
 import type { SubItem, RenoControls, UrgencyScore } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
-import type { ItemValue } from "@/lib/scoring/improvement-values";
+import type { ItemValue, EstimatedItem } from "@/lib/scoring/improvement-values";
 import { ItemValuation, ItemValuationWithheld, Step, EvidenceList, ActionBody } from "./ItemValuation";
 import { actionFor, actionCost } from "@/lib/scoring/depreciation";
 import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
@@ -55,7 +55,7 @@ function Chip({ label, title, children }: { label: string; title?: string; child
  * cost new — each opening to its own seven steps. The lines add up to the
  * card's value; rooms nobody photographed are named, and left out.
  */
-function PerRoomBreakdown({ v, label }: { v: PerRoomValuation; label: string }) {
+function PerRoomBreakdown({ v, label, unseenEstimate }: { v: PerRoomValuation; label: string; unseenEstimate?: EstimatedItem | null }) {
   const [open, setOpen] = useState<string | null>(null);
   const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
   return (
@@ -103,16 +103,39 @@ function PerRoomBreakdown({ v, label }: { v: PerRoomValuation; label: string }) 
           </div>
         );
       })}
-      <div className="flex items-baseline justify-between gap-2 px-3 pt-1 text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
-        <span>{label}, every {v.noun} seen</span>
-        <span className="mono">{money(v.valueNZD)} <span className="font-normal text-[11px]" style={{ color: "var(--text-muted)" }}>· {money(v.cost.totalNZD)} new</span></span>
-      </div>
+      {/* The rooms no photo shows: estimated, drawn dashed so the eye can
+          tell them from the rooms that were actually looked at. */}
       {v.unseen.length > 0 && (
-        <div className="text-[12px] px-3" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
-          Not photographed: {v.unseen.join(", ")}. {v.unseen.length === 1 ? "It isn't" : "They aren't"} valued on this card — the
-          valuation estimates {v.unseen.length === 1 ? "it" : "them"} from the condition of the rest of the house, and says so on the Financial tab.
+        <div className="rounded-lg px-3 py-2.5" style={{ border: "1px dashed var(--border)" }}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0 text-[13px]" style={{ color: "var(--text-secondary)" }}>
+              <span className="font-semibold">{v.unseen.join(", ")}</span>
+              <span className="text-[12px] ml-2" style={{ color: "var(--text-muted)" }}>not photographed</span>
+            </span>
+            {unseenEstimate && (
+              <span className="flex items-center gap-2 flex-shrink-0">
+                <span className="mono text-[13px] font-bold" style={{ color: "var(--text-secondary)" }}>est. {money(unseenEstimate.valueNow)}</span>
+                <span className="mono text-[11px]" style={{ color: "var(--text-muted)" }}>· {money(unseenEstimate.replacementTotal)} new</span>
+              </span>
+            )}
+          </div>
+          <div className="text-[12px] mt-1" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+            {unseenEstimate
+              ? `No photo shows ${v.unseen.length === 1 ? "it" : "them"}, so ${v.unseen.length === 1 ? "it is" : "they are"} estimated from the condition of everything the photos do show, at no better than a modern spec. A photo of ${v.unseen.length === 1 ? "it" : "them"} would replace the estimate.`
+              : `No photo shows ${v.unseen.length === 1 ? "it" : "them"}, and there's nothing seen to estimate from, so ${v.unseen.length === 1 ? "it isn't" : "they aren't"} valued.`}
+          </div>
         </div>
       )}
+      <div className="flex items-baseline justify-between gap-2 px-3 pt-1 text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
+        <span>{label}, every {v.noun}</span>
+        <span className="mono">
+          {money(v.valueNZD + (unseenEstimate?.valueNow ?? 0))}{" "}
+          <span className="font-normal text-[11px]" style={{ color: "var(--text-muted)" }}>
+            · {money(v.cost.totalNZD + (unseenEstimate?.replacementTotal ?? 0))} new
+            {unseenEstimate ? ` · incl. ${money(unseenEstimate.valueNow)} est.` : ""}
+          </span>
+        </span>
+      </div>
     </div>
   );
 }
@@ -132,7 +155,7 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
   return null;
 }
 
-export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations, value, valuation }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void; value?: ItemValue | null; valuation?: AnyValuation | null }) {
+export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations, value, valuation, estimate, unseenEstimate }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void; value?: ItemValue | null; valuation?: AnyValuation | null; estimate?: EstimatedItem | null; unseenEstimate?: EstimatedItem | null }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
   const urgencyYears = urgencyScoreToYears(item.score);
@@ -259,11 +282,25 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               // valuation underneath, so the card said them twice.
               <div className="flex flex-wrap gap-2 mb-2 empty:mb-0">
                 {shown ? (
-                  <Chip
-                    label="Value"
-                    title={`Costs about $${Math.round(shown.rcn).toLocaleString("en-NZ")} to replace today; this one is worth $${Math.round(shown.now).toLocaleString("en-NZ")} after the share of its life already used.`}
-                  >
-                    <span className="font-bold mono" style={{ color }}>${Math.round(shown.now).toLocaleString("en-NZ")}</span>
+                  <>
+                    <Chip
+                      label="Value"
+                      title={`Costs about $${Math.round(shown.rcn).toLocaleString("en-NZ")} to replace today; this one is worth $${Math.round(shown.now).toLocaleString("en-NZ")} after the share of its life already used.`}
+                    >
+                      <span className="font-bold mono" style={{ color }}>${Math.round(shown.now).toLocaleString("en-NZ")}</span>
+                    </Chip>
+                    {unseenEstimate && (
+                      <Chip label="Unphotographed rooms" title="Estimated from the condition of everything the photos do show.">
+                        <span className="font-medium mono" style={{ color: "var(--text-secondary)" }}>est. ${Math.round(unseenEstimate.valueNow).toLocaleString("en-NZ")}</span>
+                      </Chip>
+                    )}
+                  </>
+                ) : estimate ? (
+                  // Nothing of it was photographed, but it is still there and
+                  // still in the valuation — so its estimate is shown, labelled.
+                  <Chip label="Est. value" title="No photo shows this. Estimated from the condition of everything the photos do show.">
+                    <span className="font-bold mono" style={{ color: "var(--text-secondary)" }}>${Math.round(estimate.valueNow).toLocaleString("en-NZ")}</span>
+                    <span style={{ color: "var(--text-muted)" }}> · not photographed</span>
                   </Chip>
                 ) : SIZE_ITEM_IDS.has(item.id) && item.estimatedSqm ? (
                   <Chip label="Size"><span className="font-medium" style={{ color: "var(--text-secondary)" }}>~{item.estimatedSqm} m²</span></Chip>
@@ -388,11 +425,27 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               </div>
             )}
             {valuation && !isRefused(valuation) && isPerRoom(valuation) ? (
-              <PerRoomBreakdown v={valuation} label={item.name} />
+              <PerRoomBreakdown v={valuation} label={item.name} unseenEstimate={unseenEstimate} />
             ) : valuation && !isRefused(valuation) ? (
               <ItemValuation v={valuation} lead={{ title: "Listing photos", body: photosStep }} evidence={evidenceFor(item)} />
             ) : (
               <div className="space-y-3">
+                {estimate && (
+                  <div className="rounded-lg px-3 py-2.5 text-[13px]" style={{ border: "1px dashed var(--border)", color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="font-semibold" style={{ color: "var(--text-primary)" }}>Estimated, not seen</span>
+                      <span className="mono whitespace-nowrap">
+                        <span className="font-bold">${Math.round(estimate.valueNow).toLocaleString("en-NZ")}</span>
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}> · ${Math.round(estimate.replacementTotal).toLocaleString("en-NZ")} new</span>
+                      </span>
+                    </div>
+                    <div className="text-[12px] mt-1" style={{ color: "var(--text-muted)" }}>
+                      No photo shows this, but it is still there, so it is valued from the condition of everything the photos do
+                      show, at no better than a modern spec. It counts towards the valuation and is listed as estimated on the
+                      Financial tab. A photo of it would replace the estimate.
+                    </div>
+                  </div>
+                )}
                 <Step n={1} title="Listing photos">{photosStep}</Step>
                 {!item.noPhotoNotAssessed && ITEM_BY_ID[item.id]?.inspection === "improvements" && (
                   <Step n={2} title="Visual evidence">

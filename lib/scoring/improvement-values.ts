@@ -324,8 +324,15 @@ export interface ImprovementValueResult {
    */
   estimatedValue: number;
   /** Components behind `estimatedValue`, for the report to name. */
-  estimatedItems: { id: string; label: string; category: string; rcnNew: number; valueNow: number }[];
+  /**
+   * `id` is the item's id when nothing of it was seen, or `<id>:unseen` for the
+   * rooms of an item whose other rooms were. `replacementTotal` is the cost to
+   * replace on the same basis the cards use (labour, scaffold, disposal).
+   */
+  estimatedItems: { id: string; label: string; category: string; rcnNew: number; replacementTotal: number; valueNow: number }[];
 }
+
+export type EstimatedItem = ImprovementValueResult["estimatedItems"][number];
 
 export interface RoofInputs {
   footprintM2?: number | null;
@@ -587,12 +594,14 @@ export function valueImprovementItems(args: {
         const n = valued.unseenRooms.length;
         const kind = roomKindOf(id) as RoomKind;
         const rcn = Math.round((spec.baseRCN * sizeFor(spec.scale, floor, baths, beds)) / roomCount(kind) * n * blendedSpec);
-        const valueNow = depreciate(id, rcn, blendedScore)?.valueNZD ?? 0;
+        const e = depreciate(id, rcn, blendedScore);
+        const valueNow = e?.valueNZD ?? 0;
         estimatedItems.push({
           id: `${id}:unseen`,
           label: `${meta.label} — ${valued.unseenRooms.join(", ")} (not photographed)`,
           category: meta.category,
           rcnNew: rcn,
+          replacementTotal: e?.cost.totalNZD ?? rcn,
           valueNow,
         });
         estimatedValue += valueNow;
@@ -601,8 +610,9 @@ export function valueImprovementItems(args: {
       if (seen && seen.score != null) continue; // already valued for real
       const rcnNew = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths, beds) * blendedSpec);
       if (rcnNew <= 0) continue;
-      const valueNow = depreciate(id, rcnNew, blendedScore)?.valueNZD ?? 0;
-      estimatedItems.push({ id, label: meta.label, category: meta.category, rcnNew, valueNow });
+      const e = depreciate(id, rcnNew, blendedScore);
+      const valueNow = e?.valueNZD ?? 0;
+      estimatedItems.push({ id, label: meta.label, category: meta.category, rcnNew, replacementTotal: e?.cost.totalNZD ?? rcnNew, valueNow });
       estimatedValue += valueNow;
     }
   }

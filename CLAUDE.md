@@ -224,7 +224,12 @@ rest presents — full marks need evidence that premium materials were used, and
 an unphotographed component cannot supply it.
 
 `confirmedValue` and `estimatedValue` are reported separately and the Financial
-tab draws the split as a donut, with every estimated component nameable. Both
+tab draws the split as a donut, with every estimated component nameable. The
+Improvements tab shows them too, where the thing is: an unseen item's card
+reads "Est. value · not photographed", an unseen room is a dashed row on its
+item's card, and a category badge counts its estimates and says "incl. $X
+estimated". Leaving them off that tab made it look as though an unphotographed
+bedroom added nothing, while the headline counted it. Both
 halves are real money; a valuation that quietly blends them is the thing this
 app exists not to be.
 

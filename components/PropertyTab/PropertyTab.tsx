@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ItemValue, ShellWorkings } from "@/lib/scoring/improvement-values";
+import type { ItemValue, ShellWorkings, EstimatedItem } from "@/lib/scoring/improvement-values";
 import { BaseRateCard } from "./BaseRateCard";
 import type { AnyValuation } from "./valuation-types";
 import type { PropertyTabData, RenoControls } from "@/lib/property-tab/types";
@@ -27,7 +27,7 @@ interface Props {
   dwellingValues?: DwellingValue[];
 }
 
-export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues, itemValues, itemValuations, shell }: Props & { itemValues?: Map<string, ItemValue>; itemValuations?: Map<string, AnyValuation>; shell?: ShellWorkings }) {
+export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, persona = "buyer", renoControls, onOpenRenovations, dwellingValues, itemValues, itemValuations, estimates, shell }: Props & { itemValues?: Map<string, ItemValue>; itemValuations?: Map<string, AnyValuation>; estimates?: Map<string, EstimatedItem>; shell?: ShellWorkings }) {
   const [openAll, setOpenAll] = useState(false);
 
   // Tally issues across all categories
@@ -137,6 +137,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
               key={category.id}
               itemValues={itemValues}
               itemValuations={itemValuations}
+              estimates={estimates}
               category={category}
               defaultOpen={openAll || isUrgent || i === 0}
               region={region}
