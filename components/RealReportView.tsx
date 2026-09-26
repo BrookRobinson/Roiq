@@ -13,7 +13,7 @@ import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
 import { valueRoof, roofMaterialFromText } from "@/lib/scoring/roof-value";
-import { valueItem } from "@/lib/scoring/item-value";
+import { valueItem, isItemWithheld } from "@/lib/scoring/item-value";
 import { IMPROVEMENT_BASE_COSTS } from "@/lib/scoring/improvement-values";
 import type { AnyValuation } from "@/components/PropertyTab/valuation-types";
 import { labourMultiplierFor } from "@/lib/labour-rates";
@@ -712,6 +712,44 @@ export function RealReportView({
       if (v.id === "ext_roof") continue;
       const item = (report.subItems ?? []).find((s) => s.id === v.id);
       const shot = itemPhotos[v.id];
+      // Several bathrooms, each valued on its own read — the same parts the
+      // headline summed, so the card and the headline are one figure.
+      if (v.byBathroom?.length) {
+        const eff = effectiveSubItems.find((s) => s.id === v.id);
+        const worst = v.byBathroom.reduce((a, p) => (p.condition < a.condition ? p : a));
+        const parts = v.byBathroom.flatMap((p) => {
+          const r = valueItem({
+            id: v.id,
+            rcnNew: p.rcnNew,
+            sizeWorkings: [`$${Math.round(p.rcnNew).toLocaleString("en-NZ")} for this bathroom's ${v.label.toLowerCase()}, at its own spec.`],
+            sizeSummary: `$${Math.round(p.rcnNew).toLocaleString("en-NZ")} to replace in the ${p.bathroom.toLowerCase()}`,
+            // Its own fitting, never the item's — that describes another bathroom.
+            material: p.material,
+            concerns: p.observedDefect ? [p.observedDefect] : [],
+            conditionScore: p.condition,
+            action: p === worst && eff?.urgentAction ? actionFor(eff) : actionFor({ observedDefect: p.observedDefect, score: p.condition }),
+            buildYear: report.listing.buildYear,
+            label: v.label,
+            labourMultiplier: labourMultiplierFor(report.listing),
+          });
+          return isItemWithheld(r) ? [] : [{ bathroom: p.bathroom, condition: p.condition, photoReferences: p.photoReferences, valuation: r }];
+        });
+        const worstPart = parts.reduce((a, p) => (p.condition < a.condition ? p : a), parts[0]);
+        if (worstPart) {
+          const actionCostSum = parts.reduce((a, p) => a + (p.valuation.action?.costNZD ?? 0), 0);
+          const firstAction = (worstPart.valuation.action ?? parts.find((p) => p.valuation.action)?.valuation.action) ?? null;
+          out.set(v.id, {
+            kind: "per-bathroom",
+            parts,
+            unseen: v.unseenBathrooms ?? [],
+            valueNZD: parts.reduce((a, p) => a + p.valuation.valueNZD, 0),
+            cost: { totalNZD: parts.reduce((a, p) => a + p.valuation.cost.totalNZD, 0) },
+            life: worstPart.valuation.life,
+            action: firstAction ? { ...firstAction, costNZD: actionCostSum } : null,
+          });
+          continue;
+        }
+      }
       const concerns = [item?.observedDefect, shot?.observedDefect].filter(Boolean) as string[];
       out.set(
         v.id,
@@ -2098,7 +2136,9 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
     }
     if (urgent && urgent.scope !== "replace") {
       const v = valueById.get(s.id);
-      const cost = actionCost(v?.replacementTotal ?? 0, urgent);
+      // A per-bathroom item carries its own figure: the work is in one
+      // bathroom, and share × every bathroom's replacement would overcharge it.
+      const cost = v?.actionCostNZD ?? actionCost(v?.replacementTotal ?? 0, urgent);
       if (cost > 0) {
         const category = ITEM_BY_ID[s.id]?.category;
         const low = Math.round(cost * 0.85);

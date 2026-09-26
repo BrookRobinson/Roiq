@@ -3,7 +3,7 @@
 // genuinely recomputing — not a hardcoded number.
 
 import type { StoredReport } from "@/lib/report-store";
-import type { SubItem, ExtraDwelling, UrgencyScore, Remediation, SpecTier } from "@/lib/property-tab/types";
+import type { SubItem, ExtraDwelling, UrgencyScore, Remediation, SpecTier, BathroomRead } from "@/lib/property-tab/types";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import { emptyListing } from "@/lib/scraper/types";
 import { SCORING_MODEL, usesSpecTier } from "./model";
@@ -181,6 +181,36 @@ const PHOTOS: Record<string, number[]> = {
   bath_shower: [6], bath_vanity: [6], bath_toilet: [11], kit_flooring: [12],
   liv_fixtures: [7, 8], bed_storage: [10], gar_floor: [15], out_driveway: [1],
 };
+
+// Two bathrooms, read one at a time: the original main bathroom the
+// defects above describe, and an ensuite redone about five years ago. Both
+// lack an extractor fan — the defect says "either bathroom" — so ventilation
+// scores alike; everything else differs, and is valued on its own read.
+const BY_BATHROOM: Record<string, BathroomRead[]> = (() => {
+  const main = (id: string): BathroomRead => ({
+    bathroom: "Main bathroom",
+    score: SCORES[id] as UrgencyScore,
+    specTier: SPEC[id],
+    material: MATERIALS[id],
+    observedDefect: DEFECTS[id],
+    photoReferences: PHOTOS[id] ?? [],
+  });
+  const ensuite = (score: number, specTier: SpecTier, material?: string, observedDefect?: string): BathroomRead => ({
+    bathroom: "Ensuite",
+    score: score as UrgencyScore,
+    specTier,
+    material,
+    observedDefect,
+    photoReferences: [13],
+  });
+  return {
+    bath_shower: [main("bath_shower"), ensuite(9, "modern", "Tiled walk-in shower, frameless glass screen")],
+    bath_vanity: [main("bath_vanity"), ensuite(9, "modern", "Wall-hung vanity, engineered stone top")],
+    bath_toilet: [main("bath_toilet"), ensuite(9, "modern", "Wall-faced back-to-wall suite")],
+    bath_flooring: [main("bath_flooring"), ensuite(9, "modern", "Large-format porcelain tile")],
+    bath_ventilation: [main("bath_ventilation"), ensuite(1, "deteriorated", undefined, "No extractor fan in the ensuite either — only a small openable window.")],
+  };
+})();
 
 // One-line findings for Location/Land/Legal cards.
 const FINDINGS: Record<string, string> = {
@@ -395,6 +425,7 @@ function buildSubItems(): SubItem[] {
       healthyHomesLink: item.affectsHealthyHomes,
       observedDefect: DEFECTS[item.id],
       urgentAction: ACTIONS[item.id],
+      byBathroom: BY_BATHROOM[item.id],
       photoReferences: PHOTOS[item.id] ?? (item.id === "loc_sun" ? [2, 3] : item.id === "leg_unconsented" ? [12] : []),
       ...(isImprovement
         ? {}

@@ -165,5 +165,42 @@ check("…and the frame doesn't move with it", threeBath.shell.structureCost, on
 check("wall linings are a graded item", "liv_walls" in IMPROVEMENT_BASE_COSTS, true);
 check("ceilings scale with the floor now", IMPROVEMENT_BASE_COSTS.liv_ceiling.scale, "floorM2");
 
+console.log("\nseveral bathrooms, each valued on its own read");
+// Three bathrooms used to share one score — the worst — so a new ensuite was
+// valued as if it were the original 1970s bathroom downstairs.
+const bath = (reads) => ({ id: "bath_shower", score: Math.min(...reads.filter((r) => r.score != null).map((r) => r.score)), specTier: "dated", byBathroom: reads.map((r) => ({ photoReferences: [], ...r })) });
+const mixed = [
+  { bathroom: "Ensuite", score: 9, specTier: "modern" },
+  { bathroom: "Main bathroom", score: 7, specTier: "modern" },
+  { bathroom: "Downstairs", score: 2, specTier: "dated", observedDefect: "Cracked shower tray and failed silicone (Photo 14)." },
+];
+const perBath = valueImprovementItems({ subItems: [bath(mixed)], floorAreaSqm: 200, bathrooms: 3, buildYear: 1975, now: NOW });
+const worstCase = valueImprovementItems({ subItems: [{ id: "bath_shower", score: 2, specTier: "dated" }], floorAreaSqm: 200, bathrooms: 3, buildYear: 1975, now: NOW });
+const shower = perBath.items.find((v) => v.id === "bath_shower");
+check("every seen bathroom gets its own line", shower.byBathroom.map((p) => p.bathroom), ["Ensuite", "Main bathroom", "Downstairs"]);
+check("the lines add up to the item", shower.valueNow, shower.byBathroom.reduce((a, p) => a + p.valueNow, 0));
+check("…and so does the cost new", shower.replacementTotal, shower.byBathroom.reduce((a, p) => a + p.replacementTotal, 0));
+check("a good ensuite is no longer valued as the worst bathroom", shower.valueNow > worstCase.items[0].valueNow, true);
+check("each bathroom's own spec sets its cost new", shower.byBathroom[0].rcnNew > shower.byBathroom[2].rcnNew, true);
+check("the urgent work is only the bad bathroom's",
+  shower.byBathroom.map((p) => p.actionCostNZD > 0), [false, false, true]);
+check("…and the plan is charged that, not a share of all three",
+  shower.actionCostNZD, shower.byBathroom[2].actionCostNZD);
+
+const partlySeen = valueImprovementItems({
+  subItems: [item("kit_cabinetry", 7), bath([{ bathroom: "Ensuite", score: 9, specTier: "modern" }, { bathroom: "Main bathroom", score: null }])],
+  floorAreaSqm: 200, bathrooms: 3, buildYear: 1975, now: NOW,
+});
+const ps = partlySeen.items.find((v) => v.id === "bath_shower");
+check("an unphotographed bathroom is not valued as a seen one", ps.byBathroom.length, 1);
+check("…it is named, with any the listing counts beyond those named", ps.unseenBathrooms, ["Main bathroom", "Bathroom 3"]);
+const est = partlySeen.estimatedItems.find((e) => e.id === "bath_shower:unseen");
+check("…and estimated from the house instead", !!est && est.valueNow > 0, true);
+check("…at two bathrooms' cost, not three", est.rcnNew < 3 * IMPROVEMENT_BASE_COSTS.bath_shower.baseRCN, true);
+
+const single = valueImprovementItems({ subItems: [{ id: "bath_shower", score: 6, specTier: "dated" }], floorAreaSqm: 200, bathrooms: 3, buildYear: 1975, now: NOW });
+check("without per-bathroom reads the old count-times-one-score still stands", single.items[0].byBathroom, undefined);
+check("…at three bathrooms' cost", single.items[0].rcnNew, Math.round(3 * IMPROVEMENT_BASE_COSTS.bath_shower.baseRCN * 0.9));
+
 console.log(failures === 0 ? "\nEstimated-value rules hold.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);

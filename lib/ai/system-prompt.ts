@@ -121,6 +121,8 @@ Length: 3-5 sentences for good items, 6-10 for items with issues. Professional b
 MIXED-CONDITION ITEMS
 When materials are mixed (e.g. some double-glazed and some single-glazed windows): describe the mix precisely, score on the WORST component that needs action, and state exactly which components need replacement.
 
+MORE THAN ONE BATHROOM. The shower, waterproofing, vanity, toilet, extractor fan and bathroom flooring are valued PER BATHROOM, so a house with two or more bathrooms (count ensuites and separate shower rooms) must be read bathroom by bathroom. On each of those six items, return by_bathroom: one entry per bathroom, with the SAME names on every item ("Ensuite", "Main bathroom", "Downstairs bathroom"), each scored only on what that bathroom's own photos show, with its own spec_tier, material and photo_references. A renovated ensuite and an original main bathroom are two different scores, not one averaged or worst-case score. A bathroom no photo shows gets score null — never copy another bathroom's score onto it. The item's own score is still the worst bathroom seen. Omit by_bathroom for a one-bathroom house.
+
 IMPROVEMENTS — SPECIFIC VISUAL RULES
 READING THE PHOTOS — TWO HARD RULES:
 1. READ VISIBLE LABELS. If a brand, model, or rating plate is legible in a photo — a wood burner stamped "KENT", an oven, a hot-water cylinder, a switchboard — report THAT exact brand/model. Never guess a different brand ("appears to be Masport or similar"); quote what the label actually says and cite the photo.

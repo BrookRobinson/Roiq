@@ -3,7 +3,7 @@
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 
 import { useState } from "react";
-import type { SubItem, RenoControls } from "@/lib/property-tab/types";
+import type { SubItem, RenoControls, UrgencyScore } from "@/lib/property-tab/types";
 import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue } from "@/lib/scoring/improvement-values";
@@ -13,7 +13,7 @@ import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
 import { itemSummary } from "@/lib/scoring/item-summary";
 import { ITEM_LIFE, expectedLife } from "@/lib/scoring/item-life";
 import { isFactOnly } from "@/lib/scoring/improvement-values";
-import { isRefused, type AnyValuation } from "./valuation-types";
+import { isRefused, isPerBathroom, type AnyValuation, type PerBathroomValuation } from "./valuation-types";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { confidenceMeta } from "./ConfidenceBar";
 import { CostWorkings } from "@/components/CostWorkings";
@@ -46,6 +46,73 @@ function Chip({ label, title, children }: { label: string; title?: string; child
     >
       <span style={{ color: "var(--text-muted)" }}>{label}: </span>
       {children}
+    </div>
+  );
+}
+
+/**
+ * One line per bathroom — its condition, what it's worth and what it would
+ * cost new — each opening to its own seven steps. The lines add up to the
+ * card's value; bathrooms nobody photographed are named, and left out.
+ */
+function PerBathroomBreakdown({ v, label }: { v: PerBathroomValuation; label: string }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
+  return (
+    <div className="space-y-2">
+      {v.parts.map((p) => {
+        const isOpen = open === p.bathroom;
+        const c = conditionScoreColor(p.condition as UrgencyScore);
+        return (
+          <div key={p.bathroom} className="rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+            <button
+              type="button"
+              onClick={() => setOpen(isOpen ? null : p.bathroom)}
+              aria-expanded={isOpen}
+              className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-3 cursor-pointer"
+            >
+              <span className="min-w-0">
+                <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>{p.bathroom}</span>
+                <span className="text-[12px] ml-2 mono" style={{ color: c }}>{p.condition}/10</span>
+              </span>
+              <span className="flex items-center gap-2 flex-shrink-0">
+                <span className="mono text-[13px] font-bold" style={{ color: c }}>{money(p.valuation.valueNZD)}</span>
+                <span className="mono text-[11px]" style={{ color: "var(--text-muted)" }}>· {money(p.valuation.cost.totalNZD)} new</span>
+                <ArrowRight size={11} style={{ color: "var(--brand)", transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+              </span>
+            </button>
+            {isOpen && (
+              <div className="px-3 pb-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                <ItemValuation
+                  v={p.valuation}
+                  lead={{
+                    title: "Listing photos",
+                    body: (
+                      <div className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                        {p.photoReferences.length > 0 ? (
+                          <span className="inline-flex items-center gap-1"><Camera size={12} style={{ color: "var(--text-muted)" }} /> Photos: {p.photoReferences.join(", ")}</span>
+                        ) : (
+                          <span style={{ color: "var(--text-muted)" }}>Read from the listing photos of this bathroom.</span>
+                        )}
+                      </div>
+                    ),
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div className="flex items-baseline justify-between gap-2 px-3 pt-1 text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
+        <span>{label}, all bathrooms seen</span>
+        <span className="mono">{money(v.valueNZD)} <span className="font-normal text-[11px]" style={{ color: "var(--text-muted)" }}>· {money(v.cost.totalNZD)} new</span></span>
+      </div>
+      {v.unseen.length > 0 && (
+        <div className="text-[12px] px-3" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+          Not photographed: {v.unseen.join(", ")}. {v.unseen.length === 1 ? "It isn't" : "They aren't"} valued on this card — the
+          valuation estimates {v.unseen.length === 1 ? "it" : "them"} from the condition of the rest of the house, and says so on the Financial tab.
+        </div>
+      )}
     </div>
   );
 }
@@ -320,7 +387,9 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                 How this value was worked out
               </div>
             )}
-            {valuation && !isRefused(valuation) ? (
+            {valuation && !isRefused(valuation) && isPerBathroom(valuation) ? (
+              <PerBathroomBreakdown v={valuation} label={item.name} />
+            ) : valuation && !isRefused(valuation) ? (
               <ItemValuation v={valuation} lead={{ title: "Listing photos", body: photosStep }} evidence={evidenceFor(item)} />
             ) : (
               <div className="space-y-3">

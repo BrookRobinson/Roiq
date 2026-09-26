@@ -37,6 +37,7 @@ export interface RawSubItem {
   condition_evidence?: string[];
   urgent_action?: { work?: string; scope?: string; share?: number };
   estimated_sqm?: number;
+  by_bathroom?: RawBathroomRead[];
   foundation_type?: string;
   foundation_symptoms?: string[];
   subfloor_visible?: boolean;
@@ -60,6 +61,15 @@ export interface RawSubItem {
   source_type?: string;
   verify_against?: string;
   remediation?: RawRemediation | null;
+}
+
+export interface RawBathroomRead {
+  bathroom: string;
+  score: number | null;
+  spec_tier?: string;
+  material?: string;
+  observed_defect?: string;
+  photo_references?: number[];
 }
 
 export interface RawDwellingHealthyHomes {
@@ -387,6 +397,23 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               enum: ["deteriorated", "dated", "modern", "luxury"],
               description:
                 "IMPROVEMENTS only — REQUIRED for every improvements item. This is the PRIMARY score driver: the tier sets a capped points band and the condition score then positions the item within it. deteriorated = the item is absent, broken, or so worn it needs full replacement regardless of its original spec (band 0–30% of the item's points); dated = present and functional but old-fashioned / an older spec (30–60%); modern = updated / contemporary look — tiling, stone or stone-look benchtops, good flooring, integrated appliances, modern fittings (60–80%); luxury = clearly high-end — natural stone, designer/architectural, imported fittings (80–100%). Judge the SPEC/era of the materials from the brand, materials and style visible in the photo (and listing description), NOT how new it looks — a tiled bathroom and a vinyl one can both be 10/10 condition but sit at different tiers. If you can't tell from the photo, infer from the build era. Rough era guide (assume it is 2026): dated = fitted pre-2014 or never renovated; modern = fitted 2014 onward; luxury = high-end materials at any age; deteriorated = broken/absent/end-of-life.",
+            },
+            by_bathroom: {
+              type: "array",
+              description:
+                "PER-BATHROOM items ONLY (bath_shower, bath_waterproof, bath_vanity, bath_toilet, bath_ventilation, bath_flooring), and ONLY when the property has MORE THAN ONE bathroom (count the listing's bathrooms, ensuites and separate toilet-and-shower rooms). One entry per bathroom, using the SAME bathroom names across all six items. Score each bathroom on what ITS photos show; a bathroom no photo shows gets score null. The item's own score stays the worst bathroom seen. Omit for a one-bathroom house.",
+              items: {
+                type: "object",
+                properties: {
+                  bathroom: { type: "string", description: "What it is: 'Ensuite', 'Main bathroom', 'Downstairs bathroom'. Same name on every bathroom item." },
+                  score: { type: ["integer", "null"], description: "1-10 condition of THIS bathroom's fitting, or null if no photo shows this bathroom." },
+                  spec_tier: { type: "string", enum: ["deteriorated", "dated", "modern", "luxury"] },
+                  material: { type: "string", description: "What THIS bathroom's fitting is, e.g. 'Tiled walk-in shower, frameless glass'. Omit if not visible." },
+                  observed_defect: { type: "string", description: "What needs work in THIS bathroom, if anything, citing the photo." },
+                  photo_references: { type: "array", items: { type: "integer" } },
+                },
+                required: ["bathroom", "score"],
+              },
             },
             foundation_type: {
               type: "string",

@@ -141,6 +141,11 @@ export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
   out_retaining: { baseRCN: 9000, scale: "fixed" },
 };
 
+/** The items priced once per bathroom — each bathroom is read and valued on its own. */
+export const BATHROOM_ITEM_IDS: ReadonlySet<string> = new Set(
+  Object.entries(IMPROVEMENT_BASE_COSTS).filter(([, s]) => s.scale === "bathroom").map(([id]) => id)
+);
+
 const ITEM_META = new Map(SCORING_MODEL.map((i) => [i.id, i]));
 
 /**
@@ -184,6 +189,32 @@ export interface ItemValue {
   pastLife: boolean;
   valuePotential: number; // value at modern spec, as-new (the reno ceiling)
   valueGap: number; // max(0, potential − now) — the renovation upside
+  /**
+   * What the urgent work costs. Set only where it isn't `share × replacementTotal`
+   * — a per-bathroom item, where the work is in one bathroom and the
+   * replacement total covers all of them.
+   */
+  actionCostNZD?: number;
+  /** Per-bathroom items: each bathroom that was seen, valued on its own read. */
+  byBathroom?: BathroomValue[];
+  /** Bathrooms no photograph shows. Estimated from the rest of the house, not valued here. */
+  unseenBathrooms?: string[];
+}
+
+export interface BathroomValue {
+  bathroom: string;
+  condition: number;
+  tier: SpecTier | null;
+  material?: string;
+  observedDefect?: string;
+  photoReferences: number[];
+  rcnNew: number;
+  replacementTotal: number;
+  valueNow: number;
+  valuePotential: number;
+  ageYears: number;
+  pastLife: boolean;
+  actionCostNZD: number;
 }
 
 /** The base structure & services, step by step — the house before its fittings. */
@@ -380,6 +411,54 @@ export function valueImprovementItems(args: {
       }
     }
 
+    // Several bathrooms, each read on its own: value them one by one. Only
+    // the ones a photo shows — the rest are estimated below, from the house.
+    const seenBaths = spec.scale === "bathroom" ? (s.byBathroom ?? []).filter((b) => b.score != null) : [];
+    if (seenBaths.length > 0) {
+      // The item's own recorded action is for its worst bathroom.
+      const worst = seenBaths.reduce((a, b) => ((b.score as number) < (a.score as number) ? b : a));
+      const parts: BathroomValue[] = [];
+      for (const b of seenBaths) {
+        const t = b.specTier ?? tier;
+        const one = Math.round(spec.baseRCN * specMult(t));
+        const act = b === worst && s.urgentAction ? actionFor(s) : actionFor({ observedDefect: b.observedDefect, score: b.score });
+        const bv = depreciate(id, one, b.score as number, false, act);
+        if (!bv) continue;
+        const pot = depreciate(id, Math.round(spec.baseRCN * RENO_TARGET_MULT), 10, true);
+        parts.push({
+          bathroom: b.bathroom, condition: b.score as number, tier: t, material: b.material, observedDefect: b.observedDefect, photoReferences: b.photoReferences,
+          rcnNew: one, replacementTotal: bv.cost.totalNZD, valueNow: bv.valueNZD, valuePotential: pot ? pot.valueNZD : bv.valueNZD,
+          ageYears: bv.age.effectiveYears, pastLife: bv.remainingFraction <= 0, actionCostNZD: bv.action?.costNZD ?? 0,
+        });
+      }
+      if (parts.length > 0) {
+        const sum = (f: (p: BathroomValue) => number) => parts.reduce((a, p) => a + f(p), 0);
+        const worstPart = parts.reduce((a, p) => (p.condition < a.condition ? p : a));
+        const unseenBathrooms = [
+          ...(s.byBathroom ?? []).filter((b) => b.score == null).map((b) => b.bathroom),
+        ];
+        // The listing may count more bathrooms than the analysis named.
+        for (let n = parts.length + unseenBathrooms.length; n < baths; n++) unseenBathrooms.push(`Bathroom ${n + 1}`);
+        const rcnAll = sum((p) => p.rcnNew);
+        const valueNow = sum((p) => p.valueNow);
+        const valuePotential = sum((p) => p.valuePotential);
+        items.push({
+          id, label: meta.label, category: meta.category, tier, condition,
+          rcnNew: rcnAll, replacementTotal: sum((p) => p.replacementTotal), valueNow,
+          ageYears: worstPart.ageYears, pastLife: worstPart.pastLife,
+          valuePotential, valueGap: Math.max(0, valuePotential - valueNow),
+          actionCostNZD: sum((p) => p.actionCostNZD), byBathroom: parts, unseenBathrooms,
+        });
+        componentsValue += valueNow;
+        totalValueGap += Math.max(0, valuePotential - valueNow);
+        for (const p of parts) {
+          wRcn += p.rcnNew;
+          wRcnCond += p.rcnNew * conditionFactor(p.condition);
+        }
+        continue;
+      }
+    }
+
     const v = depreciate(id, rcnNew, condition, false, actionFor(s));
     if (!v) continue;
     const potential = depreciate(id, Math.round(sized * RENO_TARGET_MULT), 10, true);
@@ -469,6 +548,22 @@ export function valueImprovementItems(args: {
       const meta = ITEM_META.get(id);
       if (!meta) continue;
       const seen = byId.get(id);
+      const valued = items.find((i) => i.id === id);
+      // Bathrooms no photo shows, on an item whose other bathrooms were seen.
+      if (valued?.unseenBathrooms?.length) {
+        const n = valued.unseenBathrooms.length;
+        const rcn = Math.round(spec.baseRCN * n * blendedSpec);
+        const valueNow = depreciate(id, rcn, blendedScore)?.valueNZD ?? 0;
+        estimatedItems.push({
+          id: `${id}:unseen`,
+          label: `${meta.label} — ${valued.unseenBathrooms.join(", ")} (not photographed)`,
+          category: meta.category,
+          rcnNew: rcn,
+          valueNow,
+        });
+        estimatedValue += valueNow;
+        continue;
+      }
       if (seen && seen.score != null) continue; // already valued for real
       const rcnNew = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths) * blendedSpec);
       if (rcnNew <= 0) continue;

@@ -87,6 +87,26 @@ export interface Remediation {
   renovationLineItem: string; // label shown in the Renovations tab
 }
 
+/**
+ * One bathroom's read of a per-bathroom item (shower, vanity, toilet…).
+ *
+ * A house with three bathrooms used to carry ONE score per item, and the
+ * analysis is told to score a mix on its worst part — so a new ensuite and a
+ * tidy main bathroom were valued as if they were the original 1970s one.
+ * Each bathroom is read and valued on its own now; a null score is a bathroom
+ * no photograph shows, which is estimated, never guessed.
+ */
+export interface BathroomRead {
+  /** What the listing or photos call it: "Ensuite", "Main bathroom", "Downstairs". */
+  bathroom: string;
+  score: UrgencyScore | null;
+  specTier?: SpecTier;
+  /** This bathroom's own fitting — the ensuite's shower is not the main bathroom's. */
+  material?: string;
+  observedDefect?: string;
+  photoReferences: number[];
+}
+
 export interface SubItem {
   id: string;
   name: string;
@@ -114,6 +134,8 @@ export interface SubItem {
   /** Work needed NOW to get it back to a well-maintained state. See actionFor(). */
   urgentAction?: UrgentAction;
   estimatedSqm?: number;               // for size/area items — the estimated area in m² (shown instead of material/age)
+  /** Per-bathroom items only, when the house has more than one bathroom. See BathroomRead. */
+  byBathroom?: BathroomRead[];
 
   slopeBand?: SlopeBand;               // land_topography only — the measured-ish fact behind its score
   usableLandPct?: number;              // land_topography only — 0–100, share of the section flat enough to use
