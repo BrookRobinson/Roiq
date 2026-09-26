@@ -1209,6 +1209,9 @@ export function RealReportView({
               verifiedDocs={verifiedDocs}
               onVerified={onVerified}
               onSeeRenovations={() => setTab("renovations")}
+              propertyValue={propertyValue}
+              landAreaSqm={listing.landAreaSqm}
+              locked={locked}
             />
           )}
           {tab === "renovations" && !tabLocked("renovations") && <RenovationsReal renoLines={renoLines} renoToggles={renoToggles} setRenoToggle={setRenoToggle} persona={persona} listing={listing} />}

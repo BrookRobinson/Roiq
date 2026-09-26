@@ -1440,6 +1440,14 @@ reading neighbours coarser averaged their trees down and made every section
 look shadier than its street. Lookups use a linear metre→pixel map
 (`inFrame`); per-lookup projection was most of the time.
 
+**The Title & legal tab opens with what the title did to the value**
+(`TitleValueCard`), read from the one valuation, never recomputed. Freehold is
+FULL value, never "+$X for freehold" — the land rate comes from freehold sales,
+so a premium would count it twice. A cross lease shows its dollar deduction and
+land share; unit title, leasehold and licence to occupy say they are priced by
+their own market; an unknown title says nothing was adjusted. Every title is
+listed, strongest first. The dollar figure blurs on a free report.
+
 **Title & legal is its own tab, in three groups, with no scores.** It was ten
 cards in one worst-first list on the Land tab with marks out of ten ("Easements
 7/10", "Moderate — verify"), mixing register facts, inferred risks and missing

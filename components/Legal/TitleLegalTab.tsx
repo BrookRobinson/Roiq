@@ -22,6 +22,8 @@ import { ITEM_BY_ID, VERIFIED_DOC_ITEMS } from "@/lib/scoring/catalog";
 import { DocUpload } from "@/components/PropertyInspections/DocUpload";
 import { legalItemApplies } from "@/lib/scoring/applies";
 import { ArrowRight, Check, FileText } from "lucide-react";
+import { TitleValueCard } from "./TitleValueCard";
+import type { PropertyValue } from "@/lib/scoring/property-value";
 
 const TITLE_ITEMS = ["leg_title", "leg_easements", "leg_encumbrances"];
 
@@ -98,6 +100,9 @@ export function TitleLegalTab({
   verifiedDocs = {},
   onVerified,
   onSeeRenovations,
+  propertyValue,
+  landAreaSqm,
+  locked = false,
 }: {
   subItems: SubItem[];
   buildYear?: number | null;
@@ -116,6 +121,10 @@ export function TitleLegalTab({
   verifiedDocs?: Record<string, DocAnalysis>;
   onVerified?: (itemId: string, doc: DocAnalysis) => void;
   onSeeRenovations: () => void;
+  /** The report's valuation, for what the title did to it. */
+  propertyValue?: PropertyValue | null;
+  landAreaSqm?: number | null;
+  locked?: boolean;
 }) {
   const applies = (id: string, item?: SubItem) =>
     legalItemApplies(id, { titleType, statedBodyCorporate, region, city, unconsentedSignal }, item);
@@ -142,6 +151,7 @@ export function TitleLegalTab({
 
   return (
     <div className="space-y-4">
+      <TitleValueCard titleType={titleType} value={propertyValue} landAreaSqm={landAreaSqm} locked={locked} />
       {/* ── 1 What the title says ───────────────────────────────────────── */}
       <Group n={1} title="What the title says" sub="Read from the LINZ record of title. These are facts, not opinions.">
         {title && (
