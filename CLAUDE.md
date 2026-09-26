@@ -1496,7 +1496,10 @@ was inspected for it at the time. Leak signs (soft linings, swollen skirting)
 live on the shower's viewing check instead. `RealReportView` drops any sub-item
 the model no longer has, so older saved reports still carrying it render clean.
 
-**But a TILED shower carries its membrane in its price.** Tiles and grout aren't
+**But TILED wet-area work carries its membrane in its price** — the shower
+(`SHOWER_MEMBRANE`, $2,500) and the bathroom floor (`FLOOR_MEMBRANE`, $800,
+`floor_type` tiled / vinyl, a vinyl floor relaid as `flooring_sheet_vinyl`).
+`membraneFor()` is the one place that decides. The shower in detail: Tiles and grout aren't
 waterproof; a moulded liner and tray is. The analysis records `shower_type`
 (tiled / liner) — visible — and is told never to assess the membrane, which
 isn't. A tiled shower's cost new is the base plus `SHOWER_MEMBRANE`, assumed

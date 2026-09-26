@@ -31,6 +31,7 @@ import type {
   SubItem,
   RoomRead,
   ShowerType,
+  FloorType,
   ExtraDwelling,
   ReplacementCost,
   UrgencyScore,
@@ -326,6 +327,10 @@ function normShowerType(v: string | undefined): ShowerType | undefined {
   return v === "tiled" || v === "liner" ? v : undefined;
 }
 
+function normFloorType(v: string | undefined): FloorType | undefined {
+  return v === "tiled" || v === "vinyl" ? v : undefined;
+}
+
 function normByRoom(raw: RawSubItem["by_room"], id: string): RoomRead[] | undefined {
   if (!ROOM_ITEM_IDS.has(id) || !Array.isArray(raw)) return undefined;
   const seen = new Set<string>();
@@ -340,6 +345,7 @@ function normByRoom(raw: RawSubItem["by_room"], id: string): RoomRead[] | undefi
       specTier: normSpecTier(r.spec_tier),
       material: r.material?.trim() || undefined,
       showerType: id === "bath_shower" ? normShowerType(r.shower_type) : undefined,
+      floorType: id === "bath_flooring" ? normFloorType(r.floor_type) : undefined,
       observedDefect: r.observed_defect?.trim() || undefined,
       photoReferences: normPhotoRefs(r.photo_references),
     });
@@ -390,6 +396,7 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
     estimatedSqm: SIZE_ITEM_IDS.has(item.id) ? sizeSqm(raw.estimated_sqm, item.id, ctx.floorAreaSqm, ctx.bedrooms) : undefined,
     byRoom: normByRoom(raw.by_room, item.id),
     showerType: item.id === "bath_shower" ? normShowerType(raw.shower_type) : undefined,
+    floorType: item.id === "bath_flooring" ? normFloorType(raw.floor_type) : undefined,
     // Topography carries the facts its score is derived from (see land-quality.ts).
     slopeBand: item.id === "land_topography" ? normSlopeBand(raw.slope_band) : undefined,
     usableLandPct: item.id === "land_topography" ? normUsablePct(raw.usable_land_pct) : undefined,

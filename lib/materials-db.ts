@@ -502,6 +502,10 @@ export const MATERIALS_DB: MaterialItem[] = [
     budget:{ description:"Acrylic shower, moulded walls and tray 900x900", price:650, unit:"per unit", source:"Estimate", notes:"Its own waterproof layer — no membrane behind it." },
     premium:{ description:"Acrylic shower, moulded walls and tray 1200x900", price:1650, unit:"per unit", source:"Estimate", notes:"Larger unit, fewer joints. Still no membrane needed." }},
 
+  { cat:"Bathroom & Laundry", name:"Wet area sheet vinyl",
+    budget:{ description:"Sheet vinyl, coved up the walls, welded seams", price:45, unit:"per m²", source:"Estimate", notes:"Its own waterproof layer — no membrane under it." },
+    premium:{ description:"Heavy-duty safety sheet vinyl, coved and welded", price:85, unit:"per m²", source:"Estimate", notes:"Slip-rated. Still no membrane needed." }},
+
   { cat:"Bathroom & Laundry", name:"Wet area wall tiles",
     budget:{ description:"Ceramic wall tile 300x600mm", price:35, unit:"per m²", source:"Estimate", notes:"Tiles and grout are not waterproof — the membrane behind them is." },
     premium:{ description:"Large-format porcelain wall tile 600x1200mm", price:110, unit:"per m²", source:"Estimate", notes:"Fewer grout lines. Needs a flat, true substrate." }},

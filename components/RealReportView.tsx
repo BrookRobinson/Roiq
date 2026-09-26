@@ -9,7 +9,7 @@ import { HoldPeriodSlider } from "@/components/HoldPeriodSlider";
 import { ReportGapBanner } from "@/components/ReportGapBanner";
 import type { ReportGap } from "@/lib/property-tab/gaps";
 import { urgencyColor, urgencyLabel, type RenoControls } from "@/lib/property-tab/types";
-import type { SubItem, ExtraDwelling, ShowerType } from "@/lib/property-tab/types";
+import type { SubItem, ExtraDwelling, ShowerType, FloorType } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
 import { valueRoof, roofMaterialFromText } from "@/lib/scoring/roof-value";
@@ -33,7 +33,7 @@ import { explainCrossLeaseDiscount } from "@/lib/scoring/cross-lease";
 import { maintenanceBasis } from "@/lib/finance/maintenance";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { compareFloorArea } from "@/lib/property/floor-area-check";
-import { valueImprovementItems, roomKindOf, DEFAULT_BEDROOMS, SHOWER_MEMBRANE, showerTypeOf, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
+import { valueImprovementItems, roomKindOf, DEFAULT_BEDROOMS, SHOWER_MEMBRANE, FLOOR_MEMBRANE, showerTypeOf, floorTypeOf, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
 import type { PlacedStructure } from "@/components/PropertyInspections/AddStructure";
@@ -731,8 +731,8 @@ export function RealReportView({
             id: v.id,
             rcnNew: p.rcnNew,
             sizeWorkings:
-              v.id === "bath_shower"
-                ? [...showerWorkings(IMPROVEMENT_BASE_COSTS.bath_shower.baseRCN, showerTypeOf(p), "for this bathroom"), `At its own spec: $${Math.round(p.rcnNew).toLocaleString("en-NZ")}.`]
+              v.id === "bath_shower" || v.id === "bath_flooring"
+                ? [...wetAreaWorkings(v.id, IMPROVEMENT_BASE_COSTS[v.id].baseRCN, p, "for this bathroom"), `At its own spec: $${Math.round(p.rcnNew).toLocaleString("en-NZ")}.`]
                 : [`$${Math.round(p.rcnNew).toLocaleString("en-NZ")} for this room's ${v.label.toLowerCase()}, at its own spec — one room's share of the item.`],
             sizeSummary: `$${Math.round(p.rcnNew).toLocaleString("en-NZ")} to replace in the ${p.room.toLowerCase()}`,
             // Its own fitting, never the item's — that describes another bathroom.
@@ -769,7 +769,7 @@ export function RealReportView({
         valueItem({
           id: v.id,
           rcnNew: v.rcnNew,
-          sizeWorkings: sizeWorkingsFor(v.id, report.listing.floorAreaSqm, report.listing.bathrooms, report.listing.bedrooms, v.rcnNew, v.id === "bath_shower" ? showerTypeOf(effectiveSubItems.find((s) => s.id === v.id) ?? {}) : null),
+          sizeWorkings: sizeWorkingsFor(v.id, report.listing.floorAreaSqm, report.listing.bathrooms, report.listing.bedrooms, v.rcnNew, effectiveSubItems.find((s) => s.id === v.id)),
           sizeSummary: `$${Math.round(v.rcnNew).toLocaleString("en-NZ")} to replace on this property`,
           material: shot?.material ?? item?.material,
           concerns,
@@ -1842,6 +1842,26 @@ function LocationFactCard({ subItems, ids, title }: { subItems: SubItem[]; ids: 
  * assessed — it can't be seen — but replacing a tiled shower means redoing
  * it, so it is in the price and the working says so.
  */
+function wetAreaWorkings(id: string, base: number, read: { showerType?: ShowerType; floorType?: FloorType; material?: string | null }, times: string): string[] {
+  if (id === "bath_flooring") return floorWorkings(base, floorTypeOf(read), times);
+  return showerWorkings(base, showerTypeOf(read), times);
+}
+
+/** A bathroom floor's cost, by what it's laid in — same reasoning as the shower. */
+function floorWorkings(base: number, floor: FloorType | null | undefined, times: string): string[] {
+  const $ = (n: number) => `$${n.toLocaleString("en-NZ")}`;
+  if (floor === "tiled") {
+    return [
+      `Tiled floor: ${$(base)} + ${$(FLOOR_MEMBRANE)} for the waterproof membrane under the tiles = ${$(base + FLOOR_MEMBRANE)} ${times}.`,
+      "The membrane can't be seen, so it isn't assessed. A tiled bathroom floor is assumed to have one, and relaying the floor means redoing it.",
+    ];
+  }
+  if (floor === "vinyl") {
+    return [`Vinyl floor: ${$(base)} ${times}. Sheet vinyl is its own waterproof layer, so there's no membrane to price.`];
+  }
+  return [`${$(base)} ${times}. Whether it's tiled or vinyl isn't known, so it's priced without a membrane.`];
+}
+
 function showerWorkings(base: number, shower: ShowerType | null | undefined, times: string): string[] {
   const $ = (n: number) => `$${n.toLocaleString("en-NZ")}`;
   if (shower === "tiled") {
@@ -1862,7 +1882,7 @@ function sizeWorkingsFor(
   bathrooms: number | null | undefined,
   bedrooms: number | null | undefined,
   rcn: number,
-  shower?: ShowerType | null
+  read?: { showerType?: ShowerType; floorType?: FloorType; material?: string | null }
 ): string[] {
   const spec = IMPROVEMENT_BASE_COSTS[id];
   if (!spec) return [`Replacement cost of about $${Math.round(rcn).toLocaleString("en-NZ")}.`];
@@ -1876,7 +1896,7 @@ function sizeWorkingsFor(
   if (spec.scale === "bathroom") {
     const n = Math.max(1, Math.round(bathrooms ?? 1));
     const per = `${n} ${n === 1 ? "bathroom" : "bathrooms"}`;
-    if (id === "bath_shower") return showerWorkings(spec.baseRCN, shower, `× ${per}`);
+    if (id === "bath_shower" || id === "bath_flooring") return wetAreaWorkings(id, spec.baseRCN, read ?? {}, `× ${per}`);
     return [`$${spec.baseRCN.toLocaleString("en-NZ")} per bathroom × ${per}.`];
   }
   if (spec.scale === "bedroom") {
@@ -2159,7 +2179,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         notes: s.estimatedReplacementCost?.notes || undefined,
         category,
         photoRefs: s.photoReferences,
-        costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low, high }, variant: s.id === "bath_shower" ? showerTypeOf(s) : null }),
+        costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low, high }, variant: s.id === "bath_shower" ? showerTypeOf(s) : s.id === "bath_flooring" ? floorTypeOf(s) : null }),
         // Pre-ticked when it's bad enough to be urgent, OR when it's one of
         // the five Healthy Homes standards and we have ESTABLISHED it doesn't
         // meet the requirement. Those are not opinions about condition — they

@@ -39,6 +39,7 @@ export interface RawSubItem {
   estimated_sqm?: number;
   by_room?: RawRoomRead[];
   shower_type?: string;
+  floor_type?: string;
   foundation_type?: string;
   foundation_symptoms?: string[];
   subfloor_visible?: boolean;
@@ -70,6 +71,7 @@ export interface RawRoomRead {
   spec_tier?: string;
   material?: string;
   shower_type?: string;
+  floor_type?: string;
   observed_defect?: string;
   photo_references?: number[];
 }
@@ -405,6 +407,11 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               enum: ["tiled", "liner"],
               description: "bath_shower ONLY. How the shower is BUILT, which you can see: tiled = tiled walls or floor in the shower (including tiles around a shower over a bath); liner = a moulded acrylic or fibreglass unit or wall panels with a tray. Say only what the photo shows. Do NOT assess the waterproofing behind the tiles — it can't be seen, and nothing about it is scored.",
             },
+            floor_type: {
+              type: "string",
+              enum: ["tiled", "vinyl"],
+              description: "bath_flooring ONLY. What the bathroom floor is laid in, which you can see: tiled = ceramic or porcelain tiles; vinyl = sheet vinyl or lino. Say only what the photo shows. Do NOT assess any waterproofing under the tiles — it can't be seen, and nothing about it is scored.",
+            },
             by_room: {
               type: "array",
               description:
@@ -417,6 +424,7 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
                   spec_tier: { type: "string", enum: ["deteriorated", "dated", "modern", "luxury"] },
                   material: { type: "string", description: "What THIS room's fitting is, e.g. 'Tiled walk-in shower, frameless glass' or 'Wool-blend carpet'. Omit if not visible." },
                   shower_type: { type: "string", enum: ["tiled", "liner"], description: "bath_shower only — this bathroom's shower. See shower_type on the item." },
+                  floor_type: { type: "string", enum: ["tiled", "vinyl"], description: "bath_flooring only — this bathroom's floor. See floor_type on the item." },
                   observed_defect: { type: "string", description: "What needs work in THIS room, if anything, citing the photo." },
                   photo_references: { type: "array", items: { type: "integer" } },
                 },

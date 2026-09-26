@@ -103,6 +103,9 @@ export interface Remediation {
  */
 export type ShowerType = "tiled" | "liner";
 
+/** What a bathroom floor is laid in. Tiles need a membrane under them; sheet vinyl is its own. */
+export type FloorType = "tiled" | "vinyl";
+
 export interface RoomRead {
   /** What the listing or photos call it: "Ensuite", "Main bathroom", "Downstairs". */
   room: string;
@@ -112,6 +115,8 @@ export interface RoomRead {
   material?: string;
   /** bath_shower only. */
   showerType?: ShowerType;
+  /** bath_flooring only. */
+  floorType?: FloorType;
   observedDefect?: string;
   photoReferences: number[];
 }
@@ -145,6 +150,8 @@ export interface SubItem {
   estimatedSqm?: number;               // for size/area items — the estimated area in m² (shown instead of material/age)
   /** bath_shower only — tiled or a liner. See ShowerType. */
   showerType?: ShowerType;
+  /** bath_flooring only — tiled or vinyl. See FloorType. */
+  floorType?: FloorType;
   /** Room-by-room items, when the house has more than one of that room. See RoomRead. */
   byRoom?: RoomRead[];
 

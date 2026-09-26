@@ -88,7 +88,7 @@ function dbLine(name: string, level: "budget" | "premium", qty: number): MatLine
 // ── Reno kinds + mapping ─────────────────────────────────────────────────────
 export type RenoKind =
   | "cladding" | "exterior_paint" | "roof" | "gutters" | "soffits" | "windows" | "foundation"
-  | "decking" | "insulation" | "flooring_vinyl" | "flooring_carpet" | "flooring_tile"
+  | "decking" | "insulation" | "flooring_vinyl" | "flooring_carpet" | "flooring_tile" | "flooring_sheet_vinyl"
   | "kitchen" | "kitchen_cabinetry" | "kitchen_appliances" | "splashback" | "benchtop" | "kitchen_tap"
   | "bathroom" | "shower_liner" | "shower_tiled" | "vanity" | "toilet" | "heating" | "hotwater" | "ventilation" | "driveway" | "fencing" | "generic";
 
@@ -101,6 +101,9 @@ export function kindForItem(id: string, category?: string, name?: string, varian
   // Nor is a vanity or a toilet. Both used to fall through to "bathroom" and
   // price a full refit — shower, tiles and membrane — for somebody who asked
   // what a new basin costs.
+  // A bathroom floor laid in sheet vinyl is relaid in vinyl — no tiles, no
+  // membrane. A tiled one keeps the tile job, which already includes one.
+  if (id === "bath_flooring") return variant === "vinyl" ? "flooring_sheet_vinyl" : "flooring_tile";
   if (id === "bath_vanity") return "vanity";
   if (id === "bath_toilet") return "toilet";
   if (/driveway|paving/.test(hay)) return "driveway";
@@ -171,7 +174,7 @@ function primaryQty(kind: RenoKind, floorSqm: number, bedrooms: number): { area:
       return { area: floor, count: 0, unit: "m²", note: `${floor}m² ceiling area` };
     case "flooring_vinyl": case "flooring_carpet":
       return { area: Math.min(floor, 60), count: 0, unit: "m²", note: `≈${Math.min(floor, 60)}m² floor area` };
-    case "flooring_tile":
+    case "flooring_tile": case "flooring_sheet_vinyl":
       return { area: 8, count: 0, unit: "m²", note: "≈8m² wet-area floor" };
     case "kitchen":
       return { area: 3, count: 0, unit: "lm run", note: "3 lineal-metre kitchen run" };
@@ -383,6 +386,19 @@ const RECIPES: Partial<Record<RenoKind, Recipe>> = {
     patchInline: [],
     patchDb: [{ db: "Wet area floor tiles", qty: (c) => Math.max(1, round(c.area * 0.2)) }, { db: "Grout", qty: () => 1 }],
     patchLabour: [{ trade: "tiler", hours: (c) => round(c.area * 0.4) }],
+  },
+  flooring_sheet_vinyl: {
+    scopeBudget: "Uplift the old vinyl, level the floor, and lay new sheet vinyl coved up the walls with welded seams.",
+    scopePremium: "As budget, in heavy-duty slip-rated safety vinyl.",
+    scopePatch: "Re-weld lifting seams and re-seal the edges at the shower and toilet.",
+    bom: [
+      { db: "Wet area sheet vinyl", qty: a },
+      { db: "Floor levelling compound", qty: (c) => Math.ceil(c.area / 15) },
+    ],
+    labour: [{ trade: "carpenter", hours: (c) => round(c.area * 1) }],
+    patchInline: [{ name: "Seam weld + edge sealant", description: "Vinyl weld rod and wet-area sealant", qty: () => 1, unit: "per kit", unitPrice: 60, source: "Estimate" }],
+    patchDb: [],
+    patchLabour: [{ trade: "carpenter", hours: () => 2 }],
   },
   splashback: {
     scopeBudget: "Tiled splashback behind the bench and hob, sealed and grouted.",
@@ -684,7 +700,7 @@ export function tierTotal(t: TierCost, labour: LabourMode): number {
 // bathroom refit, a count of windows) are all-or-nothing and get no slider.
 const SCALABLE_KINDS: Set<RenoKind> = new Set<RenoKind>([
   "cladding", "exterior_paint", "roof", "gutters", "soffits", "foundation",
-  "decking", "insulation", "flooring_vinyl", "flooring_carpet", "flooring_tile",
+  "decking", "insulation", "flooring_vinyl", "flooring_carpet", "flooring_tile", "flooring_sheet_vinyl",
   "driveway", "fencing",
 ]);
 

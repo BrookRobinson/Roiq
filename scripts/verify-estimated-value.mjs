@@ -257,6 +257,17 @@ const twoShowers = valueImprovementItems({
 }).items[0];
 check("each bathroom's shower is priced as its own type", twoShowers.byRoom.map((p) => p.rcnNew), [base + SHOWER_MEMBRANE, base]);
 
+console.log("\na tiled bathroom floor carries its membrane; vinyl doesn't");
+const { FLOOR_MEMBRANE, floorTypeFromText } = await import(join(root, "lib/scoring/improvement-values.ts"));
+const floorCost = (extra) => valueImprovementItems({ subItems: [{ id: "bath_flooring", score: 7, ...extra }], floorAreaSqm: 150, bathrooms: 1, now: NOW }).items[0].rcnNew;
+const fbase = IMPROVEMENT_BASE_COSTS.bath_flooring.baseRCN;
+check("a tiled floor costs the membrane on top", floorCost({ floorType: "tiled" }), fbase + FLOOR_MEMBRANE);
+check("a vinyl floor costs no membrane", floorCost({ floorType: "vinyl" }), fbase);
+check("an unknown floor carries no membrane", floorCost({}), fbase);
+check("the analysis's words decide when it gave no type", floorCost({ material: "Ceramic floor tile" }), fbase + FLOOR_MEMBRANE);
+check("lino is vinyl", floorTypeFromText("Original lino, lifting at the door"), "vinyl");
+check("the shower's membrane never lands on the floor", floorCost({ floorType: "vinyl", showerType: "tiled" }), fbase);
+
 console.log("\nreplacing a shower is a shower job, not a bathroom refit");
 const { costThreeTier } = await import(join(root, "lib/reno-costing/three-tier.ts"));
 const tiledJob = costThreeTier({ id: "bath_shower", name: "Shower / bath", category: "Bathroom", variant: "tiled" });
@@ -270,6 +281,11 @@ check("neither prices a toilet or a vanity", [...tiledJob.budget.materials, ...l
 const vanityJob = costThreeTier({ id: "bath_vanity", name: "Vanity & tapware", category: "Bathroom" });
 const toiletJob = costThreeTier({ id: "bath_toilet", name: "Toilet", category: "Bathroom" });
 check("a vanity is a vanity job", vanityJob.kind, "vanity");
+check("a tiled bathroom floor is the tile job, with its membrane",
+  costThreeTier({ id: "bath_flooring", category: "Bathroom", variant: "tiled" }).budget.materials.some((m) => /membrane/i.test(m.name)), true);
+const vinylFloor = costThreeTier({ id: "bath_flooring", category: "Bathroom", variant: "vinyl" });
+check("a vinyl bathroom floor is relaid in vinyl", vinylFloor.kind, "flooring_sheet_vinyl");
+check("…with no tiles and no membrane", vinylFloor.budget.materials.some((m) => /tile|membrane/i.test(m.name)), false);
 check("a toilet is a toilet job", toiletJob.kind, "toilet");
 check("neither prices a shower, tiles or a membrane",
   [...vanityJob.budget.materials, ...toiletJob.budget.materials].some((m) => /shower|tile|membrane/i.test(m.name)), false);
