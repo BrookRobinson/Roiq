@@ -1445,8 +1445,10 @@ look shadier than its street. Lookups use a linear metre→pixel map
 FULL value, never "+$X for freehold" — the land rate comes from freehold sales,
 so a premium would count it twice. A cross lease shows its dollar deduction and
 land share; unit title, leasehold and licence to occupy say they are priced by
-their own market; an unknown title says nothing was adjusted. Every title is
-listed, strongest first. The dollar figure blurs on a free report.
+their own market; an unknown title says nothing was adjusted. Only THIS
+property's title is shown — the breakdown says what it means, how it's valued
+and its risks; listing every tenure told a freehold buyer about licences to
+occupy. The dollar figure blurs on a free report.
 
 **Title & legal is its own tab, in three groups, with no scores.** It was ten
 cards in one worst-first list on the Land tab with marks out of ten ("Easements

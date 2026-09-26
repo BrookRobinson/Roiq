@@ -14,68 +14,83 @@
 // already what the number is; adding "+$X for freehold" would count it twice.
 // The other titles are stated against it.
 //
+// Only THIS property's title is shown — a list of every tenure told a freehold
+// buyer about licences to occupy. The card says the title and its effect; the
+// breakdown says what it means, how it's valued and what can go wrong.
+//
 // Nothing here computes a value. It reads the one valuation the report already
 // made (lib/scoring/property-value.ts) and says what the title did to it.
 // ============================================================
 
 import type { PropertyValue } from "@/lib/scoring/property-value";
 import { explainCrossLeaseDiscount, MIN_DISCOUNT_PCT, MAX_DISCOUNT_PCT } from "@/lib/scoring/cross-lease";
+import { useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { BlurredValue } from "@/components/report/Locked";
 
 type Title = "freehold" | "cross_lease" | "unit_title" | "leasehold" | "licence_to_occupy" | "unknown";
 
-/** Every title, best-held first — the order is the ranking. */
-const TITLES: { id: Title; name: string; own: string; valued: string; effect: string; tone: "good" | "warn" | "bad" | "muted" }[] = [
-  {
-    id: "freehold",
+/** What each title is, and what can go wrong with it — only this property's is shown. */
+const ABOUT: Record<Title, { name: string; means: string; risks: string[] }> = {
+  freehold: {
     name: "Freehold",
-    own: "The land and everything on it, outright.",
-    valued: "The land, from sales of nearby sections, plus the building on it.",
-    effect: "Full value",
-    tone: "good",
+    means: "You own the land and everything on it outright. No ground rent, no body corporate, and nobody else's consent needed to change your own house.",
+    risks: [],
   },
-  {
-    id: "unit_title",
-    name: "Unit title",
-    own: "Your unit, plus a share of the common property run by a body corporate.",
-    valued: "Against sales of other unit-title properties of the same type, per m² of floor.",
-    effect: "Its own market",
-    tone: "warn",
-  },
-  {
-    id: "cross_lease",
+  cross_lease: {
     name: "Cross lease",
-    own: "A share of the land with the other flat owners, and a lease of your flat from all of them.",
-    valued: `Your share of the land plus your building, then ${MIN_DISCOUNT_PCT}–${MAX_DISCOUNT_PCT}% off, more with more owners and more sharing.`,
-    effect: `−${MIN_DISCOUNT_PCT} to −${MAX_DISCOUNT_PCT}%`,
-    tone: "warn",
+    means: "You own a share of the whole site together with the other flat owners, and lease your own flat back from all of them.",
+    risks: [
+      "Anything built that isn't on the flats plan — a deck, a conservatory, an extension — makes the title defective. Fixing it takes a new survey and every owner signing.",
+      "Changing the footprint of your flat needs every other owner to agree.",
+      "Shared driveways and shared ground are where disputes between owners start.",
+      "Fewer buyers and some lenders are cautious of it, which is part of why it sells below freehold.",
+    ],
   },
-  {
-    id: "leasehold",
+  unit_title: {
+    name: "Unit title",
+    means: "You own your unit, and a share of the common property that a body corporate runs on behalf of all the owners.",
+    risks: [
+      "Body corporate levies are paid on top of the mortgage, and a special levy can be raised for major repairs, such as weathertightness work.",
+      "Decisions about the building are made by vote, not by you, and the body corporate rules limit what you can change.",
+      "The long-term maintenance plan and the minutes show what's coming. An underfunded plan means levies to come.",
+    ],
+  },
+  leasehold: {
     name: "Leasehold",
-    own: "The building, on land someone else owns. You pay ground rent, and it is reviewed.",
-    valued: "Against sales of other leasehold properties of the same type, per m² of floor.",
-    effect: "Well below freehold",
-    tone: "bad",
+    means: "The building is yours, but the land under it belongs to someone else, and you pay them ground rent for it.",
+    risks: [
+      "Ground rent is reviewed on a set cycle, and reviews have moved by multiples, with nothing about the house changing.",
+      "The value falls as the lease term runs down.",
+      "Some banks won't lend on it, and others lend less.",
+    ],
   },
-  {
-    id: "licence_to_occupy",
+  licence_to_occupy: {
     name: "Licence to occupy",
-    own: "A right to live there, usually in a retirement village. No land and no building.",
-    valued: "Against sales of the same kind of licence. What you get back on leaving is set by the contract, usually less a management fee.",
-    effect: "Not ownership",
-    tone: "bad",
+    means: "A contractual right to live there, most often in a retirement village. You don't own the land or the building.",
+    risks: [
+      "A deferred management fee is taken off what you get back when you leave.",
+      "Any rise in value usually goes to the operator, not to you.",
+      "What you get back, and when, is set by the occupation agreement, often not until the unit is relicensed.",
+    ],
   },
-];
-
-const TONE: Record<"good" | "warn" | "bad" | "muted", string> = {
-  good: "var(--good)",
-  warn: "var(--warn)",
-  bad: "var(--bad)",
-  muted: "var(--text-muted)",
+  unknown: {
+    name: "Title not found",
+    means: "LINZ didn't return a title for this address, so the kind of ownership isn't known.",
+    risks: ["If it turns out to be a cross lease, leasehold or unit title, the value and the risks change with it."],
+  },
 };
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>{title}</div>
+      <div className="text-[13px]" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>{children}</div>
+    </div>
+  );
+}
 
 export function TitleValueCard({
   titleType,
@@ -89,91 +104,86 @@ export function TitleValueCard({
   landAreaSqm?: number | null;
   locked?: boolean;
 }) {
-  const title = (TITLES.some((t) => t.id === titleType) ? titleType : "unknown") as Title;
+  const [open, setOpen] = useState(false);
+  const title = (titleType && titleType in ABOUT ? titleType : "unknown") as Title;
+  const about = ABOUT[title];
   const xl = value?.crossLease;
   const shown = (n: number) => (locked ? <BlurredValue amount={5} label="Needs a paid plan">{money(n)}</BlurredValue> : money(n));
 
-  // This property, in one line and a reason.
-  let head: React.ReactNode;
-  let body: React.ReactNode;
+  // What the title did to the value — one figure for the card, the reasoning
+  // for the breakdown.
+  let effect: React.ReactNode;
+  let valued: React.ReactNode;
   if (title === "freehold") {
-    head = <>Freehold: full value, nothing taken off</>;
-    body =
-      "Nearby sections sell as freehold, and that is what the land value is built from, so a freehold title is already priced in full. It isn't added on top, because that would count it twice.";
+    effect = <span style={{ color: "var(--good)" }}>Full value</span>;
+    valued =
+      "The land, from sales of nearby sections, plus the building on it. Those sections sell as freehold, so a freehold title is already priced in full. Nothing is added on top, because that would count it twice.";
   } else if (title === "cross_lease" && xl) {
-    head = (
-      <>
-        Cross lease: <span style={{ color: "var(--bad)" }}>−{shown(xl.deduction ?? 0)}</span>{" "}
-        <span className="mono text-[13px]" style={{ color: "var(--text-muted)" }}>(−{xl.pct}%)</span>
-      </>
+    effect = (
+      <span style={{ color: "var(--bad)" }}>
+        −{shown(xl.deduction ?? 0)} <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>(−{xl.pct}%)</span>
+      </span>
     );
-    body = (
+    valued = (
       <>
         {value?.landAreaValuedSqm && landAreaSqm && value.landAreaValuedSqm < landAreaSqm && (
           <span className="block mb-1">
-            The land is valued on this flat&apos;s share: {value.landAreaValuedSqm.toLocaleString("en-NZ")} m² of the{" "}
-            {landAreaSqm.toLocaleString("en-NZ")} m² site,
-            not the whole section the listing quotes.
+            Valued like a house, on this flat&apos;s share of the land: {value.landAreaValuedSqm.toLocaleString("en-NZ")} m² of the{" "}
+            {landAreaSqm.toLocaleString("en-NZ")} m² site, not the whole section the listing quotes.
           </span>
         )}
-        {explainCrossLeaseDiscount(xl)}
+        {explainCrossLeaseDiscount(xl)} The published range is {MIN_DISCOUNT_PCT}–{MAX_DISCOUNT_PCT}% below the equivalent freehold.
       </>
     );
   } else if (title === "cross_lease") {
-    head = <>Cross lease: no discount could be sized</>;
-    body =
+    effect = <span style={{ color: "var(--text-muted)" }}>No discount sized</span>;
+    valued =
       "The title's share of the land isn't published, so the site can't be divided between the flats. Valuing it as a house on the whole section would overstate it by far more than the discount, so it is valued against comparable sales per m² of floor instead, and no tenure discount is applied.";
-  } else if (title === "unit_title" || title === "leasehold" || title === "licence_to_occupy") {
-    const t = TITLES.find((x) => x.id === title)!;
-    head = <>{t.name}: priced by its own market</>;
-    body = `There's no section of your own to value, so it is valued against sales of the same kind of property per m² of floor area. The title is already in those prices, so nothing is added or taken off separately.${
-      title === "leasehold" ? " The ground-rent review terms matter most: a rent reset can move the value sharply, and only the lease says when." : ""
-    }${title === "unit_title" ? " Body corporate levies and any planned maintenance come out of your pocket on top." : ""}`;
+  } else if (title === "unknown") {
+    effect = <span style={{ color: "var(--text-muted)" }}>Not adjusted</span>;
+    valued = "Valued as if freehold, and nothing is taken off for the title.";
   } else {
-    head = <>Title not found: nothing adjusted</>;
-    body = "LINZ didn't return a title for this address, so the valuation is made as if freehold and nothing is taken off. A cross lease or leasehold title would bring it down.";
+    effect = <span style={{ color: "var(--warn)" }}>Priced by its own market</span>;
+    valued =
+      "There's no section of your own to value, so it is valued against sales of the same kind of property per m² of floor area. The title is already in those prices, so nothing is added or taken off separately.";
   }
 
   return (
-    <div className="rounded-2xl p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-      <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-        What the title does to the value
-      </div>
-      <div className="font-semibold mt-1" style={{ color: "var(--text-primary)" }}>{head}</div>
-      <div className="text-[13px] mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>{body}</div>
-
-      <div className="mt-4 pt-4 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
-        <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
-          How each title weighs, strongest first
+    <div className="rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="w-full text-left p-5 cursor-pointer">
+        <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+          Title and value
         </div>
-        {TITLES.map((t) => {
-          const current = t.id === title;
-          return (
-            <div
-              key={t.id}
-              className="rounded-lg px-3 py-2.5"
-              style={{
-                background: current ? "var(--accent-wash)" : "var(--surface-2)",
-                border: `1px solid ${current ? "var(--accent-text)" : "var(--border)"}`,
-              }}
-            >
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                  {t.name}
-                  {current && <span className="ml-2 text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>this property</span>}
-                </span>
-                <span className="mono text-[12px] font-semibold whitespace-nowrap" style={{ color: TONE[t.tone] }}>{t.effect}</span>
-              </div>
-              <div className="text-[12px] mt-0.5" style={{ color: "var(--text-secondary)" }}>{t.own}</div>
-              <div className="text-[12px]" style={{ color: "var(--text-muted)" }}>Valued: {t.valued}</div>
-            </div>
-          );
-        })}
-      </div>
-      <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
-        The cross-lease range is the published 5–10% below equivalent freehold. The others are priced by comparable
-        sales of their own kind, which are estimates until a sold-sales feed is connected.
-      </p>
+        <div className="flex items-baseline justify-between gap-3 mt-1 flex-wrap">
+          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{about.name}</span>
+          <span className="mono text-[14px] font-bold">{effect}</span>
+        </div>
+        <div className="flex items-center gap-1 mt-2">
+          <span className="text-xs" style={{ color: "var(--brand)" }}>{open ? "Hide detail" : "See breakdown"}</span>
+          <ArrowRight size={11} style={{ color: "var(--brand)", transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 pt-4 space-y-4" style={{ borderTop: "1px solid var(--border)" }}>
+          <Section title="What it means">{about.means}</Section>
+          <Section title="How it's valued">{valued}</Section>
+          <Section title="Risks">
+            {about.risks.length === 0 ? (
+              "None from the kind of title itself. Anything registered against it, such as easements, covenants or caveats, is listed below."
+            ) : (
+              <ul className="space-y-1">
+                {about.risks.map((r) => (
+                  <li key={r} className="flex gap-2">
+                    <span style={{ color: "var(--warn)" }}>•</span>
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+        </div>
+      )}
     </div>
   );
 }
