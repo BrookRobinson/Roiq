@@ -96,6 +96,13 @@ export interface Remediation {
  * Each bathroom is read and valued on its own now; a null score is a bathroom
  * no photograph shows, which is estimated, never guessed.
  */
+/**
+ * What a shower is built as — the one thing about its waterproofing a photo
+ * CAN show. Tiles and grout aren't waterproof, so a tiled shower has a membrane
+ * behind it; a moulded liner and tray is its own waterproof layer.
+ */
+export type ShowerType = "tiled" | "liner";
+
 export interface RoomRead {
   /** What the listing or photos call it: "Ensuite", "Main bathroom", "Downstairs". */
   room: string;
@@ -103,6 +110,8 @@ export interface RoomRead {
   specTier?: SpecTier;
   /** This bathroom's own fitting — the ensuite's shower is not the main bathroom's. */
   material?: string;
+  /** bath_shower only. */
+  showerType?: ShowerType;
   observedDefect?: string;
   photoReferences: number[];
 }
@@ -134,7 +143,9 @@ export interface SubItem {
   /** Work needed NOW to get it back to a well-maintained state. See actionFor(). */
   urgentAction?: UrgentAction;
   estimatedSqm?: number;               // for size/area items — the estimated area in m² (shown instead of material/age)
-  /** Per-bathroom items only, when the house has more than one bathroom. See RoomRead. */
+  /** bath_shower only — tiled or a liner. See ShowerType. */
+  showerType?: ShowerType;
+  /** Room-by-room items, when the house has more than one of that room. See RoomRead. */
   byRoom?: RoomRead[];
 
   slopeBand?: SlopeBand;               // land_topography only — the measured-ish fact behind its score

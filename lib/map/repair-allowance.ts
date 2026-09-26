@@ -22,7 +22,7 @@
 // ============================================================
 
 import { costThreeTier } from "@/lib/reno-costing/three-tier";
-import { valueImprovementItems } from "@/lib/scoring/improvement-values";
+import { valueImprovementItems, showerTypeOf } from "@/lib/scoring/improvement-values";
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 import { tierBandFraction } from "@/lib/scoring/model";
 import { actionFor, actionCost } from "@/lib/scoring/depreciation";
@@ -76,7 +76,7 @@ export function computeRepairAllowance(subItems: SubItem[], ctx: RepairContext):
         const low = s.estimatedReplacementCost?.low ?? Math.round((v?.rcnNew ?? 0) * 0.8);
         const high = s.estimatedReplacementCost?.high ?? Math.round((v?.rcnNew ?? 0) * 1.25);
         if (high > 0) {
-          const t = costThreeTier({ id: s.id, name: s.name, category: meta.category, ...costCtx, fallback: { low, high } });
+          const t = costThreeTier({ id: s.id, name: s.name, category: meta.category, ...costCtx, fallback: { low, high }, variant: s.id === "bath_shower" ? showerTypeOf(s) : null });
           add(s.name, Math.round(t.budget.tradieTotal));
         }
       } else if (urgent) {

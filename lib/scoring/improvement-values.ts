@@ -31,7 +31,7 @@ import { SPEC_MULTIPLIER, conditionFactor } from "./valuation";
 import { effectiveAge, shellLifeRemaining, actionFor, SHELL_LIFE_YEARS, SHELL_RESIDUAL, type EffectiveAge, type Action } from "./depreciation.ts";
 import { valueItem, isItemWithheld } from "./item-value.ts";
 import { valueRoof, roofMaterialFromText, isWithheld as isRoofWithheld } from "./roof-value.ts";
-import type { SpecTier, SubItem } from "@/lib/property-tab/types";
+import type { SpecTier, SubItem, ShowerType } from "@/lib/property-tab/types";
 
 /** How a component's base cost scales to THIS property. */
 export type ScaleBasis =
@@ -145,6 +145,38 @@ export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
   out_retaining: { baseRCN: 9000, scale: "fixed" },
 };
 
+/**
+ * The waterproof membrane behind a TILED shower, per shower.
+ *
+ * Tiles and grout aren't waterproof; the membrane under them is. It can't be
+ * photographed, so it is never assessed — a shower done under a consent was
+ * inspected for it — but it is part of what a tiled shower costs to replace,
+ * so it is assumed present and priced in. A moulded liner and tray is its own
+ * waterproof layer and carries none. This is the old waterproofing item's
+ * figure, now attached to the one kind of shower that has one.
+ */
+export const SHOWER_MEMBRANE = 2500;
+
+/**
+ * Tiled or liner, from the analysis's own words when it didn't say. Any tile
+ * wins — a liner tray with tiled walls still has tiles to waterproof behind.
+ * Null rather than a guess: an unknown shower is priced as the plain one.
+ */
+export function showerTypeFromText(text: string | null | undefined): ShowerType | null {
+  if (!text) return null;
+  if (/\btil(e|ed|es|ing)\b/i.test(text)) return "tiled";
+  if (/acrylic|liner|fibreglass|fiberglass|moulded|molded|one[- ]piece|\bpanels?\b|cubicle/i.test(text)) return "liner";
+  return null;
+}
+
+export const showerTypeOf = (x: { showerType?: ShowerType; material?: string | null }): ShowerType | null =>
+  x.showerType ?? showerTypeFromText(x.material);
+
+/** One unit's cost new before spec: a tiled shower carries its membrane. */
+function unitBase(id: string, spec: ItemCostSpec, x: { showerType?: ShowerType; material?: string | null }): number {
+  return spec.baseRCN + (id === "bath_shower" && showerTypeOf(x) === "tiled" ? SHOWER_MEMBRANE : 0);
+}
+
 export type RoomKind = "bathroom" | "bedroom";
 
 /**
@@ -229,6 +261,7 @@ export interface RoomValue {
   condition: number;
   tier: SpecTier | null;
   material?: string;
+  showerType?: ShowerType;
   observedDefect?: string;
   photoReferences: number[];
   rcnNew: number;
@@ -417,7 +450,7 @@ export function valueImprovementItems(args: {
     // which silently took 10% off anything the model didn't grade.
     const tier: SpecTier | null = s.specTier ?? null;
     const condition = s.score;
-    const sized = spec.baseRCN * sizeFor(spec.scale, floor, baths, beds);
+    const sized = unitBase(id, spec, s) * sizeFor(spec.scale, floor, baths, beds);
     const rcnNew = Math.round(sized * specMult(tier));
     if (rcnNew <= 0) continue;
 
@@ -458,13 +491,16 @@ export function valueImprovementItems(args: {
       const parts: RoomValue[] = [];
       for (const b of seenRooms) {
         const t = b.specTier ?? tier;
-        const one = Math.round(perRoom * specMult(t));
+        // A shower's cost is its own type's — the ensuite may be tiled and the
+        // main bathroom a liner. Everything else is its share of the item.
+        const base = id === "bath_shower" ? unitBase(id, spec, b) : perRoom;
+        const one = Math.round(base * specMult(t));
         const act = b === worst && s.urgentAction ? actionFor(s) : actionFor({ observedDefect: b.observedDefect, score: b.score });
         const bv = depreciate(id, one, b.score as number, false, act);
         if (!bv) continue;
-        const pot = depreciate(id, Math.round(perRoom * RENO_TARGET_MULT), 10, true);
+        const pot = depreciate(id, Math.round(base * RENO_TARGET_MULT), 10, true);
         parts.push({
-          room: b.room, condition: b.score as number, tier: t, material: b.material, observedDefect: b.observedDefect, photoReferences: b.photoReferences,
+          room: b.room, condition: b.score as number, tier: t, material: b.material, showerType: b.showerType, observedDefect: b.observedDefect, photoReferences: b.photoReferences,
           rcnNew: one, replacementTotal: bv.cost.totalNZD, valueNow: bv.valueNZD, valuePotential: pot ? pot.valueNZD : bv.valueNZD,
           ageYears: bv.age.effectiveYears, pastLife: bv.remainingFraction <= 0, actionCostNZD: bv.action?.costNZD ?? 0,
         });

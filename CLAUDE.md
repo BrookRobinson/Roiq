@@ -1496,6 +1496,14 @@ was inspected for it at the time. Leak signs (soft linings, swollen skirting)
 live on the shower's viewing check instead. `RealReportView` drops any sub-item
 the model no longer has, so older saved reports still carrying it render clean.
 
+**But a TILED shower carries its membrane in its price.** Tiles and grout aren't
+waterproof; a moulded liner and tray is. The analysis records `shower_type`
+(tiled / liner) — visible — and is told never to assess the membrane, which
+isn't. A tiled shower's cost new is the base plus `SHOWER_MEMBRANE`, assumed
+present and valued; a liner carries none; an unknown type is priced as the
+plain one. In the plan, `bath_shower` is its own job (`shower_liner` /
+`shower_tiled`), not the whole-bathroom refit it used to fall into.
+
 **Each bathroom and bedroom is valued on its own read.** Shower,
 vanity, toilet, fan and bathroom floor are priced per bathroom;
 bedroom heating, wardrobe and carpet per bedroom (`scale: "bedroom"`, $500 /

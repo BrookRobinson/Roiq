@@ -9,7 +9,7 @@ import { HoldPeriodSlider } from "@/components/HoldPeriodSlider";
 import { ReportGapBanner } from "@/components/ReportGapBanner";
 import type { ReportGap } from "@/lib/property-tab/gaps";
 import { urgencyColor, urgencyLabel, type RenoControls } from "@/lib/property-tab/types";
-import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
+import type { SubItem, ExtraDwelling, ShowerType } from "@/lib/property-tab/types";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/report-store";
 import { valueRoof, roofMaterialFromText } from "@/lib/scoring/roof-value";
@@ -33,7 +33,7 @@ import { explainCrossLeaseDiscount } from "@/lib/scoring/cross-lease";
 import { maintenanceBasis } from "@/lib/finance/maintenance";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { compareFloorArea } from "@/lib/property/floor-area-check";
-import { valueImprovementItems, roomKindOf, DEFAULT_BEDROOMS, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
+import { valueImprovementItems, roomKindOf, DEFAULT_BEDROOMS, SHOWER_MEMBRANE, showerTypeOf, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
 import type { PlacedStructure } from "@/components/PropertyInspections/AddStructure";
@@ -730,7 +730,10 @@ export function RealReportView({
           const r = valueItem({
             id: v.id,
             rcnNew: p.rcnNew,
-            sizeWorkings: [`$${Math.round(p.rcnNew).toLocaleString("en-NZ")} for this room's ${v.label.toLowerCase()}, at its own spec — one room's share of the item.`],
+            sizeWorkings:
+              v.id === "bath_shower"
+                ? [...showerWorkings(IMPROVEMENT_BASE_COSTS.bath_shower.baseRCN, showerTypeOf(p), "for this bathroom"), `At its own spec: $${Math.round(p.rcnNew).toLocaleString("en-NZ")}.`]
+                : [`$${Math.round(p.rcnNew).toLocaleString("en-NZ")} for this room's ${v.label.toLowerCase()}, at its own spec — one room's share of the item.`],
             sizeSummary: `$${Math.round(p.rcnNew).toLocaleString("en-NZ")} to replace in the ${p.room.toLowerCase()}`,
             // Its own fitting, never the item's — that describes another bathroom.
             material: p.material,
@@ -766,7 +769,7 @@ export function RealReportView({
         valueItem({
           id: v.id,
           rcnNew: v.rcnNew,
-          sizeWorkings: sizeWorkingsFor(v.id, report.listing.floorAreaSqm, report.listing.bathrooms, report.listing.bedrooms, v.rcnNew),
+          sizeWorkings: sizeWorkingsFor(v.id, report.listing.floorAreaSqm, report.listing.bathrooms, report.listing.bedrooms, v.rcnNew, v.id === "bath_shower" ? showerTypeOf(effectiveSubItems.find((s) => s.id === v.id) ?? {}) : null),
           sizeSummary: `$${Math.round(v.rcnNew).toLocaleString("en-NZ")} to replace on this property`,
           material: shot?.material ?? item?.material,
           concerns,
@@ -1834,12 +1837,32 @@ function LocationFactCard({ subItems, ids, title }: { subItems: SubItem[]; ids: 
  * much weight to put on the number, so it is stated rather than dressed up as
  * a measurement.
  */
+/**
+ * A shower's cost, by what it's built as. The membrane behind tiles is never
+ * assessed — it can't be seen — but replacing a tiled shower means redoing
+ * it, so it is in the price and the working says so.
+ */
+function showerWorkings(base: number, shower: ShowerType | null | undefined, times: string): string[] {
+  const $ = (n: number) => `$${n.toLocaleString("en-NZ")}`;
+  if (shower === "tiled") {
+    return [
+      `Tiled shower: ${$(base)} + ${$(SHOWER_MEMBRANE)} for the waterproof membrane behind the tiles = ${$(base + SHOWER_MEMBRANE)} ${times}.`,
+      "The membrane can't be seen, so it isn't assessed. A tiled shower is assumed to have one, and replacing the shower means redoing it.",
+    ];
+  }
+  if (shower === "liner") {
+    return [`Lined shower: ${$(base)} ${times}. A moulded liner and tray is its own waterproof layer, so there's no membrane to price.`];
+  }
+  return [`${$(base)} ${times}. Whether it's tiled or a liner isn't known, so it's priced as a lined shower, without a membrane.`];
+}
+
 function sizeWorkingsFor(
   id: string,
   floorAreaSqm: number | null,
   bathrooms: number | null | undefined,
   bedrooms: number | null | undefined,
-  rcn: number
+  rcn: number,
+  shower?: ShowerType | null
 ): string[] {
   const spec = IMPROVEMENT_BASE_COSTS[id];
   if (!spec) return [`Replacement cost of about $${Math.round(rcn).toLocaleString("en-NZ")}.`];
@@ -1852,9 +1875,9 @@ function sizeWorkingsFor(
   }
   if (spec.scale === "bathroom") {
     const n = Math.max(1, Math.round(bathrooms ?? 1));
-    return [
-      `$${spec.baseRCN.toLocaleString("en-NZ")} per bathroom × ${n} ${n === 1 ? "bathroom" : "bathrooms"}.`,
-    ];
+    const per = `${n} ${n === 1 ? "bathroom" : "bathrooms"}`;
+    if (id === "bath_shower") return showerWorkings(spec.baseRCN, shower, `× ${per}`);
+    return [`$${spec.baseRCN.toLocaleString("en-NZ")} per bathroom × ${per}.`];
   }
   if (spec.scale === "bedroom") {
     const n = bedrooms && bedrooms > 0 ? Math.round(bedrooms) : DEFAULT_BEDROOMS;
@@ -2136,7 +2159,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         notes: s.estimatedReplacementCost?.notes || undefined,
         category,
         photoRefs: s.photoReferences,
-        costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low, high } }),
+        costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low, high }, variant: s.id === "bath_shower" ? showerTypeOf(s) : null }),
         // Pre-ticked when it's bad enough to be urgent, OR when it's one of
         // the five Healthy Homes standards and we have ESTABLISHED it doesn't
         // meet the requirement. Those are not opinions about condition — they

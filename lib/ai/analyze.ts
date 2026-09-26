@@ -30,6 +30,7 @@ import { urgencyLabel } from "@/lib/property-tab/types";
 import type {
   SubItem,
   RoomRead,
+  ShowerType,
   ExtraDwelling,
   ReplacementCost,
   UrgencyScore,
@@ -321,6 +322,10 @@ function sizeSqm(raw: number | undefined, id: string, floorAreaSqm: number | nul
  * when there are two or more bathrooms to tell apart — one read of one
  * bathroom is just the item's own score said twice.
  */
+function normShowerType(v: string | undefined): ShowerType | undefined {
+  return v === "tiled" || v === "liner" ? v : undefined;
+}
+
 function normByRoom(raw: RawSubItem["by_room"], id: string): RoomRead[] | undefined {
   if (!ROOM_ITEM_IDS.has(id) || !Array.isArray(raw)) return undefined;
   const seen = new Set<string>();
@@ -334,6 +339,7 @@ function normByRoom(raw: RawSubItem["by_room"], id: string): RoomRead[] | undefi
       score: clampScore(r.score),
       specTier: normSpecTier(r.spec_tier),
       material: r.material?.trim() || undefined,
+      showerType: id === "bath_shower" ? normShowerType(r.shower_type) : undefined,
       observedDefect: r.observed_defect?.trim() || undefined,
       photoReferences: normPhotoRefs(r.photo_references),
     });
@@ -383,6 +389,7 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
     urgentAction: normAction(raw.urgent_action),
     estimatedSqm: SIZE_ITEM_IDS.has(item.id) ? sizeSqm(raw.estimated_sqm, item.id, ctx.floorAreaSqm, ctx.bedrooms) : undefined,
     byRoom: normByRoom(raw.by_room, item.id),
+    showerType: item.id === "bath_shower" ? normShowerType(raw.shower_type) : undefined,
     // Topography carries the facts its score is derived from (see land-quality.ts).
     slopeBand: item.id === "land_topography" ? normSlopeBand(raw.slope_band) : undefined,
     usableLandPct: item.id === "land_topography" ? normUsablePct(raw.usable_land_pct) : undefined,

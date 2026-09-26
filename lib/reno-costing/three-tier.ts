@@ -90,10 +90,14 @@ export type RenoKind =
   | "cladding" | "exterior_paint" | "roof" | "gutters" | "soffits" | "windows" | "foundation"
   | "decking" | "insulation" | "flooring_vinyl" | "flooring_carpet" | "flooring_tile"
   | "kitchen" | "kitchen_cabinetry" | "kitchen_appliances" | "splashback" | "benchtop" | "kitchen_tap"
-  | "bathroom" | "heating" | "hotwater" | "ventilation" | "driveway" | "fencing" | "generic";
+  | "bathroom" | "shower_liner" | "shower_tiled" | "heating" | "hotwater" | "ventilation" | "driveway" | "fencing" | "generic";
 
-export function kindForItem(id: string, category?: string, name?: string): RenoKind {
+export function kindForItem(id: string, category?: string, name?: string, variant?: string | null): RenoKind {
   const hay = `${id} ${name ?? ""}`.toLowerCase();
+  // A shower is a shower, not a bathroom refit. What replacing it involves
+  // depends on how it's built: a liner is swapped; a tiled one is stripped,
+  // membraned and retiled — the membrane being the reason it costs more.
+  if (id === "bath_shower") return variant === "tiled" ? "shower_tiled" : "shower_liner";
   if (/driveway|paving/.test(hay)) return "driveway";
   if (/fenc/.test(hay)) return "fencing";
   if (/\broof/.test(hay)) return "roof";
@@ -174,6 +178,10 @@ function primaryQty(kind: RenoKind, floorSqm: number, bedrooms: number): { area:
       return { area: 0, count: 1, unit: "job", note: "sink and mixer" };
     case "bathroom":
       return { area: 6, count: 0, unit: "m²", note: "≈6m² bathroom" };
+    case "shower_tiled":
+      return { area: 8, count: 0, unit: "m²", note: "≈8m² of tiled shower wall and floor" };
+    case "shower_liner":
+      return { area: 0, count: 1, unit: "shower", note: "one shower" };
     case "driveway":
       return { area: 40, count: 0, unit: "m²", note: "≈40m² driveway" };
     case "fencing":
@@ -462,6 +470,43 @@ const RECIPES: Partial<Record<RenoKind, Recipe>> = {
     patchDb: [{ db: "Vanity unit", qty: () => 1 }, { db: "Basin tap", qty: () => 1 }],
     patchLabour: [{ trade: "plumber", hours: () => 4 }],
   },
+  shower_liner: {
+    scopeBudget: "Take out the old liner and tray, fit a new acrylic shower, mixer and screen, and reconnect the waste.",
+    scopePremium: "Fit a larger moulded-wall acrylic shower with a frameless screen and a thermostatic mixer.",
+    scopePatch: "Re-seal the tray and the wall junctions and replace the screen seals.",
+    bom: [
+      { db: "Acrylic shower unit", qty: () => 1 },
+      { db: "Shower mixer", qty: () => 1 },
+      { db: "Shower screen", qty: () => 1 },
+    ],
+    labour: [{ trade: "plumber", hours: () => 6 }, { trade: "carpenter", hours: () => 4 }],
+    patchInline: [{ name: "Silicone re-seal kit", description: "Mould-resistant silicone and screen seals", qty: () => 1, unit: "per kit", unitPrice: 60, source: "Estimate" }],
+    patchDb: [],
+    patchLabour: [{ trade: "plumber", hours: () => 2 }],
+  },
+  shower_tiled: {
+    scopeBudget: "Strip the shower back to the frame, line it with wet-area board, apply a waterproof membrane, retile the walls and floor, and fit a new tray or waste, mixer and screen.",
+    scopePremium: "As budget, with large-format porcelain, a tile-in linear drain, frameless glass and a thermostatic mixer.",
+    scopePatch: "Re-grout and re-seal the shower and replace any cracked tiles. The membrane behind is left as it is.",
+    bom: [
+      { db: "Wet area lining board", qty: a },
+      { db: "Waterproof membrane", qty: (c) => Math.ceil(c.area / 4) },
+      { db: "Wet area wall tiles", qty: a },
+      { db: "Tile adhesive", qty: (c) => Math.ceil(c.area / 4) },
+      { db: "Grout", qty: (c) => Math.ceil(c.area / 8) },
+      { db: "Shower tray", qty: () => 1 },
+      { db: "Shower mixer", qty: () => 1 },
+      { db: "Shower screen", qty: () => 1 },
+    ],
+    labour: [
+      { trade: "carpenter", hours: () => 8 }, // strip out and re-line
+      { trade: "tiler", hours: (c) => round(c.area * 2.5) }, // membrane, then tiles
+      { trade: "plumber", hours: () => 8 },
+    ],
+    patchInline: [{ name: "Re-grout + silicone kit", description: "Grout, mould-resistant silicone, sealer", qty: () => 1, unit: "per kit", unitPrice: 95, source: "Estimate" }],
+    patchDb: [],
+    patchLabour: [{ trade: "tiler", hours: () => 5 }],
+  },
   heating: {
     scopeBudget: "Supply and install a 2.5kW Mitsubishi wall-split heat pump.",
     scopePremium: "Install a cold-climate ducted heat-pump system.",
@@ -565,8 +610,10 @@ export function costThreeTier(args: {
   floorSqm?: number | null;
   bedrooms?: number | null;
   fallback?: { low: number; high: number } | null;
+  /** bath_shower: "tiled" or "liner" — which job replacing it is. */
+  variant?: string | null;
 }): ThreeTierCost {
-  const kind = kindForItem(args.id, args.category, args.name);
+  const kind = kindForItem(args.id, args.category, args.name, args.variant);
   const q = primaryQty(kind, args.floorSqm ?? 0, args.bedrooms ?? 3);
   const c: Ctx = { area: q.area, count: q.count, floorSqm: args.floorSqm ?? 0 };
   const r = RECIPES[kind];

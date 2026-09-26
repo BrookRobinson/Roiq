@@ -237,5 +237,36 @@ const ceil = valueImprovementItems({
 }).items[0];
 check("a bedroom ceiling is its share of the floor-area figure", ceil.byRoom[0].rcnNew, (IMPROVEMENT_BASE_COSTS.bed_ceiling.baseRCN * 150) / 2);
 
+console.log("\na tiled shower carries its membrane; a liner doesn't");
+const { SHOWER_MEMBRANE, showerTypeFromText } = await import(join(root, "lib/scoring/improvement-values.ts"));
+const showerCost = (extra) => valueImprovementItems({ subItems: [{ id: "bath_shower", score: 7, ...extra }], floorAreaSqm: 150, bathrooms: 1, now: NOW }).items[0].rcnNew;
+const base = IMPROVEMENT_BASE_COSTS.bath_shower.baseRCN;
+check("a tiled shower costs the membrane on top", showerCost({ showerType: "tiled" }), base + SHOWER_MEMBRANE);
+check("a lined shower costs no membrane", showerCost({ showerType: "liner" }), base);
+check("an unknown shower is priced as the plain one", showerCost({}), base);
+check("the analysis's own words decide when it gave no type", showerCost({ material: "Tiled walk-in shower, frameless glass" }), base + SHOWER_MEMBRANE);
+check("any tile wins — a tray with tiled walls still has tiles to seal behind", showerTypeFromText("Acrylic tray, tiled walls"), "tiled");
+check("an acrylic shower over a bath is a liner", showerTypeFromText("Framed shower over an acrylic bath"), "liner");
+check("nothing recognisable is not a guess", showerTypeFromText("Shower"), null);
+const twoShowers = valueImprovementItems({
+  subItems: [{ id: "bath_shower", score: 6, byRoom: [
+    { room: "Ensuite", score: 9, showerType: "tiled", photoReferences: [] },
+    { room: "Main bathroom", score: 6, showerType: "liner", photoReferences: [] },
+  ] }],
+  floorAreaSqm: 150, bathrooms: 2, now: NOW,
+}).items[0];
+check("each bathroom's shower is priced as its own type", twoShowers.byRoom.map((p) => p.rcnNew), [base + SHOWER_MEMBRANE, base]);
+
+console.log("\nreplacing a shower is a shower job, not a bathroom refit");
+const { costThreeTier } = await import(join(root, "lib/reno-costing/three-tier.ts"));
+const tiledJob = costThreeTier({ id: "bath_shower", name: "Shower / bath", category: "Bathroom", variant: "tiled" });
+const linerJob = costThreeTier({ id: "bath_shower", name: "Shower / bath", category: "Bathroom", variant: "liner" });
+check("a tiled shower is the tiled job", tiledJob.kind, "shower_tiled");
+check("…which includes a waterproof membrane", tiledJob.budget.materials.some((m) => /membrane/i.test(m.name)), true);
+check("a liner is the liner job", linerJob.kind, "shower_liner");
+check("…with no membrane in it", linerJob.budget.materials.some((m) => /membrane/i.test(m.name)), false);
+check("the tiled job costs more", tiledJob.budget.tradieTotal > linerJob.budget.tradieTotal, true);
+check("neither prices a toilet or a vanity", [...tiledJob.budget.materials, ...linerJob.budget.materials].some((m) => /toilet|vanity/i.test(m.name)), false);
+
 console.log(failures === 0 ? "\nEstimated-value rules hold.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);
