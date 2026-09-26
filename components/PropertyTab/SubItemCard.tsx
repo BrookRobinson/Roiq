@@ -221,6 +221,31 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
     factOnly: isFactOnly(item.id) || !ITEM_BY_ID[item.id]?.costBearing,
     aiSummary: item.aiSummary,
   });
+  // Several rooms: one summary per room, each from that room's own life, cost
+  // and work. A single line built from the worst room's age and every room's
+  // cost read as though the whole lot needed replacing in seven years.
+  const roomSummaries =
+    detailed && !isRefused(detailed) && isPerRoom(detailed)
+      ? [
+          ...detailed.parts.map((p) => ({
+            room: p.room,
+            text: itemSummary({
+              action: p.valuation.action,
+              yearsRemaining: p.valuation.life.expectedYears - p.valuation.life.usedYears,
+              replaceCost: p.valuation.cost.totalNZD,
+              score: p.condition,
+              holdYears,
+              defect: p.valuation.concerns[0],
+            }),
+          })),
+          ...detailed.unseen.map((room) => ({
+            room,
+            text: unseenEstimate
+              ? `Not photographed, so there's no reading of when it will need work. Valued at an estimated $${Math.round(unseenEstimate.valueNow / detailed.unseen.length).toLocaleString("en-NZ")} from the rest of the house.`
+              : "Not photographed, so there's no reading of when it will need work.",
+          })),
+        ]
+      : null;
   const costItem = getCostItem(item, region, floorSqm);
   // Renovation plan: this item can be added if it has a costed reno line.
   const canReno = renoControls?.has(item.id) ?? false;
@@ -474,9 +499,20 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
             >
               Summary
             </div>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)", lineHeight: 1.7 }}>
-              {summary}
-            </p>
+            {roomSummaries ? (
+              <div className="space-y-2">
+                {roomSummaries.map((r) => (
+                  <p key={r.room} className="text-sm" style={{ color: "var(--text-primary)", lineHeight: 1.7 }}>
+                    <span className="font-semibold">{r.room}: </span>
+                    {r.text}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)", lineHeight: 1.7 }}>
+                {summary}
+              </p>
+            )}
           </div>
 
 
