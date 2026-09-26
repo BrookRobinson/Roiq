@@ -37,7 +37,7 @@ export interface RawSubItem {
   condition_evidence?: string[];
   urgent_action?: { work?: string; scope?: string; share?: number };
   estimated_sqm?: number;
-  by_bathroom?: RawBathroomRead[];
+  by_room?: RawRoomRead[];
   foundation_type?: string;
   foundation_symptoms?: string[];
   subfloor_visible?: boolean;
@@ -63,8 +63,8 @@ export interface RawSubItem {
   remediation?: RawRemediation | null;
 }
 
-export interface RawBathroomRead {
-  bathroom: string;
+export interface RawRoomRead {
+  room: string;
   score: number | null;
   spec_tier?: string;
   material?: string;
@@ -398,21 +398,21 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               description:
                 "IMPROVEMENTS only — REQUIRED for every improvements item. This is the PRIMARY score driver: the tier sets a capped points band and the condition score then positions the item within it. deteriorated = the item is absent, broken, or so worn it needs full replacement regardless of its original spec (band 0–30% of the item's points); dated = present and functional but old-fashioned / an older spec (30–60%); modern = updated / contemporary look — tiling, stone or stone-look benchtops, good flooring, integrated appliances, modern fittings (60–80%); luxury = clearly high-end — natural stone, designer/architectural, imported fittings (80–100%). Judge the SPEC/era of the materials from the brand, materials and style visible in the photo (and listing description), NOT how new it looks — a tiled bathroom and a vinyl one can both be 10/10 condition but sit at different tiers. If you can't tell from the photo, infer from the build era. Rough era guide (assume it is 2026): dated = fitted pre-2014 or never renovated; modern = fitted 2014 onward; luxury = high-end materials at any age; deteriorated = broken/absent/end-of-life.",
             },
-            by_bathroom: {
+            by_room: {
               type: "array",
               description:
-                "PER-BATHROOM items ONLY (bath_shower, bath_waterproof, bath_vanity, bath_toilet, bath_ventilation, bath_flooring), and ONLY when the property has MORE THAN ONE bathroom (count the listing's bathrooms, ensuites and separate toilet-and-shower rooms). One entry per bathroom, using the SAME bathroom names across all six items. Score each bathroom on what ITS photos show; a bathroom no photo shows gets score null. The item's own score stays the worst bathroom seen. Omit for a one-bathroom house.",
+                "ROOM-BY-ROOM items ONLY, when the property has MORE THAN ONE of that room. Bathroom items (bath_shower, bath_waterproof, bath_vanity, bath_toilet, bath_ventilation, bath_flooring): one entry per bathroom — count ensuites and separate shower rooms. Bedroom items (bed_heating, bed_storage, bed_flooring, bed_ceiling): one entry per bedroom. Use the SAME room names across every item of that kind. Score each room on what ITS photos show; a room no photo shows gets score null. The item's own score stays the worst room seen. Omit for a house with only one of that room.",
               items: {
                 type: "object",
                 properties: {
-                  bathroom: { type: "string", description: "What it is: 'Ensuite', 'Main bathroom', 'Downstairs bathroom'. Same name on every bathroom item." },
-                  score: { type: ["integer", "null"], description: "1-10 condition of THIS bathroom's fitting, or null if no photo shows this bathroom." },
+                  room: { type: "string", description: "Which room: 'Ensuite', 'Main bathroom', 'Downstairs bathroom' / 'Main bedroom', 'Bedroom 2', 'Front bedroom'. Same name on every item of that kind." },
+                  score: { type: ["integer", "null"], description: "1-10 condition of THIS room's fitting, or null if no photo shows this room." },
                   spec_tier: { type: "string", enum: ["deteriorated", "dated", "modern", "luxury"] },
-                  material: { type: "string", description: "What THIS bathroom's fitting is, e.g. 'Tiled walk-in shower, frameless glass'. Omit if not visible." },
-                  observed_defect: { type: "string", description: "What needs work in THIS bathroom, if anything, citing the photo." },
+                  material: { type: "string", description: "What THIS room's fitting is, e.g. 'Tiled walk-in shower, frameless glass' or 'Wool-blend carpet'. Omit if not visible." },
+                  observed_defect: { type: "string", description: "What needs work in THIS room, if anything, citing the photo." },
                   photo_references: { type: "array", items: { type: "integer" } },
                 },
-                required: ["bathroom", "score"],
+                required: ["room", "score"],
               },
             },
             foundation_type: {

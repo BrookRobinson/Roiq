@@ -3,7 +3,7 @@
 // genuinely recomputing — not a hardcoded number.
 
 import type { StoredReport } from "@/lib/report-store";
-import type { SubItem, ExtraDwelling, UrgencyScore, Remediation, SpecTier, BathroomRead } from "@/lib/property-tab/types";
+import type { SubItem, ExtraDwelling, UrgencyScore, Remediation, SpecTier, RoomRead } from "@/lib/property-tab/types";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import { emptyListing } from "@/lib/scraper/types";
 import { SCORING_MODEL, usesSpecTier } from "./model";
@@ -67,8 +67,8 @@ const DEFECTS: Record<string, string> = {
   liv_heating: "A single wood burner in the lounge doing all the work; its flue collar shows rust at the ceiling penetration.",
   liv_flooring: "Carpet is worn through to backing in the hallway traffic path and has pulled away from the gripper at the lounge doorway.",
   bed_ceiling: "Water staining across two ceiling panels in the back bedroom, directly under the section of roof flagged above.",
-  bed_heating: "No fixed heating visible in any of the three bedrooms — the wood burner in the lounge is the only heat source in the house.",
-  bed_flooring: "Carpet in the two rear bedrooms is flattened and sun-bleached in a band along the window wall, with a seam lifting in the main bedroom.",
+  bed_heating: "No fixed heating visible in either photographed bedroom — the wood burner in the lounge is the only heat source in the house.",
+  bed_flooring: "Carpet in the back bedroom is flattened and sun-bleached in a band along the window wall, with a seam lifting at the door.",
   out_fencing: "Three palings missing along the western boundary and the run beside the driveway is leaning noticeably off vertical.",
   ext_gutters: "Debris and plant growth visible in the gutter above the front entry, with staining down the cladding where it has been overflowing.",
   ext_soffits: "Paint is flaking off the soffit lining along the south elevation and one sheet has begun to sag away from its fixings near the corner.",
@@ -83,7 +83,7 @@ const DEFECTS: Record<string, string> = {
   bath_waterproof: "Not visible — inferred. Behind the 1970s tiling there is unlikely to be a modern waterproof membrane, so budget for it if the bathroom is opened up.",
   kit_flooring: "Vinyl is lifting at the seam in front of the dishwasher and there is a scorch mark beside the oven.",
   liv_fixtures: "Original ceiling roses and plastic switch plates throughout, several yellowed with age; no downlights fitted.",
-  bed_storage: "Two bedrooms have shallow original wardrobes with sagging hanging rails; the third has no built-in storage at all.",
+  bed_storage: "The main and back bedrooms both have shallow original wardrobes with sagging hanging rails.",
   gar_floor: "Bare concrete with oil staining under the parking bay and a crack running diagonally from the door opening.",
   out_driveway: "Concrete drive is sound but crazed across the turning area, with weeds through the joints near the street.",
 };
@@ -186,17 +186,17 @@ const PHOTOS: Record<string, number[]> = {
 // defects above describe, and an ensuite redone about five years ago. Both
 // lack an extractor fan — the defect says "either bathroom" — so ventilation
 // scores alike; everything else differs, and is valued on its own read.
-const BY_BATHROOM: Record<string, BathroomRead[]> = (() => {
-  const main = (id: string): BathroomRead => ({
-    bathroom: "Main bathroom",
+const BY_BATHROOM: Record<string, RoomRead[]> = (() => {
+  const main = (id: string): RoomRead => ({
+    room: "Main bathroom",
     score: SCORES[id] as UrgencyScore,
     specTier: SPEC[id],
     material: MATERIALS[id],
     observedDefect: DEFECTS[id],
     photoReferences: PHOTOS[id] ?? [],
   });
-  const ensuite = (score: number, specTier: SpecTier, material?: string, observedDefect?: string): BathroomRead => ({
-    bathroom: "Ensuite",
+  const ensuite = (score: number, specTier: SpecTier, material?: string, observedDefect?: string): RoomRead => ({
+    room: "Ensuite",
     score: score as UrgencyScore,
     specTier,
     material,
@@ -209,6 +209,24 @@ const BY_BATHROOM: Record<string, BathroomRead[]> = (() => {
     bath_toilet: [main("bath_toilet"), ensuite(9, "modern", "Wall-faced back-to-wall suite")],
     bath_flooring: [main("bath_flooring"), ensuite(9, "modern", "Large-format porcelain tile")],
     bath_ventilation: [main("bath_ventilation"), ensuite(1, "deteriorated", undefined, "No extractor fan in the ensuite either — only a small openable window.")],
+  };
+})();
+
+// Three bedrooms, two of them photographed. The main bedroom was recarpeted
+// recently and its ceiling is sound; the back bedroom carries the worn carpet
+// and the water-stained ceiling the defects above describe. The middle bedroom
+// appears in no photograph, so it is read as null on every item — estimated
+// from the house, never handed another bedroom's score.
+const BY_BEDROOM: Record<string, RoomRead[]> = (() => {
+  const read = (room: string, photo: number, score: number, specTier: SpecTier, material?: string, observedDefect?: string): RoomRead => ({
+    room, score: score as UrgencyScore, specTier, material, observedDefect, photoReferences: [photo],
+  });
+  const middle: RoomRead = { room: "Middle bedroom", score: null, photoReferences: [] };
+  return {
+    bed_heating: [read("Main bedroom", 9, 5, "dated"), read("Back bedroom", 10, 5, "dated"), middle],
+    bed_storage: [read("Main bedroom", 9, 7, "dated", "Original hinged-door wardrobe"), read("Back bedroom", 10, 7, "dated", "Original hinged-door wardrobe", DEFECTS.bed_storage), middle],
+    bed_flooring: [read("Main bedroom", 9, 9, "modern", "Recently laid wool-blend carpet"), read("Back bedroom", 10, 7, "dated", "Carpet over timber floorboards", DEFECTS.bed_flooring), middle],
+    bed_ceiling: [read("Main bedroom", 9, 9, "dated", "Plasterboard"), read("Back bedroom", 10, 7, "dated", "Plasterboard", DEFECTS.bed_ceiling), middle],
   };
 })();
 
@@ -425,7 +443,7 @@ function buildSubItems(): SubItem[] {
       healthyHomesLink: item.affectsHealthyHomes,
       observedDefect: DEFECTS[item.id],
       urgentAction: ACTIONS[item.id],
-      byBathroom: BY_BATHROOM[item.id],
+      byRoom: BY_BATHROOM[item.id] ?? BY_BEDROOM[item.id],
       photoReferences: PHOTOS[item.id] ?? (item.id === "loc_sun" ? [2, 3] : item.id === "leg_unconsented" ? [12] : []),
       ...(isImprovement
         ? {}

@@ -1485,18 +1485,21 @@ per BATHROOM, not per m². On the 150 m², one-bathroom reference house the fram
 rough-in and linings add back to the old all-in $1,100/m², and
 `verify:estimated-value` holds that.
 
-**Each bathroom is valued on its own read.** Shower, waterproofing, vanity,
-toilet, fan and bathroom floor are priced per bathroom, and they used to share
-ONE score per item — the worst, because a mix is scored on its worst part — so
-a new ensuite was valued as the original main bathroom. With two or more
-bathrooms the analysis returns `by_bathroom` (same names on every item) and
-`valueImprovementItems` values each seen bathroom at its own score, spec and
-material; the card lists them and they sum to the item. A bathroom no photo
-shows is NOT given another's score: it goes to `estimatedItems` as
-`<id>:unseen`, estimated from the house like any unseen component. The item's
-own score stays the worst bathroom's. The urgent work is priced per bathroom
-(`actionCostNZD`), never share × all bathrooms. Reports without `byBathroom`
-keep the old count × one score.
+**Each bathroom and bedroom is valued on its own read.** Shower,
+waterproofing, vanity, toilet, fan and bathroom floor are priced per bathroom;
+bedroom heating, wardrobe and carpet per bedroom (`scale: "bedroom"`, $500 /
+$850 / $1,000 — the old whole-house figures were for three), and the bedroom
+ceiling is still floor-area priced but split one share per bedroom
+(`roomKindOf`). They used to share ONE score per item — the worst, because a
+mix is scored on its worst part — so a new ensuite was valued as the original
+main bathroom. With two or more of a room the analysis returns `by_room` (same
+names on every item) and `valueImprovementItems` values each seen room at its
+own score, spec and material; the card lists them and they sum to the item. A
+room no photo shows is NOT given another's score: it goes to `estimatedItems`
+as `<id>:unseen`, estimated from the house like any unseen component. The
+item's own score stays the worst room's. Urgent work is priced per room
+(`actionCostNZD`), never share × all rooms. A missing bedroom count is the
+reference three. Reports without `byRoom` keep the old count × one score.
 
 **The build year is the OLDEST a component can be, not its age.**
 `componentAge()` in depreciation.ts takes the younger of the build year (moved

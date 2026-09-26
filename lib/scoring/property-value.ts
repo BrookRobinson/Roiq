@@ -53,6 +53,7 @@ export interface PropertyValueInput {
   /** Depreciates the structure. Without it the shell reads as brand new. */
   buildYear?: number | null;
   bathrooms?: number | null;
+  bedrooms?: number | null;
   landAreaSqm: number | null;
   extraDwellings?: ExtraDwelling[];
   suburbValue?: SuburbValue | null;
@@ -166,6 +167,7 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
     subItems: input.subItems,
     floorAreaSqm: input.floorAreaSqm,
     bathrooms: input.bathrooms,
+    bedrooms: input.bedrooms,
     buildYear: input.buildYear,
     labourMultiplier: input.labourMultiplier,
     roof: input.roof,

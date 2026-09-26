@@ -58,6 +58,7 @@ export function computeRepairAllowance(subItems: SubItem[], ctx: RepairContext):
     subItems: items,
     floorAreaSqm: ctx.floorAreaSqm,
     bathrooms: ctx.bathrooms,
+    bedrooms: ctx.bedrooms,
     buildYear: ctx.buildYear,
   });
   const valueById = new Map(valuation.items.map((v) => [v.id, v]));

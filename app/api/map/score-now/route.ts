@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
           roof: { footprintM2: listing.siteLayout?.mainBuildingAreaSqm ?? null },
           nearbyTypical: listing.siteLayout?.measured?.nearby ?? null,
           bathrooms: listing.bathrooms,
+          bedrooms: listing.bedrooms,
           buildYear: listing.buildYear,
           landAreaSqm: listing.landAreaSqm,
           extraDwellings: result.extraDwellings,

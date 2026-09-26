@@ -168,39 +168,74 @@ check("ceilings scale with the floor now", IMPROVEMENT_BASE_COSTS.liv_ceiling.sc
 console.log("\nseveral bathrooms, each valued on its own read");
 // Three bathrooms used to share one score — the worst — so a new ensuite was
 // valued as if it were the original 1970s bathroom downstairs.
-const bath = (reads) => ({ id: "bath_shower", score: Math.min(...reads.filter((r) => r.score != null).map((r) => r.score)), specTier: "dated", byBathroom: reads.map((r) => ({ photoReferences: [], ...r })) });
+const bath = (reads) => ({ id: "bath_shower", score: Math.min(...reads.filter((r) => r.score != null).map((r) => r.score)), specTier: "dated", byRoom: reads.map((r) => ({ photoReferences: [], ...r })) });
 const mixed = [
-  { bathroom: "Ensuite", score: 9, specTier: "modern" },
-  { bathroom: "Main bathroom", score: 7, specTier: "modern" },
-  { bathroom: "Downstairs", score: 2, specTier: "dated", observedDefect: "Cracked shower tray and failed silicone (Photo 14)." },
+  { room: "Ensuite", score: 9, specTier: "modern" },
+  { room: "Main bathroom", score: 7, specTier: "modern" },
+  { room: "Downstairs", score: 2, specTier: "dated", observedDefect: "Cracked shower tray and failed silicone (Photo 14)." },
 ];
 const perBath = valueImprovementItems({ subItems: [bath(mixed)], floorAreaSqm: 200, bathrooms: 3, buildYear: 1975, now: NOW });
 const worstCase = valueImprovementItems({ subItems: [{ id: "bath_shower", score: 2, specTier: "dated" }], floorAreaSqm: 200, bathrooms: 3, buildYear: 1975, now: NOW });
 const shower = perBath.items.find((v) => v.id === "bath_shower");
-check("every seen bathroom gets its own line", shower.byBathroom.map((p) => p.bathroom), ["Ensuite", "Main bathroom", "Downstairs"]);
-check("the lines add up to the item", shower.valueNow, shower.byBathroom.reduce((a, p) => a + p.valueNow, 0));
-check("…and so does the cost new", shower.replacementTotal, shower.byBathroom.reduce((a, p) => a + p.replacementTotal, 0));
+check("every seen bathroom gets its own line", shower.byRoom.map((p) => p.room), ["Ensuite", "Main bathroom", "Downstairs"]);
+check("the lines add up to the item", shower.valueNow, shower.byRoom.reduce((a, p) => a + p.valueNow, 0));
+check("…and so does the cost new", shower.replacementTotal, shower.byRoom.reduce((a, p) => a + p.replacementTotal, 0));
 check("a good ensuite is no longer valued as the worst bathroom", shower.valueNow > worstCase.items[0].valueNow, true);
-check("each bathroom's own spec sets its cost new", shower.byBathroom[0].rcnNew > shower.byBathroom[2].rcnNew, true);
+check("each bathroom's own spec sets its cost new", shower.byRoom[0].rcnNew > shower.byRoom[2].rcnNew, true);
 check("the urgent work is only the bad bathroom's",
-  shower.byBathroom.map((p) => p.actionCostNZD > 0), [false, false, true]);
+  shower.byRoom.map((p) => p.actionCostNZD > 0), [false, false, true]);
 check("…and the plan is charged that, not a share of all three",
-  shower.actionCostNZD, shower.byBathroom[2].actionCostNZD);
+  shower.actionCostNZD, shower.byRoom[2].actionCostNZD);
 
 const partlySeen = valueImprovementItems({
-  subItems: [item("kit_cabinetry", 7), bath([{ bathroom: "Ensuite", score: 9, specTier: "modern" }, { bathroom: "Main bathroom", score: null }])],
+  subItems: [item("kit_cabinetry", 7), bath([{ room: "Ensuite", score: 9, specTier: "modern" }, { room: "Main bathroom", score: null }])],
   floorAreaSqm: 200, bathrooms: 3, buildYear: 1975, now: NOW,
 });
 const ps = partlySeen.items.find((v) => v.id === "bath_shower");
-check("an unphotographed bathroom is not valued as a seen one", ps.byBathroom.length, 1);
-check("…it is named, with any the listing counts beyond those named", ps.unseenBathrooms, ["Main bathroom", "Bathroom 3"]);
+check("an unphotographed bathroom is not valued as a seen one", ps.byRoom.length, 1);
+check("…it is named, with any the listing counts beyond those named", ps.unseenRooms, ["Main bathroom", "Bathroom 3"]);
 const est = partlySeen.estimatedItems.find((e) => e.id === "bath_shower:unseen");
 check("…and estimated from the house instead", !!est && est.valueNow > 0, true);
 check("…at two bathrooms' cost, not three", est.rcnNew < 3 * IMPROVEMENT_BASE_COSTS.bath_shower.baseRCN, true);
 
 const single = valueImprovementItems({ subItems: [{ id: "bath_shower", score: 6, specTier: "dated" }], floorAreaSqm: 200, bathrooms: 3, buildYear: 1975, now: NOW });
-check("without per-bathroom reads the old count-times-one-score still stands", single.items[0].byBathroom, undefined);
+check("without per-bathroom reads the old count-times-one-score still stands", single.items[0].byRoom, undefined);
 check("…at three bathrooms' cost", single.items[0].rcnNew, Math.round(3 * IMPROVEMENT_BASE_COSTS.bath_shower.baseRCN * 0.9));
+
+console.log("\nbedrooms: priced per bedroom, and each read on its own");
+const bedItems = ["bed_heating", "bed_storage", "bed_flooring"].map((id) => ({ id, score: 7 }));
+const bedTotal = (bedrooms) =>
+  valueImprovementItems({ subItems: bedItems, floorAreaSqm: 150, bathrooms: 1, bedrooms, now: NOW })
+    .items.reduce((a, v) => a + v.rcnNew, 0);
+// The old whole-house figures were $1,500 + $2,500 + $3,000, for three
+// bedrooms; per bedroom they are $500 + $850 + $1,000 (wardrobes rounded up $17).
+check("a three-bedroom house costs about what the old whole-house figures did", bedTotal(3), 7050);
+check("no bedroom count is read as the reference three", bedTotal(null), 7050);
+check("a five-bedroom house has more wardrobes, heaters and carpet", bedTotal(5) > bedTotal(3), true);
+check("…and a two-bedroom house fewer", bedTotal(2) < bedTotal(3), true);
+
+const bedReads = (reads) => ({ id: "bed_flooring", score: Math.min(...reads.filter((r) => r.score != null).map((r) => r.score)), specTier: "dated", byRoom: reads.map((r) => ({ photoReferences: [], ...r })) });
+const beds = valueImprovementItems({
+  subItems: [item("kit_cabinetry", 7), bedReads([
+    { room: "Main bedroom", score: 9, specTier: "modern" },
+    { room: "Back bedroom", score: 4, specTier: "dated" },
+    { room: "Middle bedroom", score: null },
+  ])],
+  floorAreaSqm: 150, bathrooms: 1, bedrooms: 3, buildYear: 1975, now: NOW,
+});
+const carpet = beds.items.find((v) => v.id === "bed_flooring");
+check("each seen bedroom gets its own line", carpet.byRoom.map((p) => p.room), ["Main bedroom", "Back bedroom"]);
+check("the lines add up to the item", carpet.valueNow, carpet.byRoom.reduce((a, p) => a + p.valueNow, 0));
+check("a recarpeted main bedroom is worth more than the worn back one", carpet.byRoom[0].valueNow > carpet.byRoom[1].valueNow, true);
+check("the unphotographed bedroom is named", carpet.unseenRooms, ["Middle bedroom"]);
+check("…and estimated from the house", (beds.estimatedItems.find((e) => e.id === "bed_flooring:unseen")?.valueNow ?? 0) > 0, true);
+
+// The ceilings are priced by floor area, but it is still one ceiling per bedroom.
+const ceil = valueImprovementItems({
+  subItems: [{ id: "bed_ceiling", score: 7, byRoom: [{ room: "A", score: 7, photoReferences: [] }, { room: "B", score: 7, photoReferences: [] }] }],
+  floorAreaSqm: 150, bathrooms: 1, bedrooms: 2, now: NOW,
+}).items[0];
+check("a bedroom ceiling is its share of the floor-area figure", ceil.byRoom[0].rcnNew, (IMPROVEMENT_BASE_COSTS.bed_ceiling.baseRCN * 150) / 2);
 
 console.log(failures === 0 ? "\nEstimated-value rules hold.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);

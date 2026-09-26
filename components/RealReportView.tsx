@@ -33,7 +33,7 @@ import { explainCrossLeaseDiscount } from "@/lib/scoring/cross-lease";
 import { maintenanceBasis } from "@/lib/finance/maintenance";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { compareFloorArea } from "@/lib/property/floor-area-check";
-import { valueImprovementItems, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
+import { valueImprovementItems, roomKindOf, DEFAULT_BEDROOMS, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
 import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
 import type { PlacedStructure } from "@/components/PropertyInspections/AddStructure";
@@ -646,6 +646,7 @@ export function RealReportView({
         subItems: effectiveSubItems,
         floorAreaSqm: report.listing.floorAreaSqm,
         bathrooms: report.listing.bathrooms,
+        bedrooms: report.listing.bedrooms,
         buildYear: report.listing.buildYear,
         labourMultiplier: labourMultiplierFor(report.listing),
         roof: roofInputs,
@@ -655,6 +656,7 @@ export function RealReportView({
       effectiveSubItems,
       report.listing.floorAreaSqm,
       report.listing.bathrooms,
+      report.listing.bedrooms,
       report.listing.buildYear,
     ]
   );
@@ -712,17 +714,17 @@ export function RealReportView({
       if (v.id === "ext_roof") continue;
       const item = (report.subItems ?? []).find((s) => s.id === v.id);
       const shot = itemPhotos[v.id];
-      // Several bathrooms, each valued on its own read — the same parts the
+      // Several bathrooms or bedrooms, each valued on its own read — the same parts the
       // headline summed, so the card and the headline are one figure.
-      if (v.byBathroom?.length) {
+      if (v.byRoom?.length) {
         const eff = effectiveSubItems.find((s) => s.id === v.id);
-        const worst = v.byBathroom.reduce((a, p) => (p.condition < a.condition ? p : a));
-        const parts = v.byBathroom.flatMap((p) => {
+        const worst = v.byRoom.reduce((a, p) => (p.condition < a.condition ? p : a));
+        const parts = v.byRoom.flatMap((p) => {
           const r = valueItem({
             id: v.id,
             rcnNew: p.rcnNew,
-            sizeWorkings: [`$${Math.round(p.rcnNew).toLocaleString("en-NZ")} for this bathroom's ${v.label.toLowerCase()}, at its own spec.`],
-            sizeSummary: `$${Math.round(p.rcnNew).toLocaleString("en-NZ")} to replace in the ${p.bathroom.toLowerCase()}`,
+            sizeWorkings: [`$${Math.round(p.rcnNew).toLocaleString("en-NZ")} for this room's ${v.label.toLowerCase()}, at its own spec — one room's share of the item.`],
+            sizeSummary: `$${Math.round(p.rcnNew).toLocaleString("en-NZ")} to replace in the ${p.room.toLowerCase()}`,
             // Its own fitting, never the item's — that describes another bathroom.
             material: p.material,
             concerns: p.observedDefect ? [p.observedDefect] : [],
@@ -732,16 +734,17 @@ export function RealReportView({
             label: v.label,
             labourMultiplier: labourMultiplierFor(report.listing),
           });
-          return isItemWithheld(r) ? [] : [{ bathroom: p.bathroom, condition: p.condition, photoReferences: p.photoReferences, valuation: r }];
+          return isItemWithheld(r) ? [] : [{ room: p.room, condition: p.condition, photoReferences: p.photoReferences, valuation: r }];
         });
         const worstPart = parts.reduce((a, p) => (p.condition < a.condition ? p : a), parts[0]);
         if (worstPart) {
           const actionCostSum = parts.reduce((a, p) => a + (p.valuation.action?.costNZD ?? 0), 0);
           const firstAction = (worstPart.valuation.action ?? parts.find((p) => p.valuation.action)?.valuation.action) ?? null;
           out.set(v.id, {
-            kind: "per-bathroom",
+            kind: "per-room",
+            noun: roomKindOf(v.id) ?? "bathroom",
             parts,
-            unseen: v.unseenBathrooms ?? [],
+            unseen: v.unseenRooms ?? [],
             valueNZD: parts.reduce((a, p) => a + p.valuation.valueNZD, 0),
             cost: { totalNZD: parts.reduce((a, p) => a + p.valuation.cost.totalNZD, 0) },
             life: worstPart.valuation.life,
@@ -756,7 +759,7 @@ export function RealReportView({
         valueItem({
           id: v.id,
           rcnNew: v.rcnNew,
-          sizeWorkings: sizeWorkingsFor(v.id, report.listing.floorAreaSqm, report.listing.bathrooms, v.rcnNew),
+          sizeWorkings: sizeWorkingsFor(v.id, report.listing.floorAreaSqm, report.listing.bathrooms, report.listing.bedrooms, v.rcnNew),
           sizeSummary: `$${Math.round(v.rcnNew).toLocaleString("en-NZ")} to replace on this property`,
           material: shot?.material ?? item?.material,
           concerns,
@@ -783,6 +786,7 @@ export function RealReportView({
         roof: roofInputs,
         nearbyTypical: siteLayout?.measured?.nearby ?? null,
         bathrooms: report.listing.bathrooms,
+        bedrooms: report.listing.bedrooms,
         landAreaSqm: report.listing.landAreaSqm,
         buildYear: report.listing.buildYear,
         extraDwellings: report.extraDwellings,
@@ -1827,6 +1831,7 @@ function sizeWorkingsFor(
   id: string,
   floorAreaSqm: number | null,
   bathrooms: number | null | undefined,
+  bedrooms: number | null | undefined,
   rcn: number
 ): string[] {
   const spec = IMPROVEMENT_BASE_COSTS[id];
@@ -1842,6 +1847,12 @@ function sizeWorkingsFor(
     const n = Math.max(1, Math.round(bathrooms ?? 1));
     return [
       `$${spec.baseRCN.toLocaleString("en-NZ")} per bathroom × ${n} ${n === 1 ? "bathroom" : "bathrooms"}.`,
+    ];
+  }
+  if (spec.scale === "bedroom") {
+    const n = bedrooms && bedrooms > 0 ? Math.round(bedrooms) : DEFAULT_BEDROOMS;
+    return [
+      `$${spec.baseRCN.toLocaleString("en-NZ")} per bedroom × ${n} ${n === 1 ? "bedroom" : "bedrooms"}${bedrooms && bedrooms > 0 ? "" : " (the listing gives no count, so three are assumed)"}.`,
     ];
   }
   return [
@@ -2081,6 +2092,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
     subItems,
     floorAreaSqm: listing.floorAreaSqm,
     bathrooms: listing.bathrooms,
+    bedrooms: listing.bedrooms,
     buildYear: listing.buildYear,
     // Same labour and roof inputs as the cards, so an action costs the same
     // here as it does in the item's Action step.

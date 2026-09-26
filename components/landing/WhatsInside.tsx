@@ -50,6 +50,7 @@ export function WhatsInside() {
     subItems: report.subItems ?? [],
     floorAreaSqm: report.listing.floorAreaSqm,
     bathrooms: report.listing.bathrooms,
+    bedrooms: report.listing.bedrooms,
     buildYear: report.listing.buildYear,
   }).buildingValue;
 

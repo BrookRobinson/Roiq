@@ -37,7 +37,8 @@ import type { SpecTier, SubItem } from "@/lib/property-tab/types";
 export type ScaleBasis =
   | "fixed" // one per house, size-independent (e.g. a kitchen, a hot-water cylinder)
   | "floorM2" // scales with floor area (structure, roof, cladding, insulation)
-  | "bathroom"; // scales with the number of bathrooms (shower, vanity, toilet…)
+  | "bathroom" // scales with the number of bathrooms (shower, vanity, toilet…)
+  | "bedroom"; // scales with the number of bedrooms (wardrobes, heating, carpet)
 
 export interface ItemCostSpec {
   baseRCN: number; // replacement cost NEW at the 1.0 reference spec, per the scale unit
@@ -75,7 +76,7 @@ export const ROUGH_IN_PER_BATHROOM = 5500;
 const RENO_TARGET_MULT = SPEC_MULTIPLIER.modern; // modern, as-new
 
 // ── Per-item base replacement cost (NEW, at the 1.0 reference spec) ────────────
-// Reference home ≈ 150 m², 1 bathroom. `floorM2`/`bathroom` items scale from here.
+// Reference home ≈ 150 m², 1 bathroom, 3 bedrooms. `floorM2`/`bathroom`/`bedroom` items scale from here.
 export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
   // Exterior
   ext_foundation: { baseRCN: 200, scale: "floorM2", note: "Slab/piles equivalent per floor m²" },
@@ -119,9 +120,13 @@ export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
   liv_ceiling: { baseRCN: 60, scale: "floorM2", note: "Ceilings to living, kitchen, hall and wet areas" },
 
   // Bedrooms (across all)
-  bed_heating: { baseRCN: 1500, scale: "fixed" },
-  bed_storage: { baseRCN: 2500, scale: "fixed", note: "Wardrobes across bedrooms" },
-  bed_flooring: { baseRCN: 3000, scale: "fixed" },
+  // Per bedroom now, so a five-bedroom house has more wardrobes than a
+  // two-bedroom one. The old whole-house figures ($1,500 / $2,500 / $3,000)
+  // were for three bedrooms, so the reference house moves only by the $50 the
+  // wardrobe figure was rounded up.
+  bed_heating: { baseRCN: 500, scale: "bedroom", note: "Panel heater or equivalent, per bedroom" },
+  bed_storage: { baseRCN: 850, scale: "bedroom", note: "Built-in wardrobe, per bedroom" },
+  bed_flooring: { baseRCN: 1000, scale: "bedroom", note: "Carpet, per bedroom" },
   bed_ceiling: { baseRCN: 40, scale: "floorM2", note: "Bedroom ceilings" },
 
   // Garage (skipped automatically if not present / not assessed)
@@ -141,10 +146,29 @@ export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
   out_retaining: { baseRCN: 9000, scale: "fixed" },
 };
 
-/** The items priced once per bathroom — each bathroom is read and valued on its own. */
-export const BATHROOM_ITEM_IDS: ReadonlySet<string> = new Set(
-  Object.entries(IMPROVEMENT_BASE_COSTS).filter(([, s]) => s.scale === "bathroom").map(([id]) => id)
+export type RoomKind = "bathroom" | "bedroom";
+
+/**
+ * Which rooms an item is spread across, when it is read room by room. The
+ * bedroom ceilings are priced by floor area but are still one ceiling per
+ * bedroom, so they are read that way too — each room's share of the item's
+ * cost is the item's cost over the room count.
+ */
+export function roomKindOf(id: string): RoomKind | null {
+  const spec = IMPROVEMENT_BASE_COSTS[id];
+  if (!spec) return null;
+  if (spec.scale === "bathroom") return "bathroom";
+  if (spec.scale === "bedroom" || id === "bed_ceiling") return "bedroom";
+  return null;
+}
+
+/** The items read and valued room by room — each bathroom or bedroom on its own. */
+export const ROOM_ITEM_IDS: ReadonlySet<string> = new Set(
+  Object.keys(IMPROVEMENT_BASE_COSTS).filter((id) => roomKindOf(id) !== null)
 );
+
+/** A missing bedroom count is the reference house's three — what the old whole-house figures assumed. */
+export const DEFAULT_BEDROOMS = 3;
 
 const ITEM_META = new Map(SCORING_MODEL.map((i) => [i.id, i]));
 
@@ -196,13 +220,13 @@ export interface ItemValue {
    */
   actionCostNZD?: number;
   /** Per-bathroom items: each bathroom that was seen, valued on its own read. */
-  byBathroom?: BathroomValue[];
+  byRoom?: RoomValue[];
   /** Bathrooms no photograph shows. Estimated from the rest of the house, not valued here. */
-  unseenBathrooms?: string[];
+  unseenRooms?: string[];
 }
 
-export interface BathroomValue {
-  bathroom: string;
+export interface RoomValue {
+  room: string;
   condition: number;
   tier: SpecTier | null;
   material?: string;
@@ -313,9 +337,10 @@ export interface RoofInputs {
 
 const specMult = (tier: SpecTier | null | undefined): number => (tier ? SPEC_MULTIPLIER[tier] : 1);
 
-function sizeFor(scale: ScaleBasis, floor: number, baths: number): number {
+function sizeFor(scale: ScaleBasis, floor: number, baths: number, beds: number): number {
   if (scale === "floorM2") return floor;
   if (scale === "bathroom") return baths;
+  if (scale === "bedroom") return beds;
   return 1;
 }
 
@@ -328,6 +353,7 @@ export function valueImprovementItems(args: {
   subItems: SubItem[];
   floorAreaSqm: number | null;
   bathrooms?: number | null;
+  bedrooms?: number | null;
   /** Drives the shell's depreciation. Without it the shell reads as new. */
   buildYear?: number | null;
   /** The region's labour multiplier (resolveRegion). Only labour moves with it. */
@@ -342,6 +368,8 @@ export function valueImprovementItems(args: {
 }): ImprovementValueResult {
   const floor = args.floorAreaSqm && args.floorAreaSqm > 0 ? args.floorAreaSqm : 0;
   const baths = Math.max(1, Math.round(args.bathrooms ?? 1));
+  const beds = args.bedrooms && args.bedrooms > 0 ? Math.round(args.bedrooms) : DEFAULT_BEDROOMS;
+  const roomCount = (k: RoomKind) => (k === "bathroom" ? baths : beds);
   const byId = new Map(args.subItems.map((s) => [s.id, s]));
   const now = args.now ?? new Date();
 
@@ -383,7 +411,7 @@ export function valueImprovementItems(args: {
     // which silently took 10% off anything the model didn't grade.
     const tier: SpecTier | null = s.specTier ?? null;
     const condition = s.score;
-    const sized = spec.baseRCN * sizeFor(spec.scale, floor, baths);
+    const sized = spec.baseRCN * sizeFor(spec.scale, floor, baths, beds);
     const rcnNew = Math.round(sized * specMult(tier));
     if (rcnNew <= 0) continue;
 
@@ -411,34 +439,39 @@ export function valueImprovementItems(args: {
       }
     }
 
-    // Several bathrooms, each read on its own: value them one by one. Only
-    // the ones a photo shows — the rest are estimated below, from the house.
-    const seenBaths = spec.scale === "bathroom" ? (s.byBathroom ?? []).filter((b) => b.score != null) : [];
-    if (seenBaths.length > 0) {
-      // The item's own recorded action is for its worst bathroom.
-      const worst = seenBaths.reduce((a, b) => ((b.score as number) < (a.score as number) ? b : a));
-      const parts: BathroomValue[] = [];
-      for (const b of seenBaths) {
+    // Several bathrooms or bedrooms, each read on its own: value them one by
+    // one. Only the ones a photo shows — the rest are estimated below, from
+    // the house.
+    const kind = roomKindOf(id);
+    const seenRooms = kind ? (s.byRoom ?? []).filter((b) => b.score != null) : [];
+    if (kind && seenRooms.length > 0) {
+      // One room's share of the item: the whole-house figure over the rooms.
+      const perRoom = sized / roomCount(kind);
+      // The item's own recorded action is for its worst room.
+      const worst = seenRooms.reduce((a, b) => ((b.score as number) < (a.score as number) ? b : a));
+      const parts: RoomValue[] = [];
+      for (const b of seenRooms) {
         const t = b.specTier ?? tier;
-        const one = Math.round(spec.baseRCN * specMult(t));
+        const one = Math.round(perRoom * specMult(t));
         const act = b === worst && s.urgentAction ? actionFor(s) : actionFor({ observedDefect: b.observedDefect, score: b.score });
         const bv = depreciate(id, one, b.score as number, false, act);
         if (!bv) continue;
-        const pot = depreciate(id, Math.round(spec.baseRCN * RENO_TARGET_MULT), 10, true);
+        const pot = depreciate(id, Math.round(perRoom * RENO_TARGET_MULT), 10, true);
         parts.push({
-          bathroom: b.bathroom, condition: b.score as number, tier: t, material: b.material, observedDefect: b.observedDefect, photoReferences: b.photoReferences,
+          room: b.room, condition: b.score as number, tier: t, material: b.material, observedDefect: b.observedDefect, photoReferences: b.photoReferences,
           rcnNew: one, replacementTotal: bv.cost.totalNZD, valueNow: bv.valueNZD, valuePotential: pot ? pot.valueNZD : bv.valueNZD,
           ageYears: bv.age.effectiveYears, pastLife: bv.remainingFraction <= 0, actionCostNZD: bv.action?.costNZD ?? 0,
         });
       }
       if (parts.length > 0) {
-        const sum = (f: (p: BathroomValue) => number) => parts.reduce((a, p) => a + f(p), 0);
+        const sum = (f: (p: RoomValue) => number) => parts.reduce((a, p) => a + f(p), 0);
         const worstPart = parts.reduce((a, p) => (p.condition < a.condition ? p : a));
-        const unseenBathrooms = [
-          ...(s.byBathroom ?? []).filter((b) => b.score == null).map((b) => b.bathroom),
+        const unseenRooms = [
+          ...(s.byRoom ?? []).filter((b) => b.score == null).map((b) => b.room),
         ];
-        // The listing may count more bathrooms than the analysis named.
-        for (let n = parts.length + unseenBathrooms.length; n < baths; n++) unseenBathrooms.push(`Bathroom ${n + 1}`);
+        // The listing may count more rooms than the analysis named.
+        const noun = kind === "bathroom" ? "Bathroom" : "Bedroom";
+        for (let n = parts.length + unseenRooms.length; n < roomCount(kind); n++) unseenRooms.push(`${noun} ${n + 1}`);
         const rcnAll = sum((p) => p.rcnNew);
         const valueNow = sum((p) => p.valueNow);
         const valuePotential = sum((p) => p.valuePotential);
@@ -447,7 +480,7 @@ export function valueImprovementItems(args: {
           rcnNew: rcnAll, replacementTotal: sum((p) => p.replacementTotal), valueNow,
           ageYears: worstPart.ageYears, pastLife: worstPart.pastLife,
           valuePotential, valueGap: Math.max(0, valuePotential - valueNow),
-          actionCostNZD: sum((p) => p.actionCostNZD), byBathroom: parts, unseenBathrooms,
+          actionCostNZD: sum((p) => p.actionCostNZD), byRoom: parts, unseenRooms,
         });
         componentsValue += valueNow;
         totalValueGap += Math.max(0, valuePotential - valueNow);
@@ -480,7 +513,7 @@ export function valueImprovementItems(args: {
   let rcnPossible = 0;
   for (const [id, spec] of Object.entries(IMPROVEMENT_BASE_COSTS)) {
     if (!ITEM_META.get(id)) continue;
-    const rcn = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths));
+    const rcn = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths, beds));
     if (rcn <= 0) continue;
     possible++;
     rcnPossible += rcn;
@@ -550,13 +583,14 @@ export function valueImprovementItems(args: {
       const seen = byId.get(id);
       const valued = items.find((i) => i.id === id);
       // Bathrooms no photo shows, on an item whose other bathrooms were seen.
-      if (valued?.unseenBathrooms?.length) {
-        const n = valued.unseenBathrooms.length;
-        const rcn = Math.round(spec.baseRCN * n * blendedSpec);
+      if (valued?.unseenRooms?.length) {
+        const n = valued.unseenRooms.length;
+        const kind = roomKindOf(id) as RoomKind;
+        const rcn = Math.round((spec.baseRCN * sizeFor(spec.scale, floor, baths, beds)) / roomCount(kind) * n * blendedSpec);
         const valueNow = depreciate(id, rcn, blendedScore)?.valueNZD ?? 0;
         estimatedItems.push({
           id: `${id}:unseen`,
-          label: `${meta.label} — ${valued.unseenBathrooms.join(", ")} (not photographed)`,
+          label: `${meta.label} — ${valued.unseenRooms.join(", ")} (not photographed)`,
           category: meta.category,
           rcnNew: rcn,
           valueNow,
@@ -565,7 +599,7 @@ export function valueImprovementItems(args: {
         continue;
       }
       if (seen && seen.score != null) continue; // already valued for real
-      const rcnNew = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths) * blendedSpec);
+      const rcnNew = Math.round(spec.baseRCN * sizeFor(spec.scale, floor, baths, beds) * blendedSpec);
       if (rcnNew <= 0) continue;
       const valueNow = depreciate(id, rcnNew, blendedScore)?.valueNZD ?? 0;
       estimatedItems.push({ id, label: meta.label, category: meta.category, rcnNew, valueNow });

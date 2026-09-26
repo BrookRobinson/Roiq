@@ -20,7 +20,7 @@ import { SCORING_MODEL, LOCATION_PENALTIES, usesSpecTier, SIZE_ITEM_IDS, type Sc
 import { buildCatalog, INSPECTION_META, SOURCE_TAXONOMY, type CatalogInspection } from "@/lib/scoring/catalog";
 import { scoreBoth, type Assessment } from "@/lib/scoring/report";
 import { resolveTenure } from "@/lib/scoring/title";
-import { BATHROOM_ITEM_IDS } from "@/lib/scoring/improvement-values";
+import { ROOM_ITEM_IDS } from "@/lib/scoring/improvement-values";
 import { fetchMarketData, type MarketResult } from "./market";
 import { fetchSuburbValue } from "./comparables";
 import type { MarketRent, CapitalGrowth, SuburbValue } from "@/lib/scoring/investment";
@@ -29,7 +29,7 @@ import type { CrossLeaseSharing } from "@/lib/scoring/cross-lease";
 import { urgencyLabel } from "@/lib/property-tab/types";
 import type {
   SubItem,
-  BathroomRead,
+  RoomRead,
   ExtraDwelling,
   ReplacementCost,
   UrgencyScore,
@@ -321,16 +321,16 @@ function sizeSqm(raw: number | undefined, id: string, floorAreaSqm: number | nul
  * when there are two or more bathrooms to tell apart — one read of one
  * bathroom is just the item's own score said twice.
  */
-function normByBathroom(raw: RawSubItem["by_bathroom"], id: string): BathroomRead[] | undefined {
-  if (!BATHROOM_ITEM_IDS.has(id) || !Array.isArray(raw)) return undefined;
+function normByRoom(raw: RawSubItem["by_room"], id: string): RoomRead[] | undefined {
+  if (!ROOM_ITEM_IDS.has(id) || !Array.isArray(raw)) return undefined;
   const seen = new Set<string>();
-  const out: BathroomRead[] = [];
+  const out: RoomRead[] = [];
   for (const r of raw) {
-    const name = typeof r?.bathroom === "string" ? r.bathroom.trim() : "";
+    const name = typeof r?.room === "string" ? r.room.trim() : "";
     if (!name || seen.has(name.toLowerCase())) continue;
     seen.add(name.toLowerCase());
     out.push({
-      bathroom: name,
+      room: name,
       score: clampScore(r.score),
       specTier: normSpecTier(r.spec_tier),
       material: r.material?.trim() || undefined,
@@ -382,7 +382,7 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
     conditionEvidence: cleanEvidence(raw.condition_evidence),
     urgentAction: normAction(raw.urgent_action),
     estimatedSqm: SIZE_ITEM_IDS.has(item.id) ? sizeSqm(raw.estimated_sqm, item.id, ctx.floorAreaSqm, ctx.bedrooms) : undefined,
-    byBathroom: normByBathroom(raw.by_bathroom, item.id),
+    byRoom: normByRoom(raw.by_room, item.id),
     // Topography carries the facts its score is derived from (see land-quality.ts).
     slopeBand: item.id === "land_topography" ? normSlopeBand(raw.slope_band) : undefined,
     usableLandPct: item.id === "land_topography" ? normUsablePct(raw.usable_land_pct) : undefined,

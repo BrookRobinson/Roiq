@@ -13,7 +13,7 @@ import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
 import { itemSummary } from "@/lib/scoring/item-summary";
 import { ITEM_LIFE, expectedLife } from "@/lib/scoring/item-life";
 import { isFactOnly } from "@/lib/scoring/improvement-values";
-import { isRefused, isPerBathroom, type AnyValuation, type PerBathroomValuation } from "./valuation-types";
+import { isRefused, isPerRoom, type AnyValuation, type PerRoomValuation } from "./valuation-types";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
 import { confidenceMeta } from "./ConfidenceBar";
 import { CostWorkings } from "@/components/CostWorkings";
@@ -51,28 +51,28 @@ function Chip({ label, title, children }: { label: string; title?: string; child
 }
 
 /**
- * One line per bathroom — its condition, what it's worth and what it would
+ * One line per bathroom or bedroom — its condition, what it's worth and what it would
  * cost new — each opening to its own seven steps. The lines add up to the
- * card's value; bathrooms nobody photographed are named, and left out.
+ * card's value; rooms nobody photographed are named, and left out.
  */
-function PerBathroomBreakdown({ v, label }: { v: PerBathroomValuation; label: string }) {
+function PerRoomBreakdown({ v, label }: { v: PerRoomValuation; label: string }) {
   const [open, setOpen] = useState<string | null>(null);
   const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
   return (
     <div className="space-y-2">
       {v.parts.map((p) => {
-        const isOpen = open === p.bathroom;
+        const isOpen = open === p.room;
         const c = conditionScoreColor(p.condition as UrgencyScore);
         return (
-          <div key={p.bathroom} className="rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+          <div key={p.room} className="rounded-lg" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
             <button
               type="button"
-              onClick={() => setOpen(isOpen ? null : p.bathroom)}
+              onClick={() => setOpen(isOpen ? null : p.room)}
               aria-expanded={isOpen}
               className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-3 cursor-pointer"
             >
               <span className="min-w-0">
-                <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>{p.bathroom}</span>
+                <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>{p.room}</span>
                 <span className="text-[12px] ml-2 mono" style={{ color: c }}>{p.condition}/10</span>
               </span>
               <span className="flex items-center gap-2 flex-shrink-0">
@@ -92,7 +92,7 @@ function PerBathroomBreakdown({ v, label }: { v: PerBathroomValuation; label: st
                         {p.photoReferences.length > 0 ? (
                           <span className="inline-flex items-center gap-1"><Camera size={12} style={{ color: "var(--text-muted)" }} /> Photos: {p.photoReferences.join(", ")}</span>
                         ) : (
-                          <span style={{ color: "var(--text-muted)" }}>Read from the listing photos of this bathroom.</span>
+                          <span style={{ color: "var(--text-muted)" }}>Read from the listing photos of this {v.noun}.</span>
                         )}
                       </div>
                     ),
@@ -104,7 +104,7 @@ function PerBathroomBreakdown({ v, label }: { v: PerBathroomValuation; label: st
         );
       })}
       <div className="flex items-baseline justify-between gap-2 px-3 pt-1 text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
-        <span>{label}, all bathrooms seen</span>
+        <span>{label}, every {v.noun} seen</span>
         <span className="mono">{money(v.valueNZD)} <span className="font-normal text-[11px]" style={{ color: "var(--text-muted)" }}>· {money(v.cost.totalNZD)} new</span></span>
       </div>
       {v.unseen.length > 0 && (
@@ -387,8 +387,8 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                 How this value was worked out
               </div>
             )}
-            {valuation && !isRefused(valuation) && isPerBathroom(valuation) ? (
-              <PerBathroomBreakdown v={valuation} label={item.name} />
+            {valuation && !isRefused(valuation) && isPerRoom(valuation) ? (
+              <PerRoomBreakdown v={valuation} label={item.name} />
             ) : valuation && !isRefused(valuation) ? (
               <ItemValuation v={valuation} lead={{ title: "Listing photos", body: photosStep }} evidence={evidenceFor(item)} />
             ) : (

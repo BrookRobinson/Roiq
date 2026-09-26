@@ -96,9 +96,9 @@ export interface Remediation {
  * Each bathroom is read and valued on its own now; a null score is a bathroom
  * no photograph shows, which is estimated, never guessed.
  */
-export interface BathroomRead {
+export interface RoomRead {
   /** What the listing or photos call it: "Ensuite", "Main bathroom", "Downstairs". */
-  bathroom: string;
+  room: string;
   score: UrgencyScore | null;
   specTier?: SpecTier;
   /** This bathroom's own fitting — the ensuite's shower is not the main bathroom's. */
@@ -134,8 +134,8 @@ export interface SubItem {
   /** Work needed NOW to get it back to a well-maintained state. See actionFor(). */
   urgentAction?: UrgentAction;
   estimatedSqm?: number;               // for size/area items — the estimated area in m² (shown instead of material/age)
-  /** Per-bathroom items only, when the house has more than one bathroom. See BathroomRead. */
-  byBathroom?: BathroomRead[];
+  /** Per-bathroom items only, when the house has more than one bathroom. See RoomRead. */
+  byRoom?: RoomRead[];
 
   slopeBand?: SlopeBand;               // land_topography only — the measured-ish fact behind its score
   usableLandPct?: number;              // land_topography only — 0–100, share of the section flat enough to use
