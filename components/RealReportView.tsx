@@ -2173,10 +2173,20 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
       lines.push({
         key: s.id,
         name: s.name,
-        detail: s.urgencyLabel,
+        // The condition word, then the life left on the same reading the plan
+        // dates it by. "Fair — plan replacement within 5–7 years" was the
+        // score's guess, and said it about a foundation with 67 years left.
+        detail: v
+          ? `${s.urgencyLabel.split(" — ")[0]} · ${
+              v.yearsLeft <= 0 ? "past the end of its life" : `about ${Math.round(v.yearsLeft)} ${Math.round(v.yearsLeft) === 1 ? "year" : "years"} of life left`
+            }`
+          : s.urgencyLabel,
         low,
         high,
-        urgencyYears: urgencyScoreToYears(s.score),
+        // When it is due comes from the item's own life — the same years-left
+        // its card shows — and only falls back to the condition score for an
+        // item the valuation couldn't price.
+        urgencyYears: v ? Math.max(0, Math.round(v.yearsLeft)) : urgencyScoreToYears(s.score),
         detailColor: col === "red" ? "var(--bad)" : col === "amber" ? "var(--warn)" : "var(--good)",
         uplift: rentUplift(s.id),
         notes: s.estimatedReplacementCost?.notes || undefined,

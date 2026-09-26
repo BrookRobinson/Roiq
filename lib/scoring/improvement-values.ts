@@ -273,6 +273,13 @@ export interface ItemValue {
   ageYears: number;
   /** No life left: replacing it is the action, and any repair only a stop-gap. */
   pastLife: boolean;
+  /**
+   * Years until it needs replacing, on the same life the card shows (negative =
+   * overdue). The renovation plan dates work from THIS, not from the condition
+   * score: a 7/10 foundation has decades left, and "7/10 means due in about
+   * seven years" put it in every ten-year plan.
+   */
+  yearsLeft: number;
   valuePotential: number; // value at modern spec, as-new (the reno ceiling)
   valueGap: number; // max(0, potential − now) — the renovation upside
   /**
@@ -302,6 +309,7 @@ export interface RoomValue {
   valuePotential: number;
   ageYears: number;
   pastLife: boolean;
+  yearsLeft: number;
   actionCostNZD: number;
 }
 
@@ -501,7 +509,7 @@ export function valueImprovementItems(args: {
       });
       if (!isRoofWithheld(r)) {
         const rcn = r.cost.materialsNZD + r.cost.labourNZD;
-        items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew: rcn, replacementTotal: r.cost.totalNZD, valueNow: r.valueNZD, ageYears: r.age.effectiveYears, pastLife: r.remainingFraction <= 0, valuePotential: r.cost.totalNZD, valueGap: r.cost.totalNZD - r.valueNZD });
+        items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew: rcn, replacementTotal: r.cost.totalNZD, valueNow: r.valueNZD, ageYears: r.age.effectiveYears, pastLife: r.remainingFraction <= 0, yearsLeft: r.life.expectedYears - r.life.usedYears, valuePotential: r.cost.totalNZD, valueGap: r.cost.totalNZD - r.valueNZD });
         componentsValue += r.valueNZD;
         totalValueGap += r.cost.totalNZD - r.valueNZD;
         wRcn += rcn;
@@ -534,7 +542,7 @@ export function valueImprovementItems(args: {
         parts.push({
           room: b.room, condition: b.score as number, tier: t, material: b.material, showerType: b.showerType, floorType: b.floorType, observedDefect: b.observedDefect, photoReferences: b.photoReferences,
           rcnNew: one, replacementTotal: bv.cost.totalNZD, valueNow: bv.valueNZD, valuePotential: pot ? pot.valueNZD : bv.valueNZD,
-          ageYears: bv.age.effectiveYears, pastLife: bv.remainingFraction <= 0, actionCostNZD: bv.action?.costNZD ?? 0,
+          ageYears: bv.age.effectiveYears, pastLife: bv.remainingFraction <= 0, yearsLeft: bv.life.expectedYears - bv.life.usedYears, actionCostNZD: bv.action?.costNZD ?? 0,
         });
       }
       if (parts.length > 0) {
@@ -553,6 +561,8 @@ export function valueImprovementItems(args: {
           id, label: meta.label, category: meta.category, tier, condition,
           rcnNew: rcnAll, replacementTotal: sum((p) => p.replacementTotal), valueNow,
           ageYears: worstPart.ageYears, pastLife: worstPart.pastLife,
+          // The first room to come due decides when the item does.
+          yearsLeft: Math.min(...parts.map((p) => p.yearsLeft)),
           valuePotential, valueGap: Math.max(0, valuePotential - valueNow),
           actionCostNZD: sum((p) => p.actionCostNZD), byRoom: parts, unseenRooms,
         });
@@ -573,7 +583,7 @@ export function valueImprovementItems(args: {
     const valuePotential = potential ? potential.valueNZD : valueNow;
     const valueGap = Math.max(0, valuePotential - valueNow);
 
-    items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew, replacementTotal: v.cost.totalNZD, valueNow, ageYears: v.age.effectiveYears, pastLife: v.remainingFraction <= 0, valuePotential, valueGap });
+    items.push({ id, label: meta.label, category: meta.category, tier, condition, rcnNew, replacementTotal: v.cost.totalNZD, valueNow, ageYears: v.age.effectiveYears, pastLife: v.remainingFraction <= 0, yearsLeft: v.life.expectedYears - v.life.usedYears, valuePotential, valueGap });
     componentsValue += valueNow;
     totalValueGap += valueGap;
     wRcn += rcnNew;

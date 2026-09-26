@@ -158,8 +158,6 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
 export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations, value, valuation, estimate, unseenEstimate }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void; value?: ItemValue | null; valuation?: AnyValuation | null; estimate?: EstimatedItem | null; unseenEstimate?: EstimatedItem | null }) {
   const [expanded, setExpanded] = useState(false);
   const { holdYears, withinHold } = useHoldPeriod();
-  const urgencyYears = urgencyScoreToYears(item.score);
-  const isWithinHold = withinHold(urgencyYears);
   // v6 — the card shows what the item is WORTH, not what it scored. Colour
   // follows the condition read, which is the thing the colour was always really
   // about: points were condition wearing a rubric's clothes.
@@ -203,6 +201,10 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
     detailed && !isRefused(detailed) ? detailed.life.expectedYears - detailed.life.usedYears
     : value && life ? expectedLife(life) - value.ageYears
     : null;
+  // Inside the hold on that same life — the plan dates the work the same way,
+  // so the card's "outside your hold" tag and the plan can't disagree. The
+  // condition score is only the fallback for an item with no life reading.
+  const isWithinHold = withinHold(yearsRemaining != null ? Math.max(0, Math.round(yearsRemaining)) : urgencyScoreToYears(item.score));
   // The urgent action — the valuation's when it has one (same cost as the
   // Renovations line), otherwise read from the item at the itemised cost.
   const fallbackAction = actionFor(item);

@@ -1818,6 +1818,15 @@ most — costs, deferred work, the uplift and ten years of compounding all turn 
 it — and asking a reader to scroll back to the top of the report to try another
 number is asking them not to try one.
 
+**The plan dates work from the item's LIFE, not its condition score.**
+`urgencyYears` is `ItemValue.yearsLeft` — the same expected-minus-used life the
+card's life bar shows — and the condition score is only the fallback for an item
+the valuation couldn't price. The old map read 7/10 as "due in about seven
+years" whatever the item was, so a 7/10 foundation with 67 years left sat in
+every ten-year plan: the demo carried 49 of 50 items and $228,956, against 30
+and $92,665 on the items' real lives. The card's "outside your hold" tag and the
+plan line's label read the same figure.
+
 **The renovation plan follows the hold slider, and for a long time it didn't.**
 The demo's renovation total read $3,859 at a three-year hold and $3,859 at a
 fifteen-year one — a 4/10 roof with an $18,000–$28,000 range sat outside the plan

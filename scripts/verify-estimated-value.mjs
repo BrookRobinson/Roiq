@@ -292,5 +292,15 @@ check("neither prices a shower, tiles or a membrane",
 check("each costs less than the bathroom refit it used to price",
   Math.max(vanityJob.budget.tradieTotal, toiletJob.budget.tradieTotal) < costThreeTier({ id: "room_bathroom", category: "Bathroom" }).budget.tradieTotal, true);
 
+console.log("\nwhen work is due comes from the item's life, not its score");
+const due = valueImprovementItems({
+  subItems: [{ id: "ext_foundation", score: 7 }, { id: "bath_ventilation", score: 7 }],
+  floorAreaSqm: 185, bathrooms: 1, buildYear: 1975, now: NOW,
+}).items;
+const fdn = due.find((v) => v.id === "ext_foundation");
+const fan = due.find((v) => v.id === "bath_ventilation");
+check("a 7/10 foundation on a 1975 house has decades left, not seven years", fdn.yearsLeft > 30, true);
+check("…while a 7/10 fan, with a short life, comes due much sooner", fan.yearsLeft < fdn.yearsLeft, true);
+
 console.log(failures === 0 ? "\nEstimated-value rules hold.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);
