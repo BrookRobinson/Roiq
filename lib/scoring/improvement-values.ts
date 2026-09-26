@@ -100,7 +100,6 @@ export const IMPROVEMENT_BASE_COSTS: Record<string, ItemCostSpec> = {
 
   // Bathroom (per bathroom, except the whole-house hot-water system)
   bath_shower: { baseRCN: 4500, scale: "bathroom" },
-  bath_waterproof: { baseRCN: 2500, scale: "bathroom" },
   bath_hotwater: { baseRCN: 2800, scale: "fixed", note: "Cylinder / califont — whole house" },
   bath_vanity: { baseRCN: 1600, scale: "bathroom" },
   bath_toilet: { baseRCN: 800, scale: "bathroom" },

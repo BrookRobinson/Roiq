@@ -135,7 +135,6 @@ export const SCORING_MODEL: ScoringSubItem[] = [
 
   // --- Bathroom(s) (Buyer 65 / Investor 62) — scored per bathroom, then averaged ---
   { id: "bath_shower", label: "Shower / bath", inspection: "improvements", category: "Bathroom", buyerPoints: 16, investorPoints: 13, conditional: false, costBearing: true, affectsHealthyHomes: false },
-  { id: "bath_waterproof", label: "Waterproofing (inferred)", inspection: "improvements", category: "Bathroom", buyerPoints: 15, investorPoints: 16, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "bath_hotwater", label: "Hot water system (cylinder / gas califont)", inspection: "improvements", category: "Bathroom", buyerPoints: 12, investorPoints: 13, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "bath_vanity", label: "Vanity & tapware", inspection: "improvements", category: "Bathroom", buyerPoints: 8, investorPoints: 5, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "bath_toilet", label: "Toilet", inspection: "improvements", category: "Bathroom", buyerPoints: 6, investorPoints: 4, conditional: false, costBearing: true, affectsHealthyHomes: false },

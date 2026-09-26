@@ -149,23 +149,13 @@ export const CHECK_GUIDE: Record<string, CheckGuide> = {
   },
 
   // ── Bathroom ───────────────────────────────────────────────────────────────
-  bath_waterproof: {
-    concern: "Whether the wet area is still sealed behind the tiles.",
-    ask: "When was the bathroom last done, and was the waterproofing certified?",
-    steps: [
-      "Press the wall lining beside and behind the shower. Any give or softness means water is getting through.",
-      "Look at the grout and the silicone in the corners — dark, cracked or missing is how water gets behind.",
-      "Look at the floor outside the shower: lifting vinyl, swollen skirting or cupping floorboards.",
-      "Smell the room. A persistent musty smell with no visible cause is usually a wet wall cavity.",
-    ],
-    photos: ["The shower corner, floor to ceiling", "Any soft spot, lifting or staining"],
-  },
   bath_shower: {
     concern: "The age and condition of the shower, and whether it leaks.",
     steps: [
       "Run it. Pressure, temperature, and whether the water drains away or pools.",
-      "Acrylic liner or tiled? A tiled shower is a waterproofing question; a liner is a replacement cost.",
+      "Acrylic liner or tiled? A liner is a straight replacement; a tiled shower is a bigger job to redo.",
       "Check the door or curtain seal, and the tray for cracks.",
+      "Press the wall lining beside the shower and look at the floor outside it. Soft linings, lifting vinyl or swollen skirting mean water has been getting out.",
     ],
     photos: ["The whole shower", "The tray and the waste"],
   },

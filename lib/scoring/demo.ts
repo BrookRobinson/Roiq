@@ -23,7 +23,7 @@ const SCORES: Record<string, number> = {
   // Kitchen (recently renovated)
   kit_cabinetry: 8, kit_appliances: 8, kit_benchtop: 9, kit_flooring: 7, kit_layout: 8, kit_sink: 8, kit_splashback: 8,
   // Bathroom
-  bath_shower: 6, bath_waterproof: 5, bath_hotwater: 6, bath_vanity: 6, bath_toilet: 7, bath_ventilation: 1, bath_flooring: 6,
+  bath_shower: 6, bath_hotwater: 6, bath_vanity: 6, bath_toilet: 7, bath_ventilation: 1, bath_flooring: 6,
   // Living
   liv_heating: 8, liv_size: 8, liv_insulation: 3, liv_light: 9, liv_flooring: 7, liv_ceiling: 7, liv_walls: 7, liv_fixtures: 6,
   // Bedrooms
@@ -80,7 +80,6 @@ const DEFECTS: Record<string, string> = {
   bath_shower: "Dated framed shower over bath with a perished seal at the base and silicone that has gone black along the wall junction.",
   bath_vanity: "Original single vanity with a chipped laminate top and chrome tapware that is pitting around the spout base.",
   bath_toilet: "Older close-coupled suite, functional, with staining at the pan-to-floor junction suggesting a tired seal.",
-  bath_waterproof: "Not visible — inferred. Behind the 1970s tiling there is unlikely to be a modern waterproof membrane, so budget for it if the bathroom is opened up.",
   kit_flooring: "Vinyl is lifting at the seam in front of the dishwasher and there is a scorch mark beside the oven.",
   liv_fixtures: "Original ceiling roses and plastic switch plates throughout, several yellowed with age; no downlights fitted.",
   bed_storage: "The main and back bedrooms both have shallow original wardrobes with sagging hanging rails.",
@@ -115,7 +114,7 @@ const ACTIONS: Record<string, UrgentAction> = {
 
 /** Items no listing photograph can show. They are inferred, so they are Tier 3
  *  and therefore not scored at all — they go on the viewing checklist instead. */
-const NOT_VISIBLE = new Set(["liv_insulation", "bath_waterproof"]);
+const NOT_VISIBLE = new Set(["liv_insulation"]);
 
 // What each thing is actually made of. This used to read "See assessment" on
 // every card in the report — a chip that cost a line to tell the reader to read
@@ -299,11 +298,11 @@ const SUMMARIES: Record<string, string> = {
   bath_hotwater:
     "Original-looking copper cylinder in the hallway cupboard, unlagged, with corrosion staining on the tray beneath it (Photo 14). Staining in the tray means it has leaked at some point. A cylinder of this age is at the end of its service life and can fail without warning, so replace it early rather than waiting. Lagging and a modern cylinder will also cut your hot water running costs.",
   bath_vanity:
-    "Original single vanity with a chipped laminate top and chrome tapware pitting around the spout base (Photo 6). Functional, dated, and matched to the rest of the bathroom in age. Not worth replacing on its own; roll it into the bathroom refresh when you do the shower and waterproofing.",
+    "Original single vanity with a chipped laminate top and chrome tapware pitting around the spout base (Photo 6). Functional, dated, and matched to the rest of the bathroom in age. Not worth replacing on its own; roll it into the bathroom refresh when you do the shower.",
   bath_toilet:
     "Older close-coupled suite, working, with staining at the pan-to-floor junction that suggests a tired seal (Photo 11). Re-seat it on a new wax seal, which is a cheap job, and check the floor underneath is sound while it is lifted. Staining at that junction can mean water has been escaping under the floor covering.",
   bath_flooring:
-    "Two cracked floor tiles beside the vanity and grout that has darkened and lifted along the shower edge (Photo 11). The shower edge is exactly where water gets underneath, and lifted grout there means it probably already has. Combined with the waterproofing question below, this points at a full wet-area redo rather than patching individual tiles.",
+    "Two cracked floor tiles beside the vanity and grout that has darkened and lifted along the shower edge (Photo 11). The shower edge is exactly where water gets underneath, and lifted grout there means it probably already has. If the floor outside the shower feels soft at the viewing, that points at a full wet-area redo rather than patching individual tiles.",
   liv_heating:
     "A single wood burner in the lounge is doing all the work for the whole house, and its flue collar shows rust at the ceiling penetration (Photos 3 and 8). Rust at a flue penetration is a weathertightness and fire-safety item, so have it inspected. The bigger issue is distribution: one fire in one room leaves the bedrooms cold, which the bedroom heating item below picks up.",
   liv_fixtures:
@@ -354,8 +353,6 @@ const SUMMARIES: Record<string, string> = {
     "No photograph shows the roof space, so the ceiling has not been seen. The 1975 build era predates insulation requirements, so expect little to no ceiling or underfloor insulation. This is the single highest-impact, lowest-cost improvement — it lifts comfort, lowers running costs, and is required for Healthy Homes if rented.",
   bath_ventilation:
     "The main bathroom (Photo 5) has an openable window but no visible ducted extractor fan. Inadequate extraction drives mould and fails the Healthy Homes ventilation standard. Install ducted fans vented to outside in both bathrooms.",
-  bath_waterproof:
-    "Tiling in the main bathroom looks original; waterproofing behind 1970s tiling is commonly at or past end of life. Treat as probable — verify at inspection and budget to re-waterproof and re-tile the wet area.",
   loc_schools:
     "Within the Auckland Grammar and Epsom Girls' Grammar double-grammar zones — among the most sought-after school zones in the country, a strong and durable demand driver for owner-occupiers.",
   loc_sun:
@@ -372,7 +369,6 @@ const COSTS: Record<string, { low: number; high: number; notes: string }> = {
   ext_roof: { low: 18000, high: 28000, notes: "185m² long-run iron re-roof incl. underlay, Auckland rate" },
   liv_insulation: { low: 2400, high: 3800, notes: "R3.2 ceiling batts + underfloor blanket, blow-in, Auckland" },
   bath_ventilation: { low: 700, high: 1400, notes: "Ducted extractor fans to two bathrooms" },
-  bath_waterproof: { low: 3000, high: 6000, notes: "Re-waterproof + re-tile main bathroom wet area" },
   ext_paint: { low: 6000, high: 11000, notes: "Full exterior weatherboard repaint" },
   ext_gutters: { low: 1800, high: 3200, notes: "Replace spouting + downpipes" },
 };

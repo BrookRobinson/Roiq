@@ -156,7 +156,7 @@ const isImprovement = (s: SubItem) => inspOf(s.id) === "improvements";
 // Indicative weekly rent uplift (investor only) when a flagged item is renovated.
 const RENT_UPLIFT: Record<string, number> = {
   kit_cabinetry: 35, kit_appliances: 18, kit_benchtop: 12, kit_flooring: 8,
-  bath_shower: 25, bath_waterproof: 15, bath_vanity: 10, bath_flooring: 6,
+  bath_shower: 25, bath_vanity: 10, bath_flooring: 6,
   liv_heating: 25, liv_insulation: 22, liv_flooring: 15,
   bath_ventilation: 10, bath_hotwater: 10, bed_heating: 12,
 };
@@ -314,7 +314,7 @@ function PurchasePriceBar({ value, priceText, onChange, modelledPrice }: {
 }
 
 export function RealReportView({
-  report,
+  report: storedReport,
   shared = false,
   embedded = false,
 }: {
@@ -328,6 +328,13 @@ export function RealReportView({
    */
   embedded?: boolean;
 }) {
+  // Items the model no longer has are dropped on the way in. Waterproofing was
+  // removed (a consented bathroom was inspected for it) and older saved reports
+  // still carry it; nothing downstream should have to know that.
+  const report = useMemo(
+    () => ({ ...storedReport, subItems: (storedReport.subItems ?? []).filter((s) => ITEM_BY_ID[s.id]) }),
+    [storedReport]
+  );
   const [tab, setTab] = useState<Tab>("overview");
   const [persona, setPersona] = useState<Persona>("buyer");
 

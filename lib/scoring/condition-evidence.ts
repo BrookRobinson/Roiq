@@ -93,10 +93,6 @@ const SIGNS: Record<string, Signs> = {
     good: ["Enclosure and mixer are a current style", "Seals and grout are clean with no staining"],
     wear: ["Mixer and enclosure date the bathroom", "Discoloured grout and silicone at the tray", "Mould in the grout and failed seals at the base"],
   },
-  bath_waterproof: {
-    good: ["Grout and seals at the floor junction look intact", "No swelling in the linings around the wet area"],
-    wear: ["Grout and seals at the floor junction are discoloured", "Staining on the floor or linings beside the shower", "Swollen or staining linings next to the wet area"],
-  },
   bath_hotwater: {
     good: ["A current-model unit with clean connections", "No staining or corrosion around the valves"],
     wear: ["An older model with dated fittings", "Corrosion around the valves and connections", "Staining below the unit and heavy corrosion"],

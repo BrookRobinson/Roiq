@@ -50,8 +50,6 @@ const WHAT_THE_PHOTO_SHOULD_SHOW: Record<string, string> = {
     "The subfloor, taken through the access hatch or from a vent: pile type and material, rot or splitting, sagging bearers, standing water or damp ground, and clearance between the ground and the joists. A photo of the perimeter from outside shows the foundation TYPE but not its condition.",
   liv_insulation:
     "The ceiling cavity through the manhole, or the underfloor: whether insulation is present, what type, how thick, and whether it is evenly laid or flattened, gapped or missing.",
-  bath_waterproof:
-    "The wet area — wall linings beside and behind the shower, the junction between wall and floor, grout and silicone, skirtings, and any lifting vinyl or staining. A membrane is never visible; you are reading the symptoms of one that has failed.",
   liv_fixtures:
     "The switchboard: ceramic rewirable fuses versus modern breakers, whether an RCD is fitted, and the general state of the board and its wiring.",
   bath_hotwater:

@@ -91,10 +91,6 @@ export const ITEM_LIFE: Record<string, ItemLife> = {
 
   // ── Bathroom ───────────────────────────────────────────────────────────────
   bath_shower: { lifeLow: 15, lifeHigh: 25, materialShare: 0.5, disposalShare: 0.06 },
-  bath_waterproof: {
-    lifeLow: 15, lifeHigh: 25, materialShare: 0.25, disposalShare: 0.1,
-    note: "Behind the tiles. Replacing it means taking the wet area apart, which is most of the cost.",
-  },
   bath_hotwater: {
     lifeLow: 15, lifeHigh: 20, materialShare: 0.6, disposalShare: 0.04,
     note: "A cylinder at the long end, a gas califont at the short.",

@@ -1490,8 +1490,14 @@ per BATHROOM, not per m². On the 150 m², one-bathroom reference house the fram
 rough-in and linings add back to the old all-in $1,100/m², and
 `verify:estimated-value` holds that.
 
+**Waterproofing is not an item — removed 27 September 2026.** Nobody can see
+a membrane, so it was always an inference, and a bathroom done with a consent
+was inspected for it at the time. Leak signs (soft linings, swollen skirting)
+live on the shower's viewing check instead. `RealReportView` drops any sub-item
+the model no longer has, so older saved reports still carrying it render clean.
+
 **Each bathroom and bedroom is valued on its own read.** Shower,
-waterproofing, vanity, toilet, fan and bathroom floor are priced per bathroom;
+vanity, toilet, fan and bathroom floor are priced per bathroom;
 bedroom heating, wardrobe and carpet per bedroom (`scale: "bedroom"`, $500 /
 $850 / $1,000 — the old whole-house figures were for three), and the bedroom
 ceiling is still floor-area priced but split one share per bedroom

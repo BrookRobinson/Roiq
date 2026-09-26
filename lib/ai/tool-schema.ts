@@ -401,7 +401,7 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
             by_room: {
               type: "array",
               description:
-                "ROOM-BY-ROOM items ONLY, when the property has MORE THAN ONE of that room. Bathroom items (bath_shower, bath_waterproof, bath_vanity, bath_toilet, bath_ventilation, bath_flooring): one entry per bathroom — count ensuites and separate shower rooms. Bedroom items (bed_heating, bed_storage, bed_flooring, bed_ceiling): one entry per bedroom. Use the SAME room names across every item of that kind. Score each room on what ITS photos show; a room no photo shows gets score null. The item's own score stays the worst room seen. Omit for a house with only one of that room.",
+                "ROOM-BY-ROOM items ONLY, when the property has MORE THAN ONE of that room. Bathroom items (bath_shower, bath_vanity, bath_toilet, bath_ventilation, bath_flooring): one entry per bathroom — count ensuites and separate shower rooms. Bedroom items (bed_heating, bed_storage, bed_flooring, bed_ceiling): one entry per bedroom. Use the SAME room names across every item of that kind. Score each room on what ITS photos show; a room no photo shows gets score null. The item's own score stays the worst room seen. Omit for a house with only one of that room.",
               items: {
                 type: "object",
                 properties: {

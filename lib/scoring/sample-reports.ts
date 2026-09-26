@@ -238,12 +238,6 @@ const ARCHETYPES: Record<Archetype, ArchetypeSpec> = {
           "No extractor visible in {photo} — an openable window only — and there is dark staining on the ceiling above the shower. That is a Healthy Homes item as well as a mould one.",
         cost: { low: 700, high: 1400, notes: "Ducted extractor fan, vented outside" },
       },
-      bath_waterproof: {
-        score: 4, spec: "dated",
-        summary:
-          "Not visible — behind tiling of this vintage there is unlikely to be a modern membrane. Fine until the bathroom is opened up, at which point it becomes part of the job.",
-        cost: { low: 3000, high: 6000, notes: "Re-waterproof and re-tile the wet area" },
-      },
     },
   },
 
@@ -705,7 +699,7 @@ function buildSubItems(profile: SampleProfile): SubItem[] {
 
     // What this item was read from. Items nobody can see carry no photo — the
     // citation has to be true to the finding or it is decoration.
-    const unseeable = ["bath_waterproof", "liv_insulation", "leg_weathertight"].includes(item.id);
+    const unseeable = ["liv_insulation", "leg_weathertight"].includes(item.id);
     const refs = unseeable || !isImprovement ? [] : plan.forItem(item.id);
 
     if (item.id === "ext_foundation") {
