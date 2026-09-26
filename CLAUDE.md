@@ -1453,7 +1453,7 @@ occupy. The dollar figure blurs on a free report.
 **Title & legal is its own tab, in three groups, with no scores.** It was ten
 cards in one worst-first list on the Land tab with marks out of ten ("Easements
 7/10", "Moderate — verify"), mixing register facts, inferred risks and missing
-documents. `components/Legal/TitleLegalTab.tsx`: (1) WHAT THE TITLE SAYS — the
+documents. `components/Legal/TitleLegalTab.tsx`: (1) WHAT'S REGISTERED AGAINST THE TITLE (the tenure itself is the card above it, said once) — the
 live register instruments, each named in a buyer's words ("Easement", not LINZ's
 "Easement Instrument") with what it means and its instrument number; a surveyed
 easement area is folded into its instrument, not listed twice; (2) RISKS TO
