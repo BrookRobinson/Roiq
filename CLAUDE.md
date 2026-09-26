@@ -1797,7 +1797,10 @@ jump with nothing telling them what had arrived. It is two groups now: **You
 chose these** (an explicit tick) and **Our recommendation for your N-year hold**,
 which names the reason and marks each line "due ~yr 7". Tick something and it
 moves from ours to yours; the heading and the contents re-make themselves as the
-slider moves.
+slider moves. The reader's own list leads the summary card; ours sits at the FOOT
+of the tab under "Our recommendation", below the items, with a one-line link
+from the top. On a ten-year hold ours ran to forty-odd lines above the three
+the reader had picked. The total still counts both.
 
 **An untick has to be reversible where it happens.** Both lists used to render
 `selected`, so unticking an item removed its own checkbox from the page — the
