@@ -267,6 +267,14 @@ check("a liner is the liner job", linerJob.kind, "shower_liner");
 check("…with no membrane in it", linerJob.budget.materials.some((m) => /membrane/i.test(m.name)), false);
 check("the tiled job costs more", tiledJob.budget.tradieTotal > linerJob.budget.tradieTotal, true);
 check("neither prices a toilet or a vanity", [...tiledJob.budget.materials, ...linerJob.budget.materials].some((m) => /toilet|vanity/i.test(m.name)), false);
+const vanityJob = costThreeTier({ id: "bath_vanity", name: "Vanity & tapware", category: "Bathroom" });
+const toiletJob = costThreeTier({ id: "bath_toilet", name: "Toilet", category: "Bathroom" });
+check("a vanity is a vanity job", vanityJob.kind, "vanity");
+check("a toilet is a toilet job", toiletJob.kind, "toilet");
+check("neither prices a shower, tiles or a membrane",
+  [...vanityJob.budget.materials, ...toiletJob.budget.materials].some((m) => /shower|tile|membrane/i.test(m.name)), false);
+check("each costs less than the bathroom refit it used to price",
+  Math.max(vanityJob.budget.tradieTotal, toiletJob.budget.tradieTotal) < costThreeTier({ id: "room_bathroom", category: "Bathroom" }).budget.tradieTotal, true);
 
 console.log(failures === 0 ? "\nEstimated-value rules hold.\n" : `\n${failures} failure${failures === 1 ? "" : "s"}.\n`);
 process.exit(failures === 0 ? 0 : 1);

@@ -1502,7 +1502,9 @@ waterproof; a moulded liner and tray is. The analysis records `shower_type`
 isn't. A tiled shower's cost new is the base plus `SHOWER_MEMBRANE`, assumed
 present and valued; a liner carries none; an unknown type is priced as the
 plain one. In the plan, `bath_shower` is its own job (`shower_liner` /
-`shower_tiled`), not the whole-bathroom refit it used to fall into.
+`shower_tiled`), not the whole-bathroom refit it used to fall into. So are
+`bath_vanity` and `bath_toilet` (`vanity` / `toilet`); only "Replace the whole
+bathroom" (`room_bathroom`) prices the full refit.
 
 **Each bathroom and bedroom is valued on its own read.** Shower,
 vanity, toilet, fan and bathroom floor are priced per bathroom;

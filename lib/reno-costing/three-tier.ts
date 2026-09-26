@@ -90,7 +90,7 @@ export type RenoKind =
   | "cladding" | "exterior_paint" | "roof" | "gutters" | "soffits" | "windows" | "foundation"
   | "decking" | "insulation" | "flooring_vinyl" | "flooring_carpet" | "flooring_tile"
   | "kitchen" | "kitchen_cabinetry" | "kitchen_appliances" | "splashback" | "benchtop" | "kitchen_tap"
-  | "bathroom" | "shower_liner" | "shower_tiled" | "heating" | "hotwater" | "ventilation" | "driveway" | "fencing" | "generic";
+  | "bathroom" | "shower_liner" | "shower_tiled" | "vanity" | "toilet" | "heating" | "hotwater" | "ventilation" | "driveway" | "fencing" | "generic";
 
 export function kindForItem(id: string, category?: string, name?: string, variant?: string | null): RenoKind {
   const hay = `${id} ${name ?? ""}`.toLowerCase();
@@ -98,6 +98,11 @@ export function kindForItem(id: string, category?: string, name?: string, varian
   // depends on how it's built: a liner is swapped; a tiled one is stripped,
   // membraned and retiled — the membrane being the reason it costs more.
   if (id === "bath_shower") return variant === "tiled" ? "shower_tiled" : "shower_liner";
+  // Nor is a vanity or a toilet. Both used to fall through to "bathroom" and
+  // price a full refit — shower, tiles and membrane — for somebody who asked
+  // what a new basin costs.
+  if (id === "bath_vanity") return "vanity";
+  if (id === "bath_toilet") return "toilet";
   if (/driveway|paving/.test(hay)) return "driveway";
   if (/fenc/.test(hay)) return "fencing";
   if (/\broof/.test(hay)) return "roof";
@@ -182,6 +187,10 @@ function primaryQty(kind: RenoKind, floorSqm: number, bedrooms: number): { area:
       return { area: 8, count: 0, unit: "m²", note: "≈8m² of tiled shower wall and floor" };
     case "shower_liner":
       return { area: 0, count: 1, unit: "shower", note: "one shower" };
+    case "vanity":
+      return { area: 0, count: 1, unit: "vanity", note: "one vanity and basin" };
+    case "toilet":
+      return { area: 0, count: 1, unit: "toilet", note: "one toilet suite" };
     case "driveway":
       return { area: 40, count: 0, unit: "m²", note: "≈40m² driveway" };
     case "fencing":
@@ -483,6 +492,29 @@ const RECIPES: Partial<Record<RenoKind, Recipe>> = {
     patchInline: [{ name: "Silicone re-seal kit", description: "Mould-resistant silicone and screen seals", qty: () => 1, unit: "per kit", unitPrice: 60, source: "Estimate" }],
     patchDb: [],
     patchLabour: [{ trade: "plumber", hours: () => 2 }],
+  },
+  vanity: {
+    scopeBudget: "Replace the vanity and basin with a standard unit and a new mixer, and reconnect the waste.",
+    scopePremium: "Fit a solid-timber vanity with a stone top and a designer mixer.",
+    scopePatch: "Replace the basin mixer and re-seal the basin and splashback.",
+    bom: [
+      { db: "Vanity unit", qty: () => 1 },
+      { db: "Basin tap", qty: () => 1 },
+    ],
+    labour: [{ trade: "plumber", hours: () => 3 }, { trade: "carpenter", hours: () => 2 }],
+    patchInline: [],
+    patchDb: [{ db: "Basin tap", qty: () => 1 }],
+    patchLabour: [{ trade: "plumber", hours: () => 1.5 }],
+  },
+  toilet: {
+    scopeBudget: "Replace the toilet with a dual-flush close-coupled suite and re-seal it to the floor.",
+    scopePremium: "Fit a wall-hung toilet with a concealed cistern in a framed-out wall.",
+    scopePatch: "Replace the cistern internals and the seat, and re-seal the pan to the floor.",
+    bom: [{ db: "Toilet suite", qty: () => 1 }],
+    labour: [{ trade: "plumber", hours: () => 3 }, { trade: "carpenter", hours: () => 1 }],
+    patchInline: [{ name: "Cistern repair kit + seat", description: "Inlet and outlet valves, seat, pan seal", qty: () => 1, unit: "per kit", unitPrice: 120, source: "Estimate" }],
+    patchDb: [],
+    patchLabour: [{ trade: "plumber", hours: () => 1.5 }],
   },
   shower_tiled: {
     scopeBudget: "Strip the shower back to the frame, line it with wet-area board, apply a waterproof membrane, retile the walls and floor, and fit a new tray or waste, mixer and screen.",
