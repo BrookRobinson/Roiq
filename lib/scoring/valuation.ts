@@ -81,20 +81,19 @@ export interface RoiqValuation {
   isEstimate: boolean;
 }
 
-/** Land + improvements = Tectara value, with a confidence band. Takes the building
+/** Land + improvements = Tectara value (its range is set in valuation-range.ts). Takes the building
  * value as a plain number so it works with the itemised valuation (v5.1). */
-export function roiqValuation(
-  buildingValue: number,
-  land: LandValuation,
-  band = 0.12
-): RoiqValuation {
+export function roiqValuation(buildingValue: number, land: LandValuation): RoiqValuation {
   const total = buildingValue + land.landValue;
+  // No band here. It was a flat ±12% on every property, which nobody measured;
+  // the range is built from each property's own evidence in
+  // valuation-range.ts, and property-value.ts sets low/high from it.
   return {
     landValue: land.landValue,
     buildingValue,
     total,
-    low: Math.round(total * (1 - band)),
-    high: Math.round(total * (1 + band)),
+    low: total,
+    high: total,
     isEstimate: land.isEstimate,
   };
 }

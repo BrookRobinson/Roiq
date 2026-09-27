@@ -30,6 +30,7 @@ import { methodFor, comparablesMatch } from "@/lib/scoring/valuation-method";
 import { valueProperty, type PropertyValue } from "@/lib/scoring/property-value";
 import type { SiteLayout } from "@/lib/scoring/site-layout";
 import { explainCrossLeaseDiscount } from "@/lib/scoring/cross-lease";
+import type { ValuationRange } from "@/lib/scoring/valuation-range";
 import { maintenanceBasis } from "@/lib/finance/maintenance";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { compareFloorArea } from "@/lib/property/floor-area-check";
@@ -1567,7 +1568,12 @@ function ValueSummary({
                 )}
               </div>
               <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                {fmt(value.low)} – {fmt(value.high)}
+                {/* Blurred with the value: the middle of the range IS the value. */}
+                {locked ? (
+                  <BlurredValue amount={4} label="The valuation needs a paid plan">{`${fmt(value.low)} – ${fmt(value.high)}`}</BlurredValue>
+                ) : (
+                  <>{fmt(value.low)} – {fmt(value.high)}</>
+                )}
               </div>
             </>
           ) : (
@@ -1603,6 +1609,7 @@ function ValueSummary({
               )}
             </span>
           </div>
+          {value.range && <RangeExplainer range={value.range} locked={locked} />}
         </div>
       )}
 
@@ -1877,6 +1884,47 @@ function showerWorkings(base: number, shower: ShowerType | null | undefined, tim
     return [`Lined shower: ${$(base)} ${times}. A moulded liner and tray is its own waterproof layer, so there's no membrane to price.`];
   }
   return [`${$(base)} ${times}. Whether it's tiled or a liner isn't known, so it's priced as a lined shower, without a membrane.`];
+}
+
+/**
+ * Why the range is as wide as it is — one line, and the parts behind a toggle.
+ * The width is built from this property's evidence (valuation-range.ts), so
+ * the reader is told which part it is least sure of, and why.
+ */
+function RangeExplainer({ range, locked }: { range: ValuationRange; locked: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="pt-1 text-[11px]" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>
+      <div>
+        Range {range.summary}{" "}
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="inline-flex items-center gap-0.5 cursor-pointer" style={{ color: "var(--brand)" }}>
+          {open ? "Hide what sets it" : "What sets it"}
+          {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 space-y-1.5">
+          {range.parts.map((p) => (
+            <div key={p.key}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span style={{ color: "var(--text-secondary)" }}>{p.label}</span>
+                <span className="mono whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
+                  ±{Math.round(p.pct * 100)}%{" "}
+                  {locked ? null : <span style={{ color: "var(--text-muted)" }}>(±{fmt(p.plusMinusNZD)})</span>}
+                </span>
+              </div>
+              <div>{p.reason.replace(/^./, (c) => c.toUpperCase())}.</div>
+            </div>
+          ))}
+          <div className="pt-1.5" style={{ borderTop: "1px solid var(--border)" }}>
+            Land and building come from different sources, so their errors partly offset; the building&rsquo;s parts share one
+            set of trade prices, so theirs add up. The rates are assumptions, not yet measured: once enough of our valuations
+            have been checked against real sale prices, the range will come from how far off we actually were.
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function sizeWorkingsFor(

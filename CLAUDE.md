@@ -41,6 +41,7 @@ npm run verify:structures    # what you could build, what it costs, and where th
 npm run verify:regions       # which region a listing resolves to, and what its labour costs
 npm run verify:delisting     # when a crawl has earned the right to say a listing has gone
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
+npm run verify:valuation-range # how wide the valuation range is, from the property's own evidence
 npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
 npm run verify:quality-curve # score → value multiplier: no cliffs, no invented sixth number
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
@@ -375,6 +376,18 @@ valuation formula sitting unused in the codebase is how this comes back. If you
 find yourself about to write `× floor area` to reach a price, that is the
 mistake. (This also retired `verify:quality-curve`, whose curve no longer
 exists; its `isScorable` assertions moved to `verify:map-valuation`.)
+
+**The valuation's range is built from the property's evidence, not a flat
+band.** It was ±12% of every total. `lib/scoring/valuation-range.ts` sizes each
+part — land from the number of sales behind the suburb rate (plus a widened
+search and unmeasured site facts), photographed components, the shell,
+estimated components, extra structures — and combines them: the building's
+parts ADD (one shared set of trade prices), land and building combine as
+independent errors. Every rate is a named assumption; when the scoreboard has
+25+ graded sales the range should come from that measured spread instead.
+`roiqValuation` no longer has a band at all, so nothing can quietly go back to
+±12%. The range is blurred with the value on a free report — its middle IS the
+value. `verify:valuation-range`.
 
 **The app grades itself, and a run of bad calls is not yet a bias.** Every
 property we valued that later sells is a scored prediction; until

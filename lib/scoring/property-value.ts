@@ -25,6 +25,7 @@ import { valueLand, roiqValuation, type RoiqValuation } from "./valuation";
 import { adjustLand, siteFactsFrom, type AdjustedLand, type NearbyTypical } from "./land-value.ts";
 import { methodFor, comparablesMatch, type ValuationMethod } from "./valuation-method";
 import { crossLeaseDiscount, type CrossLeaseSharing, type CrossLeaseDiscount } from "./cross-lease";
+import { houseRange, comparablesRange, type ValuationRange } from "./valuation-range";
 import type { SuburbValue } from "./investment";
 import type { SubItem } from "@/lib/property-tab/types";
 import type { ExtraDwelling } from "@/lib/property-tab/types";
@@ -121,6 +122,11 @@ export interface PropertyValue extends RoiqValuation {
   landAreaValuedSqm?: number;
   /** The typical section's value and each adjustment to it — the Land tab prints this. */
   siteAdjustment?: AdjustedLand;
+  /**
+   * How wide `low`–`high` is and why, part by part. It used to be ±12% of
+   * everything; see valuation-range.ts. `low` and `high` ARE this range.
+   */
+  range?: ValuationRange;
 }
 
 /**
@@ -195,6 +201,25 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
 
   const rv = roiqValuation(improvements.buildingValue + extra, land);
 
+  // The range, from this property's own evidence rather than a flat ±12%.
+  const sv = input.suburbValue;
+  const rangeFor = (total: number) =>
+    houseRange({
+      total,
+      land: {
+        valueNZD: land.landValue,
+        sampleSize: sv?.sampleSize ?? null,
+        widened: !!sv?.widenedNote,
+        unestablishedFacts: siteAdjustment ? siteAdjustment.lines.filter((l) => !l.established).length : 0,
+        suburb: sv?.suburb?.split(",")[0] ?? null,
+      },
+      seenNZD: improvements.componentsValue,
+      shellNZD: improvements.shell.value,
+      estimatedNZD: improvements.estimatedValue,
+      extraNZD: extra,
+      scale: rv.total > 0 ? total / rv.total : 1,
+    });
+
   // The tenure discount, and only now — after the land is right.
   //
   // These are two separate things and both are needed. Dividing the site stops
@@ -218,11 +243,14 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
     // fence, with nothing on the page saying why — the parts would still add up,
     // which is exactly what would stop anyone asking. The deduction is the
     // finding here, so it is shown as one.
+    const discounted = Math.round(rv.total * factor);
+    const range = rangeFor(discounted);
     return {
       ...rv,
-      total: Math.round(rv.total * factor),
-      low: Math.round(rv.low * factor),
-      high: Math.round(rv.high * factor),
+      total: discounted,
+      low: range.low,
+      high: range.high,
+      range,
       mainBuildingValue: improvements.buildingValue,
       extraDwellingValue: extra,
       method,
@@ -232,8 +260,12 @@ export function valueProperty(input: PropertyValueInput): PropertyValue | null {
     };
   }
 
+  const range = rangeFor(rv.total);
   return {
     ...rv,
+    low: range.low,
+    high: range.high,
+    range,
     mainBuildingValue: improvements.buildingValue,
     extraDwellingValue: extra,
     method,
@@ -272,8 +304,12 @@ function valueByFloorArea(input: PropertyValueInput, method: ValuationMethod): P
   if (total <= 0) return null;
 
   const rv = roiqValuation(total, { landValue: 0, ratePerSqm: 0, landAreaSqm: 0, isEstimate: true });
+  const range = comparablesRange({ total, sampleSize: sv.sampleSize, widened: !!sv.widenedNote, suburb: sv.suburb?.split(",")[0] ?? null });
   return {
     ...rv,
+    low: range.low,
+    high: range.high,
+    range,
     mainBuildingValue: total,
     extraDwellingValue: 0,
     method,
