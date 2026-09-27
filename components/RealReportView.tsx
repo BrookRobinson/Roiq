@@ -84,7 +84,7 @@ import { type InspectionEvidence } from "@/lib/viewing/status";
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@/lib/brand";
 import { alpha } from "@/lib/ui/color";
 
-type Tab = "overview" | "improvements" | "address" | "legal" | "citytown" | "renovations" | "financial" | "viewing" | "methodology";
+type Tab = "overview" | "improvements" | "address" | "legal" | "citytown" | "renovations" | "financial" | "viewing";
 
 const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?: boolean }[] = [
   { id: "overview", label: "Overview", icon: Home },
@@ -94,7 +94,6 @@ const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?
   { id: "renovations", label: "Renovations", icon: Wrench },
   { id: "financial", label: "Financial", icon: Calculator },
   { id: "viewing", label: "Before you view", icon: ClipboardCheck },
-  { id: "methodology", label: "How we score", icon: Info },
 ];
 
 /**
@@ -1240,7 +1239,6 @@ export function RealReportView({
               onOpenLand={() => setTab("legal")}
             />
           )}
-          {tab === "methodology" && <MethodologyTab />}
         </div>
 
         <Disclaimer url={listing.url} />
@@ -1683,130 +1681,6 @@ function ImprovementValueCard({ iv }: { iv: ImprovementValueResult }) {
         <span style={chip}>Structure &amp; services: {fmt(iv.shellValue)}</span>
         <span style={chip}>Scored components: {fmt(iv.componentsValue)}</span>
         {iv.totalValueGap > 0 && <span style={{ ...chip, color: "var(--good)", borderColor: "var(--good-wash)" }}>Renovation upside: +{fmt(iv.totalValueGap)}</span>}
-      </div>
-    </div>
-  );
-}
-
-// ── How we score — transparency / methodology page ───────────────────────────
-function MethodologyTab() {
-  const rows = (data: [string, string][]) => (
-    <div className="mt-3">
-      {data.map(([k, v], i) => (
-        <div key={i} className="flex items-start justify-between gap-4 py-2" style={{ borderTop: "1px solid var(--border)" }}>
-          <span className="text-sm" style={{ color: "var(--text-secondary)" }}>{k}</span>
-          <span className="text-sm mono flex-shrink-0 text-right" style={{ color: "var(--text-primary)" }}>{v}</span>
-        </div>
-      ))}
-    </div>
-  );
-  const bold = { color: "var(--text-primary)" };
-  const box = { background: "var(--surface-2)", border: "1px solid var(--border)" };
-
-  return (
-    <div className="space-y-4">
-      <div className="card p-5">
-        <div className="text-[11px] uppercase tracking-widest mb-2" style={{ color: "var(--brand)" }}>How we score</div>
-        <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.75 }}>
-          {PRODUCT_NAME} isn&apos;t a generic out-of-ten. The <strong style={bold}>Condition &amp; Quality Score</strong> measures the property itself, and every number that feeds it is shown to you. Here&apos;s exactly how it works.
-        </p>
-      </div>
-
-      <div className="card p-5">
-        <h3 className="text-base font-semibold" style={bold}>The score in one line</h3>
-        <div className="mt-3 rounded-lg p-3 text-sm mono" style={{ ...box, color: "var(--text-secondary)" }}>
-          BASE (0–1000) − location penalties (max 150) + on-site value-adds (max 60)
-        </div>
-        <div className="mt-3 space-y-1.5 text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          <div><strong style={bold}>Base</strong> — Improvements + Land + Legal, normalised to 1000. The property itself.</div>
-          <div><strong style={bold}>Penalties</strong> — objective location negatives (motorway, flight path, rail…), scaled by how close.</div>
-          <div><strong style={bold}>Value-adds</strong> — on-site assets that lift resale (extra dwelling, pool).</div>
-        </div>
-      </div>
-
-      <div className="card p-5">
-        <h3 className="text-base font-semibold" style={bold}>What the 1–10 means (it&apos;s not all &ldquo;condition&rdquo;)</h3>
-        <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>The same scale means different things depending on what&apos;s assessed:</p>
-        {rows([
-          ["Improvements (the building)", "Spec tier sets a points band · condition positions within it"],
-          ["Land (the section)", "Two checkable facts · the score is derived from them"],
-          ["Legal (title & compliance)", "Quality / risk · 10 = excellent, 1 = severe"],
-        ])}
-        <div className="mt-3 rounded-lg p-3 text-xs" style={{ ...box, color: "var(--text-secondary)", lineHeight: 1.65 }}>
-          Example: on the Land tab you see <strong style={bold}>612m²</strong> and <strong style={bold}>&ldquo;Typical&rdquo;</strong> rather than a bare number, because the fact is what you actually need — the score is worked out <em>from</em> it. On Legal, a low score means a title or compliance <em>risk</em>, not something worn out.
-        </div>
-      </div>
-
-      <div className="card p-5">
-        <h3 className="text-base font-semibold" style={bold}>How building items are scored — spec tier first</h3>
-        <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          Every building item is first classified into a <strong style={bold}>spec tier</strong> — the quality and era of the materials, read from the finish and any brand names. The tier sets a <strong style={bold}>capped points band</strong> (a floor and a ceiling); the item&apos;s <strong style={bold}>condition</strong> then decides where in that band it lands. A &ldquo;Dated&rdquo; item can never earn a &ldquo;Modern&rdquo; score no matter how well kept.
-        </p>
-        {rows([
-          ["Deteriorated", "absent / broken / end-of-life · 0–30% of points"],
-          ["Dated", "old-fashioned, pre-2014 spec · 30–60%"],
-          ["Modern", "contemporary, 2014 onward · 60–80%"],
-          ["Luxury", "high-end materials · any age · 80–100%"],
-        ])}
-        <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>Example: a benchtop worth 13 points, classed &ldquo;Dated&rdquo;, earns 4–8 points — condition sets where in that band. The tier also drives the improvement value.</p>
-      </div>
-
-      <div className="card p-5">
-        <h3 className="text-base font-semibold" style={bold}>How land items are scored — from facts, not opinions</h3>
-        <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          We don&apos;t hand your land a mark out of ten and ask you to trust it. &ldquo;7/10 section size&rdquo; tells you nothing — <strong style={bold}>612m²</strong> does. So for each part of the section we read <strong style={bold}>two plain facts</strong>, things you can check yourself on the title diagram, an aerial view or the photos, and the score follows from them.
-        </p>
-        <div className="mt-3 rounded-lg p-3 text-sm mono" style={{ ...box, color: "var(--text-secondary)" }}>
-          fact 1 sets the range → fact 2 decides where in it you land
-        </div>
-        <p className="text-xs mt-3 mb-1" style={{ color: "var(--text-muted)" }}>The two facts we read for each item:</p>
-        {rows([
-          ["Section size", "Its area, against a typical 550m² NZ section"],
-          ["Topography", "Slope band + how much is flat enough to use"],
-          ["Section orientation", "Which way it faces + what blocks the sun"],
-          ["Section shape", "The outline + how much is a workable block"],
-          ["Frontage & access", "How you reach it + how many share that access"],
-          ["Trees & planting", "How established it is + how it's been kept"],
-        ])}
-        <p className="text-xs mt-4 mb-1" style={{ color: "var(--text-muted)" }}>What full marks takes:</p>
-        {rows([
-          ["Section size", "1,375m²+ (2.5× a typical lot)"],
-          ["Topography", "Flat, and fully usable"],
-          ["Section orientation", "North-facing, nothing shading it"],
-          ["Section shape", "Rectangular, no wasted corners"],
-          ["Frontage & access", "Wide street frontage, shared with no one"],
-          ["Trees & planting", "Mature, and well maintained"],
-        ])}
-        <div className="mt-3 rounded-lg p-3 text-xs" style={{ ...box, color: "var(--text-secondary)", lineHeight: 1.65 }}>
-          The first fact <strong style={bold}>caps</strong> what an item can ever earn, because some things about land simply can&apos;t be changed. A gentle slope tops out at 9/10 however usable it is; a south-facing section at 5/10; a wedge-shaped one at 6/10. Open any Land card and <strong style={bold}>&ldquo;How it rates&rdquo;</strong> shows you the full working behind its score.
-        </div>
-      </div>
-
-      <div className="card p-5">
-        <h3 className="text-base font-semibold" style={bold}>How we value it</h3>
-        <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          We value land and building <em>separately</em>, then add them — because land appreciates and buildings depreciate, so a single blended figure hides the truth.
-        </p>
-        <div className="mt-3 rounded-lg p-3 text-sm mono" style={{ ...box, color: "var(--text-secondary)" }}>
-          Land value + Improvement value = {PRODUCT_SHORT_NAME} value → vs asking → over / under
-        </div>
-        <p className="text-xs mt-3" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          Improvement value is built up <strong style={bold}>item by item</strong>: each component&apos;s replacement cost × its spec tier × its condition, plus a base structure &amp; services allowance for what can&apos;t be seen (framing, wiring, plumbing). Land value comes from comparable sales. Every estimate carries a confidence range.
-        </p>
-      </div>
-
-      <div className="card p-5">
-        <h3 className="text-base font-semibold" style={bold}>Why location isn&apos;t scored</h3>
-        <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          Location desirability is <strong style={bold}>subjective</strong> — waterfront thrills one buyer, a quiet cul-de-sac another. Baking it into one number would give a false score. So location facts (sun, views, noise, growth) are shown for you to weigh, and only <strong style={bold}>objective negatives</strong> that hurt resale for almost everyone affect the score — as transparent deductions.
-        </p>
-      </div>
-
-      <div className="card p-5">
-        <h3 className="text-base font-semibold" style={bold}>Honest limits</h3>
-        <p className="text-sm mt-2" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          {PRODUCT_NAME} reads photos and public listing data — it can&apos;t see behind walls (wiring, plumbing, framing) or under the floor. Scores are an informed starting point and valuations are estimates. Always confirm with a registered building inspection and valuation before you buy.
-        </p>
       </div>
     </div>
   );
