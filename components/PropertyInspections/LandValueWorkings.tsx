@@ -8,6 +8,8 @@
 // with the slope discount without having to disbelieve the whole figure.
 // ============================================================
 
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import type { AdjustedLand } from "@/lib/scoring/land-value";
 
 const money = (n: number) => `$${Math.round(Math.abs(n)).toLocaleString("en-NZ")}`;
@@ -21,6 +23,9 @@ export function LandValueWorkings({ land, landAreaSqm, shareNote, sources = {} }
   /** Where each fact came from, by land item id — a figure keeps its source. */
   sources?: Record<string, string | undefined>;
 }) {
+  // The figure is the card; the line-by-line working is there to be checked,
+  // so it starts folded — the same as the base-rate card on Improvements.
+  const [showWorking, setShowWorking] = useState(false);
   return (
     <div className="rounded-2xl p-5" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -46,32 +51,45 @@ export function LandValueWorkings({ land, landAreaSqm, shareNote, sources = {} }
         </div>
       </div>
 
-      <div className="mt-4 pt-4 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
-        <Line
-          label="Section size — a typical section"
-          amount={money(land.baseNZD)}
-          source={sources.land_size}
-          working={`What a typical ${landAreaSqm ? `${Math.round(landAreaSqm).toLocaleString("en-NZ")} m² ` : ""}section fetches in the suburb, from recent house sales less the buildings on them. The first ~500 m² carry most of the value.${shareNote ? ` ${shareNote}` : ""}`}
-        />
-        {land.lines.map((l) => (
+      <button
+        type="button"
+        onClick={() => setShowWorking(!showWorking)}
+        className="mt-3 flex items-center gap-1 text-xs cursor-pointer"
+        style={{ color: "var(--brand)" }}
+        aria-expanded={showWorking}
+      >
+        {showWorking ? "Hide the breakdown" : "Show the breakdown"}
+        {showWorking ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+
+      {showWorking && (
+        <div className="mt-3 pt-4 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
           <Line
-            key={l.id}
-            label={l.label}
-            amount={l.established ? signed(l.deltaNZD) : "—"}
-            tone={!l.established ? "muted" : l.deltaNZD > 0 ? "good" : l.deltaNZD < 0 ? "bad" : "neutral"}
-            working={l.working}
-            source={sources[l.id]}
+            label="Section size — a typical section"
+            amount={money(land.baseNZD)}
+            source={sources.land_size}
+            working={`What a typical ${landAreaSqm ? `${Math.round(landAreaSqm).toLocaleString("en-NZ")} m² ` : ""}section fetches in the suburb, from recent house sales less the buildings on them. The first ~500 m² carry most of the value.${shareNote ? ` ${shareNote}` : ""}`}
           />
-        ))}
-        <div className="flex items-baseline justify-between pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-          <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>Land value</span>
-          <span className="mono text-[14px] font-bold" style={{ color: "var(--text-primary)" }}>{money(land.valueNZD)}</span>
+          {land.lines.map((l) => (
+            <Line
+              key={l.id}
+              label={l.label}
+              amount={l.established ? signed(l.deltaNZD) : "—"}
+              tone={!l.established ? "muted" : l.deltaNZD > 0 ? "good" : l.deltaNZD < 0 ? "bad" : "neutral"}
+              working={l.working}
+              source={sources[l.id]}
+            />
+          ))}
+          <div className="flex items-baseline justify-between pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+            <span className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>Land value</span>
+            <span className="mono text-[14px] font-bold" style={{ color: "var(--text-primary)" }}>{money(land.valueNZD)}</span>
+          </div>
+          <div className="text-[11px]" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
+            The adjustments are industry-typical rates, not yet measured from sales. They will be recalibrated
+            against real sale prices as that data arrives.
+          </div>
         </div>
-        <div className="text-[11px]" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
-          The adjustments are industry-typical rates, not yet measured from sales. They will be recalibrated
-          against real sale prices as that data arrives.
-        </div>
-      </div>
+      )}
     </div>
   );
 }
