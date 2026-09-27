@@ -71,7 +71,7 @@ import {
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, ClipboardCheck, Shield, MapPin, Handshake,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
-  TrendingUp, Zap, Percent, ChevronDown, RefreshCw, Loader2, ArrowRight, Send, History, Lock, FileText,
+  TrendingUp, Zap, Percent, ChevronDown, ChevronUp, RefreshCw, Loader2, ArrowRight, Send, History, Lock, FileText,
 } from "lucide-react";
 
 import Link from "next/link";
@@ -2123,6 +2123,8 @@ interface RenoLine {
   legal?: boolean; // carries a Healthy Homes legal obligation (investor)
   nonExisting?: boolean; // the feature is deteriorated / effectively absent
   inferred?: boolean; // derived from the build era, not observed — never recommended
+  /** How a single-price line's figure was reached, step by step — shown behind a toggle. */
+  working?: string[];
 }
 
 // Unified renovation list: Improvement replacement costs + Location/Land/Legal
@@ -2218,8 +2220,26 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         const category = ITEM_BY_ID[s.id]?.category;
         const low = Math.round(cost * 0.85);
         const high = Math.round(cost * 1.15);
+        // How the figure was reached, in the order a reader would check it:
+        // the job, what share of the item it is, of what, and the range.
+        const pct = (x: number) => `${Math.round(x * 100)}%`;
+        const shareWhy =
+          urgent.basis === "recorded"
+            ? `The analysis sized this job at ${pct(urgent.share)} of replacing the whole ${s.name.toLowerCase()}, from what the photos show.`
+            : `Sized from the condition: at ${s.score}/10 the job is ${pct(urgent.share)} of replacing the whole ${s.name.toLowerCase()}.`;
+        const roomsWithWork = (v?.byRoom ?? []).filter((p) => p.actionCostNZD > 0);
+        const working = [
+          `The job: ${urgent.work.replace(/[.]+$/, "")}.`,
+          shareWhy,
+          ...(roomsWithWork.length > 0
+            ? roomsWithWork.map((p) => `In the ${p.room.toLowerCase()}: ${pct(urgent.share)} × ${fmt(p.replacementTotal)} to replace it there = ${fmt(p.actionCostNZD)}. The other rooms need nothing now.`)
+            : [`${pct(urgent.share)} × ${fmt(v?.replacementTotal ?? 0)} to replace the whole ${s.name.toLowerCase()} = ${fmt(cost)}.`]),
+          `The replacement figure is the item's own cost to replace on this property — materials, labour at this region's rate, disposal and scaffold where the job needs it — the same one on its Improvements card.`,
+          `Shown as ${fmt(low)}–${fmt(high)}, 15% either side, because a quote for a small job moves with the tradesperson. The plan counts the middle, ${fmt(cost)}, which is also what comes off the item's value.`,
+        ];
         lines.push({
           key: `${s.id}_act`,
+          working,
           name: urgent.work,
           detail: `${urgent.scope === "maintenance" ? "Maintenance" : "Repair"} · ${s.name}`,
           badge: v?.pastLife ? "Stop-gap" : "Needs doing now",
@@ -2444,8 +2464,36 @@ function ThreeTier({ line, toggle, onTier, onLabour, onPct }: {
   onPct: (pct: number) => void;
 }) {
   const [open, setOpen] = useState<Tier | null>(null);
+  const [showWorking, setShowWorking] = useState(false);
   const c = line.costing;
-  if (!c) return <div className="text-sm mono mt-2" style={{ color: "var(--brand)" }}>{fmt(line.low)}–{fmt(line.high)}</div>;
+  if (!c) {
+    // One job at one price — no tiers — so the working behind the price is
+    // the breakdown, folded away like the tiers' own.
+    return (
+      <div className="mt-2">
+        <div className="text-sm mono" style={{ color: "var(--brand)" }}>{fmt(line.low)}–{fmt(line.high)}</div>
+        {line.working && line.working.length > 0 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowWorking(!showWorking)}
+              aria-expanded={showWorking}
+              className="mt-1 inline-flex items-center gap-1 text-xs cursor-pointer"
+              style={{ color: "var(--brand)" }}
+            >
+              {showWorking ? "Hide how we got this figure" : "How we got this figure"}
+              {showWorking ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+            {showWorking && (
+              <ol className="mt-2 space-y-1 text-xs list-decimal pl-4" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                {line.working.map((w) => <li key={w}>{w}</li>)}
+              </ol>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
   const selTier: Tier = toggle?.tier ?? "budget";
   const selLabour: LabourMode = toggle?.labour ?? c[selTier].defaultLabour;
   const scalable = isScalableKind(c.kind);
