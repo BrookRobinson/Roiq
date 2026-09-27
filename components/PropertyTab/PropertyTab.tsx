@@ -11,8 +11,7 @@ import { CategoryAccordion } from "./CategoryAccordion";
 import { ConditionScore } from "./ConditionScore";
 import { ExtraDwellingCard } from "./ExtraDwellingCard";
 import { buildEraFlags } from "@/lib/scoring/build-era";
-import { Home, AlertTriangle, Info, ArrowRight } from "lucide-react";
-import { PRODUCT_NAME } from "@/lib/brand";
+import { Home, AlertTriangle, ArrowRight } from "lucide-react";
 
 interface Props {
   data: PropertyTabData;
@@ -172,25 +171,6 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
           </div>
         </div>
       )}
-
-      {/* Scoring methodology note */}
-      <div
-        className="rounded-xl p-4 flex items-start gap-3 text-xs"
-        style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-        }}
-      >
-        <Info size={14} className="flex-shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }} />
-        <p style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
-          <strong style={{ color: "var(--text-secondary)" }}>Scoring methodology:</strong>{" "}
-          This is the <strong>Improvements</strong> inspection — one of four (Improvements, Location,
-          Land, Legal) in {PRODUCT_NAME}&apos;s model. Each sub-item is read 1–10 for condition, which sets how much of its life is left and therefore what it is worth. Weighted by
-          persona-specific points that differ for Home Buyers and Investors; toggle the mode in the
-          header to re-weight the whole score. Extra dwellings add a bonus of up to 50 points.
-          Tier 3 (unscored) items are excluded from the denominator and flagged for inspection.
-        </p>
-      </div>
     </div>
   );
 }
