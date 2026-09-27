@@ -93,7 +93,7 @@ const TAB_DEFS: { id: Tab; label: string; icon: React.ElementType; investorOnly?
   { id: "legal", label: "Title & legal", icon: FileText },
   { id: "renovations", label: "Renovations", icon: Wrench },
   { id: "financial", label: "Financial", icon: Calculator },
-  { id: "viewing", label: "Before you view", icon: ClipboardCheck },
+  { id: "viewing", label: "Viewing checklist", icon: ClipboardCheck },
 ];
 
 /**

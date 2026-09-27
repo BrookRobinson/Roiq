@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================
-// "Before you view" — the list that has to be answered before the report will
+// "Viewing checklist" — the list that has to be answered before the report will
 // before the report may say a person stood in the house.
 //
 // Two jobs, and they pull in different directions, so the component does both
@@ -120,6 +120,37 @@ export function ViewingChecklist({
 
   return (
     <div className="space-y-6 print-root">
+      {/* What this tab is and how to use it — in the order you'd do it, with
+          the same words as the buttons below. */}
+      <div className="card p-5">
+        <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>Your viewing checklist</h2>
+        <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          {items.length > 0
+            ? `These are the ${items.length} things the listing photos couldn't settle about this property. Take this list with you when you go and see it, and what you find replaces our estimate in the report.`
+            : "The listing photos settled everything on this property, so there's nothing left to check at the viewing."}
+          {!gated && " This is a sample property, so there's nothing to visit — it shows how the checklist works."}
+        </p>
+        {items.length > 0 && (
+          <ol className="mt-3 space-y-1.5 text-sm list-decimal pl-5" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+            <li>Open this tab on your phone at the viewing.</li>
+            <li>Each item tells you what to ask the agent, what to look at, and what to photograph.</li>
+            <li>
+              Where it offers <strong style={{ color: "var(--text-primary)" }}>Take a photo</strong>, take one. It&apos;s read the
+              same way as the listing photos and scores that item properly.
+            </li>
+            <li>
+              Otherwise pick an answer: <strong style={{ color: "var(--text-primary)" }}>No issue</strong>,{" "}
+              <strong style={{ color: "var(--text-primary)" }}>Problem confirmed</strong>,{" "}
+              <strong style={{ color: "var(--text-primary)" }}>Couldn&apos;t inspect</strong> or{" "}
+              <strong style={{ color: "var(--text-primary)" }}>Not there</strong>. Couldn&apos;t inspect is a fair answer; the report
+              then says so rather than guessing.
+            </li>
+            <li>Enter the date you went, so the report can say the property was inspected, not just read from photos.</li>
+          </ol>
+        )}
+        <p className="mt-3 text-[12px]" style={{ color: "var(--text-muted)" }}>Your answers save as you go.</p>
+      </div>
+
       {/* When they went. This is the attestation the report states. */}
       <div className="card p-5 no-print">
         <label className="label flex items-center gap-2" htmlFor="viewed-on">
