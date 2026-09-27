@@ -1227,7 +1227,6 @@ export function RealReportView({
             <ViewingChecklist
               items={checklist}
               state={viewing}
-              address={listing.address ?? ""}
               onAnswer={(k, a) => updateViewing(setAnswer(viewing, k, a))}
               onNote={(k, n) => updateViewing(setNote(viewing, k, n))}
               onViewedOn={(iso) => updateViewing(setViewedOn(viewing, iso))}

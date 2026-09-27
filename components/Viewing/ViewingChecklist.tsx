@@ -11,7 +11,7 @@
 // ============================================================
 
 import { useEffect, useMemo, useState } from "react";
-import { Ban, CalendarDays, Camera, Check, CircleAlert, HardHat, Lock, Printer, Unlock, X } from "lucide-react";
+import { Ban, CalendarDays, Camera, Check, CircleAlert, HardHat, Unlock, X } from "lucide-react";
 import { PACKAGE_LABEL } from "@/lib/billing/plans";
 
 import {
@@ -57,23 +57,10 @@ const SOURCE_NOTE: Record<ChecklistItem["source"], string> = {
   gap: "Not in the listing",
 };
 
-/** Print the checklist alone, without the navbar, tabs or the rest of the report. */
-function printChecklist() {
-  document.body.classList.add("printing");
-  const clear = () => {
-    document.body.classList.remove("printing");
-    window.removeEventListener("afterprint", clear);
-  };
-  window.addEventListener("afterprint", clear);
-  window.print();
-  // Safari fires afterprint unreliably; make sure the class never sticks.
-  setTimeout(clear, 1000);
-}
 
 export function ViewingChecklist({
   items,
   state,
-  address,
   photoContext,
   gated = true,
   onAnswer,
@@ -88,7 +75,6 @@ export function ViewingChecklist({
 }: {
   items: ChecklistItem[];
   state: ViewingState;
-  address: string;
   /** Property facts handed to the model alongside the buyer's photographs. */
   photoContext: PhotoContext;
   /**
@@ -113,10 +99,6 @@ export function ViewingChecklist({
   onOpenLand: () => void;
 }) {
   const status = useMemo(() => checklistStatus(items, state), [items, state]);
-  // Answered every line, and said when they went. This unlocks nothing — the
-  // agent letter it used to hold shut has been removed — it just decides
-  // whether the header congratulates them or tells them what is left.
-  const open = status.complete;
 
   const groups = useMemo(() => {
     const map = new Map<string, ChecklistItem[]>();
@@ -128,7 +110,6 @@ export function ViewingChecklist({
     return [...map.entries()];
   }, [items]);
 
-  const pct = items.length ? Math.round((status.answered / items.length) * 100) : 100;
 
   // Photographed items that are no longer on the list, because photographing
   // them is what took them off it.
@@ -139,104 +120,6 @@ export function ViewingChecklist({
 
   return (
     <div className="space-y-6 print-root">
-      {/* Why this exists. Screen only — on paper the reader is holding the thing
-          and doesn't need to be told what it's for. */}
-      <div className="card p-5 no-print">
-        <div className="flex items-start gap-3">
-          {open ? (
-            <Unlock size={18} style={{ color: "var(--good)", flexShrink: 0, marginTop: 2 }} />
-          ) : (
-            <Lock size={18} style={{ color: "var(--brand)", flexShrink: 0, marginTop: 2 }} />
-          )}
-          <div className="flex-1">
-            <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-              {open
-                ? "You've been through the property — the report says so now"
-                : gated
-                  ? "What to check when you go and see it"
-                  : "What a viewing would have to settle on this property"}
-            </h2>
-            <p className="mt-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
-              {!gated && !open ? (
-                <>
-                  This is a sample property, so there is nothing to go and look at. On a real
-                  report these {items.length} lines are the things the photographs could not
-                  settle — what you find at the viewing replaces the analysis&rsquo;s guess with
-                  your own observation.
-                </>
-              ) : open ? (
-                <>
-                  All {items.length} {items.length === 1 ? "thing" : "things"} the photographs
-                  couldn&rsquo;t settle {items.length === 1 ? "has" : "have"} been answered. The
-                  report now carries what you found rather than what the analysis guessed. Change
-                  any answer below and it updates.
-                </>
-              ) : (
-                <>
-                  The report reads photographs. These are the things photographs can&rsquo;t settle:{" "}
-                  {items.length === 0
-                    ? "on this property, nothing — every item was assessed."
-                    : `${items.length} of them on this property.`}{" "}
-                  Answer them and the report stops guessing at each one. Print this, take it with
-                  you, and fill it in as you go — anything you genuinely can&rsquo;t inspect is an
-                  answer too, and the report then says so instead of claiming it.
-                </>
-              )}
-            </p>
-            {items.length > 0 && (
-              <p className="mt-3 text-[13px]" style={{ color: "var(--text-muted)" }}>
-                Nothing you record here leaves your browser. It decides which findings the report
-                may state as fact, and which it has to keep marked as unverified.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Progress + actions */}
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <div className="flex-1 min-w-[180px]">
-            <div className="flex items-baseline justify-between text-[13px]">
-              <span style={{ color: "var(--text-secondary)" }}>
-                {status.answered} of {items.length} answered
-              </span>
-              <span className="mono text-xs" style={{ color: "var(--text-muted)" }}>
-                {pct}%
-              </span>
-            </div>
-            <div className="mt-1.5 h-1.5 w-full rounded-full" style={{ background: "var(--surface-2)" }}>
-              <div
-                className="h-1.5 rounded-full transition-all"
-                style={{ width: `${pct}%`, background: status.complete ? "var(--good)" : "var(--brand)" }}
-              />
-            </div>
-          </div>
-          <button onClick={printChecklist} className="btn-secondary gap-2 px-4 py-2 text-sm">
-            <Printer size={14} /> Print checklist
-          </button>
-        </div>
-
-        {gated && status.missingViewingDate && (
-          <p className="mt-3 flex items-start gap-2 text-[13px]" style={{ color: "var(--warn)" }}>
-            <CircleAlert size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-            <span>
-              Every line is answered — record the date you went, below, and the report can say the
-              property was inspected rather than read.
-            </span>
-          </p>
-        )}
-      </div>
-
-      {/* Paper letterhead — print only. */}
-      <div className="print-only" style={{ display: "none" }}>
-        <div style={{ borderBottom: "1px solid #000", paddingBottom: 8, marginBottom: 16 }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>Viewing checklist</div>
-          <div style={{ fontSize: 12 }}>{address}</div>
-          <div style={{ fontSize: 11, marginTop: 6 }}>
-            Date viewed: ______________________ &nbsp;&nbsp; Time: ____________
-          </div>
-        </div>
-      </div>
-
       {/* When they went. This is the attestation the report states. */}
       <div className="card p-5 no-print">
         <label className="label flex items-center gap-2" htmlFor="viewed-on">
@@ -267,6 +150,16 @@ export function ViewingChecklist({
           The report says the property was inspected on this date. That is the difference between
           a schedule of defects and an opinion about some photos.
         </p>
+        {/* Moved here from the removed intro card: it is about this field. */}
+        {gated && status.missingViewingDate && (
+          <p className="mt-3 flex items-start gap-2 text-[13px]" style={{ color: "var(--warn)" }}>
+            <CircleAlert size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>
+              Every line is answered — record the date you went, and the report can say the
+              property was inspected rather than read.
+            </span>
+          </p>
+        )}
       </div>
 
 
