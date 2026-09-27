@@ -31,7 +31,6 @@ export const CATEGORY_ICON: Record<string, string> = {
   Bedrooms: "🛏️",
   Garage: "🚗",
   "Outdoor & grounds": "🌿",
-  "Sun & aspect": "☀️",
   "Demand & lifestyle": "📈",
   "Hazard & site": "⛰️",
   "Title & compliance": "📜",
@@ -162,7 +161,6 @@ export const SOURCE_TAXONOMY: Record<string, SourceRef> = {
   // Location
   loc_schools: { source: "Ministry of Education enrolment zones + property address", sourceType: "moe_zones", verifyAgainst: "Ministry of Education / the school" },
   loc_growth: { source: `${PRODUCT_NAME} market data — suburb median trend & days-to-sell`, sourceType: "market_data" },
-  loc_sun: { source: "Photo analysis (sun, shadows, room orientation) + section orientation", sourceType: "photo" },
   loc_amenities: { source: "Map POI data — distance to supermarket, shops, cafés", sourceType: "map_poi" },
   loc_street: { source: "Streetscape photos + street-level inference", sourceType: "photo" },
   loc_employment: { source: "Map routing distance/time to the CBD", sourceType: "map_poi" },

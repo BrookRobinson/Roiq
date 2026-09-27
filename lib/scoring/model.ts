@@ -70,8 +70,8 @@ export function specStatusLabel(tier: SpecTier, score: number | null): string {
 
 /** Improvements items that are NOT material fit-outs, so they carry no spec tier —
  * they're scored by condition/quality × points (like Land & Legal), and shown as a
- * plain points badge with no tier bubble. Sun & aspect is orientation, not a finish. */
-export const NON_TIERED_IMPROVEMENT_IDS = new Set<string>(["loc_sun", "liv_size", "bed_size"]);
+ * plain points badge with no tier bubble. Sizes are a measurement, not a finish. */
+export const NON_TIERED_IMPROVEMENT_IDS = new Set<string>(["liv_size", "bed_size"]);
 
 /** Intrinsic "how big is it" items — no material or age to show, so the card
  * displays an estimated floor area (m²) instead. Scored on generosity, not finish. */
@@ -104,7 +104,7 @@ export interface ScoringSubItem {
 
 export const SCORING_MODEL: ScoringSubItem[] = [
   // ========================================================
-  // INSPECTION 1 — IMPROVEMENTS  (Buyer 531 / Investor 485, incl. Sun & aspect)
+  // INSPECTION 1 — IMPROVEMENTS
   // ========================================================
   // --- Exterior (Buyer 230 / Investor 225) ---
   { id: "ext_foundation", label: "Foundation", inspection: "improvements", category: "Exterior", buyerPoints: 55, investorPoints: 52, conditional: false, costBearing: true, affectsHealthyHomes: false },
@@ -154,10 +154,10 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   { id: "liv_walls", label: "Wall linings (whole house)", inspection: "improvements", category: "Living areas", buyerPoints: 4, investorPoints: 3, conditional: false, costBearing: true, affectsHealthyHomes: false },
   { id: "liv_ceiling", label: "Ceiling condition & height", inspection: "improvements", category: "Living areas", buyerPoints: 4, investorPoints: 3, conditional: false, costBearing: true, affectsHealthyHomes: false },
 
-  // --- Sun & aspect (Buyer 25 / Investor 10) — site orientation & all-day sun.
+  // (Sun & aspect removed 27 Sep 2026 — how the house catches the sun can't be read
+  //  reliably from listing photos. The section's own sun is MEASURED on the Land tab.)
   //     Objective enough to score (unlike subjective location desirability), so it
   //     lives in Improvements. No material spec tier — scored by quality × points. ---
-  { id: "loc_sun", label: "Sun & aspect (site orientation)", inspection: "improvements", category: "Sun & aspect", buyerPoints: 25, investorPoints: 10, conditional: false, costBearing: false, affectsHealthyHomes: false },
 
   // --- Bedrooms (Buyer 40 / Investor 35) — scored across all ---
   { id: "bed_size", label: "Size", inspection: "improvements", category: "Bedrooms", buyerPoints: 13, investorPoints: 12, conditional: false, costBearing: false, affectsHealthyHomes: false },
@@ -185,8 +185,7 @@ export const SCORING_MODEL: ScoringSubItem[] = [
   // INSPECTION 2 — LOCATION — facts only, never scored (v4).
   // Trimmed to the signals worth keeping; the messy subjective rest were removed.
   // These are surfaced on OTHER tabs, not their own: noise + views → Land,
-  // growth → Financial. (Sun & aspect graduated to a SCORED Improvements item —
-  // it's objective and about the house.) No standalone Location tab.
+  // growth → Financial. No standalone Location tab.
   // ========================================================
   { id: "loc_growth", label: "Suburb growth trend & demand", inspection: "location", category: "Demand & lifestyle", buyerPoints: 30, investorPoints: 42, conditional: false, costBearing: false, affectsHealthyHomes: false },
   { id: "loc_views", label: "Views & outlook", inspection: "location", category: "Demand & lifestyle", buyerPoints: 11, investorPoints: 8, conditional: false, costBearing: false, affectsHealthyHomes: false },
@@ -245,8 +244,8 @@ export const LOCATION_PENALTIES: LocationPenalty[] = [
   { id: "pen_rail", label: "Rail line adjacent", maxDeduction: 38, appliesWhen: "Adjacent or very close to an active rail line" },
   { id: "pen_industrial", label: "Industrial / heavy-commercial neighbour", maxDeduction: 38, appliesWhen: "Directly neighbouring industrial or heavy-commercial land" },
   { id: "pen_pylons", label: "High-voltage lines / pylons overhead", maxDeduction: 30, appliesWhen: "High-voltage transmission lines / pylons over or beside the site" },
-  // (pen_nosun removed — sun quality is now scored directly as the Sun & aspect
-  //  Improvements item, so a penalty here would double-count the same negative.)
+  // (pen_nosun removed — the section's sun is measured as land_aspect, so a
+  //  penalty here would double-count the same negative.)
 ];
 
 export const PENALTY_CAP = 150; // max total location deduction

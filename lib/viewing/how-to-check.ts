@@ -405,15 +405,6 @@ export const CHECK_GUIDE: Record<string, CheckGuide> = {
     ],
     photos: ["The view from the main living area", "The view from the main bedroom"],
   },
-  loc_sun: {
-    concern: "How much sun the house actually gets, and when.",
-    steps: [
-      "Work out which way the main living area faces — use the compass on your phone.",
-      "North is what you want. A south-facing living room in New Zealand is cold and dark for most of the year.",
-      "Look at what casts shade: neighbouring buildings, a hill, large trees. Then remember the winter sun is much lower than today's.",
-    ],
-    photos: ["The main living area with the phone compass visible, or note the direction"],
-  },
 
   // ── Land ───────────────────────────────────────────────────────────────────
   land_topography: {

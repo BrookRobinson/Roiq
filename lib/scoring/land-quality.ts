@@ -175,8 +175,7 @@ export const SHAPE_TYPES: Record<
 // ── Section orientation ──────────────────────────────────────────────────────
 // The compass direction is the fact; what BLOCKS that sun positions the score.
 // A north section under a hill or a two-storey neighbour is not a sunny section.
-// NB this scores the SITE. How well the HOUSE captures the sun (living-room
-// orientation, glazing, outdoor flow) is loc_sun over on the Improvements tab.
+// NB this scores the SITE.
 
 export const ASPECT_DIRECTIONS: Record<
   AspectDirection,
@@ -494,7 +493,7 @@ export function aspectStat(
     unit: "facing",
     note:
       `${a.meta.label}, ${a.obstructionMeta.label}${assumed}. ${a.meta.note} ${a.obstructionMeta.note} ` +
-      `That contributes ${a.score}/10 to the Land score. (How well the HOUSE is oriented to use this sun is scored separately under Sun & aspect on the Improvements tab.)`,
+      `That contributes ${a.score}/10 to the Land score.`,
   };
 }
 

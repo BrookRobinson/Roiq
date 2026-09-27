@@ -477,7 +477,7 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
               type: "string",
               enum: ["north", "north_east", "north_west", "east", "west", "south_east", "south_west", "south"],
               description:
-                "land_aspect ONLY — REQUIRED for it. Which way the SECTION faces — the direction its main outdoor living / rear yard looks toward. Work it out from the street layout, the map orientation, and where shadows fall in the photos. In New Zealand north is the sun side. This is about the LAND; how well the house itself is oriented to use that sun is scored separately as loc_sun.",
+                "land_aspect ONLY — REQUIRED for it. Which way the SECTION faces — the direction its main outdoor living / rear yard looks toward. Work it out from the street layout, the map orientation, and where shadows fall in the photos. In New Zealand north is the sun side. This is about the LAND.",
             },
             sun_obstruction: {
               type: "string",

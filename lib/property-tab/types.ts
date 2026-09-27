@@ -19,9 +19,7 @@ export type SlopeBand = "flat" | "gentle" | "moderate" | "steep";
 /** Section outline, read off the title diagram or an aerial. Shape is a CATEGORY,
  * not a quantity — so we name it honestly and derive the score from the name plus
  * how much of the section the shape leaves in a workable block. */
-/** Which way the SECTION faces. This is the site fact; how well the HOUSE captures
- * that sun is scored separately under Improvements (loc_sun) — a north section can
- * still carry a badly-oriented house. */
+/** Which way the SECTION faces — the site fact. */
 export type AspectDirection =
   | "north"
   | "north_east"

@@ -1513,6 +1513,12 @@ per BATHROOM, not per m². On the 150 m², one-bathroom reference house the fram
 rough-in and linings add back to the old all-in $1,100/m², and
 `verify:estimated-value` holds that.
 
+**Sun & aspect (`loc_sun`) is not an item either — removed 27 September 2026.**
+How the house catches the sun can't be read reliably from listing photos. The
+SECTION's sun is measured on the Land tab (`land_aspect`, traced through the
+LINZ surface model) and that stays. Saved reports carrying `loc_sun` drop it on
+open, the same way as waterproofing.
+
 **Waterproofing is not an item — removed 27 September 2026.** Nobody can see
 a membrane, so it was always an inference, and a bathroom done with a consent
 was inspected for it at the time. Leak signs (soft linings, swollen skirting)

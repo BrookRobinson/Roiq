@@ -33,7 +33,7 @@ const SCORES: Record<string, number> = {
   // Outdoor
   out_drainage: 6, out_driveway: 7, out_fencing: 7, out_landscaping: 8,
   // Location
-  loc_schools: 9, loc_growth: 8, loc_sun: 9, loc_amenities: 8, loc_street: 8, loc_employment: 7,
+  loc_schools: 9, loc_growth: 8, loc_amenities: 8, loc_street: 8, loc_employment: 7,
   loc_transport: 6, loc_walkability: 7, loc_parks: 8, loc_views: 7, loc_noise: 8, loc_safety: 8, loc_future: 7,
   // Land (v4 — flood, liquefaction, coastal, soil, fault, wind erased)
   land_size: 7, land_topography: 8, land_aspect: 9, land_shape: 9, land_frontage: 9,
@@ -233,7 +233,6 @@ const BY_BEDROOM: Record<string, RoomRead[]> = (() => {
 const FINDINGS: Record<string, string> = {
   loc_schools: "Double zone — Remuera Primary + Auckland Grammar",
   loc_growth: "Strong — sustained Remuera median growth",
-  loc_sun: "Excellent — north-facing living, all-day sun",
   loc_amenities: "Good — Remuera shops & supermarket within ~1km",
   loc_transport: "Moderate — bus routes nearby, no rapid transit",
   land_size: "612m² — a typical Auckland residential section",
@@ -355,8 +354,6 @@ const SUMMARIES: Record<string, string> = {
     "The main bathroom (Photo 5) has an openable window but no visible ducted extractor fan. Inadequate extraction drives mould and fails the Healthy Homes ventilation standard. Install ducted fans vented to outside in both bathrooms.",
   loc_schools:
     "Within the Auckland Grammar and Epsom Girls' Grammar double-grammar zones — among the most sought-after school zones in the country, a strong and durable demand driver for owner-occupiers.",
-  loc_sun:
-    "North-facing living areas (Photos 2 and 3) and a clear northern aspect give excellent all-day sun — a premium feature for Remuera buyers.",
   leg_title:
     "Freehold title — the simplest and most marketable tenure, no body corporate or cross-lease complications. Confirm via the LINZ record of title.",
   leg_weathertight:
@@ -440,7 +437,7 @@ function buildSubItems(): SubItem[] {
       observedDefect: DEFECTS[item.id],
       urgentAction: ACTIONS[item.id],
       byRoom: BY_BATHROOM[item.id] ?? BY_BEDROOM[item.id],
-      photoReferences: PHOTOS[item.id] ?? (item.id === "loc_sun" ? [2, 3] : item.id === "leg_unconsented" ? [12] : []),
+      photoReferences: PHOTOS[item.id] ?? (item.id === "leg_unconsented" ? [12] : []),
       ...(isImprovement
         ? {}
         : {
