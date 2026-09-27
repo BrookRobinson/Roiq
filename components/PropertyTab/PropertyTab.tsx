@@ -7,7 +7,6 @@ import type { AnyValuation } from "./valuation-types";
 import type { PropertyTabData, RenoControls } from "@/lib/property-tab/types";
 import type { DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import type { Persona } from "@/lib/scoring/model";
-import { worstSubItemScore } from "@/lib/property-tab/types";
 import { CategoryAccordion } from "./CategoryAccordion";
 import { ConditionScore } from "./ConditionScore";
 import { ExtraDwellingCard } from "./ExtraDwellingCard";
@@ -129,9 +128,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
 
       {/* Category accordions */}
       <div className="space-y-3">
-        {data.categories.map((category, i) => {
-          const worst = worstSubItemScore(category);
-          const isUrgent = worst !== null && worst <= 4;
+        {data.categories.map((category) => {
           return (
             <CategoryAccordion
               key={category.id}
@@ -139,7 +136,10 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
               itemValuations={itemValuations}
               estimates={estimates}
               category={category}
-              defaultOpen={openAll || isUrgent || i === 0}
+              // Folded by default, urgent or not — the category header already
+              // shows its value and its issues, and eight open categories made
+              // the tab a wall. "Expand all" opens the lot.
+              defaultOpen={openAll}
               region={region}
               floorSqm={floorSqm}
               persona={persona}

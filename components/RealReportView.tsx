@@ -2464,36 +2464,8 @@ function ThreeTier({ line, toggle, onTier, onLabour, onPct }: {
   onPct: (pct: number) => void;
 }) {
   const [open, setOpen] = useState<Tier | null>(null);
-  const [showWorking, setShowWorking] = useState(false);
   const c = line.costing;
-  if (!c) {
-    // One job at one price — no tiers — so the working behind the price is
-    // the breakdown, folded away like the tiers' own.
-    return (
-      <div className="mt-2">
-        <div className="text-sm mono" style={{ color: "var(--brand)" }}>{fmt(line.low)}–{fmt(line.high)}</div>
-        {line.working && line.working.length > 0 && (
-          <>
-            <button
-              type="button"
-              onClick={() => setShowWorking(!showWorking)}
-              aria-expanded={showWorking}
-              className="mt-1 inline-flex items-center gap-1 text-xs cursor-pointer"
-              style={{ color: "var(--brand)" }}
-            >
-              {showWorking ? "Hide how we got this figure" : "How we got this figure"}
-              {showWorking ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            </button>
-            {showWorking && (
-              <ol className="mt-2 space-y-1 text-xs list-decimal pl-4" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                {line.working.map((w) => <li key={w}>{w}</li>)}
-              </ol>
-            )}
-          </>
-        )}
-      </div>
-    );
-  }
+  if (!c) return <div className="text-sm mono mt-2" style={{ color: "var(--brand)" }}>{fmt(line.low)}–{fmt(line.high)}</div>;
   const selTier: Tier = toggle?.tier ?? "budget";
   const selLabour: LabourMode = toggle?.labour ?? c[selTier].defaultLabour;
   const scalable = isScalableKind(c.kind);
@@ -2680,6 +2652,9 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   listing: StoredReport["listing"];
 }) {
   const { withinHold, holdYears } = useHoldPeriod();
+  // Every card starts folded to one line — what it is, whether it's in, and
+  // what it costs at the option chosen. The options open on request.
+  const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
   const items = renoLines.filter((l) => withinHold(l.urgencyYears));
   const deferred = renoLines.length - items.length;
   const total = selectedRenoCost(renoLines, renoToggles, withinHold);
@@ -2853,16 +2828,57 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
                   {!included && <span className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>removed</span>}
                 </div>
                 <div className="text-xs mt-0.5" style={{ color: l.detailColor }}>{l.detail}</div>
-                {l.costing && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)" }}>Est. quantity: {l.costing.quantityNote || `${l.costing.quantity} ${l.costing.quantityUnit}`}</div>}
-                {included && (
-                  <ThreeTier line={l} toggle={t}
-                    onTier={(tier) => setRenoToggle(l.key, { tier, labour: l.costing ? l.costing[tier].defaultLabour : "tradie" })}
-                    onLabour={(mode) => setRenoToggle(l.key, { labour: mode })}
-                    onPct={(pct) => setRenoToggle(l.key, { affectedPct: pct })} />
+                {included && (() => {
+                  const r = rowFor(l);
+                  const isOpen = !!openCards[l.key];
+                  const canOpen = !!l.costing || (l.working?.length ?? 0) > 0;
+                  return (
+                    <div className="flex items-center justify-between gap-3 mt-2 flex-wrap">
+                      <span className="text-sm mono" style={{ color: "var(--brand)" }}>
+                        {l.costing ? (
+                          <>
+                            {fmt(r.cost)}
+                            <span className="text-[11px] ml-1.5" style={{ color: "var(--text-muted)" }}>
+                              {r.tierLabel}{r.labour === "diy" ? " · DIY" : ""}{r.pct < 1 ? ` · ${Math.round(r.pct * 100)}%` : ""}
+                            </span>
+                          </>
+                        ) : (
+                          `${fmt(l.low)}–${fmt(l.high)}`
+                        )}
+                      </span>
+                      {canOpen && (
+                        <button
+                          type="button"
+                          onClick={() => setOpenCards((o) => ({ ...o, [l.key]: !o[l.key] }))}
+                          aria-expanded={isOpen}
+                          className="inline-flex items-center gap-1 text-xs cursor-pointer"
+                          style={{ color: "var(--brand)" }}
+                        >
+                          {l.costing ? (isOpen ? "Hide options" : "Show options") : isOpen ? "Hide how we got this figure" : "How we got this figure"}
+                          {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+                {included && openCards[l.key] && (
+                  l.costing ? (
+                    <>
+                      <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>Est. quantity: {l.costing.quantityNote || `${l.costing.quantity} ${l.costing.quantityUnit}`}</div>
+                      <ThreeTier line={l} toggle={t}
+                        onTier={(tier) => setRenoToggle(l.key, { tier, labour: l.costing ? l.costing[tier].defaultLabour : "tradie" })}
+                        onLabour={(mode) => setRenoToggle(l.key, { labour: mode })}
+                        onPct={(pct) => setRenoToggle(l.key, { affectedPct: pct })} />
+                    </>
+                  ) : (
+                    <ol className="mt-2 space-y-1 text-xs list-decimal pl-4" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                      {(l.working ?? []).map((w) => <li key={w}>{w}</li>)}
+                    </ol>
+                  )
                 )}
               </div>
             </div>
-            {included && l.costing && surfaceForKind(l.costing.kind) && materialsFor(surfaceForKind(l.costing.kind)!).length > 0 && (
+            {included && openCards[l.key] && l.costing && surfaceForKind(l.costing.kind) && materialsFor(surfaceForKind(l.costing.kind)!).length > 0 && (
               <MaterialStudio
                 surface={surfaceForKind(l.costing.kind)!}
                 photoUrls={listing.photoUrls}
