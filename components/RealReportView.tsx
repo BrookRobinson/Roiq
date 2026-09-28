@@ -73,7 +73,7 @@ import { Step, EvidenceList } from "@/components/PropertyTab/ItemValuation";
 import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
 import { citedPhotos, mergePhotoRefs } from "@/lib/photo-refs";
 import {
-  Home, Building2, Wrench, Calculator, ClipboardList, ClipboardCheck, Shield, MapPin, Handshake,
+  Home, Building2, ChevronRight, Wrench, Calculator, ClipboardList, ClipboardCheck, Shield, MapPin, Handshake,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
   TrendingUp, Zap, Percent, ChevronDown, ChevronUp, RefreshCw, Loader2, ArrowRight, Send, History, Lock, FileText,
 } from "lucide-react";
@@ -3619,6 +3619,7 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
   renoLines: RenoLine[];
   renoToggles: Record<string, RenoToggle>;
 }) {
+  const [open, setOpen] = useState(false);
   const results = assessHealthyHomes(subItems, buildYear, hhAssessed);
   const byId = new Map(subItems.map((s) => [s.id, s]));
   const lineByKey = new Map(renoLines.filter((l) => !l.key.endsWith("_rem")).map((l) => [l.key, l]));
@@ -3633,19 +3634,33 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
   const toFixCost = failing.reduce((t, r) => t + (costOf(r.renoKey) ?? Math.round((r.remediation.low + r.remediation.high) / 2)), 0);
 
   return (
-    <div className="rounded-2xl p-5" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Shield size={16} style={{ color: "var(--brand)" }} />
-          <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Healthy Homes — rental compliance</h3>
+    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+      {/* Folded by default, like the categories above it — the header carries
+          the verdict and the cost, the five standards open on request. */}
+      <button
+        className="w-full text-left p-5 cursor-pointer flex items-center gap-4"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        style={{ borderLeft: `4px solid ${failing.length ? "var(--bad)" : "var(--good)"}` }}
+      >
+        <Shield size={22} className="flex-shrink-0" style={{ color: "var(--brand)" }} />
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-base mb-1" style={{ color: "var(--text-primary)" }}>Healthy Homes — rental compliance</div>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>5 legal standards</span>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: failing.length ? "var(--bad-wash)" : "var(--good-wash)", color: failing.length ? "var(--bad)" : "var(--good)" }}>
-          {failing.length ? `${failing.length} of 5 to fix · ${fmt(toFixCost)}` : "None to fix"}
-        </span>
-      </div>
-      <p className="text-xs mt-1 mb-4" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full text-right" style={{ background: failing.length ? "var(--bad-wash)" : "var(--good-wash)", color: failing.length ? "var(--bad)" : "var(--good)" }}>
+            {failing.length ? <>{failing.length} of 5 to fix<span className="hidden sm:inline"> · </span><br className="sm:hidden" />{fmt(toFixCost)}</> : "None to fix"}
+          </span>
+          <ChevronRight size={18} style={{ color: "var(--text-muted)", transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
+        </div>
+      </button>
+
+      {open && (
+      <div className="px-5 pb-5" style={{ borderTop: "1px solid var(--border)" }}>
+      <p className="text-xs mt-4 mb-4" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>
         The 5 legal standards a rental has to meet. Anything that fails is a <strong style={{ color: "var(--text-secondary)" }}>must-do by law</strong> before
-        you can tenant — tick it to add it to your renovation plan.
+        you can tenant, so it&apos;s already ticked in your renovation plan.
       </p>
 
       <div className="space-y-3">
@@ -3665,6 +3680,8 @@ function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovati
       <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
         Read from the listing photos and the build year{buildYear ? ` (c.${buildYear})` : ""}. A certified Healthy Homes assessor signs it off before you tenant.
       </p>
+      </div>
+      )}
     </div>
   );
 }
