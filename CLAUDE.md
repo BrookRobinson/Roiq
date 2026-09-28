@@ -674,6 +674,21 @@ under their old names (`planLabel`). Nothing sells an inspection now; a Gold
 buyer still owed one still sees it on the account page. Upgrade copy at every
 wall comes from `unlockFor()` / `unlockPhrase()`, never a hand-written price.
 
+**"Get this report verified in person" is a referral, and the buyer is told so.**
+A buyer requests an in-person inspection from a report; `/api/inspection-request`
+saves it FIRST (`inspection_requests`), makes a share link to the report, and
+emails the partner inspector for the property's region (`inspectors.regions`,
+one partner per region, oldest first — `inspectorForRegion()`). The inspector
+owes a fixed fee per lead (`fee_per_lead_cents`, NZ$60 default), recorded as
+`owed` ONLY once the email actually reached them; the same buyer asking about
+the same report within 7 days is the same lead and is never billed twice. No
+partner for the region = `unassigned`, still recorded, and a copy goes to
+`INSPECTION_LEADS_TO` to pass on by hand. The consent tickbox text is stored
+verbatim with the request (Privacy Act), and the referral fee is disclosed
+before sending (`FEE_DISCLOSURE`) — a paid recommendation nobody mentioned would
+cost the report its trust. Not offered on demo or sample reports. Both tables
+are service-role only: RLS on, no policies.
+
 **Nothing auto-renews, and the site says so.** Purchases are one-off
 (`mode: "payment"`): report credits never expire, and map access runs `MAP_DAYS`
 and stops. There are no Stripe price IDs — the checkout builds its line item

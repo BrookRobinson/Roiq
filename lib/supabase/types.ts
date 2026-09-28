@@ -394,6 +394,81 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["shared_reports"]["Insert"]>;
         Relationships: [];
       };
+      // 20260929_inspection_requests — see lib/inspections/referral.ts
+      inspectors: {
+        Row: {
+          id: string;
+          name: string;
+          company: string | null;
+          email: string;
+          phone: string | null;
+          regions: string[];
+          fee_per_lead_cents: number;
+          active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          company?: string | null;
+          email: string;
+          phone?: string | null;
+          regions?: string[];
+          fee_per_lead_cents?: number;
+          active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["inspectors"]["Insert"]>;
+        Relationships: [];
+      };
+      inspection_requests: {
+        Row: {
+          id: string;
+          created_at: string;
+          report_id: string | null;
+          report_url: string | null;
+          user_id: string | null;
+          buyer_name: string;
+          buyer_email: string;
+          buyer_phone: string | null;
+          buyer_message: string | null;
+          consent_at: string;
+          consent_text: string;
+          address: string | null;
+          suburb: string | null;
+          city: string | null;
+          region: string | null;
+          listing_url: string | null;
+          inspector_id: string | null;
+          status: "sent" | "unassigned" | "email_failed" | "new";
+          fee_cents: number;
+          fee_status: "none" | "owed" | "invoiced" | "paid" | "waived";
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          report_id?: string | null;
+          report_url?: string | null;
+          user_id?: string | null;
+          buyer_name: string;
+          buyer_email: string;
+          buyer_phone?: string | null;
+          buyer_message?: string | null;
+          consent_at: string;
+          consent_text: string;
+          address?: string | null;
+          suburb?: string | null;
+          city?: string | null;
+          region?: string | null;
+          listing_url?: string | null;
+          inspector_id?: string | null;
+          status?: "sent" | "unassigned" | "email_failed" | "new";
+          fee_cents?: number;
+          fee_status?: "none" | "owed" | "invoiced" | "paid" | "waived";
+        };
+        Update: Partial<Database["public"]["Tables"]["inspection_requests"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -44,6 +44,7 @@ import { assessTitleType, assessEncumbrances, assessEasements } from "@/lib/scor
 import { valueExtraDwellings, dwellingComplianceWork, type ExtraDwellingValueResult, type DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import { PropertyInspections } from "@/components/PropertyInspections/PropertyInspections";
 import { SendReportDialog } from "@/components/SendReportDialog";
+import { VerifyInPersonDialog } from "@/components/VerifyInPersonDialog";
 import { MANDATORY_CATEGORIES, categoryLabel } from "@/lib/photo-categories";
 import {
   projectValue, cumulativeGrowthPct, grossYieldPct, netYieldPct, estimateAnnualCosts, vacancyRisk,
@@ -75,7 +76,7 @@ import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
 import { citedPhotos, mergePhotoRefs } from "@/lib/photo-refs";
 import {
   Home, Building2, ChevronRight, Wrench, Calculator, ClipboardList, ClipboardCheck, Shield, MapPin, Handshake,
-  ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
+  ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert, HardHat,
   TrendingUp, Zap, Percent, ChevronDown, ChevronUp, RefreshCw, Loader2, ArrowRight, Send, History, Lock, FileText,
 } from "lucide-react";
 
@@ -266,6 +267,7 @@ export function RealReportView({
     return !!meta && !has(meta.feature);
   };
   const [showSend, setShowSend] = useState(false);
+  const [showVerify, setShowVerify] = useState(false);
   const [askingPrice, setAskingPrice] = useState<number | null>(
     report.listing.askingPrice ?? parseOverPrice(report.listing.priceText)
   );
@@ -878,6 +880,7 @@ export function RealReportView({
         {!embedded && (shared ? <Navbar user={null} /> : <Navbar />)}
 
         {!embedded && showSend && <SendReportDialog report={report} onClose={() => setShowSend(false)} />}
+        {!embedded && showVerify && <VerifyInPersonDialog report={report} onClose={() => setShowVerify(false)} />}
 
         {/* Header */}
         <div className="border-b" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
@@ -945,15 +948,28 @@ export function RealReportView({
                 )}
               </div>
 
-              {/* Send / share — owner view only */}
+              {/* Send / share, and an in-person inspection — owner view only.
+                  The inspection isn't offered on a demo or sample: those houses
+                  don't exist, and no inspector can visit them. */}
               {!shared && !embedded && (
-                <button
-                  onClick={() => setShowSend(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer shrink-0 whitespace-nowrap"
-                  style={{ background: "var(--brand)", color: "var(--on-accent)" }}
-                >
-                  <Send size={13} /> Send report
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                  {!report.id.startsWith("rpt_") && !report.id.startsWith("sample-") && (
+                    <button
+                      onClick={() => setShowVerify(true)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap"
+                      style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--brand)" }}
+                    >
+                      <HardHat size={13} style={{ color: "var(--brand)" }} /> Get this report verified in person
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowSend(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap"
+                    style={{ background: "var(--brand)", color: "var(--on-accent)" }}
+                  >
+                    <Send size={13} /> Send report
+                  </button>
+                </div>
               )}
             </div>
 

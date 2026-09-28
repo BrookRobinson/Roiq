@@ -29,6 +29,8 @@ const TABLES: { name: string; used_by: string }[] = [
   { name: "report_gaps", used_by: "report gap banner" },
   { name: "report_upload_tokens", used_by: "/upload/[token] document links" },
   { name: "shared_reports", used_by: "Send report → /report/share_<token>" },
+  { name: "inspectors", used_by: "Get this report verified in person — partner inspectors" },
+  { name: "inspection_requests", used_by: "Get this report verified in person — the requests and lead fees" },
 ];
 
 const TIMEOUT_MS = 8_000;
@@ -97,12 +99,23 @@ export async function GET() {
   const tables = await Promise.all(
     TABLES.map(async (t) => {
       try {
-        const { count, error } = await supabase
+        const head = await supabase
           .from(t.name as never)
           .select("*", { count: "exact", head: true });
+        // A HEAD request has no body, so a MISSING table can come back with no
+        // error and no count — which read as "present, 0 rows" and reported
+        // tables that didn't exist. No count means ask again with a body.
+        const { count, error } =
+          head.error || typeof head.count === "number"
+            ? head
+            : await supabase.from(t.name as never).select("*", { count: "exact" }).limit(1);
         if (error) {
-          // 42P01 = undefined_table → the migration hasn't been run.
-          const missing = error.code === "42P01" || /does not exist/i.test(error.message);
+          // 42P01 = undefined_table; PGRST205 = PostgREST can't find it in its
+          // schema cache. Either way the migration hasn't been run.
+          const missing =
+            error.code === "42P01" ||
+            error.code === "PGRST205" ||
+            /does not exist|could not find the table/i.test(error.message);
           return { ...t, exists: !missing, rows: null, error: error.message, code: error.code ?? null };
         }
         return { ...t, exists: true, rows: count ?? 0, error: null, code: null };
@@ -133,17 +146,28 @@ export async function GET() {
     : { error: null };
   const viewingColumn = reportsTable?.exists ? !viewingError : false;
 
+  // Pins carry the finance record the map runs each report's Financial tab
+  // from. Without the column pins still save (persist.ts drops the field),
+  // but every investor figure on the map is withheld — silently, from here.
+  const { error: financeError } = mapListings?.exists
+    ? await supabase.from("map_listings").select("finance").limit(1)
+    : { error: null };
+  const financeColumn = mapListings?.exists ? !financeError : false;
+
   const writes = {
     service_role_key: hasAdminClient(),
     source_key_column: mapListings?.exists ? !keyError : false,
     viewing_column: viewingColumn,
-    ok: hasAdminClient() && !!mapListings?.exists && !keyError && viewingColumn,
+    finance_column: financeColumn,
+    ok: hasAdminClient() && !!mapListings?.exists && !keyError && viewingColumn && financeColumn,
     note: !hasAdminClient()
       ? "SUPABASE_SERVICE_ROLE_KEY is not set — the map can read but nothing can be written to it."
       : keyError
         ? "map_listings.source_key is missing — run the 20260821_map_listing_writes migration."
         : !viewingColumn
           ? "reports.viewing is missing — run the 20260824_viewing migration, or viewing checklists stay on one device."
+          : !financeColumn
+            ? "map_listings.finance is missing — run the 20260929_map_finance migration, or the map shows no investor figures."
           : "Map writes and viewing sync are configured.",
   };
 
