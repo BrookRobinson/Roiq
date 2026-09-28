@@ -96,6 +96,7 @@ export async function buildMapListing(c: ReportContribution, id: string): Promis
     listingUrl: listing.url ?? null,
     // This one came from a real report, by definition.
     analysed: true,
+    finance: c.finance ?? null,
     },
     geocoded: !!geo,
     sources: {

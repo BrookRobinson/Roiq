@@ -8,6 +8,8 @@
 // ============================================================
 
 import type { MapListing } from "./types";
+import { buildSampleReport, SAMPLE_ID_PREFIX } from "@/lib/scoring/sample-reports";
+import { pinFinanceFrom, type PinFinance } from "./pin-finance";
 
 const PHOTOS = [
   "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&q=70",
@@ -62,16 +64,33 @@ const RAW: Seed[] = [
   { id: "seed-28", address: "34 Harrowfield Road, Hokitika", suburb: "Hokitika", city: "Hokitika", region: "West Coast", lat: -42.7170, lng: 170.9660, askingPrice: 385_000, bedrooms: 3, bathrooms: 1, propertyType: "house", floorAreaSqm: 110, landAreaSqm: 700, listingType: "sale", roiqScore: 470, roiqValuation: 420_000, medianPerSqm: 3_100, repairAllowance: 27_000, repairBreakdown: { "Roof replacement": 15_000, "Insulation": 12_000 }, estimatedWeeklyRent: 420, suburbGrowthRatePct: 3.2 },
 ];
 
-export const SEED_LISTINGS: MapListing[] = RAW.map((r, i) => ({
-  ...r,
-  photos: pics(i),
-  status: "active",
-  fullReportId: null,
-  // Demo data — there is no real listing page to open.
-  listingUrl: null,
-  // Seeds ship with scores so the demo map behaves like the real one.
-  analysed: true,
-}));
+export const SEED_LISTINGS: MapListing[] = RAW.map((r, i) => {
+  const l: MapListing = {
+    ...r,
+    photos: pics(i),
+    status: "active",
+    fullReportId: null,
+    // Demo data — there is no real listing page to open.
+    listingUrl: null,
+    // Seeds ship with scores so the demo map behaves like the real one.
+    analysed: true,
+  };
+  // Each demo pin has its own sample report; its investor return comes from
+  // that report's Financial tab exactly as a real pin's does. Built on first
+  // use — thirty sample reports is real work, and home buyer mode needs none.
+  let finance: PinFinance | null | undefined;
+  Object.defineProperty(l, "finance", {
+    enumerable: false,
+    get() {
+      if (finance === undefined) {
+        const report = buildSampleReport(`${SAMPLE_ID_PREFIX}${r.id}`);
+        finance = report ? pinFinanceFrom(report) : null;
+      }
+      return finance;
+    },
+  });
+  return l;
+});
 
 export function seedById(id: string): MapListing | undefined {
   return SEED_LISTINGS.find((l) => l.id === id);

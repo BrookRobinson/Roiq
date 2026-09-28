@@ -94,7 +94,7 @@ export function TopProperties({
   const how =
     mode === "homebuyer"
       ? "Ranked by how far our valuation sits above the asking price"
-      : `Ranked by profit over your ${vars.holdPeriodYears}-year hold, as a share of the cash you put in`;
+      : `Ranked by return on the cash you put in over your ${vars.holdPeriodYears}-year hold, as each report's Financial tab works it out`;
 
   return (
     <section
@@ -163,7 +163,9 @@ export function TopProperties({
             <p className="px-4 py-3 text-[13px]" style={{ color: "var(--text-secondary)" }}>{error}</p>
           ) : items.length === 0 ? (
             <p className="px-4 py-3 text-[13px]" style={{ color: "var(--text-secondary)" }}>
-              No analysed properties {scope === "view" ? "in this part of the map" : "yet"} {vars.budget > 0 ? "within your budget and property types" : "of your property types"}.
+              {mode === "investor"
+                ? `No properties ${scope === "view" ? "in this part of the map" : ""} have investor figures yet — they come from each property's full report.`
+                : `No analysed properties ${scope === "view" ? "in this part of the map" : "yet"} ${vars.budget > 0 ? "within your budget and property types" : "of your property types"}.`}
               {scope === "view" && " Zoom out, or switch to All of NZ."}
             </p>
           ) : (

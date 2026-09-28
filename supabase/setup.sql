@@ -7,7 +7,7 @@
 -- Paste the whole file into the Supabase SQL editor of a new project and run it.
 -- Every statement is idempotent, so running it twice is safe.
 --
--- Migrations included (12):
+-- Migrations included (13):
 --   20260605_base_schema.sql
 --   20260606_v3_schema.sql
 --   20260708_map_feature.sql
@@ -20,6 +20,7 @@
 --   20260824_viewing.sql
 --   20260827_delisting.sql
 --   20260922_packages.sql
+--   20260929_map_finance.sql
 -- ==========================================================================
 
 
@@ -1109,4 +1110,18 @@ CREATE INDEX IF NOT EXISTS purchases_inspection_owed
 -- ============================================================
 -- Done. Run this migration once in Supabase SQL Editor.
 -- ============================================================
+
+
+-- ==========================================================================
+-- 20260929_map_finance.sql
+-- ==========================================================================
+
+-- 20260929_map_finance
+-- What a report leaves on its map pin so the map can run that property's
+-- Financial tab (lib/map/pin-finance.ts): the renovation plan (each job's cost,
+-- due year and whether it's needed at purchase) plus rent, growth, floor area
+-- and build year. The investor return is computed per reader from this; no
+-- return is stored.
+alter table public.map_listings
+  add column if not exists finance jsonb;
 

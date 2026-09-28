@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { LoanType } from "@/lib/finance/calculator";
+import type { PinFinance } from "./pin-finance";
 
 export type MapMode = "homebuyer" | "investor";
 export type DealColour = "green" | "orange" | "red";
@@ -89,6 +90,12 @@ export interface MapListing {
   analysed: boolean;
   /** When its report was last scored — picks the current read when one house has two pins. */
   lastScoredAt?: string | null;
+  /**
+   * What the report's Financial tab needs to reproduce its investor return
+   * (lib/map/pin-finance.ts). Null on pins made before it existed and on bare
+   * land — the investor view then shows no figure rather than a rougher one.
+   */
+  finance?: PinFinance | null;
 }
 
 /**
@@ -160,8 +167,13 @@ export interface ComputedListing {
   roiqValuation: number | null;
   valuationGapPct: number | null;
 
-  // Investor
-  adjustedBuyIn: number;       // asking + repair allowance
+  // Investor — the report's Financial tab, on the reader's numbers.
+  /** False when the pin carries no finance record: no investor figure is shown. */
+  investorAvailable: boolean;
+  renoAtPurchase: number;
+  renoDuringHold: number;
+  totalCashIn: number;
+  adjustedBuyIn: number;       // asking + renovations needed at purchase
   weeklyRent: number;
   annualCashflow: number;
   capitalGain: number;         // over the hold period

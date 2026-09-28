@@ -29,9 +29,17 @@ export async function persistMapListing(listing: MapListing, sourceUrl = ""): Pr
 
   try {
     // supabase-js infers the Omit-based Insert type as `never`; cast the validated row.
-    const { error } = await supabase
-      .from("map_listings")
-      .upsert(mapListingInsert(listing, sourceUrl) as never, { onConflict: "source_key" });
+    const row = mapListingInsert(listing, sourceUrl);
+    let { error } = await supabase.from("map_listings").upsert(row as never, { onConflict: "source_key" });
+    // Before the 20260929_map_finance migration there is no `finance` column,
+    // and PostgREST refuses the whole row for it. Save the pin without it
+    // rather than not at all — its investor view then asks for a re-run.
+    if (error && /finance/i.test(error.message)) {
+      console.warn("[map] finance column missing — run supabase/migrations/20260929_map_finance.sql");
+      const { finance: _omit, ...withoutFinance } = row as Record<string, unknown>;
+      void _omit;
+      ({ error } = await supabase.from("map_listings").upsert(withoutFinance as never, { onConflict: "source_key" }));
+    }
 
     if (error) return { persisted: false, reason: "db_error", detail: error.message };
 

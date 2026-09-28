@@ -888,6 +888,23 @@ five took 7s. One house, one entry: a property analysed twice can carry two pins
 with different valuations, and the list keeps the NEWEST (`lastScoredAt`),
 never the one that ranks higher.
 
+**A pin's investor return IS its report's Financial tab.** The map used to run
+its own simpler sum — no council rates, flat insurance and purchase costs, only
+the work needed now (by an old rule), nothing for work due during the hold or
+what renovating adds — so a pin could read better than its own report. Now a
+report leaves a `finance` record on its pin (`lib/map/pin-finance.ts`: the
+investor renovation plan with each job's cost, due year and at-purchase flag,
+plus rent, growth, floor area, build year) and `investorFromPin()` runs the
+Financial tab's own `summarise()` with the reader's deposit, rate, loan,
+repayments and hold. The % is return on cash put in (walk-away ÷ total cash
+in). Proven on the demo: $276,027 walk-away, 70.4%, $392,072 cash in — the tab's
+own figures to the dollar. The plan is built by `lib/renovations/plan.ts`,
+shared with the Renovations tab; never a second copy. A pin with no record
+(bare land, or made before 20260929_map_finance) shows NO investor figure —
+`/api/map/backfill-finance` builds records for old pins from their stored
+reports. Demo pins build theirs lazily from their sample reports. No investor
+return is stored in the table: it depends on the reader.
+
 **The investor view runs only on numbers the reader saved.** Variables starts
 empty and "Browse all properties" opens the map with none, because the home
 buyer view (valuation vs asking) needs none. Investor returns are built from

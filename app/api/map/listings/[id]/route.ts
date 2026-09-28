@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { seedById } from "@/lib/map/seed";
 import { getListingById, resolveVariables } from "@/lib/map/store";
-import { computeListing } from "@/lib/map/calc";
+import { computeListing, investorReady } from "@/lib/map/calc";
 
 export const runtime = "nodejs";
 
@@ -23,6 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     ok: true,
     listing,
     homebuyer: computeListing(listing, vars, "homebuyer"),
-    investor: computeListing(listing, vars, "investor"),
+    // Only on the reader's own numbers (demo listings are fictional and exempt).
+    investor: demo || investorReady(vars) ? computeListing(listing, vars, "investor") : null,
   });
 }

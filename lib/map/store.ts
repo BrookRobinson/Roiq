@@ -15,6 +15,7 @@ import { computeListing, valuationForScore } from "./calc";
 import { isScorable } from "@/lib/scoring/investment";
 import { readAllPages } from "@/lib/supabase/paged";
 import type { MapListing, UserVariables } from "./types";
+import type { PinFinance } from "./pin-finance";
 
 type MapListingInsert = Database["public"]["Tables"]["map_listings"]["Insert"];
 
@@ -34,6 +35,13 @@ export function parseBBox(s: string | null): BBox | null {
 
 const inBBox = (l: MapListing, b: BBox): boolean =>
   l.lng >= b.minLng && l.lng <= b.maxLng && l.lat >= b.minLat && l.lat <= b.maxLat;
+
+/** A stored finance record, or null if it isn't one this code understands. */
+function readFinance(v: unknown): PinFinance | null {
+  if (!v || typeof v !== "object") return null;
+  const f = v as Partial<PinFinance>;
+  return f.v === 1 && typeof f.price === "number" && Array.isArray(f.reno) ? (f as PinFinance) : null;
+}
 
 function rowToMapListing(r: MapListingRow): MapListing {
   const photos = Array.isArray(r.photos) ? (r.photos as string[]) : [];
@@ -76,6 +84,7 @@ function rowToMapListing(r: MapListingRow): MapListing {
     // Only a real analysis ever writes a score, so its presence is the test.
     analysed: r.quick_quality_score != null,
     lastScoredAt: r.last_scored_at ?? null,
+    finance: readFinance(r.finance),
   };
 }
 
@@ -260,7 +269,6 @@ export async function resolveVariables(req: Request): Promise<UserVariables> {
  *  are stored as a default-variables snapshot; the read endpoints recompute per user. */
 export function mapListingInsert(l: MapListing, sourceUrl = ""): MapListingInsert {
   const hb = computeListing(l, DEFAULT_VARIABLES, "homebuyer");
-  const inv = computeListing(l, DEFAULT_VARIABLES, "investor");
   const now = new Date().toISOString();
   return {
     listing_url: sourceUrl,
@@ -285,7 +293,7 @@ export function mapListingInsert(l: MapListing, sourceUrl = ""): MapListingInser
     vfm_grade: null,
     gross_yield_est:
       l.askingPrice > 0 ? Math.round(((l.estimatedWeeklyRent * 52) / l.askingPrice) * 1000) / 10 : null,
-    profit_10yr_est: inv.netProfit,
+    profit_10yr_est: null, // reader-specific — see the investor columns below
     opportunity_grade: null,
     roiq_valuation: l.roiqValuation,
     valuation_vs_asking_pct:
@@ -294,12 +302,16 @@ export function mapListingInsert(l: MapListing, sourceUrl = ""): MapListingInser
     repair_breakdown: l.repairBreakdown,
     estimated_weekly_rent: l.estimatedWeeklyRent,
     suburb_growth_rate_pct: l.suburbGrowthRatePct,
-    projected_cashflow: inv.annualCashflow,
-    projected_capital_gain: inv.capitalGain,
-    projected_net_profit: inv.netProfit,
-    five_year_return_pct: Math.round(inv.returnOnDepositPct * 10) / 10,
+    // Investor returns depend on the READER's deposit, rate and hold, so none is
+    // stored: a figure worked out on default numbers is a return nobody chose.
+    // The map computes it per reader from `finance`. Nothing reads these.
+    projected_cashflow: null,
+    projected_capital_gain: null,
+    projected_net_profit: null,
+    five_year_return_pct: null,
     home_buyer_colour: hb.colour,
-    investor_colour: inv.colour,
+    investor_colour: null,
+    finance: (l.finance ?? null) as never,
     // Our stable pin id — the upsert key, so a property keeps one row.
     source_key: l.id,
     // full_report_id is a FK to public.reports, which nothing writes to, so

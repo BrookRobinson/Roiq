@@ -266,6 +266,8 @@ export interface Database {
           sale_price: number | null;
           sale_date: string | null;
           sale_source: string | null;
+          // 20260929_map_finance — see lib/map/pin-finance.ts
+          finance: Json | null;
         };
         Insert: Omit<
           Database["public"]["Tables"]["map_listings"]["Row"],
@@ -278,6 +280,7 @@ export interface Database {
           | "sale_price"
           | "sale_date"
           | "sale_source"
+          | "finance"
         > &
           Partial<Pick<
             Database["public"]["Tables"]["map_listings"]["Row"],
@@ -289,6 +292,7 @@ export interface Database {
             | "sale_price"
             | "sale_date"
             | "sale_source"
+            | "finance"
           >>;
         Update: Partial<Database["public"]["Tables"]["map_listings"]["Insert"]>;
         Relationships: [];

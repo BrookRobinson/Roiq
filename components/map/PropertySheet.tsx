@@ -74,7 +74,10 @@ export function PropertySheet({
   }
 
   const l = data?.listing;
-  const c = data ? (mode === "homebuyer" ? data.homebuyer : data.investor) : null;
+  // Investor figures only come back on the reader's own numbers; without them
+  // the sheet says so rather than waiting for figures that won't arrive.
+  const invLocked = !!data && mode === "investor" && !data.investor;
+  const c = data ? (mode === "homebuyer" || invLocked ? data.homebuyer : data.investor) : null;
   // Every pin came from a real report. You can open it if you ran it, or if
   // you're on Pro — reading everyone else's analyses is what Pro is for.
   const ownReport = !!l?.fullReportId && !!loadReport(l.fullReportId);
@@ -104,7 +107,7 @@ export function PropertySheet({
               {/* Three states, and only the first is a verdict: we have a
                   percentage, nobody has analysed the property, or we analysed it
                   and had nothing to value it against. */}
-              {c.pct != null ? (
+              {c.pct != null && !invLocked ? (
                 <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-full text-sm font-bold mono" style={{ background: hex, color: "#050d0d", boxShadow: `0 2px 12px ${alpha(hex, 60)}` }}>
                   {pctLabel(c.pct)}
                 </div>
@@ -209,28 +212,34 @@ export function PropertySheet({
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {/* No score here either, for the same reason — and these
-                      figures never needed one: they come from the asking price,
-                      the rent feed and the growth rate. */}
-                  <Row label="Adjusted buy-in" value={money(c.adjustedBuyIn)} hint="asking + repairs" />
-                  <Row label="Est. weekly rent" value={`${money(c.weeklyRent)}/wk`} />
-                  <Row label="Annual cashflow" value={signed(c.annualCashflow)} valueColor={c.annualCashflow >= 0 ? "var(--good)" : "var(--bad)"} />
-                  <Row label={`${c.holdYears}-year capital gain`} value={signed(c.capitalGain)} />
-                  <Row label={`${c.holdYears}-year net profit`} value={signed(c.netProfit)} valueColor={hex} bold />
-                  <Row label={`${c.holdYears}-yr return on deposit`} value={`${Math.round(c.returnOnDepositPct)}%`} valueColor={hex} />
-
-                  {Object.keys(l.repairBreakdown).length > 0 && (
-                    <div className="mt-3 rounded-lg p-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-                      <div className="text-[11px] font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Repair allowances added to buy-in</div>
-                      <div className="space-y-1">
-                        {Object.entries(l.repairBreakdown).map(([name, cost]) => (
-                          <div key={name} className="flex items-center justify-between text-xs">
-                            <span style={{ color: "var(--text-muted)" }}>{name}</span>
-                            <span className="mono" style={{ color: "var(--text-secondary)" }}>{signed(cost)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                  {invLocked ? (
+                    <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                      Add your numbers in Variables to see investor returns — they&apos;re worked out on your deposit,
+                      rate, loan and hold.
+                    </p>
+                  ) : !c.investorAvailable ? (
+                    /* No finance record on this pin. Say the one cause the pin
+                       can see (no dwelling), otherwise that the report predates
+                       it — never a rougher figure of our own in its place. */
+                    <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                      {!l.floorAreaSqm
+                        ? "No investor figures — there's no dwelling here to let."
+                        : "No investor figures for this one yet. They come from the full report's Financial tab, and this pin was made before the map carried them — running the report again adds them."}
+                    </p>
+                  ) : (
+                    <>
+                      <Row label={`${c.holdYears}-yr return on cash put in`} value={`${Math.round(c.netProfitPctOfInvested)}%`} valueColor={hex} bold />
+                      <Row label="You walk away with" value={signed(c.netProfit)} valueColor={hex} />
+                      <Row label="Total cash in" value={money(c.totalCashIn)} hint="deposit, purchase costs, work at purchase" />
+                      <Row label="Est. weekly rent" value={`${money(c.weeklyRent)}/wk`} />
+                      <Row label="Annual cash flow" value={signed(c.annualCashflow)} valueColor={c.annualCashflow >= 0 ? "var(--good)" : "var(--bad)"} />
+                      <Row label="Renovations at purchase" value={money(c.renoAtPurchase)} />
+                      <Row label={`Renovations during ${c.holdYears} yrs`} value={money(c.renoDuringHold)} />
+                      <p className="text-[11px]" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+                        The full report&apos;s Financial tab on your deposit, rate, loan and hold — council rates,
+                        insurance, purchase costs and the renovation plan included. Estimates, not advice.
+                      </p>
+                    </>
                   )}
                 </div>
               )}

@@ -18,6 +18,7 @@ import { computeRepairAllowance } from "./repair-allowance";
 import { valueProperty } from "@/lib/scoring/property-value";
 import { withMeasuredSiteAll } from "@/lib/scoring/measured-site";
 import type { CompletenessSignal } from "./report-completeness";
+import { pinFinanceFrom, type PinFinance } from "./pin-finance";
 
 export interface ReportContribution {
   /** The report this came from, so the pin can link back to it. */
@@ -51,6 +52,8 @@ export interface ReportContribution {
    * one when there is a whole report behind it — see report-completeness.ts.
    */
   completeness: CompletenessSignal;
+  /** What the map needs to run this property's Financial tab — see pin-finance.ts. */
+  finance?: PinFinance | null;
 }
 
 /**
@@ -118,6 +121,7 @@ export function contributionFrom(report: StoredReport): ReportContribution {
         landCoOwners: report.listing.landCoOwners,
         crossLeaseSharing: report.context?.crossLeaseSharing,
       })?.total ?? null,
+    finance: pinFinanceFrom(report),
     completeness: {
       photosAnalysed: report.photosAnalysed ?? 0,
       assessedPoints: report.scores.buyer.assessedPoints,

@@ -1,6 +1,13 @@
 // ============================================================
 // Property Map — the repair allowance behind a pin.
 //
+// NO LONGER USED FOR INVESTOR RETURNS (2026-09-29). The map now runs each
+// report's Financial tab from the pin's `finance` record (pin-finance.ts),
+// which carries the full renovation plan. This still fills the stored
+// repair_allowance / repair_breakdown columns and nothing displays them; it
+// still uses the old "bottom 30%" rule. Don't build on it — delete it once the
+// columns go.
+//
 // The map subtracts a repair allowance from every deal (it is the investor
 // mode's "adjusted buy-in"), so that figure has to agree with the report the pin
 // came from. The obvious shortcut — summing `estimatedReplacementCost` — does

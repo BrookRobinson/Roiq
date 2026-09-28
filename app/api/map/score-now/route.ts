@@ -10,6 +10,7 @@ import { valueProperty } from "@/lib/scoring/property-value";
 import { withMeasuredSiteAll } from "@/lib/scoring/measured-site";
 import type { ReportContribution } from "@/lib/map/contribution";
 import { whyIncomplete, INCOMPLETE_REASON } from "@/lib/map/report-completeness";
+import { pinFinanceFrom } from "@/lib/map/pin-finance";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // Claude vision can take a while
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
         landCoOwners: listing.landCoOwners,
           crossLeaseSharing: result.context?.crossLeaseSharing,
         })?.total ?? null,
+      finance: pinFinanceFrom({ ...result, listing }),
       completeness: {
         photosAnalysed: result.photosAnalysed ?? 0,
         assessedPoints: result.scores.buyer.assessedPoints,

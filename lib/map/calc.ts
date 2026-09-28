@@ -1,11 +1,12 @@
 // ============================================================
 // Property Map — deal calculation. One function turns a scored listing + a
 // user's saved variables + a mode into a colour, a headline %, and the figures
-// the detail sheet shows. Reuses the existing investment math (investment.ts).
+// the detail sheet shows. Investor figures are the report's own Financial tab
+// (pin-finance.ts), never a separate formula.
 // ============================================================
 
-import { projectValue, isScorable } from "@/lib/scoring/investment";
-import { monthlyRepayment as repaymentFor, remainingBalance } from "@/lib/finance/calculator";
+import { isScorable } from "@/lib/scoring/investment";
+import { investorFromPin } from "./pin-finance";
 import type { MapListing, UserVariables, MapMode, DealColour, PinColour, ComputedListing } from "./types";
 
 // ±15% bands for green / orange / red (both modes, per spec).
@@ -63,8 +64,6 @@ export function valuationForScore(
 export function computeListing(listing: MapListing, vars: UserVariables, mode: MapMode): ComputedListing {
   const asking = listing.askingPrice;
   const holdYears = vars.holdPeriodYears;
-  // A global growth override, else each listing's own suburb rate.
-  const growthRate = vars.capitalGrowthPct ?? listing.suburbGrowthRatePct;
 
   // ── Homebuyer: valuation vs asking ──────────────────────────────
   // No valuation, or no asking price, means no gap — not a gap of zero. A zero
@@ -73,47 +72,20 @@ export function computeListing(listing: MapListing, vars: UserVariables, mode: M
   const valuationGapPct =
     roiqValuation != null && asking > 0 ? ((roiqValuation - asking) / asking) * 100 : null;
 
-  // ── Investor: projected return over the hold period (spec formula block) ──
-  const adjustedPrice = asking + listing.repairAllowance;
-  const deposit = vars.depositAmount;
-  const loanAmount = Math.max(0, adjustedPrice - deposit);
+  // ── Investor: the report's own Financial tab, on this reader's numbers ──
+  // The map used to run a simpler sum of its own (no rates, flat insurance,
+  // only the work needed now). It now runs the Financial tab's summarise() on
+  // the finance record the report left on the pin, so a pin's return is the
+  // report's return for the same deposit, rate, loan and hold. A pin without
+  // one (made before it existed, or bare land) gets no figure at all.
+  const inv = listing.finance ? investorFromPin(listing.finance, vars) : null;
+  const s = inv?.summary;
+  const netProfitPctOfInvested = inv ? inv.pct : 0;
+  const deposit = s?.deposit ?? 0;
+  const returnOnDepositPct = s && deposit > 0 ? (s.walkAway / deposit) * 100 : 0;
+  const adjustedPrice = asking + (inv?.renoAtPurchase ?? 0);
 
-  // The report's own loan maths (lib/finance/calculator.ts), so a property
-  // costs the same on the map as on its Financial tab. Interest only pays the
-  // interest and leaves the whole loan owing; P&I pays it down.
-  const repaymentType = vars.repaymentType ?? "pi";
-  const annualMortgage =
-    vars.loanTermYears > 0 ? repaymentFor(loanAmount, vars.interestRatePct, vars.loanTermYears, repaymentType) * 12 : 0;
-  // What's still owed when you sell. It used to be the whole original loan
-  // even on P&I — every repayment counted as a cost and none of it came off
-  // the balance, which understated a P&I profit by the principal repaid.
-  const loanAtSale =
-    vars.loanTermYears > 0
-      ? remainingBalance(loanAmount, vars.interestRatePct, vars.loanTermYears, holdYears, repaymentType)
-      : loanAmount;
-
-  const grossAnnualRent = listing.estimatedWeeklyRent * 52 * (1 - vars.vacancyRatePct / 100);
-  const managementFee = grossAnnualRent * (vars.propertyMgmtFeePct / 100);
-  const maintenance = adjustedPrice * (vars.maintenancePct / 100);
-  const netAnnualRent = grossAnnualRent - managementFee - vars.annualInsurance - maintenance;
-
-  const annualCashflow = netAnnualRent - annualMortgage;
-
-  const salePrice = projectValue(adjustedPrice, growthRate, holdYears);
-  const capitalGain = salePrice - adjustedPrice;
-  const agentFee = salePrice * (vars.agentCommissionPct / 100);
-  const netSaleProceeds = salePrice - agentFee - vars.sellingLegalCosts - loanAtSale;
-
-  const totalCashflow = annualCashflow * holdYears;
-  const netProfit = totalCashflow + netSaleProceeds - deposit - vars.buyingCosts - vars.buildingReport;
-
-  const totalInvested = deposit + vars.buyingCosts + vars.buildingReport;
-  const netProfitPctOfInvested = totalInvested > 0 ? (netProfit / totalInvested) * 100 : 0;
-  const returnOnDepositPct = deposit > 0 ? (netProfit / deposit) * 100 : 0;
-
-  const pct = mode === "homebuyer" ? valuationGapPct : netProfitPctOfInvested;
-  // Investor mode never lands here — it needs the asking price, repairs and
-  // rent, none of which depend on our valuation.
+  const pct = mode === "homebuyer" ? valuationGapPct : inv ? netProfitPctOfInvested : null;
   const colour: PinColour = pct == null ? "unvalued" : colourFor(pct);
 
   return {
@@ -122,11 +94,15 @@ export function computeListing(listing: MapListing, vars: UserVariables, mode: M
     holdYears,
     roiqValuation,
     valuationGapPct,
+    investorAvailable: !!inv,
+    renoAtPurchase: inv?.renoAtPurchase ?? 0,
+    renoDuringHold: inv?.renoDuringHold ?? 0,
+    totalCashIn: s?.totalCashIn ?? 0,
     adjustedBuyIn: Math.round(adjustedPrice),
-    weeklyRent: listing.estimatedWeeklyRent,
-    annualCashflow: Math.round(annualCashflow),
-    capitalGain: Math.round(capitalGain),
-    netProfit: Math.round(netProfit),
+    weeklyRent: listing.finance?.weeklyRent ?? listing.estimatedWeeklyRent,
+    annualCashflow: Math.round((s?.netWeeklyCashflow ?? 0) * 52),
+    capitalGain: Math.round((s?.projectedValue ?? 0) - (listing.finance?.price ?? asking)),
+    netProfit: s?.walkAway ?? 0,
     returnOnDepositPct,
     netProfitPctOfInvested,
   };
