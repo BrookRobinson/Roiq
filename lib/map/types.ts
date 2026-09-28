@@ -130,6 +130,14 @@ export interface UserVariables {
    * the best deals don't surface on types they'd never buy.
    */
   propertyTypes: string[];
+
+  /**
+   * Opened with "Browse all properties" — no numbers entered. The home buyer
+   * view needs none (our valuation against the asking price); the investor
+   * view does, so it asks for them rather than running on figures nobody gave.
+   * The purchase numbers held alongside are placeholders and must not be shown.
+   */
+  browsing?: boolean;
 }
 
 /** Everything the map marker + detail sheet need after applying a user's variables. */

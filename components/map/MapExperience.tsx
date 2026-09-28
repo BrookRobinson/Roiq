@@ -48,6 +48,8 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   const [liveRatePct, setLiveRatePct] = useState<number | null>(null);
   const [rateNote, setRateNote] = useState<{ label: string; source: string } | null>(null);
   const [editing, setEditing] = useState(false);
+  // Set when the map sends the reader to Variables for numbers it needs.
+  const [editReason, setEditReason] = useState<string | null>(null);
   const [mode, setMode] = useState<MapMode>("homebuyer");
   const [selected, setSelected] = useState<string | null>(null);
   const [seeded, setSeeded] = useState(false);
@@ -103,6 +105,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   }, []);
 
   function handleSaved(v: UserVariables) {
+    setEditReason(null);
     setVars(v);
     setMode(v.defaultMode);
     setTypes(v.propertyTypes);
@@ -115,7 +118,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
 
   // Shown once the map itself is on screen, and never again after it's dismissed.
   useEffect(() => {
-    if (!unlocked || showSetup) return;
+    if (!unlocked || showSetup || vars?.browsing) return;
     try {
       if (localStorage.getItem(HINT_KEY)) return;
     } catch {
@@ -123,7 +126,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
     }
     const t = setTimeout(() => setShowHint(true), 900);
     return () => clearTimeout(t);
-  }, [unlocked, showSetup]);
+  }, [unlocked, showSetup, vars?.browsing]);
 
   function dismissHint() {
     setShowHint(false);
@@ -152,7 +155,8 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
             rateNote={rateNote?.label ?? null}
             rateSource={rateNote?.source ?? null}
             onSaved={handleSaved}
-            onClose={vars ? () => setEditing(false) : undefined}
+            onClose={vars ? () => { setEditing(false); setEditReason(null); } : undefined}
+            reason={editReason}
           />
         </div>
       ) : (
@@ -160,7 +164,19 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
           <>
             {/* Mode toggle */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-              <ModeToggle mode={mode} onChange={setMode} />
+              <ModeToggle
+                mode={mode}
+                onChange={(m) => {
+                  // Investor returns are built from the reader's deposit, rate and
+                  // hold. Browsing entered none, so ask rather than invent them.
+                  if (m === "investor" && vars?.browsing) {
+                    setEditReason("The investor view needs your deposit, interest rate, loan and hold period.");
+                    setEditing(true);
+                    return;
+                  }
+                  setMode(m);
+                }}
+              />
             </div>
 
             {/* The seeded note means "the real map has no real pins yet". On the

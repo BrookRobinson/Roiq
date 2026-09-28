@@ -22,6 +22,7 @@ export function VariablesScreen({
   rateSource,
   onSaved,
   onClose,
+  reason,
 }: {
   initial?: UserVariables | null;
   /** Today's mortgage rate, once the lookup returns. */
@@ -32,11 +33,14 @@ export function VariablesScreen({
   rateSource?: string | null;
   onSaved: (v: UserVariables) => void;
   onClose?: () => void; // present when reopened from the map
+  /** Why the screen was opened, when the map sent them here for numbers. */
+  reason?: string | null;
 }) {
   const [v, setV] = useState<UserVariables>(initial ?? DEFAULT_VARIABLES);
   // The numbers are held as TEXT so a box can be empty (a number can't be), and
   // the two choices as null until picked. A first visit starts with nothing.
-  const blank = !initial;
+  // Browsing means no numbers were ever entered — the held ones are placeholders.
+  const blank = !initial || !!initial.browsing;
   const [nums, setNums] = useState<Record<NumKey, string>>(() => ({
     budget: blank || !initial.budget ? "" : String(initial.budget),
     depositAmount: blank ? "" : String(initial.depositAmount),
@@ -73,12 +77,26 @@ export function VariablesScreen({
 
   const set = <K extends keyof UserVariables>(k: K, val: UserVariables[K]) => setV((p) => ({ ...p, [k]: val }));
 
+  /** Open the map with no numbers: the home buyer view needs none. */
+  async function browseAll() {
+    const out: UserVariables = {
+      ...DEFAULT_VARIABLES,
+      propertyTypes: v.propertyTypes,
+      budget: num("budget") ?? 0,
+      defaultMode: "homebuyer",
+      browsing: true,
+    };
+    saveVariables(out);
+    onSaved(out);
+  }
+
   async function save() {
     setTried(true);
     if (missing.length) return;
     setSaving(true);
     const out: UserVariables = {
       ...v,
+      browsing: false,
       budget: num("budget") ?? 0, // blank = no limit
       depositAmount: num("depositAmount")!,
       interestRatePct: num("interestRatePct")!,
@@ -111,6 +129,9 @@ export function VariablesScreen({
             <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
               These drive every deal colour on the map. Fill in your own — nothing is assumed.
             </p>
+            {reason && (
+              <p className="text-sm mt-2 font-medium" style={{ color: "var(--brand)" }}>{reason}</p>
+            )}
           </div>
           {onClose && (
             <button onClick={onClose} className="cursor-pointer mt-1" style={{ color: "var(--text-muted)" }} aria-label="Close">
@@ -203,6 +224,28 @@ export function VariablesScreen({
               The number is how many can be shown on the map right now.
             </p>
           </div>
+
+          {/* The way in without any numbers. Everything the home buyer view shows —
+              our valuation against the asking price — needs none of them. */}
+          <button
+            type="button"
+            onClick={browseAll}
+            className="card w-full p-4 flex items-center justify-between gap-3 text-left cursor-pointer hover:opacity-90"
+            style={{ border: "1px solid var(--brand)" }}
+          >
+            <span>
+              <span className="block text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Browse all properties</span>
+              <span className="block text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                Skip the numbers and open the map. Every property is shown against our valuation; add your numbers
+                later for investor returns.
+              </span>
+            </span>
+            <ArrowRight size={16} style={{ color: "var(--brand)", flexShrink: 0 }} />
+          </button>
+
+          <p className="pt-2 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+            Or set your numbers
+          </p>
 
           <Section icon={Wallet} title="Purchase">
             <NumField label="Budget" hint="max price · optional" prefix="$" placeholder="No limit" value={nums.budget} onChange={(x) => setNum("budget", x)} />
