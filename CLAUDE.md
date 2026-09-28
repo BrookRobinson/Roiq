@@ -15,7 +15,7 @@ npm run dev                  # port 3000
 ./node_modules/.bin/tsc --noEmit   # type check — see the trap below
 npm run lint
 npm run db:setup-sql         # regenerate supabase/setup.sql from the migrations
-npm run verify:billing       # package prices, credits, map expiry, and what the wall says
+npm run verify:billing       # report prices, the map add-on, credits, map expiry, and what the wall says
 npm run verify:roof          # the itemised roof valuation: area, effective age, cost split, refusals
 npm run verify:listing-key   # the "same house?" rules behind report reuse
 npm run verify:email-key     # which accounts count as one inbox
@@ -664,6 +664,16 @@ since, which is why the copy tells the reader to check the date on the front.
 Otherwise anyone can order one on any property. Don't write copy that implies
 the agent is the source, or that a vendor-supplied LIM is current.
 
+**Two things are sold: reports and the map (since 2026-09-29).** Reports are
+$29 for one, $69 for 3, $95 for 5, $150 for 10, $200 for 20 ($10 each); the map
+is $249 for 12 months (`MAP_DAYS` = 365), added to a report purchase or bought
+alone. A checkout is an `Order` — `{ reports: 0|1|3|5|10|20, map }` — and
+`isOrder()` refuses anything else, including nothing at all. Bronze / Silver /
+Gold are retired: their purchase rows keep the grants they stored and display
+under their old names (`planLabel`). Nothing sells an inspection now; a Gold
+buyer still owed one still sees it on the account page. Upgrade copy at every
+wall comes from `unlockFor()` / `unlockPhrase()`, never a hand-written price.
+
 **Nothing auto-renews, and the site says so.** Purchases are one-off
 (`mode: "payment"`): report credits never expire, and map access runs `MAP_DAYS`
 and stops. There are no Stripe price IDs — the checkout builds its line item
@@ -686,7 +696,7 @@ mode still belong to the browser's own `bdr_owner` cookie, so turning it off
 orphans nothing. Owner mode carries a large but finite credit balance rather
 than an infinite one — it guards the owner's own Claude spend, not the paywall.
 
-**`users.plan` is not access.** It records which package was last bought and
+**`users.plan` is not access.** It records what was last bought (`planKey()` — "reports-10+map") and
 nothing reads it for entitlement. What somebody HAS is summed from the
 `purchases` rows on every read — `entitlementsFor()` in
 `lib/billing/entitlements.ts`, behind `getEntitlements()` and `/api/auth/me`.
@@ -705,7 +715,7 @@ least once, so the grant is idempotent through the unique constraint on
 **Buying again adds, never replaces.** Credits accumulate and `mapAccessUntil()`
 extends whatever map time is left, so paying early doesn't throw away days
 already paid for. There is no "you already have something better" refusal any
-more: buying ten more reports while a Gold is running is a sensible thing to do,
+more: buying ten more reports while the map is running is a sensible thing to do,
 and the old ladder's 409 would have turned it away.
 
 **The same property is only analysed once.** A finished report is stored whole

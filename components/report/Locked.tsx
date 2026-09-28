@@ -16,7 +16,7 @@
 import { Lock } from "lucide-react";
 import Link from "next/link";
 
-import { PACKAGE_LABEL, packageFor, priceFor, type Feature } from "@/lib/billing/plans";
+import { unlockFor, unlockPhrase, type Feature } from "@/lib/billing/plans";
 
 /**
  * A real value, rendered unreadable.
@@ -67,7 +67,6 @@ export function UpgradeNote({
   feature?: Feature;
   compact?: boolean;
 }) {
-  const needs = packageFor(feature);
   return (
     <div
       className={`flex items-center gap-2 rounded-xl ${compact ? "px-3 py-2" : "px-4 py-3"}`}
@@ -75,10 +74,9 @@ export function UpgradeNote({
     >
       <Lock size={compact ? 13 : 15} style={{ color: "var(--brand)", flexShrink: 0 }} />
       <span className={compact ? "text-xs" : "text-sm"} style={{ color: "var(--text-secondary)" }}>
-        {what} comes with {PACKAGE_LABEL[needs]}, from $
-        {priceFor(needs, 1).toLocaleString("en-NZ")}.{" "}
+        {what} comes with {unlockPhrase(feature)}.{" "}
         <Link href="/pricing" className="font-semibold hover:underline" style={{ color: "var(--brand)" }}>
-          See plans
+          See pricing
         </Link>
       </span>
     </div>
@@ -103,7 +101,7 @@ export function LockedTab({
   /** What this tab needs. */
   feature?: Feature;
 }) {
-  const needs = packageFor(feature);
+  const needs = unlockFor(feature);
   return (
     <div className="max-w-lg mx-auto text-center py-14 px-6">
       <div
@@ -127,7 +125,7 @@ export function LockedTab({
 
       <div>
         <Link href="/pricing" className="btn-primary px-6 py-3 text-[15px] inline-flex">
-          {PACKAGE_LABEL[needs]} — from ${priceFor(needs, 1).toLocaleString("en-NZ")}
+          {needs.order.map ? `Get the map — $${needs.price}` : `Buy a report — from $${needs.price}`}
         </Link>
       </div>
       <p className="text-xs mt-4" style={{ color: "var(--text-muted)" }}>

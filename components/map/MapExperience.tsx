@@ -12,7 +12,7 @@ import { loadVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
 import { TYPE_OPTIONS } from "@/lib/map/type-options";
 import { TopProperties, type TopItem } from "./TopProperties";
 import { useSession } from "@/lib/auth/session";
-import { PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
+import { MAP_PRICE_NZD, MAP_TERM } from "@/lib/billing/plans";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import type { MapMode, UserVariables } from "@/lib/map/types";
@@ -71,8 +71,6 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
 
   // Demo listings are nobody's paid analysis, so there is nothing to withhold.
   const unlocked = demo || can("map");
-  /** Named once — the tier the map starts at is decided in lib/billing/plans.ts. */
-  const mapTier = PACKAGE_LABEL[packageFor("map")];
 
   useEffect(() => {
     const v = loadVariables();
@@ -324,14 +322,14 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                   >
                     <Lock size={13} style={{ color: "var(--brand)" }} />
                     <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                      Pins are blurred — {mapTier} opens every report.
+                      Pins are blurred — the map opens every report.
                     </span>
                     <Link
                       href="/pricing"
                       className="btn-primary px-3 py-1.5 text-xs"
                       style={{ textDecoration: "none" }}
                     >
-                      Get {mapTier}
+                      Get the map — ${MAP_PRICE_NZD}
                     </Link>
                   </div>
                 </div>
@@ -350,7 +348,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                     <div className="mb-2 flex items-center justify-center gap-2">
                       <Lock size={15} style={{ color: "var(--brand)" }} />
                       <span className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                        {mapTier} opens the whole map
+                        The map opens every property
                       </span>
                     </div>
                     <p className="mb-5 text-[13px]" style={{ color: "var(--text-muted)" }}>
@@ -364,7 +362,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                       className="btn-primary inline-flex px-5 py-2 text-sm"
                       style={{ textDecoration: "none" }}
                     >
-                      Get {mapTier} — ${priceFor(packageFor("map")).toLocaleString("en-NZ")}
+                      Get the map — ${MAP_PRICE_NZD} for {MAP_TERM}
                     </Link>
                     <button
                       onClick={() => setLocked(false)}

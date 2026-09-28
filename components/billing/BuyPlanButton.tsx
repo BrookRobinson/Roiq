@@ -13,13 +13,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRight, Loader2 } from "lucide-react";
 
-import { PACKAGE_LABEL, type Package, type ReportQuantity } from "@/lib/billing/plans";
+import { describeGrant, grantFor, orderPrice, type Order } from "@/lib/billing/plans";
 import { useSession } from "@/lib/auth/session";
 
 interface Props {
-  pkg: Package;
-  /** Bronze only — how many reports. Ignored by the others. */
-  quantity?: ReportQuantity;
+  /** What to buy: some reports, the map, or both. */
+  order: Order;
   label?: string;
   className?: string;
   style?: React.CSSProperties;
@@ -28,8 +27,7 @@ interface Props {
 }
 
 export default function BuyPlanButton({
-  pkg,
-  quantity,
+  order,
   label,
   className,
   style,
@@ -47,8 +45,7 @@ export default function BuyPlanButton({
     // with the choice remembered, rather than letting the API turn them away
     // with a 401 after they have already decided.
     if (!user) {
-      const q = quantity ? `&quantity=${quantity}` : "";
-      router.push(`/signup?pkg=${pkg}${q}&next=${encodeURIComponent(returnTo)}`);
+      router.push(`/signup?reports=${order.reports}&map=${order.map ? 1 : 0}&next=${encodeURIComponent(returnTo)}`);
       return;
     }
 
@@ -57,7 +54,7 @@ export default function BuyPlanButton({
       const res = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pkg, quantity }),
+        body: JSON.stringify(order),
       });
       const data = (await res.json().catch(() => null)) as { ok?: boolean; url?: string; error?: string } | null;
 
@@ -84,7 +81,7 @@ export default function BuyPlanButton({
         className={className}
         style={{ ...style, opacity: busy || sessionLoading ? 0.65 : 1 }}
       >
-        {busy ? "Opening checkout…" : (label ?? `Get ${PACKAGE_LABEL[pkg]}`)}
+        {busy ? "Opening checkout…" : (label ?? `Buy ${describeGrant(grantFor(order))} — $${orderPrice(order).toLocaleString("en-NZ")}`)}
         {busy ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />}
       </button>
       {error && (

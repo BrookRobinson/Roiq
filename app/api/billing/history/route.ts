@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import type { PurchaseSummary } from "@/lib/billing/plans";
-import { daysRemaining, normalisePackage } from "@/lib/billing/plans";
+import { daysRemaining, planLabel } from "@/lib/billing/plans";
 import { entitlementsFor } from "@/lib/billing/entitlements";
 import { getQuota } from "@/lib/reports/quota";
 import { readOwnerKey } from "@/lib/reports/owner";
@@ -42,7 +42,7 @@ export async function GET() {
 
   const purchases: PurchaseSummary[] = (data ?? []).map((row) => ({
     id: row.id,
-    pkg: normalisePackage(row.plan) ?? "bronze",
+    label: planLabel(row.plan),
     reports: row.reports_granted ?? 0,
     map: !!row.includes_map,
     inspections: row.inspections_granted ?? 0,

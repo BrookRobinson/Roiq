@@ -4,180 +4,133 @@
 // Pure and import-safe from client components — no Stripe SDK, no env secrets,
 // no database. The server turns these into Stripe line items in ./stripe.ts.
 //
-// Three packages, because there are only three things a buyer actually wants
-// more of: reports, the map, and a person on site.
+// Two things are sold, and a checkout can carry either or both:
 //
-//   Bronze   choose how many reports; the price per report falls as it rises
-//   Silver   50 reports AND the map
-//   Gold     75 reports, the map, and a building inspector on the property
+//   Reports   $29 for one, falling to $10 each at 20. Credits never expire.
+//   The map   $249 for 12 months — every analysed property, the Best deals
+//             list, and every report on the map, not just your own.
 //
-// The map is never sold on its own, deliberately. Every coloured pin is a
-// report somebody ran, so a map bought without reports is a map that never
-// fills — the buyer gets less than they paid for and so does everybody after
-// them. Bundling it with 50 reports is the flywheel, not a packaging trick.
+// (Bronze / Silver / Gold were retired 2026-09-29. Purchases made under them
+// keep exactly what they granted — each row stores its own grant — and still
+// display under their old names; see LEGACY_PLAN_LABEL.)
 // ============================================================
 
-export type Package = "bronze" | "silver" | "gold";
+/** Map access lasts this many days. Nothing auto-renews. */
+export const MAP_DAYS = 365;
 
-export const PACKAGES: Package[] = ["bronze", "silver", "gold"];
+/** "12 months" — how the map's length is said everywhere. */
+export const MAP_TERM = "12 months";
 
-export const PACKAGE_LABEL: Record<Package, string> = {
-  bronze: "Bronze",
-  silver: "Silver",
-  gold: "Gold",
-};
-
-export const PACKAGE_TAGLINE: Record<Package, string> = {
-  bronze: "Pay for the houses you're actually looking at",
-  silver: "The whole country on a map, and the reports to fill it",
-  gold: "Everything, and an inspector on the one you choose",
-};
-
-export const PACKAGE_COLOUR: Record<Package, string> = {
-  bronze: "#9A7B4F",
-  silver: "#8A96A6",
-  gold: "#C9A227",
-};
-
-/** Map access lasts this many days. Nothing auto-renews — see the migration. */
-export const MAP_DAYS = 30;
-
-// ── What a report costs, and why it gets cheaper ─────────────────────────────
+// ── Reports ──────────────────────────────────────────────────────────────────
 //
 // A report costs roughly NZ$1.45 to produce (the Claude vision pass plus the
-// market lookups, measured September 2026). The curve below is a volume
-// discount on top of that, not a margin cliff — every quantity clears the cost
-// several times over, and the top of it still leaves more than the bottom of a
-// single sale.
-//
-// A buyer looking at one house is not price-sensitive and buys once; somebody
-// working through forty listings is, and comes back. Charging them the same
-// per report would lose the second one.
+// market lookups, measured September 2026). Every price below clears that many
+// times over; the fall from $29 to $10 each is a volume discount for somebody
+// working through a shortlist, who comes back, rather than a buyer looking at
+// one house, who doesn't.
 
 /** The quantities offered. A dropdown, not a free-text box: the prices are a
  *  table, and a table can be checked. */
-export const REPORT_QUANTITIES = [1, 3, 5, 10, 25, 50, 100] as const;
+export const REPORT_QUANTITIES = [1, 3, 5, 10, 20] as const;
 export type ReportQuantity = (typeof REPORT_QUANTITIES)[number];
 
-/** Whole NZD for that many reports. */
+/** Whole NZD for that many reports: $29, $23, $19, $15, then $10 each. */
 export const REPORT_PRICE_NZD: Record<ReportQuantity, number> = {
-  1: 19,
-  3: 29,
-  5: 39,
-  10: 59,
-  25: 99,
-  50: 149,
-  100: 229,
+  1: 29,
+  3: 69,
+  5: 95,
+  10: 150,
+  20: 200,
 };
 
 export const isReportQuantity = (v: unknown): v is ReportQuantity =>
   typeof v === "number" && (REPORT_QUANTITIES as readonly number[]).includes(v);
 
-/** "$2.98" — what one report works out at, for the dropdown to show. */
+/** "23" — what one report works out at, for the dropdown to show. */
 export function perReport(n: ReportQuantity): string {
-  return (REPORT_PRICE_NZD[n] / n).toFixed(2);
+  const each = REPORT_PRICE_NZD[n] / n;
+  return Number.isInteger(each) ? String(each) : each.toFixed(2);
 }
 
-/**
- * What `n` reports would cost on the Bronze curve.
- *
- * The table above is not a set of arbitrary prices — it sits on `15.7·n^0.576`,
- * to within a dollar at every listed quantity, and this reproduces it. It
- * exists for the quantities that are NOT on sale: Gold grants 75, which nobody
- * can buy directly, and its card has to be able to say what those 75 are worth
- * without quoting the price of 50 and hoping nobody checks. That exact mistake
- * made Gold cost a dollar more than its own parts.
- */
-export function reportsValue(n: number): number {
-  return Math.round(15.7 * Math.pow(n, 0.576));
+// ── The map ──────────────────────────────────────────────────────────────────
+
+/** The map, for MAP_DAYS. Bought on its own or added to a report purchase. */
+export const MAP_PRICE_NZD = 249;
+
+// ── An order: reports, the map, or both ──────────────────────────────────────
+
+export interface Order {
+  /** How many reports, or 0 for none. */
+  reports: 0 | ReportQuantity;
+  /** Add the map. */
+  map: boolean;
 }
 
-/**
- * What the map is worth on its own.
- *
- * Not a price anyone can pay — it is never sold separately, for the reason at
- * the top of this file. It exists so Silver and Gold can show their working:
- * Silver is 50 reports at $149 plus this, to the dollar.
- */
-export const MAP_VALUE_NZD = 250;
+export const isOrder = (v: unknown): v is Order => {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Partial<Order>;
+  const reportsOk = o.reports === 0 || isReportQuantity(o.reports);
+  return reportsOk && typeof o.map === "boolean" && (o.reports !== 0 || o.map === true);
+};
 
-/** The building inspection's share of Gold, for the same reason. */
-export const INSPECTION_VALUE_NZD = 899;
-
-// ── The packages ─────────────────────────────────────────────────────────────
+/** What an order costs, in whole NZD. */
+export function orderPrice(o: Order): number {
+  return (o.reports ? REPORT_PRICE_NZD[o.reports] : 0) + (o.map ? MAP_PRICE_NZD : 0);
+}
 
 export interface Grant {
   /** Report credits. */
   reports: number;
   /** Does this purchase carry map access? */
   map: boolean;
-  /** Inspections owed. One per purchase, never one a month — see below. */
+  /** Inspections owed. Nothing sells one now; kept for purchases that did. */
   inspections: number;
 }
 
-/** What Silver and Gold grant. Bronze's report count is chosen at checkout. */
-export const PACKAGE_GRANT: Record<Exclude<Package, "bronze">, Grant> = {
-  silver: { reports: 50, map: true, inspections: 0 },
-  gold: { reports: 75, map: true, inspections: 1 },
-};
-
-export const PACKAGE_PRICE_NZD: Record<Exclude<Package, "bronze">, number> = {
-  // 50 reports ($149) + the map ($250), to the dollar. Nothing hidden in it.
-  silver: 399,
-  // 75 reports ($189 on the curve) + the map ($250) + an inspection ($899) is
-  // $1,338 bought separately. The $39 is a real bundle discount, and the round
-  // number is worth more than the $39.
-  gold: 1299,
-};
-
-/** What a purchase of `pkg` grants, with Bronze's chosen quantity. */
-export function grantFor(pkg: Package, quantity?: ReportQuantity): Grant {
-  if (pkg === "bronze") {
-    return { reports: quantity ?? 1, map: false, inspections: 0 };
-  }
-  return PACKAGE_GRANT[pkg];
+/** What an order grants. */
+export function grantFor(o: Order): Grant {
+  return { reports: o.reports, map: o.map, inspections: 0 };
 }
 
-/** What a purchase of `pkg` costs, in whole NZD. */
-export function priceFor(pkg: Package, quantity?: ReportQuantity): number {
-  if (pkg === "bronze") return REPORT_PRICE_NZD[quantity ?? 1];
-  return PACKAGE_PRICE_NZD[pkg];
-}
-
-/** "50 reports and the map" — one phrasing, wherever a purchase is named. */
+/** "10 reports and the map" — one phrasing, wherever a purchase is named. */
 export function describeGrant(g: Grant): string {
-  const bits = [`${g.reports} ${g.reports === 1 ? "report" : "reports"}`];
-  if (g.map) bits.push("the map");
+  const bits: string[] = [];
+  if (g.reports > 0) bits.push(`${g.reports} ${g.reports === 1 ? "report" : "reports"}`);
+  if (g.map) bits.push(`the map for ${MAP_TERM}`);
   if (g.inspections > 0) {
     bits.push(g.inspections === 1 ? "a building inspection" : `${g.inspections} building inspections`);
   }
+  if (bits.length === 0) return "nothing";
   if (bits.length === 1) return bits[0];
   return `${bits.slice(0, -1).join(", ")} and ${bits[bits.length - 1]}`;
 }
 
-export const isPackage = (v: unknown): v is Package =>
-  typeof v === "string" && (PACKAGES as string[]).includes(v);
+/** What goes in `purchases.plan` / `users.plan`: "reports-10", "map", "reports-10+map". */
+export function planKey(o: Order): string {
+  return [o.reports ? `reports-${o.reports}` : null, o.map ? "map" : null].filter(Boolean).join("+");
+}
 
-/**
- * Package names that were sold before this structure, and what they map to.
- *
- * The metals were a six-rung ladder; before that, Starter and Pro. A row still
- * carrying one of those names was paid for, so it has to keep resolving to
- * something — and to something that keeps what it was SOLD. Anything that had
- * the map keeps the map.
- */
-const LEGACY_PACKAGES: Record<string, Package> = {
-  starter: "bronze",
-  copper: "bronze",
-  pro: "silver",
-  platinum: "silver",
-  diamond: "gold",
+/** The package names sold before this structure. Their rows keep their grants. */
+const LEGACY_PLAN_LABEL: Record<string, string> = {
+  bronze: "Bronze",
+  silver: "Silver",
+  gold: "Gold",
+  starter: "Starter",
+  copper: "Copper",
+  pro: "Pro",
+  platinum: "Platinum",
+  diamond: "Diamond",
 };
 
-export function normalisePackage(stored: string | null | undefined): Package | null {
-  if (!stored) return null;
-  if (isPackage(stored)) return stored;
-  return LEGACY_PACKAGES[stored] ?? null;
+/** A stored plan, said the way the account page should say it. */
+export function planLabel(stored: string | null | undefined): string {
+  if (!stored) return "Purchase";
+  if (LEGACY_PLAN_LABEL[stored]) return LEGACY_PLAN_LABEL[stored];
+  const m = /^(?:reports-(\d+))?(?:\+?(map))?$/.exec(stored);
+  if (!m) return stored;
+  const reports = m[1] ? Number(m[1]) : 0;
+  const parts = [reports ? `${reports} ${reports === 1 ? "report" : "reports"}` : null, m[2] ? "Map" : null].filter(Boolean);
+  return parts.join(" + ") || stored;
 }
 
 // ── What somebody actually has right now ─────────────────────────────────────
@@ -305,35 +258,22 @@ export const FEATURE_NEEDS: Record<Feature, "paid" | "map"> = {
 export const includes = (ent: Entitlements, feature: Feature): boolean =>
   FEATURE_NEEDS[feature] === "map" ? ent.map : ent.paid;
 
-/** Every feature a package carries, in list order. */
-export function featuresOf(pkg: Package): Feature[] {
-  const g = grantFor(pkg, 1);
-  const ent: Entitlements = { ...NO_ENTITLEMENTS, paid: true, map: g.map };
-  return (Object.keys(FEATURE_NEEDS) as Feature[]).filter((f) => includes(ent, f));
+/**
+ * The cheapest thing that opens `feature`, for "comes with…" copy and the
+ * upgrade message at a wall. Anything in a report comes with any report
+ * purchase; the map and other people's reports come with the map.
+ */
+export function unlockFor(feature: Feature): { label: string; price: number; order: Order } {
+  return FEATURE_NEEDS[feature] === "map"
+    ? { label: "the map", price: MAP_PRICE_NZD, order: { reports: 0, map: true } }
+    : { label: "any report", price: REPORT_PRICE_NZD[1], order: { reports: 1, map: false } };
 }
 
-/** The cheapest package carrying `feature`, for "included from X" copy. */
-export function packageFor(feature: Feature): Package {
-  return PACKAGES.find((p) => featuresOf(p).includes(feature)) ?? "gold";
+/** "any report, from $29" / "the map — $249 for 12 months": one phrasing at every wall. */
+export function unlockPhrase(feature: Feature): string {
+  const u = unlockFor(feature);
+  return u.order.map ? `the map — $${u.price} for ${MAP_TERM}` : `any report, from $${u.price}`;
 }
-
-// ── The Gold inspection ──────────────────────────────────────────────────────
-//
-// Unlike everything else here, this one isn't code — it's a person driving to a
-// house. A purchase that owes somebody a visit and nothing to flag it is a
-// customer left waiting, so it is counted per purchase and stated plainly at
-// checkout.
-
-export const INSPECTIONS_PER_PURCHASE = 1;
-
-export const INSPECTION_TERMS =
-  "One pre-purchase inspection by a qualified New Zealand building inspector, on one property, " +
-  "booked after purchase. Outside a serviced region we quote the travel before booking.";
-
-/** Packages that owe a human something once the payment clears. */
-export const NEEDS_FULFILMENT: Partial<Record<Package, string>> = {
-  gold: INSPECTION_TERMS,
-};
 
 // ── Quota ────────────────────────────────────────────────────────────────────
 
@@ -362,9 +302,9 @@ export function quotaFrom(granted: number, used: number, paid: boolean): QuotaSt
  */
 export function quotaExhaustedMessage(q: QuotaState): string {
   if (!q.paid) {
-    return `You've used your free report. ${REPORT_QUANTITIES[0]} more is $${REPORT_PRICE_NZD[1]}, including the full valuation — or ${REPORT_QUANTITIES[3]} for $${REPORT_PRICE_NZD[10]}.`;
+    return `You've used your free report. One more is $${REPORT_PRICE_NZD[1]}, including the full valuation — or 20 for $${REPORT_PRICE_NZD[20]}, $10 each.`;
   }
-  return `You've used all ${q.granted} of your reports. Credits don't expire, so buying more adds to the account rather than replacing anything — ${REPORT_QUANTITIES[3]} is $${REPORT_PRICE_NZD[10]}, ${REPORT_QUANTITIES[5]} is $${REPORT_PRICE_NZD[50]}.`;
+  return `You've used all ${q.granted} of your reports. Credits don't expire, so buying more adds to the account — 10 are $${REPORT_PRICE_NZD[10]}, 20 are $${REPORT_PRICE_NZD[20]}.`;
 }
 
 // ── Display helpers ──────────────────────────────────────────────────────────
@@ -395,7 +335,8 @@ export function formatAmount(cents: number | null, currency = "nzd"): string {
  */
 export interface PurchaseSummary {
   id: string;
-  pkg: Package;
+  /** What was bought, as the account page says it — "10 reports + Map", or a legacy name. */
+  label: string;
   reports: number;
   map: boolean;
   inspections: number;

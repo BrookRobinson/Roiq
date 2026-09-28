@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 
 import {
-  isPackage,
   mapAccessUntil,
   MAP_DAYS,
-  type Package,
 } from "@/lib/billing/plans";
 import { getStripe } from "@/lib/billing/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -114,8 +112,8 @@ async function grantFromSession(stripe: Stripe, session: Stripe.Checkout.Session
     .single();
 
   const now = new Date();
-  // Only a purchase carrying the map moves the map clock. A Bronze bought
-  // mid-month must not quietly extend map access nobody paid for again.
+  // Only a purchase carrying the map moves the map clock. Reports bought
+  // mid-year must not quietly extend map access nobody paid for again.
   const until = grant.map
     ? mapAccessUntil(profile?.plan_expires_at ?? null, now)
     : new Date(profile?.plan_expires_at ?? now);
@@ -133,7 +131,7 @@ async function grantFromSession(stripe: Stripe, session: Stripe.Checkout.Session
     stripe_session_id: session.id,
     stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
     stripe_customer_id: typeof session.customer === "string" ? session.customer : null,
-    plan: grant.pkg,
+    plan: grant.plan,
     reports_granted: grant.reports,
     includes_map: grant.map,
     inspections_granted: grant.inspections,
@@ -151,16 +149,16 @@ async function grantFromSession(stripe: Stripe, session: Stripe.Checkout.Session
   }
 
   // `users.plan` is a record of what was last bought and nothing reads it for
-  // access — kept so the account page can say "you bought Gold" without a join.
+  // access — kept so the account page can say what was last bought without a join.
   const { error: updateError } = await admin
     .from("users")
-    .update({ plan: grant.pkg, plan_expires_at: until.toISOString() } as never)
+    .update({ plan: grant.plan, plan_expires_at: until.toISOString() } as never)
     .eq("id", userId);
 
   if (updateError) throw new Error(`Recording what was bought failed: ${updateError.message}`);
 
   return {
-    granted: grant.pkg,
+    granted: grant.plan,
     reports: grant.reports,
     map: grant.map,
     inspections: grant.inspections,
@@ -170,7 +168,8 @@ async function grantFromSession(stripe: Stripe, session: Stripe.Checkout.Session
 }
 
 interface GrantedPurchase {
-  pkg: Package;
+  /** planKey() of the order — "reports-10+map" — or a legacy package name. */
+  plan: string;
   reports: number;
   map: boolean;
   inspections: number;
@@ -185,8 +184,9 @@ interface GrantedPurchase {
  * customer would be told they had no credits with a receipt in their hand.
  */
 function grantFromMetadata(session: Stripe.Checkout.Session): GrantedPurchase | null {
-  const pkg = session.metadata?.pkg;
-  if (!isPackage(pkg)) return null;
+  // `plan` since 2026-09-29; `pkg` on sessions opened before that.
+  const plan = session.metadata?.plan ?? session.metadata?.pkg;
+  if (!plan || typeof plan !== "string") return null;
 
   const reports = Number(session.metadata?.reports);
   if (!Number.isInteger(reports) || reports < 0) return null;
@@ -194,7 +194,10 @@ function grantFromMetadata(session: Stripe.Checkout.Session): GrantedPurchase | 
   const inspections = Number(session.metadata?.inspections ?? 0);
   if (!Number.isInteger(inspections) || inspections < 0) return null;
 
-  return { pkg, reports, map: session.metadata?.map === "1", inspections };
+  const map = session.metadata?.map === "1";
+  // A purchase that grants nothing is not a purchase we can honour.
+  if (reports === 0 && !map && inspections === 0) return null;
+  return { plan, reports, map, inspections };
 }
 
 /**

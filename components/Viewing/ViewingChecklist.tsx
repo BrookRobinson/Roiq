@@ -12,7 +12,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Ban, CalendarDays, Camera, Check, CircleAlert, HardHat, Unlock, X } from "lucide-react";
-import { PACKAGE_LABEL } from "@/lib/billing/plans";
 
 import {
   ANSWER_LABEL,
@@ -250,8 +249,7 @@ export function ViewingChecklist({
             </div>
             <p className="mt-2 text-[13px]" style={{ color: "var(--text-muted)" }}>
               Haven&rsquo;t had one done? A pre-purchase inspection is normally $400&ndash;$900 and a
-              few days&rsquo; notice. On {PACKAGE_LABEL.gold} we send the inspector and load their
-              report for you.
+              few days&rsquo; notice. Upload it here when you have it and the report reads it in.
             </p>
           </>
         )}

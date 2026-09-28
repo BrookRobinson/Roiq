@@ -7,15 +7,7 @@
 // the flag. See lib/auth/dev-owner.ts.
 
 import Link from "next/link";
-import {
-  describeGrant,
-  grantFor,
-  isReportQuantity,
-  normalisePackage,
-  PACKAGE_COLOUR,
-  PACKAGE_LABEL,
-  priceFor,
-} from "@/lib/billing/plans";
+import { describeGrant, grantFor, isOrder, orderPrice, planKey, type Order } from "@/lib/billing/plans";
 import { useState, Suspense } from "react";
 import { Eye, EyeOff, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -34,10 +26,8 @@ function SignupForm() {
   }, [ownerMode, router]);
 
   const searchParams = useSearchParams();
-  // `plan` is the old name for this parameter and links to it are still in the
-  // wild; both are read so an old bookmark doesn't lose somebody's choice.
-  const pkgParam = searchParams.get("pkg") ?? searchParams.get("plan");
-  const qtyParam = Number(searchParams.get("quantity"));
+  // What they were about to buy, from the buy button: ?reports=10&map=1.
+  const wanted = { reports: Number(searchParams.get("reports") ?? 0), map: searchParams.get("map") === "1" };
   // Where to land afterwards. Someone who came here from a buy button is midway
   // through buying — dumping them on the dashboard loses the purchase.
   const next = searchParams.get("next") || "/dashboard";
@@ -49,17 +39,18 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Built from the package table rather than listed here, so a renamed or
-  // repriced package can't leave a stale chip on the signup form.
-  const chosen = normalisePackage(pkgParam);
-  const quantity = isReportQuantity(qtyParam) ? qtyParam : undefined;
+  // Built from the price table rather than listed here, so a repriced order
+  // can't leave a stale chip on the signup form. Anything that isn't one of
+  // our orders (an old ?pkg=silver link) simply shows no chip.
+  const chosen: Order | null = isOrder(wanted) ? wanted : null;
   const planInfo = chosen
     ? {
-        name: PACKAGE_LABEL[chosen],
-        price: `$${priceFor(chosen, quantity).toLocaleString("en-NZ")} — ${describeGrant(
-          grantFor(chosen, quantity)
-        )}`,
-        color: PACKAGE_COLOUR[chosen],
+        name: (() => {
+          const d = describeGrant(grantFor(chosen));
+          return d.charAt(0).toUpperCase() + d.slice(1);
+        })(),
+        price: `$${orderPrice(chosen).toLocaleString("en-NZ")}`,
+        color: "var(--brand)",
       }
     : null;
 
@@ -74,7 +65,7 @@ function SignupForm() {
       password,
       options: {
         emailRedirectTo: `${location.origin}/auth/callback`,
-        data: { plan: chosen ?? "free" },
+        data: { plan: chosen ? planKey(chosen) : "free" },
       },
     });
 
@@ -158,7 +149,7 @@ function SignupForm() {
               </span>
               <span
                 className="text-sm font-semibold px-3 py-0.5 rounded-full"
-                style={{ background: `${planInfo.color}18`, color: planInfo.color }}
+                style={{ background: "var(--accent-wash)", color: planInfo.color }}
               >
                 {planInfo.name} — {planInfo.price}
               </span>

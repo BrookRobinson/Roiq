@@ -9,13 +9,7 @@
 
 import { NextResponse } from "next/server";
 
-import {
-  FEATURE_LABEL,
-  PACKAGE_LABEL,
-  packageFor,
-  priceFor,
-  type Feature,
-} from "@/lib/billing/plans";
+import { FEATURE_LABEL, unlockFor, unlockPhrase, type Feature } from "@/lib/billing/plans";
 import { hasFeature } from "@/lib/supabase/auth";
 
 /**
@@ -29,15 +23,14 @@ export async function featureGate(feature: Feature): Promise<NextResponse | null
   const allowed = await hasFeature(feature).catch(() => false);
   if (allowed) return null;
 
-  const needs = packageFor(feature);
-  const price = priceFor(needs, 1);
+  const needs = unlockFor(feature);
   return NextResponse.json(
     {
       ok: false,
       error: "upgrade_required",
       feature,
-      needs,
-      message: `${FEATURE_LABEL[feature]} comes with ${PACKAGE_LABEL[needs]}, from $${price.toLocaleString("en-NZ")}.`,
+      needs: needs.order,
+      message: `${FEATURE_LABEL[feature]} comes with ${unlockPhrase(feature)}.`,
     },
     { status: 402 }
   );

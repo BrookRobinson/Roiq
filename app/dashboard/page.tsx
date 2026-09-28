@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MAP_DAYS, PACKAGE_LABEL, packageFor, priceFor, REPORT_PRICE_NZD } from "@/lib/billing/plans";
+import { MAP_PRICE_NZD, MAP_TERM, REPORT_PRICE_NZD } from "@/lib/billing/plans";
 import { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import {
@@ -320,9 +320,8 @@ export default function DashboardPage() {
             More reports, and the NZ investment map
           </h3>
           <p className="text-[var(--text-secondary)] text-sm mb-4">
-            Reports from ${REPORT_PRICE_NZD[1]}, and they never expire — ten for $
-            {REPORT_PRICE_NZD[10]}. {PACKAGE_LABEL[packageFor("map")]} adds the map for {MAP_DAYS}{" "}
-            days at ${priceFor(packageFor("map")).toLocaleString("en-NZ")}.
+            Reports are ${REPORT_PRICE_NZD[1]}, down to $10 each for 20, and they never expire. Add the
+            map for ${MAP_PRICE_NZD} — {MAP_TERM} of every analysed property.
           </p>
           <Link
             href="/pricing"

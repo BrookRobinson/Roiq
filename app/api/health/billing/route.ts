@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  describeGrant,
-  grantFor,
-  PACKAGE_LABEL,
-  PACKAGES,
-  priceFor,
-  REPORT_PRICE_NZD,
-  REPORT_QUANTITIES,
-} from "@/lib/billing/plans";
+import { MAP_PRICE_NZD, MAP_TERM, REPORT_PRICE_NZD, REPORT_QUANTITIES } from "@/lib/billing/plans";
 import { hasWebhookSecret, isBillingConfigured, stripeMode } from "@/lib/billing/stripe";
 import { hasAdminClient } from "@/lib/supabase/admin";
 
@@ -35,25 +27,14 @@ export async function GET() {
   // customer can pay in full and get nothing, which is the worst failure here.
   const canGrant = hasAdminClient();
 
-  const catalogue = PACKAGES.map((pkg) => {
-    if (pkg === "bronze") {
-      return {
-        pkg,
-        label: PACKAGE_LABEL[pkg],
-        prices: REPORT_QUANTITIES.map((n) => ({
-          reports: n,
-          price: REPORT_PRICE_NZD[n],
-          each: +(REPORT_PRICE_NZD[n] / n).toFixed(2),
-        })),
-      };
-    }
-    return {
-      pkg,
-      label: PACKAGE_LABEL[pkg],
-      price: priceFor(pkg),
-      grants: describeGrant(grantFor(pkg)),
-    };
-  });
+  const catalogue = {
+    reports: REPORT_QUANTITIES.map((n) => ({
+      reports: n,
+      price: REPORT_PRICE_NZD[n],
+      each: +(REPORT_PRICE_NZD[n] / n).toFixed(2),
+    })),
+    map: { price: MAP_PRICE_NZD, lasts: MAP_TERM, soldAlone: true, addOn: true },
+  };
 
   const summary = !canGrant
     ? "SUPABASE_SERVICE_ROLE_KEY is missing — payments would succeed and nothing would be granted. Fix this before taking money."

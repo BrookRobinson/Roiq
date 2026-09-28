@@ -11,12 +11,10 @@ import BuyPlanButton from "@/components/billing/BuyPlanButton";
 import PurchaseRow from "@/components/billing/PurchaseRow";
 import {
   formatAccessDate,
-  MAP_DAYS,
-  PACKAGE_LABEL,
-  packageFor,
-  priceFor,
   REPORT_PRICE_NZD,
   type PurchaseSummary,
+  MAP_PRICE_NZD,
+  MAP_TERM,
 } from "@/lib/billing/plans";
 
 export default function AccountPage() {
@@ -221,26 +219,19 @@ function PlanTabInner() {
             note={
               entitlements.map && entitlements.mapUntil
                 ? `Until ${formatAccessDate(entitlements.mapUntil)}`
-                : `${PACKAGE_LABEL[packageFor("map")]} includes it`
+                : `$${MAP_PRICE_NZD} for ${MAP_TERM}`
             }
             good={entitlements.map}
           />
-          <Holding
-            label="Inspection"
-            value={
-              sessionLoading
-                ? "…"
-                : entitlements.inspections > 0
-                  ? `${entitlements.inspections} owed`
-                  : "None booked"
-            }
-            note={
-              entitlements.inspections > 0
-                ? "We'll be in touch to book it"
-                : `${PACKAGE_LABEL.gold} includes one`
-            }
-            good={entitlements.inspections > 0}
-          />
+          {/* Only for purchases that included one — nothing sells an inspection now. */}
+          {entitlements.inspections > 0 && (
+            <Holding
+              label="Inspection"
+              value={sessionLoading ? "…" : `${entitlements.inspections} owed`}
+              note="We'll be in touch to book it"
+              good
+            />
+          )}
         </div>
 
         {!sessionLoading && creditsLeft === 0 && (
@@ -252,12 +243,10 @@ function PlanTabInner() {
               You&rsquo;re out of reports
             </div>
             Credits don&rsquo;t expire, so buying more adds to the account rather than replacing
-            anything — 10 for ${REPORT_PRICE_NZD[10]}, or {PACKAGE_LABEL.silver} at $
-            {priceFor("silver").toLocaleString("en-NZ")} for 50 and the map for {MAP_DAYS} days.
+            anything — 10 for ${REPORT_PRICE_NZD[10]}, or 20 for ${REPORT_PRICE_NZD[20]} ($10 each).
             <div className="mt-3">
               <BuyPlanButton
-                pkg="bronze"
-                quantity={10}
+                order={{ reports: 10, map: false }}
                 label={`Get 10 more — $${REPORT_PRICE_NZD[10]}`}
                 className="btn-secondary text-sm gap-1.5"
                 returnTo="/account"
@@ -275,11 +264,11 @@ function PlanTabInner() {
               Add the map
             </div>
             Every property for sale in New Zealand, and the full report on the ones somebody has
-            analysed. {PACKAGE_LABEL.silver} is 50 more reports and {MAP_DAYS} days of it.
+            analysed — ${MAP_PRICE_NZD} for {MAP_TERM}.
             <div className="mt-3">
               <BuyPlanButton
-                pkg="silver"
-                label={`Get ${PACKAGE_LABEL.silver} — $${priceFor("silver").toLocaleString("en-NZ")}`}
+                order={{ reports: 0, map: true }}
+                label={`Add the map — $${MAP_PRICE_NZD}`}
                 className="btn-secondary text-sm gap-1.5"
                 returnTo="/account"
               />

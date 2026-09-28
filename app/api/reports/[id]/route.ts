@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readOwnerKey } from "@/lib/reports/owner";
 import { deleteReport, loadReport, loadReportForPro } from "@/lib/reports/store";
 import { getUser, getEntitlements } from "@/lib/supabase/auth";
-import { includes, PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
+import { includes, MAP_PRICE_NZD, MAP_TERM } from "@/lib/billing/plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,13 +37,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (authUser && !allowed) {
     const exists = await loadReportForPro(params.id);
     if (exists) {
-      const needs = packageFor("mapReports");
       return NextResponse.json(
         {
           ok: false,
           error: "upgrade_required",
-          needs,
-          message: `${PACKAGE_LABEL[needs]} — $${priceFor(needs).toLocaleString("en-NZ")} — opens every report on the map.`,
+          needs: "map",
+          message: `The map — $${MAP_PRICE_NZD} for ${MAP_TERM} — opens every report on the map.`,
         },
         { status: 402 }
       );

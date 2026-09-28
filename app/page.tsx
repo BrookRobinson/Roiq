@@ -7,19 +7,17 @@ import { LiveMapSection } from "@/components/landing/LiveMapSection";
 import { WhatsInside } from "@/components/landing/WhatsInside";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Wordmark } from "@/components/ui/Wordmark";
-import { ArrowRight, Check, Minus } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { PRODUCT_NAME } from "@/lib/brand";
 import {
   FEATURE_LABEL,
   FEATURE_NEEDS,
-  featuresOf,
-  grantFor,
-  PACKAGE_LABEL,
-  PACKAGES,
-  priceFor,
+  MAP_PRICE_NZD,
+  MAP_TERM,
+  perReport,
   REPORT_PRICE_NZD,
+  REPORT_QUANTITIES,
   type Feature,
-  type Package,
 } from "@/lib/billing/plans";
 
 /**
@@ -147,135 +145,88 @@ function Valuation() {
   );
 }
 
-/* ── Pricing ────────────────────────────────────────────────────────────
-   A ruled comparison table rather than three identical cards.               */
+/* ── Pricing ─────────────────────────────────────────────────────────────
+   Two things: reports, and the map. Prices come from lib/billing/plans.ts.  */
 function Pricing() {
-  // All three, because there are only three. The rows come from the feature map
-  // in lib/billing/plans.ts, like the pricing page's — the hand-written version
-  // of this table sold "Batch and compare", which was never built.
-  //
-  // Bronze is shown at 10 reports, which is what the dropdown opens on. Its
-  // price moves; the ticks don't.
-  const shown: Package[] = [...PACKAGES];
-  const plans = shown.map((pkg) => ({
-    pkg,
-    name: PACKAGE_LABEL[pkg],
-    price:
-      pkg === "bronze"
-        ? `from $${REPORT_PRICE_NZD[1]}`
-        : `$${priceFor(pkg).toLocaleString("en-NZ")}`,
-    reports: grantFor(pkg, 10).reports,
-    href: "/pricing",
-    cta: `Get ${PACKAGE_LABEL[pkg]}`,
-  }));
-
-  const features: { label: string; has: boolean[] }[] = [
-    ...(Object.keys(FEATURE_NEEDS) as Feature[]).map((f) => ({
-      label: FEATURE_LABEL[f],
-      has: shown.map((p) => featuresOf(p).includes(f)),
-    })),
-    {
-      label: "In-person building inspection",
-      has: shown.map((p) => grantFor(p, 10).inspections > 0),
-    },
-  ];
+  const reportFeatures = (Object.keys(FEATURE_NEEDS) as Feature[]).filter((f) => FEATURE_NEEDS[f] === "paid");
+  const mapFeatures = (Object.keys(FEATURE_NEEDS) as Feature[]).filter((f) => FEATURE_NEEDS[f] === "map");
 
   return (
     <section id="pricing" className="border-b py-24 lg:py-28" style={{ borderColor: "var(--rule)" }}>
       <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
         <Reveal>
           <h2 className="section-heading max-w-[14ch]">Simple, honest pricing</h2>
-          <p
-            className="mt-1 text-[15px] font-semibold"
-            style={{ color: "var(--accent-text)" }}
-          >
+          <p className="mt-1 text-[15px] font-semibold" style={{ color: "var(--accent-text)" }}>
             One-off payments. No subscription, nothing auto-renews.
           </p>
           <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
-            Reports never expire. Map access runs 30 days.{" "}
-            <Link href="/pricing" className="font-semibold hover:underline" style={{ color: "var(--accent-text)" }}>
-              See the full breakdown →
-            </Link>
+            Your first report is free. Reports never expire.
           </p>
         </Reveal>
 
-        <Reveal delay={0.1}>
-          <div className="mt-12 overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-left">
-              <thead>
-                <tr>
-                  <th className="w-[34%] border-b py-5 pr-4 align-bottom" style={{ borderColor: "var(--border)" }}>
-                    <span
-                      className="text-[12px] font-semibold uppercase tracking-[0.07em]"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      Plan
-                    </span>
-                  </th>
-                  {plans.map((p) => (
-                    <th
-                      key={p.name}
-                      className="border-b py-5 pl-4 align-bottom"
-                      style={{ borderColor: "var(--border)" }}
-                    >
-                      <div
-                        className="text-[15px] font-semibold"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {p.name}
-                      </div>
-                      <div
-                        className="mono mt-1 text-[26px] font-medium leading-none"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {p.price}
-                      </div>
-                      <div className="mt-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
-                        {p.pkg === "bronze"
-                          ? "As many reports as you want"
-                          : `${p.reports} reports`}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {features.map((f) => (
-                  <tr key={f.label}>
-                    <td
-                      className="border-b py-3.5 pr-4 text-sm"
-                      style={{ borderColor: "var(--border-subtle)", color: "var(--text-secondary)" }}
-                    >
-                      {f.label}
-                    </td>
-                    {f.has.map((on, i) => (
-                      <td
-                        key={i}
-                        className="border-b py-3.5 pl-4"
-                        style={{ borderColor: "var(--border-subtle)" }}
-                      >
-                        {on ? (
-                          <Check size={16} style={{ color: "var(--good)" }} aria-label="Included" />
-                        ) : (
-                          <Minus size={16} style={{ color: "var(--ink-3)" }} aria-label="Not included" />
-                        )}
+        <div className="mt-12 grid gap-4 lg:grid-cols-2">
+          <Reveal as="article">
+            <div className="card h-full p-7">
+              <h3 className="text-[19px] font-semibold" style={{ color: "var(--text-primary)" }}>Reports</h3>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                ${REPORT_PRICE_NZD[1]} for one, down to $10 each when you buy 20.
+              </p>
+              <table className="mt-5 w-full text-sm">
+                <tbody>
+                  {REPORT_QUANTITIES.map((n) => (
+                    <tr key={n} className="border-b last:border-b-0" style={{ borderColor: "var(--border-subtle)" }}>
+                      <td className="py-2.5" style={{ color: "var(--text-primary)" }}>
+                        {n} {n === 1 ? "report" : "reports"}
                       </td>
-                    ))}
-                  </tr>
-                ))}
-                <tr>
-                  <td />
-                  {plans.map((p) => (
-                    <td key={p.name} className="py-6 pl-4">
-                      <Link href={p.href} className="btn-primary w-full px-4 py-3 text-sm">
-                        {p.cta}
-                      </Link>
-                    </td>
+                      <td className="py-2.5 text-right mono" style={{ color: "var(--text-muted)" }}>
+                        {n > 1 ? `$${perReport(n)} each` : ""}
+                      </td>
+                      <td className="py-2.5 pl-4 text-right mono font-semibold" style={{ color: "var(--text-primary)" }}>
+                        ${REPORT_PRICE_NZD[n]}
+                      </td>
+                    </tr>
                   ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+              <ul className="mt-5 space-y-2">
+                {reportFeatures.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                    <Check size={15} style={{ color: "var(--good)", flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+                    {FEATURE_LABEL[f]}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.08} as="article">
+            <div className="card h-full p-7">
+              <h3 className="text-[19px] font-semibold" style={{ color: "var(--text-primary)" }}>Add the map</h3>
+              <div className="mt-2">
+                <span className="mono text-[28px] font-semibold" style={{ color: "var(--text-primary)" }}>${MAP_PRICE_NZD}</span>
+                <span className="ml-1.5 text-sm" style={{ color: "var(--text-muted)" }}>for {MAP_TERM}</span>
+              </div>
+              <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                Every analysed property, the best deals ranked on your numbers, and the full report on every one —
+                with your reports or on its own.
+              </p>
+              <ul className="mt-5 space-y-2">
+                {mapFeatures.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                    <Check size={15} style={{ color: "var(--good)", flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+                    {FEATURE_LABEL[f]}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Reveal>
+        </div>
+
+        <Reveal delay={0.14}>
+          <Link href="/pricing" className="btn-primary mt-8 px-6 py-3.5 text-[15px]">
+            Choose your reports
+            <ArrowRight size={15} />
+          </Link>
         </Reveal>
       </div>
     </section>

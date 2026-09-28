@@ -7,7 +7,6 @@ import {
   describeGrant,
   formatAccessDate,
   formatAmount,
-  PACKAGE_LABEL,
   type PurchaseSummary,
 } from "@/lib/billing/plans";
 
@@ -20,10 +19,9 @@ export default function PurchaseRow({ purchase }: { purchase: PurchaseSummary })
       <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
         {formatAccessDate(purchase.createdAt)}
         <span className="block text-xs" style={{ color: "var(--text-muted)" }}>
-          {/* What it bought, not which rung it was. A receipt saying "Silver"
-              is unmatchable to a charge three weeks later; "50 reports and the
-              map" is what they remember buying. */}
-          {PACKAGE_LABEL[purchase.pkg]} ·{" "}
+          {/* What it bought. Older purchases also carry their package name
+              ("Silver") so they match what the receipt said at the time. */}
+          {purchase.label && /^[A-Z][a-z]+$/.test(purchase.label) && <>{purchase.label} · </>}
           {describeGrant({
             reports: purchase.reports,
             map: purchase.map,

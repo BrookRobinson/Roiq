@@ -18,11 +18,10 @@ import BuyPlanButton from "@/components/billing/BuyPlanButton";
 import { useSession } from "@/lib/auth/session";
 import {
   formatAccessDate,
-  MAP_DAYS,
-  PACKAGE_LABEL,
-  priceFor,
   REPORT_PRICE_NZD,
   type PurchaseSummary,
+  MAP_PRICE_NZD,
+  MAP_TERM,
 } from "@/lib/billing/plans";
 
 interface HistoryResponse {
@@ -73,7 +72,7 @@ export default function BillingPage() {
         </h1>
         <p className="text-sm mb-8" style={{ color: "var(--text-secondary)" }}>
           Reports are yours once you buy them and never expire. Map access is the one
-          thing on a clock — {MAP_DAYS} days from purchase, and buying again adds to what
+          thing on a clock — {MAP_TERM} from purchase, and buying again adds to what
           is left rather than replacing it. Nothing auto-renews, so there is no card on
           file to update and no subscription to cancel.
         </p>
@@ -96,15 +95,14 @@ export default function BillingPage() {
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <BuyPlanButton
-              pkg="bronze"
-              quantity={10}
+              order={{ reports: 10, map: false }}
               label={`10 more reports — $${REPORT_PRICE_NZD[10]}`}
               className="btn-secondary text-sm gap-1.5"
               returnTo="/account/billing"
             />
             <BuyPlanButton
-              pkg="silver"
-              label={`${PACKAGE_LABEL.silver} — $${priceFor("silver").toLocaleString("en-NZ")}`}
+              order={{ reports: 0, map: true }}
+              label={`${entitlements.map ? "Extend the map" : "Add the map"} — $${MAP_PRICE_NZD}`}
               className="btn-secondary text-sm gap-1.5"
               returnTo="/account/billing"
             />

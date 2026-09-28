@@ -3,7 +3,7 @@ import { getActiveListings, isShowingSeedData, parseBBox, parseTypes, resolveVar
 import { SEED_LISTINGS } from "@/lib/map/seed";
 import { computeListing, investorReady } from "@/lib/map/calc";
 import { hasFeature } from "@/lib/supabase/auth";
-import { PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
+import { MAP_PRICE_NZD, MAP_TERM } from "@/lib/billing/plans";
 import type { MapListing, MapMode } from "@/lib/map/types";
 
 export const runtime = "nodejs";
@@ -32,13 +32,12 @@ export async function GET(req: NextRequest) {
   const demo = url.searchParams.get("demo") === "1";
 
   if (!demo && !(await hasFeature("map").catch(() => false))) {
-    const needs = packageFor("map");
     return NextResponse.json(
       {
         ok: false,
         error: "upgrade_required",
-        needs,
-        message: `${PACKAGE_LABEL[needs]} — $${priceFor(needs).toLocaleString("en-NZ")} — ranks the whole map for you.`,
+        needs: "map",
+        message: `The map — $${MAP_PRICE_NZD} for ${MAP_TERM} — ranks the whole map for you.`,
       },
       { status: 402 }
     );

@@ -9,14 +9,8 @@
 
 import Stripe from "stripe";
 
-import {
-  describeGrant,
-  grantFor,
-  PACKAGE_LABEL,
-  priceFor,
-  type Package,
-  type ReportQuantity,
-} from "@/lib/billing/plans";
+import { describeGrant, grantFor, orderPrice, type Order } from "@/lib/billing/plans";
+import { PRODUCT_NAME } from "@/lib/brand";
 
 let cached: Stripe | null = null;
 
@@ -38,8 +32,8 @@ export function getStripe(): Stripe | null {
 /**
  * Billing needs a secret key and nothing else.
  *
- * There are no price IDs any more. Bronze's price depends on how many reports
- * were chosen, which would have meant a Stripe price per quantity and an env
+ * There are no price IDs any more. The price depends on how many reports were
+ * chosen and whether the map was added, which would have meant a Stripe price per quantity and an env
  * var for each — so the line item is built inline from PRICE, our own table,
  * and Stripe is told what to charge rather than asked. That removes six
  * environment variables AND the entire class of bug where Stripe charges $149
@@ -60,21 +54,18 @@ export const stripeMode = (): "test" | "live" | null => {
  * The one line item on the checkout, priced from our own table.
  *
  * The name is what appears on the Stripe receipt and the customer's card
- * statement line, so it says what they got — "Silver — 50 reports and the map"
+ * statement line, so it says what they got — "Tectara — 10 reports and the map for 12 months"
  * rather than a product code nobody can match to a charge three weeks later.
  */
-export function lineItemFor(
-  pkg: Package,
-  quantity?: ReportQuantity
-): Stripe.Checkout.SessionCreateParams.LineItem {
-  const grant = grantFor(pkg, quantity);
+export function lineItemFor(order: Order): Stripe.Checkout.SessionCreateParams.LineItem {
+  const what = describeGrant(grantFor(order));
   return {
     quantity: 1,
     price_data: {
       currency: "nzd",
-      unit_amount: priceFor(pkg, quantity) * 100,
+      unit_amount: orderPrice(order) * 100,
       product_data: {
-        name: `${PACKAGE_LABEL[pkg]} — ${describeGrant(grant)}`,
+        name: `${PRODUCT_NAME} — ${what.charAt(0).toUpperCase()}${what.slice(1)}`,
       },
     },
   };

@@ -4,56 +4,51 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import Navbar from "@/components/Navbar";
-import { CheckCircle2, Minus, ArrowRight, Info, HardHat } from "lucide-react";
+import { Check, ArrowRight, Info, Map as MapIcon, FileText } from "lucide-react";
 
 import BuyPlanButton from "@/components/billing/BuyPlanButton";
 import { useSession } from "@/lib/auth/session";
 import { PRODUCT_NAME } from "@/lib/brand";
 import {
+  describeGrant,
   FEATURE_LABEL,
   FEATURE_NEEDS,
-  featuresOf,
   formatAccessDate,
   grantFor,
-  INSPECTION_TERMS,
-  INSPECTION_VALUE_NZD,
-  MAP_DAYS,
-  MAP_VALUE_NZD,
-  NEEDS_FULFILMENT,
-  PACKAGE_COLOUR,
-  PACKAGE_LABEL,
-  PACKAGE_TAGLINE,
-  PACKAGES,
+  MAP_PRICE_NZD,
+  MAP_TERM,
+  orderPrice,
   perReport,
-  priceFor,
   REPORT_PRICE_NZD,
   REPORT_QUANTITIES,
-  reportsValue,
   type Feature,
-  type Package,
-  type ReportQuantity,
+  type Order,
 } from "@/lib/billing/plans";
 
 // ============================================================
 // Pricing.
 //
-// Three packages, and every tick below is derived from the feature map in
-// lib/billing/plans.ts — the same map the gates in the app read. It used to be
-// a hand-written table beside them, and it drifted: it sold CSV export, listing
-// alerts, saved searches, compare mode and priority generation, none of which
-// were ever built. Nothing can appear here unless something actually gates on
-// it.
+// Two things, bought together or apart: reports ($29 down to $10 each at 20)
+// and the map ($249 for 12 months). What each includes is read from the feature
+// map in lib/billing/plans.ts — the same map the gates in the app read — so
+// nothing can be listed here that the app doesn't actually unlock.
 // ============================================================
 
-const FEATURE_ROWS = Object.keys(FEATURE_NEEDS) as Feature[];
+const REPORT_FEATURES = (Object.keys(FEATURE_NEEDS) as Feature[]).filter((f) => FEATURE_NEEDS[f] === "paid");
+const MAP_FEATURES = (Object.keys(FEATURE_NEEDS) as Feature[]).filter((f) => FEATURE_NEEDS[f] === "map");
 
 export default function PricingPage() {
-  const [quantity, setQuantity] = useState<ReportQuantity>(10);
+  const [reports, setReports] = useState<Order["reports"]>(10);
+  const [map, setMap] = useState(false);
+  const { entitlements } = useSession();
+  // Nothing at all isn't an order — unticking the map with no reports picks one.
+  const order: Order = reports === 0 && !map ? { reports: 1, map: false } : { reports, map };
+  const summary = describeGrant(grantFor(order));
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
       <Navbar />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-12">
           <h1
             className="text-4xl sm:text-5xl font-bold mb-4"
@@ -62,10 +57,10 @@ export default function PricingPage() {
             Simple, honest pricing
           </h1>
           <p className="text-lg" style={{ color: "var(--text-secondary)" }}>
-            Buy what you need. No subscription, nothing auto-renews.
+            Pay for the reports you need. Add the map if you want every analysed property.
           </p>
           <p className="text-sm mt-2" style={{ color: "var(--text-muted)" }}>
-            Prices in NZD. Reports never expire — map access runs {MAP_DAYS} days.
+            Prices in NZD. One-off payments — nothing auto-renews. Reports never expire.
           </p>
           <Suspense fallback={null}>
             <CheckoutNotice />
@@ -79,227 +74,168 @@ export default function PricingPage() {
           </Link>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-3 mb-8">
-          {PACKAGES.map((pkg) => (
-            <PackageCard
-              key={pkg}
-              pkg={pkg}
-              quantity={quantity}
-              onQuantity={setQuantity}
-            />
-          ))}
+        <div className="grid gap-5 lg:grid-cols-2 mb-6">
+          {/* ── Reports ─────────────────────────────────────────────────── */}
+          <div className="card p-6 flex flex-col">
+            <div className="flex items-center gap-2">
+              <FileText size={18} style={{ color: "var(--brand)" }} />
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>Reports</h2>
+            </div>
+            <p className="text-sm mt-1 mb-4" style={{ color: "var(--text-secondary)" }}>
+              ${REPORT_PRICE_NZD[1]} for one, down to $10 each when you buy 20.
+            </p>
+            <div role="radiogroup" aria-label="How many reports" className="space-y-2">
+              {REPORT_QUANTITIES.map((n) => {
+                const on = reports === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setReports(n)}
+                    className="w-full flex items-center justify-between gap-3 rounded-xl px-4 py-3 cursor-pointer text-left"
+                    style={{
+                      background: on ? "var(--accent-wash)" : "var(--surface-2)",
+                      border: `1px solid ${on ? "var(--brand)" : "var(--border)"}`,
+                    }}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span
+                        className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ border: `1px solid ${on ? "var(--brand)" : "var(--rule-strong)"}`, background: on ? "var(--brand)" : "transparent" }}
+                      >
+                        {on && <Check size={10} style={{ color: "var(--on-accent)" }} />}
+                      </span>
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                        {n} {n === 1 ? "report" : "reports"}
+                      </span>
+                      {n === 20 && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ background: "var(--good-wash)", color: "var(--good)" }}>
+                          Best value
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-right">
+                      <span className="mono text-sm font-bold" style={{ color: "var(--text-primary)" }}>${REPORT_PRICE_NZD[n]}</span>
+                      {n > 1 && (
+                        <span className="block mono text-[11px]" style={{ color: "var(--text-muted)" }}>${perReport(n)} each</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+              {map && (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={reports === 0}
+                  onClick={() => setReports(0)}
+                  className="w-full rounded-xl px-4 py-2.5 cursor-pointer text-left text-sm"
+                  style={{
+                    background: reports === 0 ? "var(--accent-wash)" : "transparent",
+                    border: `1px dashed ${reports === 0 ? "var(--brand)" : "var(--border)"}`,
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  No reports — just the map
+                </button>
+              )}
+            </div>
+            <ul className="mt-5 space-y-2">
+              {REPORT_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--good)", flexShrink: 0, marginTop: 2 }} />
+                  {FEATURE_LABEL[f]}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* ── The map ─────────────────────────────────────────────────── */}
+          <div className="card p-6 flex flex-col" style={map ? { border: "1px solid var(--brand)" } : undefined}>
+            <div className="flex items-center gap-2">
+              <MapIcon size={18} style={{ color: "var(--brand)" }} />
+              <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>The map</h2>
+            </div>
+            <div className="mt-1 mb-4">
+              <span className="mono text-3xl font-bold" style={{ color: "var(--text-primary)" }}>${MAP_PRICE_NZD}</span>
+              <span className="text-sm ml-1.5" style={{ color: "var(--text-muted)" }}>for {MAP_TERM}</span>
+            </div>
+            <p className="text-sm" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              Every property anyone has analysed, coloured against its asking price or against your own numbers,
+              with the best deals ranked for you — and the full report on every one of them.
+            </p>
+            <ul className="mt-4 space-y-2 flex-1">
+              {MAP_FEATURES.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--good)", flexShrink: 0, marginTop: 2 }} />
+                  {FEATURE_LABEL[f]}
+                </li>
+              ))}
+              <li className="flex items-start gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                <Check size={15} style={{ color: "var(--good)", flexShrink: 0, marginTop: 2 }} />
+                Best deals for you, ranked on your budget and numbers
+              </li>
+            </ul>
+            {entitlements.map && entitlements.mapUntil && (
+              <p className="text-xs mt-3" style={{ color: "var(--good)" }}>
+                You have the map until {formatAccessDate(entitlements.mapUntil)} — adding it again extends that.
+              </p>
+            )}
+            <label
+              className="mt-5 flex items-center gap-3 rounded-xl px-4 py-3 cursor-pointer"
+              style={{
+                background: map ? "var(--accent-wash)" : "var(--surface-2)",
+                border: `1px solid ${map ? "var(--brand)" : "var(--border)"}`,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={map}
+                onChange={(e) => {
+                  setMap(e.target.checked);
+                  if (!e.target.checked && reports === 0) setReports(1);
+                }}
+                className="w-4 h-4 cursor-pointer"
+              />
+              <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                Add the map · ${MAP_PRICE_NZD}
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* ── The order ─────────────────────────────────────────────────── */}
+        <div
+          className="rounded-2xl p-5 mb-10 flex flex-col sm:flex-row sm:items-center gap-4"
+          style={{ background: "var(--surface)", border: "1px solid var(--rule-strong)" }}
+        >
+          <div className="flex-1">
+            <div className="text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Your order</div>
+            <div className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+              {summary.charAt(0).toUpperCase() + summary.slice(1)}
+            </div>
+          </div>
+          <div className="mono text-3xl font-bold" style={{ color: "var(--text-primary)" }}>
+            ${orderPrice(order).toLocaleString("en-NZ")}
+          </div>
+          <BuyPlanButton
+            order={order}
+            label="Buy now"
+            className="btn-primary px-6 py-3 text-[15px] gap-1.5 justify-center"
+            returnTo="/pricing"
+          />
         </div>
 
         <FreeNote />
-        <ComparisonTable quantity={quantity} />
         <Faq />
       </div>
     </div>
   );
 }
 
-/**
- * One package.
- *
- * Bronze is the odd one out and has to be: its price is a function of a choice,
- * so the choice lives on the card rather than behind a "contact us" or a second
- * page. The other two are fixed, and show their working instead — Silver is
- * 50 reports plus the map, and saying so beats asking anyone to take $399 on
- * trust.
- */
-function PackageCard({
-  pkg,
-  quantity,
-  onQuantity,
-}: {
-  pkg: Package;
-  quantity: ReportQuantity;
-  onQuantity: (n: ReportQuantity) => void;
-}) {
-  const colour = PACKAGE_COLOUR[pkg];
-  const bronze = pkg === "bronze";
-  const grant = grantFor(pkg, quantity);
-  const price = priceFor(pkg, quantity);
-  const highlight = pkg === "silver";
-  const fulfilment = NEEDS_FULFILMENT[pkg];
-
-  return (
-    <div
-      className="rounded-2xl p-6 flex flex-col relative"
-      style={{
-        background: "var(--surface)",
-        border: `1px solid ${highlight ? colour : "var(--border)"}`,
-        boxShadow: highlight ? `0 12px 40px ${colour}26` : "none",
-      }}
-    >
-      {highlight && (
-        <div
-          className="absolute -top-2.5 left-6 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider"
-          style={{ background: colour, color: "#1a1a1a" }}
-        >
-          Reports + the map
-        </div>
-      )}
-
-      <div className="flex items-center gap-2 mb-1">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: colour }} />
-        <span className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
-          {PACKAGE_LABEL[pkg]}
-        </span>
-      </div>
-
-      <div className="flex items-baseline gap-1.5 mb-1">
-        <span className="text-4xl font-bold" style={{ color: "var(--text-primary)" }}>
-          ${price.toLocaleString("en-NZ")}
-        </span>
-        {bronze && (
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-            ${perReport(quantity)} a report
-          </span>
-        )}
-      </div>
-
-      <p className="text-sm mb-4" style={{ color: "var(--text-secondary)" }}>
-        {PACKAGE_TAGLINE[pkg]}
-      </p>
-
-      {bronze ? (
-        <div className="mb-4">
-          <label
-            htmlFor="report-qty"
-            className="block text-xs font-semibold mb-1.5"
-            style={{ color: "var(--text-primary)" }}
-          >
-            How many reports?
-          </label>
-          <select
-            id="report-qty"
-            className="input w-full"
-            value={quantity}
-            onChange={(e) => onQuantity(Number(e.target.value) as ReportQuantity)}
-          >
-            {REPORT_QUANTITIES.map((n) => (
-              <option key={n} value={n}>
-                {n} {n === 1 ? "report" : "reports"} — ${REPORT_PRICE_NZD[n]} ($
-                {perReport(n)} each)
-              </option>
-            ))}
-          </select>
-          <p className="mt-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
-            The more you buy the less each one costs, and they don&rsquo;t expire.
-          </p>
-        </div>
-      ) : (
-        <div
-          className="rounded-xl px-3 py-2.5 mb-4 text-xs"
-          style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
-        >
-          {/* Showing the working, because a bundle nobody can price is a bundle
-              nobody trusts. Silver's parts add to exactly its price; Gold's add
-              to more than it. */}
-          {grant.reports} reports (${reportsValue(grant.reports)}) + the map (${MAP_VALUE_NZD})
-          {grant.inspections > 0 && <> + an inspection (${INSPECTION_VALUE_NZD})</>}
-          {(() => {
-            const parts =
-              reportsValue(grant.reports) + MAP_VALUE_NZD + grant.inspections * INSPECTION_VALUE_NZD;
-            const saved = parts - price;
-            // Silver's parts come to exactly its price, so claiming a saving
-            // would be a lie and saying nothing would look like one. It says so.
-            return saved > 0 ? (
-              <> = ${parts.toLocaleString("en-NZ")} separately, so ${saved.toLocaleString("en-NZ")} off.</>
-            ) : (
-              <> = ${parts.toLocaleString("en-NZ")}. Exactly its parts — nothing hidden in it.</>
-            );
-          })()}
-        </div>
-      )}
-
-      <ul className="space-y-1.5 mb-5 flex-1">
-        <li className="flex items-start gap-2 text-sm">
-          <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
-          <span className="font-medium" style={{ color: "var(--text-primary)" }}>
-            {grant.reports} full {grant.reports === 1 ? "report" : "reports"}, yours to keep
-          </span>
-        </li>
-        {featuresOf(pkg).map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm">
-            <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
-            <span style={{ color: "var(--text-secondary)" }}>{FEATURE_LABEL[f]}</span>
-          </li>
-        ))}
-        {grant.inspections > 0 && (
-          <li className="flex items-start gap-2 text-sm">
-            <CheckCircle2 size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
-            <span style={{ color: "var(--text-secondary)" }}>
-              A building inspector on the property
-            </span>
-          </li>
-        )}
-        {!grant.map && (
-          <li className="flex items-start gap-2 text-sm">
-            <Minus size={14} className="mt-0.5 shrink-0" style={{ color: "var(--text-muted)" }} />
-            <span style={{ color: "var(--text-muted)" }}>No map — that starts at Silver</span>
-          </li>
-        )}
-      </ul>
-
-      {fulfilment && (
-        <div
-          className="rounded-xl p-3 mb-4 text-xs leading-relaxed flex gap-2"
-          style={{ background: "var(--surface-2)", color: "var(--text-secondary)" }}
-        >
-          <HardHat size={14} className="mt-0.5 shrink-0" style={{ color: colour }} />
-          <span>
-            {fulfilment} One inspection per purchase — not one a month, so buying again
-            doesn&rsquo;t owe a second visit.
-          </span>
-        </div>
-      )}
-
-      <Cta pkg={pkg} quantity={quantity} colour={colour} />
-    </div>
-  );
-}
-
-/**
- * The buy button, aware of what the visitor already holds.
- *
- * There is no "you already have something better" state any more, because
- * nothing here replaces anything: credits add up, map access extends. Someone
- * on Gold buying ten more reports is doing a sensible thing, and the old
- * ladder's 409 would have refused them.
- */
-function Cta({
-  pkg,
-  quantity,
-  colour,
-}: {
-  pkg: Package;
-  quantity: ReportQuantity;
-  colour: string;
-}) {
-  const { entitlements } = useSession();
-  const grant = grantFor(pkg, quantity);
-
-  return (
-    <>
-      <BuyPlanButton
-        pkg={pkg}
-        quantity={pkg === "bronze" ? quantity : undefined}
-        label={`Get ${PACKAGE_LABEL[pkg]}`}
-        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl font-semibold text-sm cursor-pointer transition-all"
-        style={{ background: colour, color: "#fff" }}
-      />
-      {grant.map && entitlements.map && entitlements.mapUntil && (
-        <p className="text-xs mt-2 text-center" style={{ color: "var(--text-muted)" }}>
-          Your map runs to {formatAccessDate(entitlements.mapUntil)} — this adds {MAP_DAYS} days
-        </p>
-      )}
-    </>
-  );
-}
-
-/** The free report still exists; it just isn't a package. */
+/** The free report still exists; it just isn't for sale. */
 function FreeNote() {
   return (
     <div
@@ -327,127 +263,23 @@ function FreeNote() {
   );
 }
 
-function ComparisonTable({ quantity }: { quantity: ReportQuantity }) {
-  const cols: Package[] = [...PACKAGES];
-  return (
-    <div className="mb-16">
-      <h2 className="text-2xl font-bold mb-6 text-center" style={{ color: "var(--text-primary)" }}>
-        What&rsquo;s in each
-      </h2>
-      <div className="rounded-2xl overflow-x-auto" style={{ border: "1px solid var(--border)" }}>
-        <div className="min-w-[620px]">
-          <Row header>
-            <div className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              Feature
-            </div>
-            {cols.map((p) => (
-              <div key={p} className="text-center">
-                <div className="text-sm font-semibold" style={{ color: PACKAGE_COLOUR[p] }}>
-                  {PACKAGE_LABEL[p]}
-                </div>
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  ${priceFor(p, quantity).toLocaleString("en-NZ")}
-                </div>
-              </div>
-            ))}
-          </Row>
-
-          <Row striped>
-            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Reports
-            </div>
-            {cols.map((p) => (
-              <div
-                key={p}
-                className="text-center text-xs font-medium"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {grantFor(p, quantity).reports}
-              </div>
-            ))}
-          </Row>
-
-          {FEATURE_ROWS.map((f, i) => (
-            <Row key={f} striped={i % 2 === 1}>
-              <div className="text-sm pr-4" style={{ color: "var(--text-secondary)" }}>
-                {FEATURE_LABEL[f]}
-              </div>
-              {cols.map((p) => (
-                <div key={p} className="flex justify-center">
-                  {featuresOf(p).includes(f) ? (
-                    <CheckCircle2 size={16} style={{ color: PACKAGE_COLOUR[p] }} />
-                  ) : (
-                    <Minus size={14} style={{ color: "var(--border)" }} />
-                  )}
-                </div>
-              ))}
-            </Row>
-          ))}
-
-          <Row>
-            <div className="text-sm pr-4" style={{ color: "var(--text-secondary)" }}>
-              In-person building inspection
-            </div>
-            {cols.map((p) => (
-              <div key={p} className="flex justify-center">
-                {grantFor(p, quantity).inspections > 0 ? (
-                  <CheckCircle2 size={16} style={{ color: PACKAGE_COLOUR[p] }} />
-                ) : (
-                  <Minus size={14} style={{ color: "var(--border)" }} />
-                )}
-              </div>
-            ))}
-          </Row>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Row({
-  header = false,
-  striped = false,
-  children,
-}: {
-  header?: boolean;
-  striped?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className="grid px-4 py-3 items-center"
-      style={{
-        gridTemplateColumns: `minmax(240px,1.6fr) repeat(3, 1fr)`,
-        borderBottom: "1px solid var(--border)",
-        background: header ? "var(--surface-2)" : striped ? "var(--surface)" : "var(--bg)",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function Faq() {
   const faqs = [
     {
       q: "Is this a subscription?",
-      a: "No. You buy reports, or a package, and it ends there — no recurring charge, no saved mandate, nothing to cancel. Reports don't expire at all: buy ten, use three this month and seven next year. Map access is the one thing on a clock, and it runs 30 days from purchase.",
+      a: `No. You buy reports, the map, or both, and it ends there — no recurring charge, no saved mandate, nothing to cancel. Reports don't expire at all: buy ten, use three this month and seven next year. The map is the one thing on a clock: ${MAP_TERM} from purchase, and buying it again adds to what's left.`,
     },
     {
-      q: "Why can't I just buy the map?",
-      a: "Because every coloured pin on it is a report somebody ran. A map sold on its own to people who never run reports is a map that never fills — the buyer gets less than they paid for, and so does everyone after them. Silver bundles it with 50 reports for that reason, not as a packaging trick.",
+      q: "What does the map get me?",
+      a: `Every property anyone has analysed, coloured against its asking price — or, for an investor, against your own deposit, rate and hold — the Best deals list ranked on your numbers, and the full report on every one of them, not just your own. $${MAP_PRICE_NZD} for ${MAP_TERM}. Add it to a report purchase, or buy it on its own.`,
     },
     {
       q: "What do I actually get for free?",
       a: "One complete analysis of a real listing you paste in — every photo read, every defect and finding shown. What stays locked is the conclusion: the valuation and the Financial and Renovations tabs. It's one report, not one a month, and buying opens the report you already ran rather than making you run it again.",
     },
     {
-      q: "What does the Gold inspection actually get me?",
-      a: `A qualified person walks the property and writes their own report, and we read it in beside ours. A photo analysis can tell you a ceiling is stained; it cannot tell you whether that is an active leak or one somebody fixed in 2019, and that difference is usually the most expensive line in the report. Where the inspector disagrees with the photo analysis, the report follows the inspector — they were there. If you were going to pay for an inspection anyway, Gold is that inspection with everything else attached. ${INSPECTION_TERMS}`,
-    },
-    {
       q: "Is this a registered property valuation?",
-      a: `No. ${PRODUCT_NAME} is AI-assisted analysis of publicly available listing data. It is not a registered valuation, building inspection, or legal advice. The Gold inspection is a real building inspection, carried out by the inspector, not by us.`,
+      a: `No. ${PRODUCT_NAME} is AI-assisted analysis of publicly available listing data. It is not a registered valuation, building inspection, or legal advice.`,
     },
     {
       q: "How accurate is the photo analysis?",
