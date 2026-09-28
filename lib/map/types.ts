@@ -138,6 +138,14 @@ export interface UserVariables {
    * The purchase numbers held alongside are placeholders and must not be shown.
    */
   browsing?: boolean;
+
+  /**
+   * The reader saved their own purchase numbers through Variables. The investor
+   * view is built from those numbers, so it runs ONLY when this is true. Old
+   * saved settings don't have it: the form used to come pre-filled, so their
+   * deposit and rate may never have been theirs.
+   */
+  numbersSet?: boolean;
 }
 
 /** Everything the map marker + detail sheet need after applying a user's variables. */

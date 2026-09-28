@@ -888,6 +888,19 @@ five took 7s. One house, one entry: a property analysed twice can carry two pins
 with different valuations, and the list keeps the NEWEST (`lastScoredAt`),
 never the one that ranks higher.
 
+**The investor view runs only on numbers the reader saved.** Variables starts
+empty and "Browse all properties" opens the map with none, because the home
+buyer view (valuation vs asking) needs none. Investor returns are built from
+the reader's deposit, rate, loan and hold, so `investorReady(vars)` —
+`numbersSet === true` and not browsing — gates it: the toggle sends them to
+Variables with the reason (and switches to Investor once saved), a saved
+default of Investor opens in Home buyer until then, and `/api/map/listings` and
+`/api/map/top` answer 422 `numbers_required` as the backstop. Settings saved
+before `numbersSet` existed are NOT trusted — the form used to come pre-filled
+with $200k / 6.5%, so those may never have been the reader's; they're shown
+pre-filled to confirm. `demo=1` is exempt (fictional listings), and the landing
+map says its returns use sample numbers.
+
 **`MapListing.analysed` is the gate on every displayed number.** A discovered
 pin has no score, valuation or rent, and `rowToMapListing` fills those with
 placeholder zeros — so anything that DISPLAYS or FILTERS on them must check the

@@ -132,6 +132,15 @@ export function computeListing(listing: MapListing, vars: UserVariables, mode: M
   };
 }
 
+/**
+ * May the investor view run on these variables? Only on numbers the reader
+ * saved themselves — anything else would be returns built on figures nobody
+ * gave. Demo listings are fictional and exempt (callers pass `demo`).
+ */
+export function investorReady(vars: Pick<UserVariables, "numbersSet" | "browsing">): boolean {
+  return vars.numbersSet === true && !vars.browsing;
+}
+
 /** Marker label, e.g. "+22%", "−18%". */
 export function pctLabel(pct: number): string {
   const r = Math.round(pct);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getActiveListings, isShowingSeedData, parseBBox, parseTypes, resolveVariables } from "@/lib/map/store";
 import { SEED_LISTINGS } from "@/lib/map/seed";
-import { computeListing } from "@/lib/map/calc";
+import { computeListing, investorReady } from "@/lib/map/calc";
 import { hasFeature } from "@/lib/supabase/auth";
 import { PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
 import type { MapListing, MapMode } from "@/lib/map/types";
@@ -47,6 +47,12 @@ export async function GET(req: NextRequest) {
   const mode: MapMode = url.searchParams.get("mode") === "investor" ? "investor" : "homebuyer";
   const bbox = parseBBox(url.searchParams.get("bounds"));
   const vars = await resolveVariables(req);
+  if (mode === "investor" && !demo && !investorReady(vars)) {
+    return NextResponse.json(
+      { ok: false, error: "numbers_required", message: "Add your numbers in Variables to rank by investor return." },
+      { status: 422 }
+    );
+  }
   // The map sends its filter; without one, the reader's saved types still apply.
   const types = parseTypes(url.searchParams.get("types")) ?? parseTypes(vars.propertyTypes?.join(",") || null);
 

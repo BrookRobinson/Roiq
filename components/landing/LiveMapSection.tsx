@@ -69,6 +69,16 @@ export function LiveMapSection() {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <ModeToggle mode={mode} onChange={setMode} />
             </div>
+            {/* Sample properties, sample numbers — said so, because on the real
+                map investor returns only ever run on the reader's own. */}
+            {mode === "investor" && (
+              <p className="mt-3 max-w-[46ch] text-[12px]" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+                Returns here use sample numbers — a{" "}
+                {`$${DEFAULT_VARIABLES.depositAmount.toLocaleString("en-NZ")}`} deposit at{" "}
+                {DEFAULT_VARIABLES.interestRatePct}% over a {DEFAULT_VARIABLES.holdPeriodYears}-year hold. The real map uses
+                yours.
+              </p>
+            )}
 
             {/* Goes to the demo map, not the real one: the same experience end to
                 end — including setting your own deposit, rate and hold period —

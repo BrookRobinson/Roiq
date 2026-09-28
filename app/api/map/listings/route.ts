@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getActiveListings, isShowingSeedData, parseBBox, parseTypes, resolveVariables } from "@/lib/map/store";
 import { SEED_LISTINGS } from "@/lib/map/seed";
-import { computeListing } from "@/lib/map/calc";
+import { computeListing, investorReady } from "@/lib/map/calc";
 import type { MapMode } from "@/lib/map/types";
 
 export const runtime = "nodejs";
@@ -23,6 +23,11 @@ export async function GET(req: NextRequest) {
   const types = parseTypes(url.searchParams.get("types"));
   const vars = await resolveVariables(req);
   const demo = url.searchParams.get("demo") === "1";
+  // Investor returns only on the reader's own numbers. The client asks for them
+  // first; this is the backstop, so nothing can fetch returns built on defaults.
+  if (mode === "investor" && !demo && !investorReady(vars)) {
+    return NextResponse.json({ ok: false, error: "numbers_required" }, { status: 422 });
+  }
   const all = demo
     ? SEED_LISTINGS.filter(
         (l) =>

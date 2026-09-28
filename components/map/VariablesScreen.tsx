@@ -85,6 +85,7 @@ export function VariablesScreen({
       budget: num("budget") ?? 0,
       defaultMode: "homebuyer",
       browsing: true,
+      numbersSet: false,
     };
     saveVariables(out);
     onSaved(out);
@@ -97,6 +98,7 @@ export function VariablesScreen({
     const out: UserVariables = {
       ...v,
       browsing: false,
+      numbersSet: true,
       budget: num("budget") ?? 0, // blank = no limit
       depositAmount: num("depositAmount")!,
       interestRatePct: num("interestRatePct")!,

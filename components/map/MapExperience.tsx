@@ -16,6 +16,7 @@ import { PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import type { MapMode, UserVariables } from "@/lib/map/types";
+import { investorReady } from "@/lib/map/calc";
 
 /** Remembers that the Variables nudge has been seen, so it never nags. */
 const HINT_KEY = "bdr:map:variables-hint";
@@ -50,6 +51,8 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   const [editing, setEditing] = useState(false);
   // Set when the map sends the reader to Variables for numbers it needs.
   const [editReason, setEditReason] = useState<string | null>(null);
+  // They asked for the investor view and were sent for numbers — go there once saved.
+  const [wantInvestor, setWantInvestor] = useState(false);
   const [mode, setMode] = useState<MapMode>("homebuyer");
   const [selected, setSelected] = useState<string | null>(null);
   const [seeded, setSeeded] = useState(false);
@@ -75,7 +78,8 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
     const v = loadVariables();
     if (v) {
       setVars(v);
-      setMode(v.defaultMode);
+      // Never open straight into investor returns on numbers they didn't enter.
+      setMode(v.defaultMode === "investor" && !(demo ? true : investorReady(v)) ? "homebuyer" : v.defaultMode);
       setTypes(v.propertyTypes);
       setReady(true);
       return;
@@ -107,7 +111,8 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   function handleSaved(v: UserVariables) {
     setEditReason(null);
     setVars(v);
-    setMode(v.defaultMode);
+    setMode(wantInvestor && investorReady(v) ? "investor" : v.defaultMode === "investor" && !investorReady(v) ? "homebuyer" : v.defaultMode);
+    setWantInvestor(false);
     setTypes(v.propertyTypes);
     setEditing(false);
   }
@@ -155,7 +160,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
             rateNote={rateNote?.label ?? null}
             rateSource={rateNote?.source ?? null}
             onSaved={handleSaved}
-            onClose={vars ? () => { setEditing(false); setEditReason(null); } : undefined}
+            onClose={vars ? () => { setEditing(false); setEditReason(null); setWantInvestor(false); } : undefined}
             reason={editReason}
           />
         </div>
@@ -169,8 +174,13 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                 onChange={(m) => {
                   // Investor returns are built from the reader's deposit, rate and
                   // hold. Browsing entered none, so ask rather than invent them.
-                  if (m === "investor" && vars?.browsing) {
-                    setEditReason("The investor view needs your deposit, interest rate, loan and hold period.");
+                  if (m === "investor" && vars && !investorReady(vars)) {
+                    setEditReason(
+                      vars.browsing
+                        ? "The investor view needs your deposit, interest rate, loan and hold period."
+                        : "Check these are your numbers and save them — the investor view runs only on numbers you've entered."
+                    );
+                    setWantInvestor(true);
                     setEditing(true);
                     return;
                   }
