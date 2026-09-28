@@ -55,10 +55,10 @@ export function HoldPeriodSlider() {
       {/* ml-auto keeps it hard right when the row wraps and it drops to its own line. */}
       <div className="hidden sm:flex flex-col items-end flex-shrink-0 ml-auto text-right">
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Costs shown within your hold period
+          Work due inside {holdYears} yrs is added to your plan
         </span>
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-          Work due after {holdYears} yrs is tagged, not hidden
+          Anything later is left to the next owner
         </span>
       </div>
     </div>

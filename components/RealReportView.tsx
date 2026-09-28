@@ -959,6 +959,10 @@ export function RealReportView({
         const l = byId.get(id);
         return l ? inAtPurchase(l, renoToggles) : false;
       },
+      autoTicked: (id) => {
+        const l = byId.get(id);
+        return !!l && renoToggles[id]?.included === undefined && l.autoInclude;
+      },
       // Built above HoldPeriodProvider, so the caller passes the hold in.
       dueInHold: (id, withinHold) => {
         const l = byId.get(id);
@@ -3728,7 +3732,9 @@ function HealthyHomesCard({ r, item, note, cost, buildYear, renoControls, onOpen
             <input type="checkbox" checked={inPlan} onChange={(e) => renoControls.toggle(r.renoKey, e.target.checked)} className="w-4 h-4 cursor-pointer flex-shrink-0" aria-label={`Add ${r.label} to the renovation plan`} />
             <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: inPlan ? "var(--brand)" : "var(--text-secondary)" }}>
               <Wrench size={11} />
-              {inPlan ? "In your renovation plan" : "Add to renovation plan"}
+              {inPlan
+                ? renoControls.autoTicked(r.renoKey) ? "Needs doing before you rent it out" : "In your renovation plan"
+                : "Add to renovation plan"}
             </span>
           </label>
           {inPlan && (

@@ -243,6 +243,8 @@ export interface RenoControls {
   has: (id: string) => boolean; // true when this item can be renovated (has a reno line)
   /** Ticked: in the plan at purchase — needed straight away, or ticked by the reader. */
   included: (id: string) => boolean;
+  /** Ticked by us, not the reader: needed straight after purchase (urgent, or legally required). */
+  autoTicked: (id: string) => boolean;
   /**
    * Not ticked, but falls due inside the hold so the plan still counts it: the
    * year it's due, else null. Pass the hold's `withinHold` (useHoldPeriod) —

@@ -8,10 +8,9 @@ import { ChevronDown, ChevronUp, PenLine, CheckCircle2 } from "lucide-react";
 interface Props {
   item: CostItem;
   onQuoteEntered?: (amount: number) => void;
-  withinHoldPeriod?: boolean;
 }
 
-export function CostWorkings({ item, onQuoteEntered, withinHoldPeriod = true }: Props) {
+export function CostWorkings({ item, onQuoteEntered }: Props) {
   const [showWorking, setShowWorking] = useState(false);
   const [quoteInput, setQuoteInput] = useState("");
   const [quoteSaved, setQuoteSaved] = useState(false);
@@ -29,27 +28,6 @@ export function CostWorkings({ item, onQuoteEntered, withinHoldPeriod = true }: 
       onQuoteEntered?.(amt);
       setTimeout(() => setQuoteSaved(false), 2000);
     }
-  }
-
-  if (!withinHoldPeriod) {
-    return (
-      <div
-        className="rounded-xl p-3"
-        style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
-            {item.name}
-          </span>
-          <span
-            className="text-xs px-2 py-0.5 rounded-full"
-            style={{ background: "var(--surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-          >
-            Major work outside your hold period — monitor and maintain
-          </span>
-        </div>
-      </div>
-    );
   }
 
   return (

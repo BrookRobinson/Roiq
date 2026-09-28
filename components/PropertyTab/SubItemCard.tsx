@@ -4,7 +4,6 @@ import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 
 import { useState } from "react";
 import type { SubItem, RenoControls, UrgencyScore } from "@/lib/property-tab/types";
-import { urgencyScoreToYears } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue, EstimatedItem } from "@/lib/scoring/improvement-values";
 import { ItemValuation, ItemValuationWithheld, Step, EvidenceList, ActionBody } from "./ItemValuation";
@@ -203,10 +202,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
     detailed && !isRefused(detailed) ? detailed.life.expectedYears - detailed.life.usedYears
     : value && life ? expectedLife(life) - value.ageYears
     : null;
-  // Inside the hold on that same life — the plan dates the work the same way,
-  // so the card's "outside your hold" tag and the plan can't disagree. The
-  // condition score is only the fallback for an item with no life reading.
-  const isWithinHold = withinHold(yearsRemaining != null ? Math.max(0, Math.round(yearsRemaining)) : urgencyScoreToYears(item.score));
   // The urgent action — the valuation's when it has one (same cost as the
   // Renovations line), otherwise read from the item at the itemised cost.
   const fallbackAction = actionFor(item);
@@ -267,8 +262,8 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
         borderLeft: `3px solid ${color}`,
         // Deliberately NOT faded when the work falls outside the hold period. The
         // findings are the same findings either way, and dimming them made the AI
-        // assessment hard to read — the "major work outside your hold" tag says it in
-        // words, and the COST is where the hold period actually changes anything.
+        // assessment hard to read. The tickbox line says when the work falls, and
+        // the COST is where the hold period actually changes anything.
       }}
     >
       {/* Header row — always visible */}
@@ -363,20 +358,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
           )}
         </div>
 
-        {/* Outside hold period label — the fallback position. When the card has
-            an "Add to renovation plan" control the tag lives beside that instead,
-            which is where someone is actually deciding whether to include it. */}
-        {/* Only for items that CAN have work done to them. It was printing
-            "Major work outside your 10-year hold — monitor and maintain" against
-            Natural light & aspect, which is not a thing anyone maintains. */}
-        {!isWithinHold && !canReno && ITEM_BY_ID[item.id]?.costBearing && item.score !== null && item.score <= 7 && (
-          <div
-            className="mt-2 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-muted)" }}
-          >
-            Major work outside your {holdYears}-year hold — monitor and maintain
-          </div>
-        )}
 
         {/* Expand toggle hint — no AI assessment to read for a no-photo item */}
         {!item.noPhotoNotAssessed && (
@@ -398,7 +379,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
 
       {/* Add-to-renovation-plan control — only for items we can cost (renovate) */}
       {canReno && (
-        <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "var(--accent-wash)" : "transparent" }}>
+        <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5" style={{ borderTop: "1px solid var(--border)", background: inPlan || dueYear != null ? "var(--accent-wash)" : "transparent" }}>
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -407,37 +388,24 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               className="w-4 h-4 cursor-pointer flex-shrink-0"
               aria-label={`Add ${item.name} to the renovation plan`}
             />
-            <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: inPlan ? "var(--brand)" : "var(--text-secondary)" }}>
+            {/* What the box means for THIS item: needed straight after purchase
+                (we ticked it), chosen by the reader, or not ticked but already
+                counted in the year it falls due. */}
+            <span
+              className="inline-flex items-center gap-1 text-xs font-medium"
+              style={{ color: inPlan || dueYear != null ? "var(--brand)" : "var(--text-secondary)" }}
+              title={dueYear != null ? `It reaches end of life inside your ${holdYears}-year hold. Tick it to do it straight after purchase instead.` : undefined}
+            >
               <Wrench size={11} />
-              {inPlan ? "In your renovation plan" : "Add to renovation plan"}
+              {inPlan
+                ? renoControls?.autoTicked(item.id) ? "Needs doing straight after purchase" : "In your renovation plan — straight after purchase"
+                : dueYear != null
+                  ? `We've added this to year ${Math.max(1, dueYear)} of your renovation plan`
+                  : "Add to renovation plan"}
             </span>
           </label>
 
-          {/* "Major work" specifically: what falls outside the hold is the
-              REPLACEMENT, not every hand laid on the thing. A 25-year roof at
-              year 12 still wants patching and clearing in the meantime, and a
-              tag reading plain "outside your hold" reads as "ignore this",
-              which is how a leak becomes a rebuild. Fading the card said the
-              same wrong thing more quietly. */}
-          {dueYear != null && (
-            <span
-              className="text-[11px] px-2 py-0.5 rounded-full"
-              style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-              title={`Not needed on day one, but it reaches end of life inside your ${holdYears}-year hold, so the plan counts it in year ${dueYear}. Tick it to do it at purchase instead.`}
-            >
-              {dueYear <= 0 ? "Due now" : `Due yr ${dueYear}`} · counted in your hold plan
-            </span>
-          )}
-          {!isWithinHold && (
-            <span
-              className="text-[11px] px-2 py-0.5 rounded-full"
-              style={{ background: "var(--surface-2)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-              title={`Replacing this falls beyond the ${holdYears}-year hold you've set. Patching and maintenance may still be needed before then.`}
-            >
-              Major work outside your {holdYears}-yr hold
-            </span>
-          )}
-          {inPlan && onOpenRenovations && (
+          {(inPlan || dueYear != null) && onOpenRenovations && (
             <button onClick={onOpenRenovations} className="inline-flex items-center gap-0.5 text-xs font-medium cursor-pointer hover:underline" style={{ color: "var(--brand)" }}>
               View <ArrowRight size={11} />
             </button>
@@ -535,7 +503,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
           {/* Replacement cost — kept on the Renovation tab only (showCost gates it). */}
           {showCost && item.estimatedReplacementCost && (
             costItem ? (
-              <CostWorkings item={costItem} withinHoldPeriod={isWithinHold} />
+              <CostWorkings item={costItem} />
             ) : (
               <div
                 className="rounded-lg p-3"
@@ -543,11 +511,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               >
                 <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
                   Estimated replacement cost
-                  {!isWithinHold && (
-                    <span className="ml-2 font-normal" style={{ color: "var(--text-muted)" }}>
-                      (major work outside your {holdYears}-yr hold)
-                    </span>
-                  )}
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-base font-bold mono" style={{ color: "var(--text-primary)" }}>
