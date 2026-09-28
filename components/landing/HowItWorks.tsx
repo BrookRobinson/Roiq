@@ -18,24 +18,23 @@ import { ArrowRight } from "lucide-react";
  */
 
 const ITEM_COUNT = SCORING_MODEL.length;
-const INSPECTION_COUNT = new Set(SCORING_MODEL.map((i) => i.inspection)).size;
 const PHOTOS_READ = buildDemoReport().photosAnalysed;
 
 const STEPS = [
   {
     n: "01",
     title: "Paste the listing",
-    body: `Any OneRoof, realestate.co.nz or agency link. If the property is not listed, enter the address instead, or upload your own photos of each room.`,
+    body: `A OneRoof, realestate.co.nz or agency link. Not listed? Enter the address, or upload your own photos.`,
   },
   {
     n: "02",
-    title: "It reads every photo",
-    body: `Each one is assessed against ${ITEM_COUNT} items across ${INSPECTION_COUNT} inspections, alongside live market data for the suburb. The demo report above read ${PHOTOS_READ}.`,
+    title: "We read every photo",
+    body: `Each photo is checked against ${ITEM_COUNT} items, from the roof to the hot water. The demo above read ${PHOTOS_READ}.`,
   },
   {
     n: "03",
     title: "You get the report",
-    body: `Every component valued in one to three minutes — what it costs to replace today, less the life already used — with the ten year financial position worked through.`,
+    body: `In one to three minutes: what it's worth, what needs doing and when, and the money over the years you'd own it.`,
   },
 ];
 

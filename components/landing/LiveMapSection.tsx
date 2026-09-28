@@ -52,10 +52,11 @@ export function LiveMapSection() {
       <div className="grid lg:grid-cols-2">
         <div className="flex items-center px-4 py-20 sm:px-6 lg:px-16 lg:py-24">
           <div>
-            <h2 className="section-heading max-w-[16ch]">Every listing, on one map</h2>
+            <h2 className="section-heading max-w-[16ch]">Analysed properties, on one map</h2>
             <p className="section-sub mt-5">
-              Filter the country by budget and by what you are optimising for,
-              then read the ten year position on any pin before you shortlist it.
+              Every property that gets a report lands on the map. Filter by budget
+              and by whether you&apos;re buying a home or an investment, then open
+              any pin. The map here uses sample properties.
             </p>
 
             <p
@@ -128,7 +129,7 @@ function ModeToggle({
     <div
       className="flex gap-1 p-1"
       role="group"
-      aria-label="Map scoring mode"
+      aria-label="Map view"
       style={{ background: "var(--surface-2)", borderRadius: "var(--r-pill)" }}
     >
       {(

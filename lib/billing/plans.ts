@@ -267,7 +267,7 @@ export function daysRemaining(
 // appear on the pricing page, which is the point.
 
 export type Feature =
-  /** The score out of 1,000 and the valuation, unblurred. */
+  /** The valuation, unblurred. (Key kept from when there was a 1,000-point score.) */
   | "score"
   /** The Financial, Renovations and Healthy Homes tabs. */
   | "tools"
@@ -281,7 +281,7 @@ export type Feature =
   | "mapReports";
 
 export const FEATURE_LABEL: Record<Feature, string> = {
-  score: "Score out of 1,000 and the valuation",
+  score: "The full valuation, unblurred",
   tools: "Renovation planner, Financial tab, Healthy Homes check",
   share: "PDF, email and private share link",
   documents: "LIM, consents, EQC and title read for you",
@@ -362,7 +362,7 @@ export function quotaFrom(granted: number, used: number, paid: boolean): QuotaSt
  */
 export function quotaExhaustedMessage(q: QuotaState): string {
   if (!q.paid) {
-    return `You've used your free report. ${REPORT_QUANTITIES[0]} more is $${REPORT_PRICE_NZD[1]}, including the score and valuation — or ${REPORT_QUANTITIES[3]} for $${REPORT_PRICE_NZD[10]}.`;
+    return `You've used your free report. ${REPORT_QUANTITIES[0]} more is $${REPORT_PRICE_NZD[1]}, including the full valuation — or ${REPORT_QUANTITIES[3]} for $${REPORT_PRICE_NZD[10]}.`;
   }
   return `You've used all ${q.granted} of your reports. Credits don't expire, so buying more adds to the account rather than replacing anything — ${REPORT_QUANTITIES[3]} is $${REPORT_PRICE_NZD[10]}, ${REPORT_QUANTITIES[5]} is $${REPORT_PRICE_NZD[50]}.`;
 }

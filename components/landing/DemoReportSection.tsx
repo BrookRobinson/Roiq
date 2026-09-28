@@ -40,10 +40,9 @@ export function DemoReportSection() {
           </h2>
 
           <p className="section-sub">
-            A real Auckland property, scored by the live engine. Open every tab,
-            switch between buyer and investor, drag the hold period. Nothing is
-            locked and nothing is a placeholder, so you can see exactly what you
-            get before you pay for one.
+            A full report on an Auckland house. Open any tab, switch between home
+            buyer and investor, and change how long you&apos;d own it. Nothing is
+            locked, so you see exactly what you&apos;d get.
           </p>
         </Reveal>
 

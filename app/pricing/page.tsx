@@ -312,7 +312,7 @@ function FreeNote() {
         </div>
         <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
           One complete analysis of a real listing you paste in: every photo read, every defect
-          shown. Only the conclusion stays blurred — the score and the valuation.
+          shown. Only the conclusion stays blurred — the valuation.
         </p>
       </div>
       <Link
@@ -451,7 +451,7 @@ function Faq() {
     },
     {
       q: "How accurate is the photo analysis?",
-      a: "Photos are scored with a confidence tier. Tier 1 (≥90% confidence) findings are stated as fact. Tier 2 (65–89%) are labelled 'verify at inspection'. Tier 3 findings are unscored.",
+      a: "Every finding carries a confidence level. Clear ones are stated as fact; less certain ones are labelled 'verify at the viewing'. Anything the photos don't show isn't valued as if it were seen — it's either estimated and labelled as estimated, or left out.",
     },
   ];
 

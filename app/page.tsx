@@ -23,19 +23,13 @@ import {
 } from "@/lib/billing/plans";
 
 /**
- * Landing page, "Survey Report" language.
+ * Landing page.
  *
- * Composition notes, since they are deliberate rather than incidental:
- *  - Nine sections, nine different layout families. Nothing repeats.
- *  - Three mono section labels total, which is the ceiling for this length.
- *  - The scoring section renders the real scoring vocabulary rather than a
- *    mocked-up screenshot, so what is on the marketing page is what ships.
- *  - Pricing is a ruled comparison table, not three identical cards.
- *
- * There is no stock photography on this page. Every section shows the
- * product's own output: the hero runs the finance engine, the demo section
- * embeds the real report, the map is the real map, and "Everything in one
- * report" quotes findings straight out of buildDemoReport().
+ * Written to be read quickly: short sections, plain words, one idea each.
+ * Every example comes from the product's own output — the demo section embeds
+ * the real report, the map is the real map, and "What you get" quotes
+ * buildDemoReport(). The valuation is explained in words rather than numbers,
+ * so nothing here can disagree with the report embedded above it.
  */
 
 export const metadata = {
@@ -53,64 +47,43 @@ export default function LandingPage() {
       <HowItWorks />
       <Position />
       <WhatsInside />
-      <Scoring />
+      <Valuation />
       <LiveMapSection />
       <Pricing />
-      <Voices />
       <Close />
       <Footer />
     </div>
   );
 }
 
-/* ── 3. Position ───────────────────────────────────────────────────────────
-   Editorial statement. No cards, no columns, just the argument.             */
+/* ── Position ──────────────────────────────────────────────────────────────
+   The argument, short.                                                      */
 function Position() {
   return (
-    <section className="border-b py-24 lg:py-32" style={{ borderColor: "var(--rule)" }}>
+    <section className="border-b py-24 lg:py-28" style={{ borderColor: "var(--rule)" }}>
       <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
         <Reveal>
-          <p className="section-label">The case for it</p>
-          <h2 className="section-heading max-w-[16ch]">
-            The agent won&apos;t tell you this
-          </h2>
+          <p className="section-label">Why it matters</p>
+          <h2 className="section-heading max-w-[16ch]">The listing is written to sell</h2>
         </Reveal>
         <Reveal delay={0.1}>
-          <p
-            className="mt-8 max-w-measure text-lg leading-relaxed"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            A listing is written to sell. It tells you the kitchen is modern and
-            the location is sought after. It does not tell you the roof has
-            around eight years left, that the cladding era carries weathertight
-            risk, or what the deferred maintenance will cost you in year three.
-            {PRODUCT_NAME} reads the same photos an agent published and reports what they
-            show, including the parts nobody wrote down.
+          <p className="mt-8 max-w-measure text-lg leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            It tells you the kitchen is modern. It won&apos;t tell you the roof has a few years left or the
+            cladding is from the leaky-home era. {PRODUCT_NAME} reads the same photos and tells you what they
+            show.
           </p>
         </Reveal>
-
-        {/* The value claim, with the mechanism attached. A bare "could save you
-            hundreds of thousands" reads as hype; naming the specific thing that
-            costs that much is both stronger and checkable. */}
         <Reveal delay={0.18}>
-          <div
-            className="mt-12 border-l-4 py-2 pl-6 sm:pl-8"
-            style={{ borderColor: "var(--accent)" }}
-          >
+          <div className="mt-10 border-l-4 py-2 pl-6 sm:pl-8" style={{ borderColor: "var(--accent)" }}>
             <p
               className="max-w-[26ch] text-[1.5rem] font-semibold leading-[1.2] sm:text-[2rem]"
               style={{ letterSpacing: "-0.02em", color: "var(--text-primary)" }}
             >
-              One report can save you hundreds of thousands of dollars.
+              Find the expensive problems before you sign, not after.
             </p>
-            <p
-              className="mt-4 max-w-measure text-[16px] leading-relaxed"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              That is not a figure of speech. A full reclad on a leaky-era home
-              runs into the hundreds of thousands in New Zealand, and unconsented
-              work can stall your finance entirely. The difference between finding
-              those before you sign and after is the whole cost of them.
+            <p className="mt-4 max-w-measure text-[16px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              A reclad can cost hundreds of thousands. Unconsented work can stop your loan. Knowing first is the
+              difference between a better price and a bill.
             </p>
           </div>
         </Reveal>
@@ -119,125 +92,62 @@ function Position() {
   );
 }
 
-/* ── 5. Scoring ────────────────────────────────────────────────────────────
-   Split, with the right column rendering the actual scoring vocabulary as a
-   ruled ledger. This is a real component, not a picture of one.             */
-function Scoring() {
-  const rows = [
-    { label: "Improvements", points: 612, of: 700 },
-    { label: "Land", points: 96, of: 140 },
-    { label: "Legal", points: 118, of: 160 },
+/* ── Valuation ─────────────────────────────────────────────────────────────
+   How the figure is built, in three plain steps. No numbers: the demo report
+   above prints the real ones, and a second set here could disagree with it. */
+function Valuation() {
+  const steps = [
+    {
+      title: "The land",
+      body: "What sections like it have actually sold for nearby, adjusted for this one's size, shape, slope and sun.",
+    },
+    {
+      title: "The house, item by item",
+      body: "Every part — roof, kitchen, bathroom, heating — priced at what it would cost to replace today, less the life it has already used.",
+    },
+    {
+      title: "Anything extra",
+      body: "A sleepout, garage or pool, valued for what it actually adds.",
+    },
   ];
-  const penalties = [
-    { label: "Arterial road frontage", value: -60 },
-    { label: "Limited afternoon sun", value: -23 },
-  ];
-  const bonus = { label: "Consented minor dwelling", value: 39 };
-
   return (
     <section className="border-b py-24 lg:py-28" style={{ borderColor: "var(--rule)" }}>
       <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-14 lg:grid-cols-2 lg:gap-20">
-          <Reveal>
-            <p className="section-label">How the score is built</p>
-            <h2 className="section-heading max-w-[15ch]">
-              1,000 points. Nothing hidden.
-            </h2>
-            <p className="section-sub mt-5">
-              Every point is traceable. Categories build a base score, location
-              penalties come off it, and on-site value adds go back on. You can
-              see the arithmetic, disagree with a line, and check it yourself.
-            </p>
-            <Link
-              href="/report/rpt_001"
-              className="btn-secondary mt-8 px-5 py-3 text-[15px]"
-            >
-              See a scored report
-              <ArrowRight size={15} />
-            </Link>
-          </Reveal>
-
-          <Reveal delay={0.12}>
-            <div className="card overflow-hidden">
-              <div
-                className="flex items-center justify-between border-b px-5 py-3 text-[12px] font-semibold uppercase tracking-[0.07em]"
-                style={{ borderColor: "var(--rule)", color: "var(--text-muted)" }}
-              >
-                <span>Score breakdown</span>
-                <span>14 Ferndale Rd</span>
+        <Reveal>
+          <p className="section-label">How we value it</p>
+          <h2 className="section-heading max-w-[18ch]">A price you can check, line by line</h2>
+          <p className="section-sub mt-5">
+            We add up three things and set the total against the asking price. Every figure shows how it was
+            worked out, so you can check it — or argue with it.
+          </p>
+        </Reveal>
+        <ol className="mt-12 grid gap-4 lg:grid-cols-3">
+          {steps.map((st, i) => (
+            <Reveal key={st.title} delay={i * 0.08} as="li">
+              <div className="card h-full p-7">
+                <h3 className="text-[19px] font-semibold leading-snug" style={{ letterSpacing: "-0.015em", color: "var(--text-primary)" }}>
+                  {i > 0 && <span style={{ color: "var(--accent-text)" }}>+ </span>}
+                  {st.title}
+                </h3>
+                <p className="mt-3 text-[15px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+                  {st.body}
+                </p>
               </div>
-
-              <div className="px-5 py-2">
-                {rows.map((r) => (
-                  <LedgerRow key={r.label} label={r.label}>
-                    <span style={{ color: "var(--text-primary)" }}>{r.points}</span>
-                    <span style={{ color: "var(--text-muted)" }}> / {r.of}</span>
-                  </LedgerRow>
-                ))}
-
-                {penalties.map((p) => (
-                  <LedgerRow key={p.label} label={p.label} muted>
-                    <span style={{ color: "var(--bad)" }}>{p.value}</span>
-                  </LedgerRow>
-                ))}
-
-                <LedgerRow label={bonus.label} muted>
-                  <span style={{ color: "var(--good)" }}>+{bonus.value}</span>
-                </LedgerRow>
-              </div>
-
-              <div
-                className="flex items-baseline justify-between border-t px-5 py-4"
-                style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
-              >
-                <span
-                  className="text-[12px] font-semibold uppercase tracking-[0.07em]"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  Total
-                </span>
-                <span className="mono" style={{ color: "var(--text-primary)" }}>
-                  <span className="text-[28px] font-semibold leading-none">742</span>
-                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-                    {" "}
-                    / 1000
-                  </span>
-                </span>
-              </div>
-            </div>
-          </Reveal>
-        </div>
+            </Reveal>
+          ))}
+        </ol>
+        <Reveal delay={0.26}>
+          <Link href="#demo" className="btn-secondary mt-10 px-5 py-3 text-[15px]">
+            See it on the demo report
+            <ArrowRight size={15} />
+          </Link>
+        </Reveal>
       </div>
     </section>
   );
 }
 
-function LedgerRow({
-  label,
-  children,
-  muted,
-}: {
-  label: string;
-  children: React.ReactNode;
-  muted?: boolean;
-}) {
-  return (
-    <div
-      className="flex items-baseline justify-between gap-4 border-b py-3 last:border-b-0"
-      style={{ borderColor: "var(--border-subtle)" }}
-    >
-      <span
-        className="text-sm"
-        style={{ color: muted ? "var(--text-muted)" : "var(--text-primary)" }}
-      >
-        {label}
-      </span>
-      <span className="mono whitespace-nowrap text-sm">{children}</span>
-    </div>
-  );
-}
-
-/* ── 7. Pricing ────────────────────────────────────────────────────────────
+/* ── Pricing ────────────────────────────────────────────────────────────
    A ruled comparison table rather than three identical cards.               */
 function Pricing() {
   // All three, because there are only three. The rows come from the feature map
@@ -279,7 +189,7 @@ function Pricing() {
             className="mt-1 text-[15px] font-semibold"
             style={{ color: "var(--accent-text)" }}
           >
-            Pay for a month at a time. No subscription, nothing auto-renews.
+            One-off payments. No subscription, nothing auto-renews.
           </p>
           <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
             Reports never expire. Map access runs 30 days.{" "}
@@ -372,74 +282,7 @@ function Pricing() {
   );
 }
 
-/* ── 8. Voices ─────────────────────────────────────────────────────────────
-   Offset two column. Short quotes, real-sounding NZ attribution.            */
-function Voices() {
-  const quotes = [
-    {
-      body: "The report put a number on the reclad we were quietly hoping to ignore. We went back with it and got sixty thousand off the price.",
-      name: "Hine Whitaker",
-      role: "Bought in Titirangi",
-    },
-    {
-      body: "I run the numbers on maybe forty properties a month. This does the boring ninety percent before I open a single spreadsheet.",
-      name: "Daniel Fa'aui",
-      role: "Investor, Christchurch",
-    },
-    {
-      body: "It flagged the cladding era on a place we loved. The builder confirmed it a week later. That one line saved us.",
-      name: "Priya Raman",
-      role: "First home buyer, Wellington",
-    },
-  ];
-
-  return (
-    <section className="border-b py-24 lg:py-28" style={{ borderColor: "var(--rule)" }}>
-      <div className="mx-auto max-w-page px-4 sm:px-6 lg:px-8">
-        <Reveal>
-          <p className="section-label">From buyers</p>
-          <h2 className="section-heading max-w-[18ch]">They knew before they bought</h2>
-        </Reveal>
-
-        <div className="mt-14 grid gap-4 lg:grid-cols-3">
-          {quotes.map((q, i) => (
-            <Reveal
-              key={q.name}
-              delay={i * 0.07}
-              as="article"
-              className={i === 1 ? "lg:mt-10" : ""}
-            >
-              <figure className="card flex h-full flex-col justify-between p-8">
-                <blockquote
-                  className="text-[17px] leading-relaxed"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  &ldquo;{q.body}&rdquo;
-                </blockquote>
-                <figcaption className="mt-7">
-                  <div
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
-                    {q.name}
-                  </div>
-                  <div
-                    className="mt-1.5 text-[12px] font-semibold uppercase tracking-[0.07em]"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {q.role}
-                  </div>
-                </figcaption>
-              </figure>
-            </Reveal>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ── 9. Close ──────────────────────────────────────────────────────────────
+/* ── Close ──────────────────────────────────────────────────────────────
    Centered, because a closing statement is the one place it earns it.       */
 function Close() {
   return (
@@ -453,7 +296,7 @@ function Close() {
             className="mx-auto mt-6 max-w-[54ch] text-lg leading-relaxed"
             style={{ color: "var(--text-secondary)" }}
           >
-            Spend three minutes finding out what you are actually buying.
+            Take three minutes to find out what you&apos;re actually buying.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link href="/report/new" className="btn-primary px-7 py-3.5 text-[15px]">
