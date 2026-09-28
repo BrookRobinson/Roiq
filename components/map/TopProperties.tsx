@@ -124,7 +124,7 @@ export function TopProperties({
           />
         </button>
         <span className="hidden md:inline text-[12px]" style={{ color: "var(--text-muted)" }}>
-          {how}, within your {money(vars.budget)} budget.
+          {how}{vars.budget > 0 ? `, within your ${money(vars.budget)} budget` : ""}.
         </span>
         <div className="ml-auto inline-flex gap-1 p-0.5" role="group" aria-label="Where to rank" style={{ background: "var(--surface-2)", borderRadius: "var(--r-pill)" }}>
           {(
@@ -163,7 +163,7 @@ export function TopProperties({
             <p className="px-4 py-3 text-[13px]" style={{ color: "var(--text-secondary)" }}>{error}</p>
           ) : items.length === 0 ? (
             <p className="px-4 py-3 text-[13px]" style={{ color: "var(--text-secondary)" }}>
-              No analysed properties {scope === "view" ? "in this part of the map" : "yet"} within your budget and property types.
+              No analysed properties {scope === "view" ? "in this part of the map" : "yet"} {vars.budget > 0 ? "within your budget and property types" : "of your property types"}.
               {scope === "view" && " Zoom out, or switch to All of NZ."}
             </p>
           ) : (
