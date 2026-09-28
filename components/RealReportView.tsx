@@ -948,20 +948,16 @@ export function RealReportView({
                 )}
               </div>
 
-              {/* Send / share, and an in-person inspection — owner view only.
-                  The inspection isn't offered on a demo or sample: those houses
-                  don't exist, and no inspector can visit them. */}
+              {/* Send / share, and the in-person inspection demo — owner view only. */}
               {!shared && !embedded && (
                 <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                  {!report.id.startsWith("rpt_") && !report.id.startsWith("sample-") && (
-                    <button
-                      onClick={() => setShowVerify(true)}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap"
-                      style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--brand)" }}
-                    >
-                      <HardHat size={13} style={{ color: "var(--brand)" }} /> Get this report verified in person
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setShowVerify(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap"
+                    style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--brand)" }}
+                  >
+                    <HardHat size={13} style={{ color: "var(--brand)" }} /> Get this report verified in person
+                  </button>
                   <button
                     onClick={() => setShowSend(true)}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap"

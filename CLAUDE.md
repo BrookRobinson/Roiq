@@ -674,20 +674,13 @@ under their old names (`planLabel`). Nothing sells an inspection now; a Gold
 buyer still owed one still sees it on the account page. Upgrade copy at every
 wall comes from `unlockFor()` / `unlockPhrase()`, never a hand-written price.
 
-**"Get this report verified in person" is a referral, and the buyer is told so.**
-A buyer requests an in-person inspection from a report; `/api/inspection-request`
-saves it FIRST (`inspection_requests`), makes a share link to the report, and
-emails the partner inspector for the property's region (`inspectors.regions`,
-one partner per region, oldest first — `inspectorForRegion()`). The inspector
-owes a fixed fee per lead (`fee_per_lead_cents`, NZ$60 default), recorded as
-`owed` ONLY once the email actually reached them; the same buyer asking about
-the same report within 7 days is the same lead and is never billed twice. No
-partner for the region = `unassigned`, still recorded, and a copy goes to
-`INSPECTION_LEADS_TO` to pass on by hand. The consent tickbox text is stored
-verbatim with the request (Privacy Act), and the referral fee is disclosed
-before sending (`FEE_DISCLOSURE`) — a paid recommendation nobody mentioned would
-cost the report its trust. Not offered on demo or sample reports. Both tables
-are service-role only: RLS on, no policies.
+**"Get this report verified in person" is a demo button.** It opens a "Coming
+soon" panel (`VerifyInPersonDialog`) describing the service and nothing else: no
+form, nothing saved, nothing emailed. It asks for no contact details on
+purpose; a form that took them and went nowhere promises a callback that never
+comes. A full partner-inspector referral (lead fees, per-region routing, consent
+record) was built in fb411f5 and removed at the user's request; recover it from
+git history if it's wanted.
 
 **Nothing auto-renews, and the site says so.** Purchases are one-off
 (`mode: "payment"`): report credits never expire, and map access runs `MAP_DAYS`

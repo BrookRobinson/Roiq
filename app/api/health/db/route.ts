@@ -29,8 +29,6 @@ const TABLES: { name: string; used_by: string }[] = [
   { name: "report_gaps", used_by: "report gap banner" },
   { name: "report_upload_tokens", used_by: "/upload/[token] document links" },
   { name: "shared_reports", used_by: "Send report → /report/share_<token>" },
-  { name: "inspectors", used_by: "Get this report verified in person — partner inspectors" },
-  { name: "inspection_requests", used_by: "Get this report verified in person — the requests and lead fees" },
 ];
 
 const TIMEOUT_MS = 8_000;
