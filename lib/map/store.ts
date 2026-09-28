@@ -75,6 +75,7 @@ function rowToMapListing(r: MapListingRow): MapListing {
       r.listing_status === "sold" || r.listing_status === "removed" ? r.listing_status : "active",
     // Only a real analysis ever writes a score, so its presence is the test.
     analysed: r.quick_quality_score != null,
+    lastScoredAt: r.last_scored_at ?? null,
   };
 }
 
@@ -117,7 +118,17 @@ export function parseTypes(param: string | null): MapPropertyType[] | null {
   return wanted.length ? wanted : null;
 }
 
-export async function getActiveListings(bbox: BBox | null, types: MapPropertyType[] | null = null): Promise<MapListing[]> {
+export async function getActiveListings(
+  bbox: BBox | null,
+  types: MapPropertyType[] | null = null,
+  /**
+   * Only rows a report stands behind — the same test as `analysed` in
+   * rowToMapListing. The Top list ranks these alone, and filtering in the query
+   * reads a handful of rows instead of every pin in the country (~7s → well
+   * under a second on a national view).
+   */
+  analysedOnly = false
+): Promise<MapListing[]> {
   try {
     const supabase = createClient();
     const rows = await readAllPages(() => {
@@ -134,6 +145,7 @@ export async function getActiveListings(bbox: BBox | null, types: MapPropertyTyp
         .eq("listing_status", "active")
         .not("lat", "is", null)
         .not("lng", "is", null);
+      if (analysedOnly) q = q.not("quick_quality_score", "is", null);
       if (bbox) {
         q = q.gte("lat", bbox.minLat).lte("lat", bbox.maxLat).gte("lng", bbox.minLng).lte("lng", bbox.maxLng);
       }
@@ -159,7 +171,8 @@ export async function getActiveListings(bbox: BBox | null, types: MapPropertyTyp
 
   const contributed = (await getUserListings()).filter((l) => l.status === "active");
   const pool = contributed.length > 0 ? contributed : SEED_LISTINGS.filter((l) => l.status === "active");
-  return bbox ? pool.filter((l) => inBBox(l, bbox)) : pool;
+  const inView = bbox ? pool.filter((l) => inBBox(l, bbox)) : pool;
+  return analysedOnly ? inView.filter((l) => l.analysed) : inView;
 }
 
 /**

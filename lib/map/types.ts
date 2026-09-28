@@ -85,6 +85,8 @@ export interface MapListing {
    * this product can't do.
    */
   analysed: boolean;
+  /** When its report was last scored — picks the current read when one house has two pins. */
+  lastScoredAt?: string | null;
 }
 
 /**

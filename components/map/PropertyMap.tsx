@@ -49,6 +49,8 @@ export function PropertyMap({
   teaser = false,
   demo = false,
   embedded = false,
+  onBoundsChange,
+  focus,
 }: {
   mode: MapMode;
   vars: UserVariables;
@@ -75,6 +77,10 @@ export function PropertyMap({
    * map swallows the scroll as soon as the cursor crosses it.
    */
   embedded?: boolean;
+  /** The visible area, "minLng,minLat,maxLng,maxLat", after each move. */
+  onBoundsChange?: (bounds: string) => void;
+  /** Fly here. A new `key` flies again, even to the same spot. */
+  focus?: { lng: number; lat: number; key: number } | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -92,6 +98,8 @@ export function PropertyMap({
   teaserRef.current = teaser;
   const onLockedRef = useRef(onLocked);
   onLockedRef.current = onLocked;
+  const onBoundsRef = useRef(onBoundsChange);
+  onBoundsRef.current = onBoundsChange;
 
   // The last data we fetched. Held because a response can arrive before the
   // style has finished loading, and setData on a source that isn't there yet
@@ -109,6 +117,7 @@ export function PropertyMap({
     const b = map.getBounds();
     if (!b) return;
     const bounds = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+    onBoundsRef.current?.(bounds);
     const q = encodeURIComponent(JSON.stringify(varsRef.current));
     try {
       const res = await fetch(
@@ -309,6 +318,13 @@ export function PropertyMap({
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, vars, (types ?? []).join(",")]);
+
+  // A property picked from the Top list: centre on it, close enough to see the pin.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focus) return;
+    map.flyTo({ center: [focus.lng, focus.lat], zoom: Math.max(map.getZoom(), 14), essential: true });
+  }, [focus?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!TOKEN) {
     return (

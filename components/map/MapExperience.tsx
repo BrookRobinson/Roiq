@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Navbar from "@/components/Navbar";
-import { Settings } from "lucide-react";
+import { Settings, Trophy } from "lucide-react";
 import { ModeToggle } from "@/components/map/ModeToggle";
 import { MapLegend } from "@/components/map/MapLegend";
 import { PropertySheet } from "@/components/map/PropertySheet";
 import { VariablesScreen } from "@/components/map/VariablesScreen";
 import { loadVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
 import { TypeFilter } from "./TypeFilter";
+import { TopProperties, type TopItem } from "./TopProperties";
 import { useSession } from "@/lib/auth/session";
 import { PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
 import Link from "next/link";
@@ -55,6 +56,21 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   // the viewer's own numbers, which is the whole idea and completely invisible
   // if you don't know the button is there.
   const [showHint, setShowHint] = useState(false);
+  // "Top for you" — open by default where there's room beside the map; on a
+  // phone it would cover the map, so it waits for the button.
+  const [showTop, setShowTop] = useState(false);
+  const [bounds, setBounds] = useState<string | null>(null);
+  const [focus, setFocus] = useState<{ lng: number; lat: number; key: number } | null>(null);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches) setShowTop(true);
+  }, []);
+
+  function pickTop(item: TopItem) {
+    setFocus({ lng: item.lng, lat: item.lat, key: Date.now() });
+    setSelected(item.id);
+    // On a phone the sheet and the list would stack; the sheet wins.
+    if (!window.matchMedia("(min-width: 640px)").matches) setShowTop(false);
+  }
   const { can, loading: sessionLoading } = useSession();
 
   // Demo listings are nobody's paid analysis, so there is nothing to withhold.
@@ -152,6 +168,14 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
             {/* Mode toggle + settings */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               <ModeToggle mode={mode} onChange={setMode} />
+              <div className="flex items-center gap-2">
+              <button
+                onClick={() => (unlocked ? setShowTop((v) => !v) : setLocked(true))}
+                aria-pressed={unlocked && showTop}
+                className="btn-secondary text-xs py-1.5 px-3 gap-1.5"
+              >
+                {unlocked ? <Trophy size={13} /> : <Lock size={13} />} Top for you
+              </button>
               {unlocked && (
                 <div className="relative">
                   <button
@@ -223,6 +247,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                   )}
                 </div>
               )}
+              </div>
             </div>
 
             {/* The seeded note means "the real map has no real pins yet". On the
@@ -246,7 +271,21 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                 onSelect={setSelected}
                 onSeeded={setSeeded}
                 onLocked={() => setLocked(true)}
+                onBoundsChange={setBounds}
+                focus={focus}
               />
+
+              {unlocked && showTop && vars && (
+                <TopProperties
+                  mode={mode}
+                  vars={vars}
+                  types={types}
+                  demo={demo}
+                  bounds={bounds}
+                  onPick={pickTop}
+                  onClose={() => setShowTop(false)}
+                />
+              )}
 
               {/* Demo: say so plainly and permanently. Someone tuning their
                   numbers here needs to know these aren't real listings. */}
