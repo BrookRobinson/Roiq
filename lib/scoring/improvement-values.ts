@@ -303,6 +303,8 @@ export interface RoomValue {
   floorType?: FloorType;
   observedDefect?: string;
   photoReferences: number[];
+  /** Read from the buyer's own photos at the property. */
+  fromBuyer?: boolean;
   rcnNew: number;
   replacementTotal: number;
   valueNow: number;
@@ -540,7 +542,7 @@ export function valueImprovementItems(args: {
         if (!bv) continue;
         const pot = depreciate(id, Math.round(base * RENO_TARGET_MULT), 10, true);
         parts.push({
-          room: b.room, condition: b.score as number, tier: t, material: b.material, showerType: b.showerType, floorType: b.floorType, observedDefect: b.observedDefect, photoReferences: b.photoReferences,
+          room: b.room, condition: b.score as number, tier: t, material: b.material, showerType: b.showerType, floorType: b.floorType, fromBuyer: b.fromBuyer, observedDefect: b.observedDefect, photoReferences: b.photoReferences,
           rcnNew: one, replacementTotal: bv.cost.totalNZD, valueNow: bv.valueNZD, valuePotential: pot ? pot.valueNZD : bv.valueNZD,
           ageYears: bv.age.effectiveYears, pastLife: bv.remainingFraction <= 0, yearsLeft: bv.life.expectedYears - bv.life.usedYears, actionCostNZD: bv.action?.costNZD ?? 0,
         });

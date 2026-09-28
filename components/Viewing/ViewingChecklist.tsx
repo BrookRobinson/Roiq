@@ -23,6 +23,8 @@ import {
 } from "@/lib/viewing/checklist";
 import type { ItemPhotoAnalysis } from "@/lib/viewing/photo-types";
 import { ItemPhotoUpload, type PhotoContext } from "./ItemPhotoUpload";
+import { RoomPhotoUpload } from "./RoomPhotoUpload";
+import { roomPhotoKey } from "@/lib/viewing/rooms";
 import { itemLabel } from "@/lib/scoring/catalog";
 import { DocUpload } from "@/components/PropertyInspections/DocUpload";
 import { type InspectionEvidence } from "@/lib/viewing/status";
@@ -55,6 +57,7 @@ const SOURCE_NOTE: Record<ChecklistItem["source"], string> = {
   probable: "Probable — confirm",
   document: "Document needed",
   gap: "Not in the listing",
+  room: "Not in the photos",
 };
 
 
@@ -68,6 +71,7 @@ export function ViewingChecklist({
   onViewedOn,
   onItemPhoto,
   onClearItemPhoto,
+  onRoomPhotos,
   inspection,
   inspectionDoc,
   onVerifiedDoc,
@@ -88,6 +92,8 @@ export function ViewingChecklist({
   onViewedOn: (iso: string | null) => void;
   onItemPhoto: (itemId: string, analysis: ItemPhotoAnalysis) => void;
   onClearItemPhoto: (itemId: string) => void;
+  /** A whole room's reads, from one set of photos. */
+  onRoomPhotos: (lineKey: string, analyses: ItemPhotoAnalysis[]) => void;
   /** The uploaded inspection report, as the gate sees it. */
   inspection: InspectionEvidence | null;
   /** …and its full reading. The Land tab is keyed by scoring item id and has
@@ -114,8 +120,8 @@ export function ViewingChecklist({
   // Photographed items that are no longer on the list, because photographing
   // them is what took them off it.
   const onList = new Set(items.map((i) => i.itemId).filter(Boolean));
-  const assessedElsewhere = Object.values(state.photos ?? {}).filter(
-    (a) => a.showsItem && !onList.has(a.itemId)
+  const assessedElsewhere = Object.entries(state.photos ?? {}).filter(
+    ([, a]) => a.showsItem && !onList.has(a.itemId)
   );
 
   return (
@@ -268,15 +274,15 @@ export function ViewingChecklist({
             rather than the listing&rsquo;s.
           </p>
           <div className="mt-3 space-y-2">
-            {assessedElsewhere.map((a) => (
+            {assessedElsewhere.map(([key, a]) => (
               <div
-                key={a.itemId}
+                key={key}
                 className="flex items-start justify-between gap-3 rounded-xl px-3.5 py-2.5"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--rule)" }}
               >
                 <div className="min-w-0">
                   <div className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {itemLabel(a.itemId)}
+                    {itemLabel(a.itemId)}{a.room ? ` — ${a.room}` : ""}
                   </div>
                   <p className="mt-0.5 text-[12.5px]" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>
                     {a.observedDefect || a.summary}
@@ -289,7 +295,7 @@ export function ViewingChecklist({
                     </span>
                   )}
                   <button
-                    onClick={() => onClearItemPhoto(a.itemId)}
+                    onClick={() => onClearItemPhoto(key)}
                     className="text-[12px]"
                     style={{ color: "var(--text-muted)" }}
                   >
@@ -328,13 +334,18 @@ export function ViewingChecklist({
                 key={it.key}
                 item={it}
                 record={state.answers[it.key]}
-                photo={it.itemId ? state.photos?.[it.itemId] : undefined}
+                photo={
+                  it.itemId
+                    ? state.photos?.[it.itemId] ?? Object.values(state.photos ?? {}).find((p) => p.room && p.itemId === it.itemId)
+                    : undefined
+                }
                 photoContext={photoContext}
                 first={i === 0}
                 onAnswer={onAnswer}
                 onNote={onNote}
                 onItemPhoto={onItemPhoto}
                 onClearItemPhoto={onClearItemPhoto}
+                onRoomPhotos={onRoomPhotos}
                 onVerifiedDoc={onVerifiedDoc}
                 onOpenLand={onOpenLand}
               />
@@ -413,6 +424,7 @@ function Row({
   onNote,
   onItemPhoto,
   onClearItemPhoto,
+  onRoomPhotos,
   onVerifiedDoc,
   onOpenLand,
 }: {
@@ -425,6 +437,7 @@ function Row({
   onNote: (key: string, note: string) => void;
   onItemPhoto: (itemId: string, analysis: ItemPhotoAnalysis) => void;
   onClearItemPhoto: (itemId: string) => void;
+  onRoomPhotos: (lineKey: string, analyses: ItemPhotoAnalysis[]) => void;
   onVerifiedDoc: (itemId: string, doc: DocAnalysis) => void;
   onOpenLand: () => void;
 }) {
@@ -582,6 +595,9 @@ function Row({
               gets the item ASSESSED, where an answer only records what the buyer
               reckoned. The report was never missing an opinion — it was missing
               a picture. */}
+          {item.room && (
+            <RoomPhotoUpload room={item.room} context={photoContext} onAnalysed={(a) => onRoomPhotos(item.key, a)} />
+          )}
           {item.canPhotograph && item.itemId && (
             <ItemPhotoUpload
               itemId={item.itemId}
@@ -589,8 +605,11 @@ function Row({
               priorSummary={item.priorSummary}
               context={photoContext}
               analysis={photo}
-              onAnalysed={(a) => onItemPhoto(item.itemId as string, a)}
-              onCleared={() => onClearItemPhoto(item.itemId as string)}
+              rooms={item.rooms}
+              // A room-tagged read is filed under its room, so the valuation
+              // puts it on that room rather than on every room at once.
+              onAnalysed={(a) => onItemPhoto(a.room ? roomPhotoKey(item.itemId as string, a.room) : (item.itemId as string), a)}
+              onCleared={() => onClearItemPhoto(photo?.room ? roomPhotoKey(item.itemId as string, photo.room) : (item.itemId as string))}
             />
           )}
         </div>

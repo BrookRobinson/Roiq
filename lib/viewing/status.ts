@@ -86,7 +86,8 @@ export function checklistStatus(items: { key: string }[], state: ViewingState): 
   let absent = 0;
   for (const it of items) {
     const rec = state.answers[it.key];
-    const photo = state.photos?.[it.key];
+    const photo =
+      state.photos?.[it.key] ?? Object.values(state.photos ?? {}).find((p) => p.room && p.itemId === it.key);
     if (!rec && !photo) continue;
     answered++;
     if (rec?.answer === "problem" || (!rec && photo?.score != null && photo.score <= 4)) problems++;

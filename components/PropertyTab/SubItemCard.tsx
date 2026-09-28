@@ -89,7 +89,9 @@ function PerRoomBreakdown({ v, label, unseenEstimate }: { v: PerRoomValuation; l
                     title: "Listing photos",
                     body: (
                       <div className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                        {p.photoReferences.length > 0 ? (
+                        {p.fromBuyer ? (
+                          <span className="inline-flex items-center gap-1" style={{ color: "var(--good)" }}><Camera size={12} /> Photographed at the property by you</span>
+                        ) : p.photoReferences.length > 0 ? (
                           <span className="inline-flex items-center gap-1"><Camera size={12} style={{ color: "var(--text-muted)" }} /> Photos: {p.photoReferences.join(", ")}</span>
                         ) : (
                           <span style={{ color: "var(--text-muted)" }}>Read from the listing photos of this {v.noun}.</span>

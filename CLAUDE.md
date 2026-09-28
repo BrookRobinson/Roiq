@@ -600,6 +600,18 @@ report follows the inspector — they were there and the camera wasn't. It used 
 be the third condition on a gate; it is evidence now, and nothing is withheld
 for want of it.
 
+**A room the listing never photographed is one checklist line, and one set
+of photos scores it.** `lib/viewing/rooms.ts` finds them: a null read in an
+item's `byRoom`, or rooms the listing counts beyond those the analysis named
+("Bedroom 4"). `/api/room-photos` reads every item in the room in ONE call,
+each with its own `shows_item` — a photo of the carpet says nothing about the
+ceiling. Reads are stored as item-photo assessments tagged with `room`, under
+`item@room`, and `applyRoomPhotos` puts them on THAT room's read in `byRoom`,
+never on the item as a whole. A photo of a single room item (the checklist's
+per-item line) asks "Which room is it in?" for the same reason. A legacy
+whole-item photo on a room item drops `byRoom` so it still reaches the
+valuation instead of being silently ignored.
+
 **The checklist's real answer is a photograph, not a tick.** The report was
 never short of an opinion about the subfloor — it was short of a picture. So any
 item a camera can settle offers "Take a photo of the …" ABOVE the three answers:

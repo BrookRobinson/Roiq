@@ -192,6 +192,35 @@ check(
   ["unanswered", "problem"]
 );
 
+console.log("\nrooms the listing never photographed");
+const R = await import(join(root, "lib/viewing/rooms.ts"));
+const read = (room, score) => ({ room, score, photoReferences: [] });
+const bedItems = ["bed_heating", "bed_storage", "bed_flooring", "bed_ceiling"].map((id) => ({
+  id,
+  score: 7,
+  confidenceTier: 1,
+  byRoom: [read("Main bedroom", 9), read("Back bedroom", 7), read("Middle bedroom", null)],
+}));
+const unseen = R.unseenRooms(bedItems, { bedrooms: 4 });
+check("a room no listing photo shows gets a line", unseen.map((r) => r.room), ["Middle bedroom", "Bedroom 4"]);
+check("…naming every item in it", unseen[0].itemIds, ["bed_heating", "bed_storage", "bed_flooring", "bed_ceiling"]);
+check("a room the listing counts but the analysis never named still gets one", unseen[1].room, "Bedroom 4");
+check("a house read as one room gets no room lines", R.unseenRooms([{ id: "bed_flooring", score: 7 }], { bedrooms: 3 }).length, 0);
+
+const shot = (itemId, room, score, showsItem = true) => ({ itemId, room, score, showsItem, confidenceTier: 1, photoCount: 3 });
+const photos = { [R.roomPhotoKey("bed_flooring", "Middle bedroom")]: shot("bed_flooring", "Middle bedroom", 4) };
+const carpet = R.applyRoomPhotos(bedItems[2], photos);
+check("the buyer's read lands on that room", carpet.byRoom.find((r) => r.room === "Middle bedroom").score, 4);
+check("…and is marked as theirs", carpet.byRoom.find((r) => r.room === "Middle bedroom").fromBuyer, true);
+check("the other rooms keep the listing's reads", carpet.byRoom.map((r) => r.score), [9, 7, 4]);
+check("the item's score is the worst room again", carpet.score, 4);
+check("a read of another item leaves this one alone", R.applyRoomPhotos(bedItems[0], photos), bedItems[0]);
+check("a photo that didn't show the item changes nothing",
+  R.applyRoomPhotos(bedItems[2], { k: shot("bed_flooring", "Middle bedroom", null, false) }), bedItems[2]);
+check("once photographed, the room is off the list for that item",
+  R.unseenRooms([carpet, ...bedItems.filter((s) => s.id !== "bed_flooring")], { bedrooms: 3 })[0].itemIds.includes("bed_flooring"), false);
+check("an item with no per-room reads can't place a room photo", R.applyRoomPhotos({ id: "bed_flooring", score: 6 }, photos).score, 6);
+
 if (failures) {
   console.error(`\n${failures} viewing check(s) FAILED.\n`);
   process.exit(1);

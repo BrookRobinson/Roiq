@@ -117,6 +117,8 @@ export interface RoomRead {
   floorType?: FloorType;
   observedDefect?: string;
   photoReferences: number[];
+  /** Read from photos the buyer took at the property, not the listing's. */
+  fromBuyer?: boolean;
 }
 
 export interface SubItem {

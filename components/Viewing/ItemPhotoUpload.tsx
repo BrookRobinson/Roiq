@@ -45,7 +45,10 @@ export function ItemPhotoUpload({
   analysis,
   onAnalysed,
   onCleared,
+  rooms,
 }: {
+  /** Rooms this item is read in. When set, the buyer says which one the photo is of. */
+  rooms?: string[];
   itemId: string;
   label: string;
   priorSummary?: string;
@@ -60,6 +63,10 @@ export function ItemPhotoUpload({
   const [error, setError] = useState<string | null>(null);
   /** A run that came back "these don't show it" — shown, never stored. */
   const [notShown, setNotShown] = useState<string | null>(null);
+  // An item read room by room is valued room by room, so a photo of it must
+  // say which room — otherwise it would re-score every bathroom at once.
+  const [room, setRoom] = useState<string>("");
+  const needsRoom = (rooms?.length ?? 0) > 0;
 
   async function onFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -96,7 +103,7 @@ export function ItemPhotoUpload({
         setNotShown(result.summary || `Those photos don't clearly show the ${plainLabel(label).toLowerCase()}.`);
         return;
       }
-      onAnalysed(result);
+      onAnalysed(needsRoom ? { ...result, room } : result);
     } catch {
       setError("Couldn't read those photos on this device.");
     } finally {
@@ -116,7 +123,7 @@ export function ItemPhotoUpload({
             <Check size={14} style={{ color: "var(--good)", flexShrink: 0, marginTop: 2 }} />
             <div>
               <div className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                Assessed from your {analysis.photoCount === 1 ? "photo" : `${analysis.photoCount} photos`}
+                Assessed from your {analysis.photoCount === 1 ? "photo" : `${analysis.photoCount} photos`}{analysis.room ? ` of the ${analysis.room.toLowerCase()}` : ""}
                 {analysis.score != null ? ` — ${analysis.score}/10` : ""}
               </div>
               <p className="mt-1 text-[13px]" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
@@ -176,9 +183,20 @@ export function ItemPhotoUpload({
 
   return (
     <div className="mt-3 no-print">
+      {needsRoom && (
+        <label className="mb-2 flex items-center gap-2 text-[13px]" style={{ color: "var(--text-secondary)" }}>
+          Which room is it in?
+          <select value={room} onChange={(e) => setRoom(e.target.value)} className="input py-1 text-[13px]" style={{ maxWidth: 200 }}>
+            <option value="">Choose…</option>
+            {rooms!.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </label>
+      )}
       <button
         onClick={() => input.current?.click()}
-        disabled={busy}
+        disabled={busy || (needsRoom && !room)}
         className="btn-secondary gap-2 px-3.5 py-2 text-[13px]"
       >
         {busy ? <Loader2 size={13} className="animate-spin" /> : <Camera size={13} />}

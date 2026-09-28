@@ -328,3 +328,144 @@ export async function analyseItemPhotos(
     model: VISION_MODEL,
   };
 }
+
+// ============================================================
+// A whole ROOM from one set of photographs.
+//
+// A room the listing never photographed is several items at once — a
+// bedroom's carpet, wardrobe, heater and ceiling. Asking the buyer to
+// photograph each separately, and paying for four reads of the same four
+// pictures, is how a checklist stops getting finished. So the room is read in
+// one call, and each item comes back with its own `shows_item`: a photo of the
+// carpet and the wardrobe says nothing about the ceiling, and the ceiling
+// stays a gap rather than borrowing their score.
+// ============================================================
+
+const ROOM_TOOL = "submit_room_assessment";
+
+interface RawRoomItem extends Omit<RawItemPhoto, "foundation_type" | "foundation_symptoms" | "subfloor_visible" | "roof_pitch_degrees" | "roof_form" | "data_plate"> {
+  item_id: string;
+  shower_type?: string;
+  floor_type?: string;
+}
+
+function roomTool(itemIds: string[]): Anthropic.Tool {
+  return {
+    name: ROOM_TOOL,
+    description: "Submit an assessment of each item in this room from the attached photographs.",
+    input_schema: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          description: "One entry per item you were asked about, in any order.",
+          items: {
+            type: "object",
+            properties: {
+              item_id: { type: "string", enum: itemIds },
+              shows_item: {
+                type: "boolean",
+                description: "True ONLY if these photographs genuinely show THIS item well enough to assess it. Each item on its own — a photo of the carpet says nothing about the ceiling.",
+              },
+              score: { type: ["integer", "null"], description: "1-10 condition, as for the whole report. Null if shows_item is false." },
+              confidence_tier: { type: "integer", description: "1 plainly visible · 2 probable · 3 can't really tell." },
+              condition: { type: "string" },
+              material: { type: "string", description: "What THIS room's fitting is, e.g. 'Wool-blend carpet', 'Tiled walk-in shower'." },
+              estimated_age: { type: "string" },
+              spec_tier: { type: "string", enum: ["deteriorated", "dated", "modern", "luxury"] },
+              shower_type: { type: "string", enum: ["tiled", "liner"], description: "bath_shower only: tiled walls/floor, or a moulded liner and tray. Never assess the waterproofing behind tiles." },
+              floor_type: { type: "string", enum: ["tiled", "vinyl"], description: "bath_flooring only." },
+              observed_defect: { type: "string", description: "What is visible that needs work, specifically. Empty if nothing." },
+              condition_evidence: { type: "array", items: { type: "string" } },
+              urgent_action: {
+                type: "object",
+                properties: {
+                  work: { type: "string" },
+                  scope: { type: "string", enum: ["maintenance", "repair", "replace"] },
+                  share: { type: "number" },
+                },
+                required: ["work", "scope", "share"],
+              },
+              ai_summary: { type: "string", description: "One or two plain sentences for the buyer about this item in this room." },
+            },
+            required: ["item_id", "shows_item", "score", "confidence_tier", "ai_summary"],
+          },
+        },
+      },
+      required: ["items"],
+    },
+  };
+}
+
+export async function analyseRoomPhotos(
+  room: string,
+  itemIds: string[],
+  photos: InlinePhoto[],
+  ctx: ItemPhotoContext = {}
+): Promise<ItemPhotoAnalysis[]> {
+  const items = itemIds.map((id) => ITEM_BY_ID[id]).filter(Boolean);
+  if (items.length === 0) throw new Error("No items to assess in this room.");
+
+  const content: Anthropic.ContentBlockParam[] = photos.map((p) => ({
+    type: "image" as const,
+    source: { type: "base64" as const, media_type: p.mediaType, data: p.base64 },
+  }));
+  content.push({
+    type: "text",
+    text: [
+      `These photographs were taken in the **${room}**. The listing had no photo of this room.`,
+      `Assess each of these items in THIS room only: ${items.map((i) => `${i.label} (${i.id})`).join(", ")}.`,
+      ctx.buildYear ? `The house was built c.${ctx.buildYear}.` : null,
+      `Each item stands on its own: set shows_item=false for anything these photographs don't show, and do not score it from the others. ${photos.length} photograph${photos.length === 1 ? "" : "s"} attached. Call ${ROOM_TOOL}.`,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  });
+
+  const client = getAnthropic();
+  const resp = await client.messages.create({
+    model: VISION_MODEL,
+    max_tokens: 3000,
+    system: SYSTEM.replace("photographed ONE specific item", "photographed one ROOM").replace(
+      "- Assess ONLY the item you are asked about. Ignore everything else in the frame.",
+      "- Assess ONLY the items you are asked about, each on its own evidence."
+    ).replace(`by calling the ${TOOL_NAME} tool`, `by calling the ${ROOM_TOOL} tool`),
+    tools: [roomTool(items.map((i) => i.id))],
+    tool_choice: { type: "tool", name: ROOM_TOOL },
+    messages: [{ role: "user", content }],
+  });
+  const call = resp.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === ROOM_TOOL);
+  if (!call) throw new Error(`${PRODUCT_NAME} did not return an assessment.`);
+  const raws = ((call.input as { items?: RawRoomItem[] }).items ?? []).filter((r) => itemIds.includes(r.item_id));
+
+  const now = new Date().toISOString();
+  return itemIds.map((id): ItemPhotoAnalysis => {
+    const item = ITEM_BY_ID[id];
+    const raw = raws.find((r) => r.item_id === id);
+    const showsItem = Boolean(raw?.shows_item);
+    const score = showsItem ? clampScore(raw?.score) : null;
+    return {
+      itemId: id,
+      room,
+      showsItem: showsItem && score != null,
+      score,
+      confidenceTier: clampTier(raw?.confidence_tier),
+      condition: raw?.condition?.trim() || (showsItem ? urgencyLabel(score) : "Not shown in these photos"),
+      material: raw?.material?.trim() || undefined,
+      estimatedAge: raw?.estimated_age?.trim() || "—",
+      specTier: usesSpecTier(item) ? normSpec(raw?.spec_tier) : undefined,
+      showerType: id === "bath_shower" && (raw?.shower_type === "tiled" || raw?.shower_type === "liner") ? raw.shower_type : undefined,
+      floorType: id === "bath_flooring" && (raw?.floor_type === "tiled" || raw?.floor_type === "vinyl") ? raw.floor_type : undefined,
+      observedDefect: raw?.observed_defect?.trim() || undefined,
+      urgentAction: normAction(raw?.urgent_action),
+      conditionEvidence: Array.isArray(raw?.condition_evidence)
+        ? raw!.condition_evidence!.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim()).slice(0, 5)
+        : undefined,
+      summary: raw?.ai_summary?.trim() || "",
+      estimatedReplacementCost: null,
+      photoCount: photos.length,
+      analysedAt: now,
+      model: VISION_MODEL,
+    };
+  });
+}

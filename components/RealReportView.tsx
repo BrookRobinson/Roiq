@@ -15,6 +15,7 @@ import { loadReportPersona, saveReportPersona, saveReportDocs } from "@/lib/repo
 import { valueRoof, roofMaterialFromText } from "@/lib/scoring/roof-value";
 import { valueItem, isItemWithheld } from "@/lib/scoring/item-value";
 import { IMPROVEMENT_BASE_COSTS } from "@/lib/scoring/improvement-values";
+import { applyRoomPhotos } from "@/lib/viewing/rooms";
 import type { AnyValuation } from "@/components/PropertyTab/valuation-types";
 import { labourMultiplierFor } from "@/lib/labour-rates";
 import { actionFor, actionCost } from "@/lib/scoring/depreciation";
@@ -54,7 +55,7 @@ import { buildBudgetPlan, PRIORITY_META } from "@/lib/reno-costing/budget-plan";
 import { MaterialStudio } from "@/components/MaterialStudio";
 import { ViewingChecklist } from "@/components/Viewing/ViewingChecklist";
 import { buildViewingChecklist, checklistStatus, EMPTY_VIEWING, type ViewingState } from "@/lib/viewing/checklist";
-import { loadViewing, saveViewing, syncViewing, setAnswer, setNote, setViewedOn, setItemPhoto, clearItemPhoto } from "@/lib/viewing/store";
+import { loadViewing, saveViewing, syncViewing, setAnswer, setNote, setViewedOn, setItemPhoto, clearItemPhoto, setRoomPhotos } from "@/lib/viewing/store";
 import type { ItemPhotoAnalysis } from "@/lib/viewing/photo-types";
 import { surfaceForKind, materialsFor } from "@/lib/materials-catalogue";
 import { summarise, defaultInputs, FINANCE_DEFAULTS, PURCHASE_COST_LABELS } from "@/lib/finance/calculator";
@@ -466,6 +467,11 @@ export function RealReportView({
             noPhotoNotAssessed: false,
             // The listing's photo numbers described a different set of pictures.
             photoReferences: [],
+            // A photo of the item as a whole, on an item read room by room,
+            // can't say which room it's of — so the per-room reads go and the
+            // photo values it whole, rather than being silently ignored. New
+            // photos of room items ask which room, and don't land here.
+            byRoom: undefined,
           };
         }
         const v = verifiedDocs[s.id];
@@ -575,7 +581,10 @@ export function RealReportView({
           if (f) return { ...s, score: f.score as typeof s.score };
         }
         return s;
-      }),
+      })
+      // Rooms the buyer photographed at the property: each read goes onto
+      // THAT room, and the valuation re-reads the item room by room.
+      .map((s) => applyRoomPhotos(s, itemPhotos)),
     [report.subItems, verifiedDocs, itemPhotos, noPhotos, report.listing.landAreaSqm]
   );
 
@@ -744,7 +753,7 @@ export function RealReportView({
             label: v.label,
             labourMultiplier: labourMultiplierFor(report.listing),
           });
-          return isItemWithheld(r) ? [] : [{ room: p.room, condition: p.condition, photoReferences: p.photoReferences, valuation: r }];
+          return isItemWithheld(r) ? [] : [{ room: p.room, condition: p.condition, photoReferences: p.photoReferences, fromBuyer: p.fromBuyer, valuation: r }];
         });
         const worstPart = parts.reduce((a, p) => (p.condition < a.condition ? p : a), parts[0]);
         if (worstPart) {
@@ -1235,6 +1244,7 @@ export function RealReportView({
               inspectionDoc={verifiedDocs?.["insp_report"] ?? null}
               onItemPhoto={(id, a: ItemPhotoAnalysis) => updateViewing(setItemPhoto(viewing, id, a))}
               onClearItemPhoto={(id) => updateViewing(clearItemPhoto(viewing, id))}
+              onRoomPhotos={(key, analyses) => updateViewing(setRoomPhotos(viewing, key, analyses))}
               onVerifiedDoc={onVerified}
               onOpenLand={() => setTab("legal")}
             />

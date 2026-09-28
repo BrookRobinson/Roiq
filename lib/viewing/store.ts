@@ -13,6 +13,7 @@
 import { EMPTY_VIEWING, type ViewingAnswer, type ViewingState } from "./status";
 import type { ItemPhotoAnalysis } from "./photo-types";
 import { mergeViewing } from "./merge";
+import { roomPhotoKey } from "./rooms";
 
 const key = (reportId: string) => `roiq:report:${reportId}:viewing`;
 
@@ -178,5 +179,30 @@ export function setItemPhoto(
 export function clearItemPhoto(state: ViewingState, itemId: string): ViewingState {
   const photos = { ...(state.photos ?? {}) };
   delete photos[itemId];
+  return { ...state, photos };
+}
+
+/**
+ * A room's reads from one set of the buyer's photographs. Each item it showed
+ * is filed under its own `item@room` key; items it didn't show aren't stored
+ * (a gap beats a borrowed score). The room's checklist answer, if any, goes —
+ * the photographs settle it.
+ */
+export function setRoomPhotos(state: ViewingState, lineKey: string, analyses: ItemPhotoAnalysis[]): ViewingState {
+  const answers = { ...state.answers };
+  delete answers[lineKey];
+  const photos = { ...(state.photos ?? {}) };
+  for (const a of analyses) {
+    if (a.showsItem && a.room) photos[roomPhotoKey(a.itemId, a.room)] = a;
+  }
+  return { ...state, answers, photos };
+}
+
+/** Remove every read the buyer took in one room. */
+export function clearRoomPhotos(state: ViewingState, room: string): ViewingState {
+  const photos = { ...(state.photos ?? {}) };
+  for (const [k, a] of Object.entries(photos)) {
+    if (a.room && a.room.trim().toLowerCase() === room.trim().toLowerCase()) delete photos[k];
+  }
   return { ...state, photos };
 }

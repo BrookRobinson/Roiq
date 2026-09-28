@@ -14,7 +14,7 @@ export interface PerRoomValuation {
   kind: "per-room";
   /** Which rooms the item is spread across, for the card's wording. */
   noun: "bathroom" | "bedroom";
-  parts: { room: string; condition: number; photoReferences: number[]; valuation: GenericItemValuation }[];
+  parts: { room: string; condition: number; photoReferences: number[]; fromBuyer?: boolean; valuation: GenericItemValuation }[];
   /** Rooms no photo shows — estimated from the rest of the house, not valued here. */
   unseen: string[];
   valueNZD: number;

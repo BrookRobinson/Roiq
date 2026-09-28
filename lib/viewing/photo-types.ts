@@ -5,10 +5,18 @@ import type { UrgentAction } from "@/lib/scoring/depreciation";
 // that client code and the dependency-free status module can name the type
 // without dragging the Anthropic SDK anywhere near a browser bundle.
 
-import type { ConfidenceTier, ReplacementCost, SpecTier, UrgencyScore } from "@/lib/property-tab/types";
+import type { ConfidenceTier, ReplacementCost, SpecTier, UrgencyScore, ShowerType, FloorType } from "@/lib/property-tab/types";
 
 export interface ItemPhotoAnalysis {
   itemId: string;
+  /**
+   * The room these photographs were taken in, for an item read room by room
+   * (a bedroom's carpet, a bathroom's shower). Set, the read replaces THAT
+   * room's read; absent, it is a read of the item as a whole. See rooms.ts.
+   */
+  room?: string;
+  showerType?: ShowerType;
+  floorType?: FloorType;
   /**
    * False when the photographs don't actually show the item. Nothing is scored
    * and the checklist line stays open — a confident number read off the wrong

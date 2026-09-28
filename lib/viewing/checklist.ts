@@ -50,6 +50,7 @@ export const areaLabel = (id: string): string => {
 };
 import { isPhotoAssessable } from "@/lib/viewing/photo-assessable";
 import type { SubItem } from "@/lib/property-tab/types";
+import { unseenRooms, roomLineKey, type UnseenRoom, type RoomKind } from "./rooms";
 import type { StoredReport, DocAnalysis } from "@/lib/report-store";
 
 // The gate and the per-item rule live in ./status — dependency-free, so
@@ -70,7 +71,7 @@ export type {
 
 export type { CheckGuide };
 
-export type CheckSource = "ungraded" | "probable" | "document" | "gap";
+export type CheckSource = "ungraded" | "probable" | "document" | "gap" | "room";
 
 export interface ChecklistItem {
   /** Stable key the answer is filed under. Survives a re-render, not a re-analysis. */
@@ -98,7 +99,46 @@ export interface ChecklistItem {
   canPhotograph: boolean;
   /** What the desktop analysis said, handed to the model alongside the photos. */
   priorSummary?: string;
+  /** A whole room the listing never photographed — one set of photos scores it. */
+  room?: UnseenRoom;
+  /** An item read room by room: a photo of it has to say which room it's of. */
+  rooms?: string[];
 }
+
+/**
+ * What to do in a room nobody photographed. Hand-written like the rest of
+ * how-to-check.ts: the photographs are what score it, so they lead.
+ */
+const ROOM_GUIDE: Record<RoomKind, (room: string) => CheckGuide> = {
+  bedroom: (room) => ({
+    concern: `The ${room.toLowerCase()} isn't in the listing photos, so its carpet, wardrobe, ceiling and heating are estimated from the rest of the house.`,
+    steps: [
+      "Stand in the doorway and take in the whole room, then the floor, the wardrobe and the ceiling.",
+      "Look for worn traffic lanes in the carpet, sagging wardrobe rails or doors, and stains or cracks in the ceiling.",
+      "Note whether there's a heater, heat-pump head or panel heater in the room.",
+    ],
+    photos: [
+      "The whole room from the doorway",
+      "The floor, close enough to see its wear",
+      "The wardrobe, doors open",
+      "The ceiling, and any heater",
+    ],
+  }),
+  bathroom: (room) => ({
+    concern: `The ${room.toLowerCase()} isn't in the listing photos, so its shower, vanity, toilet, fan and floor are estimated from the rest of the house.`,
+    steps: [
+      "Take in the whole room from the doorway, then the shower, the vanity and the floor.",
+      "Look at the silicone and grout, press the wall lining beside the shower, and check the floor outside it for lifting or swelling.",
+      "Check for an extractor fan and whether it runs, and look at the ceiling above the shower for mould.",
+    ],
+    photos: [
+      "The whole room from the doorway",
+      "The shower, and where it meets the wall and floor",
+      "The vanity and toilet",
+      "The floor, and the ceiling above the shower",
+    ],
+  }),
+};
 
 
 /**
@@ -276,6 +316,7 @@ export function buildViewingChecklist(
         guide: CHECK_GUIDE[s.id] ?? fallbackGuide(s),
         source: "ungraded",
         canPhotograph: isPhotoAssessable(s.id),
+        rooms: s.byRoom?.length ? s.byRoom.map((r) => r.room) : undefined,
         priorSummary: s.aiSummary || undefined,
       });
       seen.add(s.id);
@@ -300,9 +341,32 @@ export function buildViewingChecklist(
         source: "probable",
         band,
         canPhotograph: isPhotoAssessable(s.id),
+        rooms: s.byRoom?.length ? s.byRoom.map((r) => r.room) : undefined,
         priorSummary: s.observedDefect || s.aiSummary || undefined,
       });
       seen.add(s.id);
+    }
+  }
+
+  // Rooms the listing never photographed. The valuation estimates them from
+  // the rest of the house; one set of the buyer's photos replaces that with a
+  // real read of every item in the room. A room that's been photographed has
+  // byRoom reads now, so it drops off this list by itself.
+  if (!landOnly) {
+    for (const r of unseenRooms(subItems, { bathrooms: report.listing?.bathrooms, bedrooms: report.listing?.bedrooms })) {
+      const key = roomLineKey(r.kind, r.room);
+      if (seen.has(key)) continue;
+      out.push({
+        key,
+        label: `${r.room} — not in the listing photos`,
+        group: r.kind === "bathroom" ? "Bathroom" : "Bedrooms",
+        why: "Estimated in the valuation until it's photographed — one set of photos scores everything in the room.",
+        guide: ROOM_GUIDE[r.kind](r.room),
+        source: "room",
+        canPhotograph: true,
+        room: r,
+      });
+      seen.add(key);
     }
   }
 
