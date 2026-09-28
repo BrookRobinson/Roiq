@@ -3,7 +3,7 @@
 import { blurOnWheel } from "@/lib/ui/number-input";
 import { useEffect, useState } from "react";
 import { Wallet, Home, TrendingUp, Sprout, ArrowRight, X, Search, Check } from "lucide-react";
-import { TYPE_OPTIONS } from "./TypeFilter";
+import { TYPE_OPTIONS } from "@/lib/map/type-options";
 import type { UserVariables, MapMode } from "@/lib/map/types";
 import { DEFAULT_VARIABLES, saveVariables } from "@/lib/map/variables";
 import { DEFAULT_INTEREST_RATE } from "@/lib/map/interest-rate";
@@ -33,6 +33,18 @@ export function VariablesScreen({
 }) {
   const [v, setV] = useState<UserVariables>(initial ?? DEFAULT_VARIABLES);
   const [saving, setSaving] = useState(false);
+  // How many of each type the map can draw right now. A listing is found by
+  // address first and located later, so a type can hold thousands with only a
+  // few placed — and picking it with no warning looks like a broken, empty map.
+  const [counts, setCounts] = useState<Record<string, { total: number; mapped: number }> | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/map/type-counts")
+      .then((r) => r.json())
+      .then((d) => { if (live && d?.ok) setCounts(d.counts); })
+      .catch(() => { /* the choices still work without the numbers */ });
+    return () => { live = false; };
+  }, []);
 
   // The live rate arrives after this screen mounts, so adopt it — but only while
   // the field still holds the fallback constant. Once someone has typed their own
@@ -88,7 +100,7 @@ export function VariablesScreen({
               <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Property types you want</span>
             </div>
             <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-              Only these show on the map and in Top for you. Leave all unticked to see every type.
+              Only these show on the map and in Best deals for you. Leave all unticked to see every type.
             </p>
             <div className="flex flex-wrap gap-2">
               {TYPE_OPTIONS.map((o) => {
@@ -111,10 +123,29 @@ export function VariablesScreen({
                   >
                     {on && <Check size={12} />}
                     {o.label}
+                    {counts?.[o.value] && (
+                      <span className="mono text-[11px]" style={{ opacity: 0.7 }}>
+                        {counts[o.value].mapped.toLocaleString("en-NZ")}
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
+            {/* The honest gap, for the types chosen: silence here is what made a
+                half-located type look like one with nothing in it. */}
+            {counts &&
+              v.propertyTypes
+                .filter((t) => counts[t] && counts[t].total > counts[t].mapped)
+                .map((t) => (
+                  <p key={t} className="text-[11px] mt-2" style={{ color: "var(--warn)" }}>
+                    {TYPE_OPTIONS.find((o) => o.value === t)?.label}:{" "}
+                    {(counts[t].total - counts[t].mapped).toLocaleString("en-NZ")} more found, still being located on the map.
+                  </p>
+                ))}
+            <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
+              The number is how many can be shown on the map right now.
+            </p>
           </div>
 
           <Section icon={Wallet} title="Purchase">

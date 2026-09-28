@@ -8,8 +8,8 @@ import { ModeToggle } from "@/components/map/ModeToggle";
 import { MapLegend } from "@/components/map/MapLegend";
 import { PropertySheet } from "@/components/map/PropertySheet";
 import { VariablesScreen } from "@/components/map/VariablesScreen";
-import { loadVariables, saveVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
-import { TypeFilter } from "./TypeFilter";
+import { loadVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
+import { TYPE_OPTIONS } from "@/lib/map/type-options";
 import { TopProperties, type TopItem } from "./TopProperties";
 import { useSession } from "@/lib/auth/session";
 import { PACKAGE_LABEL, packageFor, priceFor } from "@/lib/billing/plans";
@@ -158,10 +158,17 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
       ) : (
         (vars || !unlocked) && (
           <>
-            {/* Mode toggle + settings */}
+            {/* Mode toggle */}
             <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               <ModeToggle mode={mode} onChange={setMode} />
-              <div className="flex items-center gap-2">
+            </div>
+
+            {/* The seeded note means "the real map has no real pins yet". On the
+                demo map that's not news — the banner below already says so. */}
+            <MapLegend mode={mode} seeded={!demo && seeded} />
+
+            {/* Your numbers, above the map they drive. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-2">
               {unlocked && (
                 <div className="relative">
                   <button
@@ -179,7 +186,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                     <div
                       role="dialog"
                       aria-label="Adjust your numbers"
-                      className="absolute right-0 z-20 mt-2 w-72 p-4 text-left"
+                      className="absolute left-0 z-20 mt-2 w-72 p-4 text-left"
                       style={{
                         top: "100%",
                         background: "var(--surface)",
@@ -193,7 +200,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                         className="absolute h-2.5 w-2.5 rotate-45"
                         style={{
                           top: -6,
-                          right: 22,
+                          left: 22,
                           background: "var(--surface)",
                           borderLeft: "1px solid var(--rule-strong)",
                           borderTop: "1px solid var(--rule-strong)",
@@ -233,30 +240,19 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                   )}
                 </div>
               )}
-              </div>
-            </div>
-
-            {/* The seeded note means "the real map has no real pins yet". On the
-                demo map that's not news — the banner below already says so. */}
-            <MapLegend mode={mode} seeded={!demo && seeded} />
-
-            {/* Sits above the map rather than floating over it: the filter
-                changes what the map contains, so it belongs with the legend that
-                explains what's on it. */}
-            <div className="flex items-center gap-2 px-4 pb-2">
-              {/* The same setting as "Property types you want" in Variables — changing
-                  it here saves it there, so the two can never disagree. */}
-              <TypeFilter
-                selected={types}
-                onChange={(next) => {
-                  setTypes(next);
-                  if (vars) {
-                    const updated = { ...vars, propertyTypes: next };
-                    setVars(updated);
-                    saveVariables(updated);
-                  }
-                }}
-              />
+              {/* The type filter used to sit here. It's a setting in Variables now,
+                  so this says what it's set to — a filtered map should never look
+                  like an empty one. */}
+              {unlocked && (
+                <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>
+                  Showing{" "}
+                  <span style={{ color: types.length ? "var(--brand)" : "var(--text-secondary)" }}>
+                    {types.length
+                      ? types.map((t) => TYPE_OPTIONS.find((o) => o.value === t)?.label ?? t).join(", ")
+                      : "all property types"}
+                  </span>
+                </span>
+              )}
             </div>
 
             <div className="flex-1 min-h-0 relative flex">

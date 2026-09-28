@@ -845,7 +845,9 @@ scoring column null. A pin with a real address and an invented number is the
 same failure the seed-listings rule guards against. Users analyse what they
 care about, from their own allowance.
 
-**A type filter must show how many of each type can actually be DRAWN.** A
+**A type choice must show how many of each type can actually be DRAWN.** (The
+choice lives in Variables — "Property types you want" — since the filter above
+the map was removed; the rule moved with it.) A
 listing is discovered by address and geocoded on a later pass, so a type can
 genuinely hold 2,659 listings and 15 locations — and with the filter silent
 about that, ticking "Rural land" produced an empty map that reads as a broken
@@ -875,7 +877,7 @@ it is silently ignored and you get every pin in the country — 37,912 rows and 
 being wrong. `PropertyMap.tsx` passes it correctly; a Hokitika viewport is 4KB
 and 0.4s.
 
-**"Top for you" ranks by the pin's own figure, and the gate is on the server.**
+**"Best deals for you" ranks by the pin's own figure, and the gate is on the server.**
 `/api/map/top` runs the same `computeListing()` against the reader's variables
 (value vs asking for a home buyer, profit over the hold for an investor) and
 returns the best ten with addresses and prices — which is what the map tier
