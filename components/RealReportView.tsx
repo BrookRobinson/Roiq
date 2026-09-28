@@ -72,6 +72,7 @@ import {
 } from "@/lib/scoring/catalog";
 import { Step, EvidenceList } from "@/components/PropertyTab/ItemValuation";
 import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
+import { citedPhotos, mergePhotoRefs } from "@/lib/photo-refs";
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, ClipboardCheck, Shield, MapPin, Handshake,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
@@ -3691,7 +3692,9 @@ function HealthyHomesCard({ r, item, note, cost, buildYear, renoControls, onOpen
     : r.compliant ? { label: "Meets the standard", color: "var(--good)", bg: "var(--good-wash)" }
     : { label: "⚖️ Must do, by law", color: "var(--bad)", bg: "var(--bad-wash)" };
   const accent = r.compliant === null ? "var(--warn)" : r.compliant ? "var(--good)" : "var(--bad)";
-  const photos = r.basis === "observed" ? item?.photoReferences ?? [] : [];
+  // The list, plus any photo the standard's own note cites, so the header
+  // never names different photos from the finding under it.
+  const photos = r.basis === "observed" ? mergePhotoRefs(item?.photoReferences ?? [], citedPhotos(note)) : [];
   const range = `${fmt(r.remediation.low)}–${fmt(r.remediation.high)}`;
   const seen = mergeEvidence(
     [note, item?.observedDefect].filter((x): x is string => !!x),

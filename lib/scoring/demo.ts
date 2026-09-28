@@ -173,7 +173,7 @@ const MATERIALS: Record<string, string> = {
 // Photo numbers backing each observation above.
 const PHOTOS: Record<string, number[]> = {
   ext_roof: [4, 5], bath_ventilation: [6, 11], bath_flooring: [11], bath_hotwater: [14],
-  liv_ceiling: [7], liv_walls: [3, 7], liv_heating: [3, 8], liv_flooring: [7],
+  liv_ceiling: [7], liv_walls: [3, 7], liv_light: [3], liv_heating: [3, 8], liv_flooring: [7],
   bed_ceiling: [9], bed_heating: [9, 10], bed_flooring: [9, 10],
   out_fencing: [16], ext_gutters: [2], ext_soffits: [4], gar_door: [1, 15],
   ext_paint: [1, 4], ext_doors: [3, 17], ext_cladding: [4], ext_decking: [17],
@@ -309,7 +309,7 @@ const SUMMARIES: Record<string, string> = {
   liv_size:
     "Generous open living at the scale you would expect from a 185m2 floor plan, with room for a full dining setting alongside the lounge without crowding. Flow to the deck and the north-facing garden is direct. Size and flow are among the harder things to change, so this is a genuine strength of the house.",
   liv_light:
-    "North-facing living with large windows to the garden and no significant obstruction from neighbouring buildings (Photos 2 and 3). Excellent all-day sun, which is the single most valued feature in Auckland housing stock and one you cannot retrofit. This is the strongest attribute of the property.",
+    "North-facing living with large windows to the garden and no significant obstruction from neighbouring buildings (Photo 3). Excellent all-day sun, which is the single most valued feature in Auckland housing stock and one you cannot retrofit. This is the strongest attribute of the property.",
   liv_flooring:
     "Engineered oak in the living area from the same renovation cycle as the kitchen, roughly eight years old and presenting well. The problem is the carpeted areas next to it: worn through to backing in the hallway traffic path and pulled away from the gripper at the lounge doorway (Photo 7). Re-stretch or replace the carpet; the timber itself needs nothing.",
   liv_walls:
@@ -347,11 +347,11 @@ const SUMMARIES: Record<string, string> = {
   out_landscaping:
     "Established, mature planting with lawn to the north of the house and defined garden beds, presenting well and requiring ordinary upkeep rather than restoration. Mature trees on a Remuera section add real value. Check with the council whether anything on the property carries a protection or notable tree listing before planning removal or heavy pruning.",
   ext_roof:
-    "Photos 1 and 4 show a long-run iron roof with surface rust along the ridgeline and around the flashings, consistent with a c.1975 original. Plan for replacement within 1–2 years; budget a recoat only if a full replacement isn't viable this cycle. Confirm purlin condition and underlay when re-roofing.",
+    "Photos 4 and 5 show a long-run iron roof with surface rust along the ridgeline and around the flashings, consistent with a c.1975 original. Plan for replacement within 1–2 years; budget a recoat only if a full replacement isn't viable this cycle. Confirm purlin condition and underlay when re-roofing.",
   liv_insulation:
     "No photograph shows the roof space, so the ceiling has not been seen. The 1975 build era predates insulation requirements, so expect little to no ceiling or underfloor insulation. This is the single highest-impact, lowest-cost improvement — it lifts comfort, lowers running costs, and is required for Healthy Homes if rented.",
   bath_ventilation:
-    "The main bathroom (Photo 5) has an openable window but no visible ducted extractor fan. Inadequate extraction drives mould and fails the Healthy Homes ventilation standard. Install ducted fans vented to outside in both bathrooms.",
+    "The main bathroom (Photos 6 and 11) has an openable window but no visible ducted extractor fan. Inadequate extraction drives mould and fails the Healthy Homes ventilation standard. Install ducted fans vented to outside in both bathrooms.",
   loc_schools:
     "Within the Auckland Grammar and Epsom Girls' Grammar double-grammar zones — among the most sought-after school zones in the country, a strong and durable demand driver for owner-occupiers.",
   leg_title:

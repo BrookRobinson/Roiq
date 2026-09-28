@@ -56,6 +56,7 @@ import {
   type FoundationSymptom,
   type FoundationType,
 } from "@/lib/scoring/foundation";
+import { citedPhotos, mergePhotoRefs } from "@/lib/photo-refs";
 
 export interface GapFinding {
   gapType: string;
@@ -105,6 +106,7 @@ function normPhotoRefs(refs: number[] | undefined): number[] {
   if (!Array.isArray(refs)) return [];
   return refs.filter((n) => Number.isInteger(n) && n > 0);
 }
+
 
 const STRUCTURE_TYPES: StructureType[] = ["minor_dwelling","tiny_home_fixed","tiny_home_wheels","studio_office","games_room","garage","closed_shed","pole_shed","carport","garden_shed","pool_inground","pool_above","spa","other"];
 function normStructureType(v: string | undefined): StructureType | undefined {
@@ -409,7 +411,10 @@ function mapSubItem(raw: RawSubItem, item: ScoringSubItem, ctx: SubItemContext):
     renovationLink: Boolean(raw.renovation_link),
     // The model is the source of truth for Healthy-Homes relevance; the AI hint adds to it.
     healthyHomesLink: item.affectsHealthyHomes || Boolean(raw.healthy_homes_link),
-    photoReferences: normPhotoRefs(raw.photo_references),
+    photoReferences: mergePhotoRefs(
+      normPhotoRefs(raw.photo_references),
+      citedPhotos(raw.ai_summary, raw.observed_defect, ...(raw.condition_evidence ?? [])),
+    ),
     ...sourcedFields(raw, item),
   };
 }
