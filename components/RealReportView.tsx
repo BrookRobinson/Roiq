@@ -233,17 +233,39 @@ const renoIncluded = (
  */
 export const UPFRONT_RENO_YEARS = 1;
 
-/** Total of the in-plan reno lines that fall within the hold period. */
-function selectedRenoCost(
-  lines: { key: string; costing?: ThreeTierCost; low: number; high: number; urgencyYears: number; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean; optIn?: boolean }[],
-  toggles: Record<string, RenoToggle>,
-  withinHold: (years: number) => boolean
-): number {
-  return lines
-    .filter((l) => withinHold(l.urgencyYears))
-    // `true`: everything past that filter is due inside the hold by definition.
-    .filter((l) => renoIncluded(l, toggles, true))
-    .reduce((sum, l) => sum + lineCost(l, toggles[l.key]), 0);
+type PlanFlags = { key: string; urgencyYears: number; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean; optIn?: boolean };
+type PlanLine = PlanFlags & { costing?: ThreeTierCost; low: number; high: number };
+
+/**
+ * TWO halves of the plan, and every total reads them the same way.
+ *
+ * At purchase: the ticked lines — ticked by the reader, or pre-ticked because
+ * the work is needed the day you buy or before you can rent it out (see
+ * `autoInclude`). Counted whatever the hold: you've said you'll do it.
+ *
+ * During the hold: not ticked, but it reaches end of life while you own the
+ * place and nobody unticked it. A 30%-condition roof may well last a few more
+ * years, so it isn't ticked — but on a ten-year hold it is still money you
+ * will spend, so it is still counted.
+ */
+const inAtPurchase = (l: PlanFlags, toggles: Record<string, RenoToggle>) => renoIncluded(l, toggles, false);
+const inDuringHold = (l: PlanFlags, toggles: Record<string, RenoToggle>, withinHold: (years: number) => boolean) =>
+  !inAtPurchase(l, toggles) && withinHold(l.urgencyYears) && renoIncluded(l, toggles, true);
+
+function renoSplit(lines: PlanLine[], toggles: Record<string, RenoToggle>, withinHold: (years: number) => boolean) {
+  let atPurchase = 0;
+  let duringHold = 0;
+  for (const l of lines) {
+    if (inAtPurchase(l, toggles)) atPurchase += lineCost(l, toggles[l.key]);
+    else if (inDuringHold(l, toggles, withinHold)) duringHold += lineCost(l, toggles[l.key]);
+  }
+  return { atPurchase, duringHold };
+}
+
+/** Everything in the plan: what's ticked, plus what falls due inside the hold. */
+function selectedRenoCost(lines: PlanLine[], toggles: Record<string, RenoToggle>, withinHold: (years: number) => boolean): number {
+  const { atPurchase, duringHold } = renoSplit(lines, toggles, withinHold);
+  return atPurchase + duringHold;
 }
 
 /**
@@ -267,8 +289,7 @@ function selectedRenoUplift(
   withinHold: (years: number) => boolean
 ): number {
   return lines
-    .filter((l) => withinHold(l.urgencyYears))
-    .filter((l) => renoIncluded(l, toggles, true))
+    .filter((l) => inAtPurchase(l, toggles) || inDuringHold(l, toggles, withinHold))
     .filter((l) => (toggles[l.key]?.tier ?? "budget") !== "patch")
     .reduce((sum, l) => sum + (l.valueGap ?? 0), 0);
 }
@@ -931,12 +952,17 @@ export function RealReportView({
     const byId = new Map(renoLines.filter((l) => !l.key.endsWith("_rem")).map((l) => [l.key, l]));
     return {
       has: (id) => byId.has(id),
-      // The same rule the Renovations tab counts by, so a ticked box always
-      // means "in the total". Built above HoldPeriodProvider, so the caller
-      // passes the hold in; without it only urgent / legal work reads ticked.
-      included: (id, withinHold) => {
+      // Ticked = in the plan AT PURCHASE: needed straight away, or ticked by
+      // the reader. Work that only falls due later in the hold isn't ticked;
+      // `dueInHold` says so, and the plan still counts it.
+      included: (id) => {
         const l = byId.get(id);
-        return l ? renoIncluded(l, renoToggles, withinHold?.(l.urgencyYears) ?? false) : false;
+        return l ? inAtPurchase(l, renoToggles) : false;
+      },
+      // Built above HoldPeriodProvider, so the caller passes the hold in.
+      dueInHold: (id, withinHold) => {
+        const l = byId.get(id);
+        return l && inDuringHold(l, renoToggles, withinHold) ? l.urgencyYears : null;
       },
       toggle: (id, on) => setRenoToggle(id, { included: on }),
     };
@@ -2113,6 +2139,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
       const high = s.estimatedReplacementCost?.high ?? Math.round((v?.rcnNew ?? 0) * 1.25);
       // Score fraction (persona-independent): tier band position, or raw condition.
       const frac = s.specTier ? tierBandFraction(s.specTier, s.score ?? 1) : (s.score ?? 6) / 10;
+      const dueYears = v ? Math.max(0, Math.round(v.yearsLeft)) : urgencyScoreToYears(s.score);
       lines.push({
         key: s.id,
         name: s.name,
@@ -2129,23 +2156,24 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
         // When it is due comes from the item's own life — the same years-left
         // its card shows — and only falls back to the condition score for an
         // item the valuation couldn't price.
-        urgencyYears: v ? Math.max(0, Math.round(v.yearsLeft)) : urgencyScoreToYears(s.score),
+        urgencyYears: dueYears,
         detailColor: col === "red" ? "var(--bad)" : col === "amber" ? "var(--warn)" : "var(--good)",
         uplift: rentUplift(s.id),
         notes: s.estimatedReplacementCost?.notes || undefined,
         category,
         photoRefs: s.photoReferences,
         costing: costThreeTier({ id: s.id, name: s.name, category, ...ctx, fallback: { low, high }, variant: s.id === "bath_shower" ? showerTypeOf(s) : s.id === "bath_flooring" ? floorTypeOf(s) : null }),
-        // Pre-ticked when it's bad enough to be urgent, OR when it's one of
-        // the five Healthy Homes standards and we have ESTABLISHED it doesn't
-        // meet the requirement. Those are not opinions about condition — they
-        // are legal obligations before the property can be tenanted, so leaving
-        // a landlord to notice and tick them is the wrong default.
+        // Pre-ticked only when it's needed the day you buy or before you can
+        // rent it out: its action is a replacement now, it has a year or less
+        // of life left, or it's a Healthy Homes standard ESTABLISHED to fail
+        // (a legal obligation before tenanting, so the default is ticked).
         //
-        // `=== false` on purpose: unknown is not a failure. Ticking work nobody
-        // has established is needed would put money in a plan for a problem
-        // that may not exist.
-        autoInclude: (s.score !== null && frac <= 0.30) || legallyRequired.has(s.id) || urgent?.scope === "replace" || (!!urgent && !!v?.pastLife),
+        // NOT on condition alone. It used to tick anything rated in the bottom
+        // 30%, but a worn roof at 30% may last several more years — that's work
+        // DURING the hold, counted in the plan by its year, not ticked.
+        //
+        // `=== false` on purpose in legallyRequired: unknown is not a failure.
+        autoInclude: legallyRequired.has(s.id) || urgent?.scope === "replace" || (s.score !== null && dueYears <= UPFRONT_RENO_YEARS),
         valueGap: v?.valueGap,
         observedDefect: s.observedDefect,
         legal: HH_RENO_KEYS.has(s.id),
@@ -2508,37 +2536,26 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   // Every card starts folded to one line — what it is, whether it's in, and
   // what it costs at the option chosen. The options open on request.
   const [openCards, setOpenCards] = useState<Record<string, boolean>>({});
-  const items = renoLines.filter((l) => withinHold(l.urgencyYears));
+  // In scope for this page: anything due inside the hold, plus anything
+  // ticked for purchase even if its life runs past the hold — you've said
+  // you'll do it, so it's counted and it has to be visible to untick.
+  const items = renoLines.filter((l) => withinHold(l.urgencyYears) || inAtPurchase(l, renoToggles));
   const deferred = renoLines.length - items.length;
   const total = selectedRenoCost(renoLines, renoToggles, withinHold);
-  // The plan = items ticked on the Improvements tab (auto-ticked when they score ≤30%).
-  //
   // Plus any `inferred` line, shown UNTICKED. Draught stopping, when the build
-  // year doesn't establish that it fails, has no Improvements card to tick it from, so leaving it out of the plan the moment it stopped
-  // pre-ticking itself made it unreachable — the buyer could neither see what it
-  // meant nor add it after checking. Shown and unticked, it costs nothing, states
-  // that it is derived from the build era rather than observed, and says what to
-  // go and look for.
-  // Same rule as the money: due inside the hold means in the plan by default,
-  // or the ticked boxes and the total would tell different stories.
-  const selected = items.filter((l) => renoIncluded(l, renoToggles, withinHold(l.urgencyYears)) || l.inferred);
+  // year doesn't establish that it fails, has no Improvements card to tick it
+  // from, so it's listed here to be added after checking. Shown and unticked,
+  // it costs nothing.
+  const selected = items.filter((l) => inAtPurchase(l, renoToggles) || inDuringHold(l, renoToggles, withinHold) || l.inferred);
 
-  // ── Whose idea was each line? ────────────────────────────────────────────
-  //
-  // The plan used to be one undifferentiated list headed "the work you've
-  // chosen", which stopped being true the moment work started joining it
-  // because it falls due inside the hold. A reader sliding from five years to
-  // ten watched the total jump and had nothing telling them what had arrived.
-  //
-  // An explicit tick is the reader's. Everything else in the plan is ours, and
-  // is listed separately with the reason — urgent, legally required, or reaching
-  // end of life inside the hold. Untick anything and it leaves both lists,
-  // because `renoIncluded` reads an explicit `false` before it reads either
-  // default.
-  const isChosen = (l: RenoLine) => renoToggles[l.key]?.included === true;
-  const chosen = selected.filter((l) => !l.inferred && isChosen(l));
-  const recommended = selected.filter((l) => !l.inferred && !isChosen(l));
-  const dueInHoldCount = recommended.filter((l) => !l.autoInclude).length;
+  // ── The plan's two halves ────────────────────────────────────────────────
+  // At purchase: what's ticked — needed the day you buy or before you rent it
+  // out, or ticked by the reader. During the hold: not ticked, but it reaches
+  // end of life while you own the place, so it's counted in its year. The same
+  // split feeds the Financial tab's money-to-buy and later spending.
+  const atPurchase = selected.filter((l) => !l.inferred && inAtPurchase(l, renoToggles));
+  const recommended = selected.filter((l) => !l.inferred && inDuringHold(l, renoToggles, withinHold));
+  const duringHoldTotal = recommended.reduce((t, l) => t + lineCost(l, renoToggles[l.key]), 0);
   const upliftTotal = persona === "investor" ? selected.reduce((sum, l) => sum + l.uplift, 0) : 0;
   const price = listing.askingPrice ?? 0;
 
@@ -2557,8 +2574,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   // ── The recommendation as a timeline ────────────────────────────────────
   // When each job falls and what kind of job it is, so the list reads as a
   // plan: "Now — Repair — refix the soffit — $1,124", then Year 2, and so on.
-  // Urgent and legally required work is "Now", whatever its end-of-life year.
-  const yearOf = (l: RenoLine) => (l.autoInclude && !l.key.endsWith("_rem") ? 0 : Math.max(0, l.urgencyYears));
+  const yearOf = (l: RenoLine) => Math.max(0, l.urgencyYears);
   const WORK: Record<string, { label: string; color: string }> = {
     repair: { label: "Repair", color: "var(--warn)" },
     maintain: { label: "Maintain", color: "var(--text-secondary)" },
@@ -2668,7 +2684,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
         <div className="text-[11px] uppercase tracking-widest mb-1.5" style={{ color: "var(--brand)" }}>Your renovation plan</div>
         <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>What you&apos;ll spend over {holdYears} years</h3>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          Anything you&apos;ve ticked on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab, plus the work we expect to reach end of life while you own the place. <strong style={{ color: "var(--text-primary)" }}>Move the hold slider and this list re-makes itself</strong> — a roof due in year eight is your problem on a ten-year hold and somebody else&apos;s on a five-year one. Untick anything you wouldn&apos;t do and it leaves the plan and the numbers. This is what feeds your yield and predicted sale price.
+          Two parts. <strong style={{ color: "var(--text-primary)" }}>Needed at purchase</strong> is what&apos;s ticked on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab: work needed the day you buy or before you can rent it out, plus anything you tick yourself. <strong style={{ color: "var(--text-primary)" }}>Due during your hold</strong> is work that isn&apos;t needed yet but reaches end of life while you own the place — a roof due in year eight is your cost on a ten-year hold and somebody else&apos;s on a five-year one, so <strong style={{ color: "var(--text-primary)" }}>move the hold slider and it re-makes itself</strong>. Both feed your yield and predicted sale price; untick anything you wouldn&apos;t do.
         </p>
       </div>
 
@@ -2696,19 +2712,19 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
             a ten-year hold it was forty-odd lines above the three the reader
             had actually picked. The total still counts both, and says so. */}
         <div className="mt-3 pt-3 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
-          {chosen.length > 0 ? (
-            groupList("You chose these", null, chosen, false)
+          {atPurchase.length > 0 ? (
+            groupList("Needed at purchase", null, atPurchase, false)
           ) : (
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              You haven&apos;t chosen anything yet. Tick an item below, or on the Improvements tab, and it appears here.
+              Nothing needed at purchase. Tick an item below, or on the Improvements tab, to do it straight away.
             </p>
           )}
           {recommended.length > 0 && (
             <a href="#our-recommendation" className="flex items-baseline justify-between gap-2 text-xs" style={{ color: "var(--brand)" }}>
               <span>
-                Plus {recommended.length} {recommended.length === 1 ? "item" : "items"} we recommend for your {holdYears}-year hold — listed at the bottom
+                Due during your {holdYears}-year hold: {recommended.length} {recommended.length === 1 ? "job" : "jobs"}, listed by year at the bottom
               </span>
-              <span className="mono">{fmt(recommended.reduce((sum, l) => sum + rowFor(l).cost, 0))}</span>
+              <span className="mono">{fmt(duringHoldTotal)}</span>
             </a>
           )}
         </div>
@@ -2827,13 +2843,13 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
       {recommended.length > 0 && (
         <div className="card p-5">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-[11px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>In your plan for a {holdYears}-year hold</span>
-            <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>{fmt(recommended.reduce((t, l) => t + rowFor(l).cost, 0))}</span>
+            <span className="text-[11px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Due during your {holdYears}-year hold</span>
+            <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>{fmt(duringHoldTotal)}</span>
           </div>
           <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
-            {dueInHoldCount > 0
-              ? `By the year each job falls due. "Now" is urgent or legally required; the rest reach end of life inside ${holdYears} years. All of it is counted in the total above; untick any you wouldn't do.`
-              : "Urgent or legally required work — these apply at any hold length. They're counted in the total above; untick any you wouldn't do."}
+            By the year each job falls due. None of it is needed on day one, so it isn&apos;t ticked, but it reaches end of
+            life while you own the place, so it&apos;s counted in the total above. Tick one to do it at purchase instead, or
+            untick it if you wouldn&apos;t do it.
           </p>
           {timeline(recommended)}
         </div>
@@ -3266,10 +3282,10 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
   propertyValue?: PropertyValue | null;
 }) {
   const { holdYears, withinHold } = useHoldPeriod();
-  // Everything due inside the hold, split by WHEN you pay for it.
-  const renoTotal = selectedRenoCost(renoLines, renoToggles, withinHold);
-  const renoUpfront = selectedRenoCost(renoLines, renoToggles, (y) => y <= UPFRONT_RENO_YEARS);
-  const renoDeferred = Math.max(0, renoTotal - renoUpfront);
+  // The plan, split by WHEN you pay for it: the ticked work at purchase, the
+  // rest as it falls due — the same split the Renovations tab shows.
+  const { atPurchase: renoUpfront, duringHold: renoDeferred } = renoSplit(renoLines, renoToggles, withinHold);
+  const renoTotal = renoUpfront + renoDeferred;
   const renoUplift = selectedRenoUplift(renoLines, renoToggles, withinHold);
   const price = listing.askingPrice ?? 0;
   const floorSqm = listing.floorAreaSqm ?? 0;
@@ -3654,9 +3670,8 @@ function HealthyHomesCard({ r, item, note, cost, buildYear, renoControls, onOpen
   renoControls: RenoControls; onOpenRenovations: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const { withinHold } = useHoldPeriod();
   const canReno = renoControls.has(r.renoKey);
-  const inPlan = canReno && renoControls.included(r.renoKey, withinHold);
+  const inPlan = canReno && renoControls.included(r.renoKey);
   // Three states, not two. Showing "Compliant" for a standard nobody
   // established could put a landlord into a tenancy with a house that isn't.
   const state =

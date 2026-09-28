@@ -11,7 +11,6 @@ import type { ExtraDwelling, DwellingHHStandard, DwellingHHStatus, RenoControls 
 import type { DwellingValue } from "@/lib/scoring/extra-dwelling-value";
 import { isPool } from "@/lib/scoring/structures";
 import { conditionScoreColor } from "./ConditionScore";
-import { useHoldPeriod } from "@/lib/hold-period/context";
 
 const HH_LABEL: Record<DwellingHHStandard, string> = {
   heating: "Fixed heating",
@@ -54,10 +53,9 @@ export function ExtraDwellingCard({ dwelling, noPhotos, value, renoControls, onO
   onOpenRenovations?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { withinHold } = useHoldPeriod();
   const complianceKey = `${dwelling.id}_compliance`;
   const canFix = renoControls?.has(complianceKey) ?? false;
-  const fixInPlan = canFix && (renoControls?.included(complianceKey, withinHold) ?? false);
+  const fixInPlan = canFix && (renoControls?.included(complianceKey) ?? false);
   const color = conditionScoreColor(dwelling.score);
 
   const consentColors = {

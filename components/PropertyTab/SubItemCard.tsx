@@ -253,7 +253,10 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
   const costItem = getCostItem(item, region, floorSqm);
   // Renovation plan: this item can be added if it has a costed reno line.
   const canReno = renoControls?.has(item.id) ?? false;
-  const inPlan = canReno && (renoControls?.included(item.id, withinHold) ?? false);
+  const inPlan = canReno && (renoControls?.included(item.id) ?? false);
+  // Not ticked (not needed on day one) but due inside the hold, so the plan
+  // counts it in its year — said here so an unticked box isn't read as "free".
+  const dueYear = canReno && !inPlan ? renoControls?.dueInHold(item.id, withinHold) ?? null : null;
 
   return (
     <div
@@ -416,6 +419,15 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               tag reading plain "outside your hold" reads as "ignore this",
               which is how a leak becomes a rebuild. Fading the card said the
               same wrong thing more quietly. */}
+          {dueYear != null && (
+            <span
+              className="text-[11px] px-2 py-0.5 rounded-full"
+              style={{ background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+              title={`Not needed on day one, but it reaches end of life inside your ${holdYears}-year hold, so the plan counts it in year ${dueYear}. Tick it to do it at purchase instead.`}
+            >
+              {dueYear <= 0 ? "Due now" : `Due yr ${dueYear}`} · counted in your hold plan
+            </span>
+          )}
           {!isWithinHold && (
             <span
               className="text-[11px] px-2 py-0.5 rounded-full"

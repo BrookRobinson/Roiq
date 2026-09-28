@@ -241,12 +241,14 @@ export interface PropertyTabData {
  * renovation plan (state lives in the report view, shared with the Reno tab). */
 export interface RenoControls {
   has: (id: string) => boolean; // true when this item can be renovated (has a reno line)
+  /** Ticked: in the plan at purchase — needed straight away, or ticked by the reader. */
+  included: (id: string) => boolean;
   /**
-   * Is it in the plan? Pass the hold's `withinHold` (useHoldPeriod) so a tick
-   * reads exactly as the plan counts it — work due inside the hold is in by
-   * default. The controls are built above the hold provider, so it's passed in.
+   * Not ticked, but falls due inside the hold so the plan still counts it: the
+   * year it's due, else null. Pass the hold's `withinHold` (useHoldPeriod) —
+   * the controls are built above the hold provider.
    */
-  included: (id: string, withinHold?: (years: number) => boolean) => boolean;
+  dueInHold: (id: string, withinHold: (years: number) => boolean) => number | null;
   toggle: (id: string, on: boolean) => void;
 }
 
