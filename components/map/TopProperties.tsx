@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trophy, X } from "lucide-react";
+import { Trophy, ChevronDown } from "lucide-react";
 import { DEAL_HEX } from "@/lib/map/calc";
 import type { DealColour, MapMode, UserVariables } from "@/lib/map/types";
 
@@ -32,7 +32,7 @@ const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
 const signedMoney = (n: number) => `${n >= 0 ? "+" : "−"}${money(Math.abs(n))}`;
 
 /**
- * "Top for you": the map's best analysed properties, ranked by the same figure
+ * "Best deals for you", along the bottom of the map: the best analysed properties, ranked by the same figure
  * that colours each pin against the reader's own numbers. Clicking one flies
  * the map to it and opens its sheet.
  *
@@ -46,7 +46,6 @@ export function TopProperties({
   demo,
   bounds,
   onPick,
-  onClose,
 }: {
   mode: MapMode;
   vars: UserVariables;
@@ -55,7 +54,6 @@ export function TopProperties({
   /** The map's visible area, for "In view". */
   bounds: string | null;
   onPick: (item: TopItem) => void;
-  onClose: () => void;
 }) {
   const [scope, setScope] = useState<Scope>("view");
   const [items, setItems] = useState<TopItem[] | null>(null);
@@ -92,119 +90,131 @@ export function TopProperties({
     };
   }, [mode, vars, types.join(","), demo, scopeBounds]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [open, setOpen] = useState(true);
   const how =
     mode === "homebuyer"
-      ? "Ranked by how far our valuation sits above the asking price."
-      : `Ranked by profit over your ${vars.holdPeriodYears}-year hold, as a share of the cash you put in — using your deposit, rate and costs.`;
+      ? "Ranked by how far our valuation sits above the asking price"
+      : `Ranked by profit over your ${vars.holdPeriodYears}-year hold, as a share of the cash you put in`;
 
   return (
-    <aside
-      aria-label="Top properties for you"
-      className="absolute z-10 flex flex-col inset-x-2 bottom-2 max-h-[60%] sm:inset-x-auto sm:left-3 sm:top-3 sm:bottom-3 sm:max-h-none sm:w-[360px]"
-      style={{ background: "var(--surface)", border: "1px solid var(--rule-strong)", boxShadow: "0 12px 32px rgba(0,0,0,0.28)" }}
+    <section
+      aria-label="Best deals for you"
+      // Below the map, not over it: an overlay hid the pins along the bottom
+      // and the Mapbox logo and credit, which have to stay visible.
+      className="flex-shrink-0"
+      style={{ background: "var(--surface)", borderTop: "1px solid var(--rule-strong)" }}
     >
-      <div className="px-4 pt-3.5 pb-3" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Trophy size={15} style={{ color: "var(--brand)" }} />
-            <h2 className="text-[15px] font-semibold" style={{ color: "var(--text-primary)" }}>
-              Top for you
-            </h2>
-          </div>
-          <button onClick={onClose} aria-label="Close the list" className="cursor-pointer p-1" style={{ color: "var(--text-muted)" }}>
-            <X size={16} />
-          </button>
-        </div>
-        <p className="mt-1 text-[12px]" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
-          {how} Within your {money(vars.budget)} budget.
-        </p>
-        <div className="mt-2.5 inline-flex gap-1 p-0.5" role="group" aria-label="Where to rank" style={{ background: "var(--surface-2)", borderRadius: "var(--r-pill)" }}>
+      {/* Header: always visible, even folded, so the list is never hidden behind a button. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <Trophy size={15} style={{ color: "var(--brand)" }} />
+          <span className="text-[14px] font-semibold" style={{ color: "var(--text-primary)" }}>
+            Best deals for you
+          </span>
+          {items && items.length > 0 && (
+            <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>{items.length}</span>
+          )}
+          <ChevronDown
+            size={15}
+            style={{ color: "var(--text-muted)", transform: open ? "rotate(0deg)" : "rotate(180deg)", transition: "transform 0.2s" }}
+          />
+        </button>
+        <span className="hidden md:inline text-[12px]" style={{ color: "var(--text-muted)" }}>
+          {how}, within your {money(vars.budget)} budget.
+        </span>
+        <div className="ml-auto inline-flex gap-1 p-0.5" role="group" aria-label="Where to rank" style={{ background: "var(--surface-2)", borderRadius: "var(--r-pill)" }}>
           {(
             [
               ["view", "In view"],
               ["all", "All of NZ"],
             ] as const
-          ).map(([s, label]) => (
+          ).map(([sc, label]) => (
             <button
-              key={s}
-              onClick={() => setScope(s)}
-              aria-pressed={scope === s}
+              key={sc}
+              onClick={() => setScope(sc)}
+              aria-pressed={scope === sc}
               className="cursor-pointer px-3 py-1 text-[12px] font-semibold"
               style={{
                 borderRadius: "var(--r-pill)",
-                background: scope === s ? "var(--accent)" : "transparent",
-                color: scope === s ? "var(--on-accent)" : "var(--text-muted)",
+                background: scope === sc ? "var(--accent)" : "transparent",
+                color: scope === sc ? "var(--on-accent)" : "var(--text-muted)",
               }}
             >
               {label}
             </button>
           ))}
         </div>
-        {seeded && !demo && (
-          <p className="mt-2 text-[11px]" style={{ color: "var(--warn)" }}>
-            Sample properties until real reports fill the map.
-          </p>
-        )}
       </div>
 
-      <ol className="flex-1 overflow-y-auto">
-        {items === null ? (
-          <li className="px-4 py-6 text-[13px]" style={{ color: "var(--text-muted)" }}>Ranking…</li>
-        ) : error ? (
-          <li className="px-4 py-6 text-[13px]" style={{ color: "var(--text-secondary)" }}>{error}</li>
-        ) : items.length === 0 ? (
-          <li className="px-4 py-6 text-[13px]" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
-            No analysed properties {scope === "view" ? "in this part of the map" : "yet"} within your budget.
-            {scope === "view" && " Zoom out, or switch to All of NZ."}
-          </li>
-        ) : (
-          items.map((it, i) => (
-            <li key={it.id}>
-              <button
-                onClick={() => onPick(it)}
-                className="w-full cursor-pointer text-left px-4 py-3 flex items-start gap-3 hover:opacity-80"
-                style={{ borderBottom: "1px solid var(--border-subtle)" }}
-              >
-                <span className="mono text-[13px] font-semibold w-5 flex-shrink-0 pt-0.5" style={{ color: "var(--text-muted)" }}>
-                  {i + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                    {it.address}
-                  </span>
-                  <span className="block truncate text-[12px]" style={{ color: "var(--text-muted)" }}>
-                    {[it.suburb, it.city].filter(Boolean).join(", ")}
-                    {it.bedrooms ? ` · ${it.bedrooms} bed` : ""}
-                    {it.bathrooms ? ` · ${it.bathrooms} bath` : ""}
-                  </span>
-                  <span className="mt-1 block text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                    <span className="mono">{money(it.askingPrice)}</span> asking
-                    {mode === "homebuyer" && it.valuation != null && (
-                      <>
-                        {" · worth "}
-                        <span className="mono">{money(it.valuation)}</span>
-                      </>
-                    )}
-                    {mode === "investor" && (
-                      <>
-                        {" · "}
-                        <span className="mono">{signedMoney(it.netProfit)}</span> over {vars.holdPeriodYears} yrs
-                      </>
-                    )}
-                  </span>
-                </span>
-                <span
-                  className="mono flex-shrink-0 text-[12px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: DEAL_HEX[it.colour], color: "#050d0d" }}
-                >
-                  {it.pct >= 0 ? "+" : "−"}
-                  {Math.abs(it.pct)}%
-                </span>
-              </button>
-            </li>
-          ))
-        )}
-      </ol>
-    </aside>
+      {open && (
+        <div className="pb-3">
+          {seeded && !demo && (
+            <p className="px-4 pb-2 text-[11px]" style={{ color: "var(--warn)" }}>
+              Sample properties until real reports fill the map.
+            </p>
+          )}
+          {items === null ? (
+            <p className="px-4 py-3 text-[13px]" style={{ color: "var(--text-muted)" }}>Ranking…</p>
+          ) : error ? (
+            <p className="px-4 py-3 text-[13px]" style={{ color: "var(--text-secondary)" }}>{error}</p>
+          ) : items.length === 0 ? (
+            <p className="px-4 py-3 text-[13px]" style={{ color: "var(--text-secondary)" }}>
+              No analysed properties {scope === "view" ? "in this part of the map" : "yet"} within your budget and property types.
+              {scope === "view" && " Zoom out, or switch to All of NZ."}
+            </p>
+          ) : (
+            // One row of cards, scrolled sideways — the map stays visible above it.
+            <ol className="flex gap-3 overflow-x-auto px-4 pb-1" style={{ scrollSnapType: "x proximity" }}>
+              {items.map((it, i) => (
+                <li key={it.id} className="flex-shrink-0 w-[250px]" style={{ scrollSnapAlign: "start" }}>
+                  <button
+                    onClick={() => onPick(it)}
+                    className="card h-full w-full cursor-pointer text-left p-3 hover:opacity-90"
+                  >
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="mono text-[12px] font-semibold" style={{ color: "var(--text-muted)" }}>#{i + 1}</span>
+                      <span
+                        className="mono text-[12px] font-bold px-2 py-0.5 rounded-full"
+                        style={{ background: DEAL_HEX[it.colour], color: "#050d0d" }}
+                      >
+                        {it.pct >= 0 ? "+" : "−"}
+                        {Math.abs(it.pct)}%
+                      </span>
+                    </span>
+                    <span className="mt-1 block truncate text-[14px] font-semibold" style={{ color: "var(--text-primary)" }}>
+                      {it.address}
+                    </span>
+                    <span className="block truncate text-[12px]" style={{ color: "var(--text-muted)" }}>
+                      {[it.suburb, it.city].filter(Boolean).join(", ")}
+                      {it.bedrooms ? ` · ${it.bedrooms} bed` : ""}
+                      {it.bathrooms ? ` · ${it.bathrooms} bath` : ""}
+                    </span>
+                    <span className="mt-1.5 block text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                      <span className="mono">{money(it.askingPrice)}</span> asking
+                    </span>
+                    <span className="block text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                      {mode === "homebuyer" && it.valuation != null && (
+                        <>
+                          Worth <span className="mono">{money(it.valuation)}</span>
+                        </>
+                      )}
+                      {mode === "investor" && (
+                        <>
+                          <span className="mono">{signedMoney(it.netProfit)}</span> over {vars.holdPeriodYears} yrs
+                        </>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

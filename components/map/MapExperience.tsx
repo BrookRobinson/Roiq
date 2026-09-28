@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Navbar from "@/components/Navbar";
-import { Settings, Trophy } from "lucide-react";
+import { Settings } from "lucide-react";
 import { ModeToggle } from "@/components/map/ModeToggle";
 import { MapLegend } from "@/components/map/MapLegend";
 import { PropertySheet } from "@/components/map/PropertySheet";
@@ -56,20 +56,11 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   // the viewer's own numbers, which is the whole idea and completely invisible
   // if you don't know the button is there.
   const [showHint, setShowHint] = useState(false);
-  // "Top for you" — open by default where there's room beside the map; on a
-  // phone it would cover the map, so it waits for the button.
-  const [showTop, setShowTop] = useState(false);
   const [bounds, setBounds] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ lng: number; lat: number; key: number } | null>(null);
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches) setShowTop(true);
-  }, []);
-
   function pickTop(item: TopItem) {
     setFocus({ lng: item.lng, lat: item.lat, key: Date.now() });
     setSelected(item.id);
-    // On a phone the sheet and the list would stack; the sheet wins.
-    if (!window.matchMedia("(min-width: 640px)").matches) setShowTop(false);
   }
   const { can, loading: sessionLoading } = useSession();
 
@@ -171,13 +162,6 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
             <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
               <ModeToggle mode={mode} onChange={setMode} />
               <div className="flex items-center gap-2">
-              <button
-                onClick={() => (unlocked ? setShowTop((v) => !v) : setLocked(true))}
-                aria-pressed={unlocked && showTop}
-                className="btn-secondary text-xs py-1.5 px-3 gap-1.5"
-              >
-                {unlocked ? <Trophy size={13} /> : <Lock size={13} />} Top for you
-              </button>
               {unlocked && (
                 <div className="relative">
                   <button
@@ -289,22 +273,11 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                 focus={focus}
               />
 
-              {unlocked && showTop && vars && (
-                <TopProperties
-                  mode={mode}
-                  vars={vars}
-                  types={types}
-                  demo={demo}
-                  bounds={bounds}
-                  onPick={pickTop}
-                  onClose={() => setShowTop(false)}
-                />
-              )}
 
               {/* Demo: say so plainly and permanently. Someone tuning their
                   numbers here needs to know these aren't real listings. */}
               {demo && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4">
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center p-3">
                   <div
                     className="pointer-events-auto flex flex-wrap items-center justify-center gap-3 px-4 py-2.5"
                     style={{ background: "var(--surface)", border: "1px solid var(--rule-strong)" }}
@@ -389,6 +362,18 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                 </div>
               )}
             </div>
+
+            {/* Along the bottom, under the map, always on screen for an unlocked map. */}
+            {unlocked && vars && (
+              <TopProperties
+                mode={mode}
+                vars={vars}
+                types={types}
+                demo={demo}
+                bounds={bounds}
+                onPick={pickTop}
+              />
+            )}
 
             {unlocked && selected && vars && (
               <PropertySheet id={selected} mode={mode} vars={vars} demo={demo} onClose={() => setSelected(null)} />
