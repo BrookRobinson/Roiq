@@ -401,7 +401,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                 ? renoControls?.autoTicked(item.id) ? "Needs doing straight after purchase" : "In your renovation plan — straight after purchase"
                 : dueYear != null
                   ? `We've added this to year ${Math.max(1, dueYear)} of your renovation plan`
-                  : "Add to renovation plan"}
+                  : "Optional — tick to do it straight after purchase"}
             </span>
           </label>
 

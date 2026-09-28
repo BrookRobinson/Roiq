@@ -2744,7 +2744,7 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
 
       {items.length === 0 && (
         <div className="card p-6 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Nothing due inside a {holdYears}-year hold. Move the slider out to see work that falls due later, or tick <em>&ldquo;Add to renovation plan&rdquo;</em> on any item on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab.
+          Nothing due inside a {holdYears}-year hold. Move the slider out to see work that falls due later, or tick any item marked <em>&ldquo;Optional&rdquo;</em> on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab.
         </div>
       )}
       {/* EVERY line in scope for this hold, not just the ticked ones.
@@ -3734,7 +3734,7 @@ function HealthyHomesCard({ r, item, note, cost, buildYear, renoControls, onOpen
               <Wrench size={11} />
               {inPlan
                 ? renoControls.autoTicked(r.renoKey) ? "Needs doing before you rent it out" : "In your renovation plan"
-                : "Add to renovation plan"}
+                : "Optional — tick to do it straight after purchase"}
             </span>
           </label>
           {inPlan && (
