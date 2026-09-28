@@ -51,7 +51,6 @@ import {
 import type { CapitalGrowth, MarketRent, SuburbValue } from "@/lib/scoring/investment";
 import { costThreeTier, tierTotal, TIER_ORDER, scaleTier, isScalableKind } from "@/lib/reno-costing/three-tier";
 import type { ThreeTierCost, TierCost, Tier, LabourMode } from "@/lib/reno-costing/three-tier";
-import { buildBudgetPlan, PRIORITY_META } from "@/lib/reno-costing/budget-plan";
 import { MaterialStudio } from "@/components/MaterialStudio";
 import { ViewingChecklist } from "@/components/Viewing/ViewingChecklist";
 import { buildViewingChecklist, checklistStatus, EMPTY_VIEWING, type ViewingState } from "@/lib/viewing/checklist";
@@ -2496,121 +2495,6 @@ function ThreeTier({ line, toggle, onTier, onLabour, onPct }: {
   );
 }
 
-// ── "If you spent X% on this house, here's what we'd do" ─────────────────────
-// A prioritised spend plan, NOT a return prediction — see lib/reno-costing/budget-plan.ts
-// for why we deliberately don't publish a "this adds $Y" figure.
-const BUDGET_PCTS = [0.5, 1, 2, 3, 5];
-
-function BudgetPlanCard({ lines, price, persona }: { lines: RenoLine[]; price: number; persona: Persona }) {
-  const [pct, setPct] = useState(1);
-  const budget = Math.round((price * pct) / 100);
-  const plan = useMemo(() => buildBudgetPlan(lines, budget, persona), [lines, budget, persona]);
-
-  if (price <= 0 || lines.length === 0) return null;
-
-  return (
-    <div className="card p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-            If you spent {pct}% of the asking price on this house
-          </h3>
-          <div className="text-2xl font-bold mono mt-1" style={{ color: "var(--brand)" }}>{fmt(budget)}</div>
-          <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-            This is where we&apos;d put it, in the order we&apos;d do it.
-          </div>
-        </div>
-        <div className="flex gap-1 flex-wrap">
-          {BUDGET_PCTS.map((p) => (
-            <button
-              key={p}
-              onClick={() => setPct(p)}
-              className="text-xs font-semibold px-2.5 py-1 rounded-lg cursor-pointer"
-              style={
-                p === pct
-                  ? { background: "var(--brand)", color: "var(--on-accent)" }
-                  : { background: "var(--surface-2)", color: "var(--text-secondary)", border: "1px solid var(--border)" }
-              }
-            >
-              {p}%
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {plan.firstJobExceedsBudget ? (
-        <div className="mt-4 rounded-lg p-3 text-sm" style={{ background: "var(--surface-2)", border: "1px solid var(--warn-wash)", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          Nothing fits this budget — the first job we&apos;d do ({plan.deferred[0]?.name}) costs about{" "}
-          <strong style={{ color: "var(--text-primary)" }}>{fmt(plan.deferred[0]?.cost ?? 0)}</strong>. Try a larger percentage.
-        </div>
-      ) : (
-        <div className="mt-4 space-y-2">
-          {plan.included.map((l, i) => {
-            const meta = PRIORITY_META[l.priority];
-            return (
-              <div key={l.key} className="rounded-lg p-3" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderLeft: `3px solid ${meta.color}` }}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>{i + 1}</span>
-                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{l.name}</span>
-                      {/* Several items share a name across rooms ("Flooring") — the category disambiguates. */}
-                      {l.category && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded" style={{ background: "var(--surface)", color: "var(--text-muted)" }}>{l.category}</span>
-                      )}
-                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ background: `${alpha(meta.color, 10)}`, color: meta.color, border: `1px solid ${alpha(meta.color, 25)}` }}>{meta.label}</span>
-                    </div>
-                    {/* What's actually visible in THIS property leads — a generic
-                        "replace failed sheets" tells the buyer nothing about their house. */}
-                    {l.observedDefect && (
-                      <div className="text-xs mt-1.5" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                        <span style={{ color: "var(--text-muted)" }}>
-                          {l.photoRefs && l.photoRefs.length > 0
-                            ? `Seen in photo${l.photoRefs.length > 1 ? "s" : ""} ${l.photoRefs.join(", ")}: `
-                            : "Why it's on the list: "}
-                        </span>
-                        {l.observedDefect}
-                      </div>
-                    )}
-                    <div className="text-xs mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                      <span style={{ color: "var(--text-muted)" }}>We&apos;d do — {l.tierLabel}: </span>{l.scope}
-                    </div>
-                    {!l.observedDefect && (
-                      <div className="text-xs mt-1" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>{l.reason}</div>
-                    )}
-                  </div>
-                  <span className="text-sm font-bold mono flex-shrink-0" style={{ color: "var(--text-primary)" }}>{fmt(l.cost)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {plan.included.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2 text-sm">
-          <span style={{ color: "var(--text-secondary)" }}>
-            {plan.included.length} job{plan.included.length > 1 ? "s" : ""} · <span className="mono">{fmt(plan.spent)}</span> of <span className="mono">{fmt(budget)}</span>
-          </span>
-          {plan.remaining > 0 && <span className="mono text-xs" style={{ color: "var(--text-muted)" }}>{fmt(plan.remaining)} unspent</span>}
-        </div>
-      )}
-
-      {plan.deferred.length > 0 && plan.included.length > 0 && (
-        <div className="mt-2 text-xs" style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>
-          <strong style={{ color: "var(--text-secondary)" }}>Next, if you had more:</strong> {plan.deferred[0].name} ({fmt(plan.deferred[0].cost)})
-          {plan.deferred[1] && <> · {plan.deferred[1].name} ({fmt(plan.deferred[1].cost)})</>}
-        </div>
-      )}
-
-      <p className="text-[11px] mt-4 pt-3" style={{ color: "var(--text-muted)", lineHeight: 1.6, borderTop: "1px solid var(--border)" }}>
-        Ordered by what a buyer or valuer reacts to first — legal obligations, then things that are missing or worn out, then work already due, then presentation. Costs are at tradesman rates for the cheapest option that genuinely fixes the item.{" "}
-        <strong style={{ color: "var(--text-secondary)" }}>We don&apos;t quote a resale gain</strong> — what a buyer will actually pay for a new kitchen varies far too much by suburb, street and person to promise a number, and over-capitalising is the most common way people lose money on a renovation. The Financial tab does carry a figure, and it is a different claim: what <em>our own valuation</em> makes the property worth once the work is done, on the same depreciated-replacement-cost model as the rest of the report. Only a full replacement counts toward it — a patch keeps the money and adds nothing, because nothing in the model prices a half-restored bathroom.
-      </p>
-    </div>
-  );
-}
-
 function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listing }: {
   renoLines: RenoLine[];
   renoToggles: Record<string, RenoToggle>;
@@ -2933,9 +2817,9 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
         );
       })}
       {/* Section 2 — what WE would do: the work we put in the plan for this
-          hold, then a prioritised plan with no resale-gain claim. Below the
-          reader's own choices and the items, never above them. */}
-      {(recommended.length > 0 || (price > 0 && items.length > 0)) && (
+          hold, by year. Below the reader's own choices and the items, never
+          above them. */}
+      {recommended.length > 0 && (
         <div id="our-recommendation" className="pt-3 text-[11px] uppercase tracking-widest scroll-mt-24" style={{ color: "var(--brand)" }}>Our recommendation</div>
       )}
       {recommended.length > 0 && (
@@ -2952,7 +2836,6 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
           {timeline(recommended)}
         </div>
       )}
-      <BudgetPlanCard lines={items} price={price} persona={persona} />
 
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
         Choose a tier per item — 🩹 Patch Up, 🔨 Replace Budget or ✨ Replace High End — and DIY vs Pay someone. Tap See breakdown for the itemised materials (from the NZ materials database) plus labour. The total feeds the predicted sale price and investor yield.
