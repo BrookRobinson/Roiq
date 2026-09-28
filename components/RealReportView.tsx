@@ -213,10 +213,15 @@ const lineCost = (l: { costing?: ThreeTierCost; low: number; high: number }, t?:
  * true at any hold length.
  */
 const renoIncluded = (
-  l: { key: string; autoInclude: boolean; stopGap?: boolean },
+  l: { key: string; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean },
   toggles: Record<string, RenoToggle>,
   dueWithinHold = false
-): boolean => toggles[l.key]?.included ?? (l.autoInclude || (dueWithinHold && !l.stopGap));
+): boolean =>
+  toggles[l.key]?.included ??
+  // A whole-room refit REPLACES the room's individual lines, which are already
+  // in by default — letting it in on the hold too put the same kitchen in the
+  // plan twice. It's the reader's call, so it only ever comes in by a tick.
+  (l.autoInclude || (dueWithinHold && !l.stopGap && !l.wholeRoom));
 
 /**
  * Work due within about a year is money you find at settlement; anything later
@@ -229,7 +234,7 @@ export const UPFRONT_RENO_YEARS = 1;
 
 /** Total of the in-plan reno lines that fall within the hold period. */
 function selectedRenoCost(
-  lines: { key: string; costing?: ThreeTierCost; low: number; high: number; urgencyYears: number; autoInclude: boolean }[],
+  lines: { key: string; costing?: ThreeTierCost; low: number; high: number; urgencyYears: number; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean }[],
   toggles: Record<string, RenoToggle>,
   withinHold: (years: number) => boolean
 ): number {
@@ -256,7 +261,7 @@ function selectedRenoCost(
  * usual way people lose money on a renovation.
  */
 function selectedRenoUplift(
-  lines: { key: string; valueGap?: number; urgencyYears: number; autoInclude: boolean }[],
+  lines: { key: string; valueGap?: number; urgencyYears: number; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean }[],
   toggles: Record<string, RenoToggle>,
   withinHold: (years: number) => boolean
 ): number {
@@ -2037,6 +2042,8 @@ interface RenoLine {
   key: string;
   /** A repair on an item past its life: listed as an option, never pre-ticked — the replacement is. */
   stopGap?: boolean;
+  /** The kind of job, where the line knows it (a single repair or maintenance job). */
+  work?: "repair" | "maintain";
   name: string;
   detail: string;
   badge?: string; // inspection label for remediation items
@@ -2176,6 +2183,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
           working,
           name: urgent.work,
           detail: `${urgent.scope === "maintenance" ? "Maintenance" : "Repair"} · ${s.name}`,
+          work: urgent.scope === "maintenance" ? "maintain" : "repair",
           badge: v?.pastLife ? "Stop-gap" : "Needs doing now",
           low,
           high,
@@ -2660,6 +2668,82 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
     return { tierLabel: c ? c[tier].label : "—", labour, cost: lineCost(l, t), pct: lineFrac(c, t) };
   };
 
+  // ── The recommendation as a timeline ────────────────────────────────────
+  // When each job falls and what kind of job it is, so the list reads as a
+  // plan: "Now — Repair — refix the soffit — $1,124", then Year 2, and so on.
+  // Urgent and legally required work is "Now", whatever its end-of-life year.
+  const yearOf = (l: RenoLine) => (l.autoInclude && !l.key.endsWith("_rem") ? 0 : Math.max(0, l.urgencyYears));
+  const WORK: Record<string, { label: string; color: string }> = {
+    repair: { label: "Repair", color: "var(--warn)" },
+    maintain: { label: "Maintain", color: "var(--text-secondary)" },
+    replace: { label: "Replace", color: "var(--brand)" },
+    refit: { label: "Full refit", color: "var(--brand)" },
+    install: { label: "Install", color: "var(--bad)" },
+    comply: { label: "Compliance", color: "var(--bad)" },
+    fix: { label: "Fix", color: "var(--warn)" },
+  };
+  const workOf = (l: RenoLine) => {
+    if (l.work) return WORK[l.work];
+    if (l.wholeRoom) return WORK.refit;
+    if (l.key.endsWith("_compliance")) return WORK.comply;
+    if (l.key.endsWith("_rem")) return WORK.fix;
+    // A Healthy Homes standard that isn't there is put in, not replaced.
+    if (l.legal && l.nonExisting) return WORK.install;
+    // Otherwise the item's own line, at the option chosen: Patch Up is a repair.
+    return (renoToggles[l.key]?.tier ?? "budget") === "patch" ? WORK.repair : WORK.replace;
+  };
+  // "Budget" / "High end" — the option, now that the job is its own column.
+  const optionOf = (l: RenoLine) => {
+    if (!l.costing) return "";
+    const r = rowFor(l);
+    const tier = renoToggles[l.key]?.tier ?? "budget";
+    const q = tier === "premium" ? "High end" : tier === "budget" ? "Budget" : "";
+    return [q, r.labour === "diy" ? "DIY" : "", r.pct < 1 ? `${Math.round(r.pct * 100)}%` : ""].filter(Boolean).join(" · ");
+  };
+  const timeline = (rows: RenoLine[]) => {
+    const byYear = new Map<number, RenoLine[]>();
+    for (const l of rows) byYear.set(yearOf(l), [...(byYear.get(yearOf(l)) ?? []), l]);
+    const years = [...byYear.keys()].sort((a, b) => a - b);
+    return (
+      <div className="mt-3 space-y-4">
+        {years.map((y) => {
+          const ls = byYear.get(y)!.sort((a, b) => rowFor(b).cost - rowFor(a).cost);
+          return (
+            <div key={y}>
+              <div className="flex items-baseline justify-between gap-2 pb-1 mb-1" style={{ borderBottom: "1px solid var(--border)" }}>
+                <span className="text-xs font-semibold" style={{ color: y === 0 ? "var(--bad)" : "var(--text-primary)" }}>
+                  {y === 0 ? "Now" : `Year ${y}`}
+                  <span className="font-normal ml-1.5" style={{ color: "var(--text-muted)" }}>
+                    {ls.length} job{ls.length > 1 ? "s" : ""}
+                  </span>
+                </span>
+                <span className="text-xs mono font-semibold" style={{ color: "var(--text-primary)" }}>
+                  {fmt(ls.reduce((t, l) => t + rowFor(l).cost, 0))}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {ls.map((l) => {
+                  const w = workOf(l);
+                  const opt = optionOf(l);
+                  return (
+                    <div key={l.key} className="grid items-baseline gap-x-3 text-xs" style={{ gridTemplateColumns: "5.5rem minmax(0,1fr) auto" }}>
+                      <span className="font-medium" style={{ color: w.color }}>{w.label}</span>
+                      <span className="min-w-0" style={{ color: "var(--text-secondary)", lineHeight: 1.45 }}>
+                        {l.name}
+                        {opt && <span className="ml-1.5" style={{ color: "var(--text-muted)" }}>· {opt}</span>}
+                      </span>
+                      <span className="mono text-right" style={{ color: "var(--text-primary)" }}>{fmt(rowFor(l).cost)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   const groupList = (heading: string, note: string | null, rows: RenoLine[], showDue: boolean) => (
     <div>
       <div className="flex items-baseline justify-between gap-2">
@@ -2856,14 +2940,16 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
       )}
       {recommended.length > 0 && (
         <div className="card p-5">
-          {groupList(
-            `In your plan for a ${holdYears}-year hold`,
-            dueInHoldCount > 0
-              ? `${dueInHoldCount} of these ${dueInHoldCount === 1 ? "is" : "are"} here because ${dueInHoldCount === 1 ? "it reaches" : "they reach"} end of life inside ${holdYears} years. The rest are urgent or legally required. They're counted in the total above; untick any you wouldn't do.`
-              : "Urgent or legally required work — these apply at any hold length. They're counted in the total above; untick any you wouldn't do.",
-            recommended,
-            true
-          )}
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>In your plan for a {holdYears}-year hold</span>
+            <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>{fmt(recommended.reduce((t, l) => t + rowFor(l).cost, 0))}</span>
+          </div>
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+            {dueInHoldCount > 0
+              ? `By the year each job falls due. "Now" is urgent or legally required; the rest reach end of life inside ${holdYears} years. All of it is counted in the total above; untick any you wouldn't do.`
+              : "Urgent or legally required work — these apply at any hold length. They're counted in the total above; untick any you wouldn't do."}
+          </p>
+          {timeline(recommended)}
         </div>
       )}
       <BudgetPlanCard lines={items} price={price} persona={persona} />
