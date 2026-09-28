@@ -37,7 +37,34 @@ import {
 } from "@/lib/scoring/buildable-structures";
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
+
+/**
+ * What an easement is FOR. LINZ publishes where a surveyed easement runs but
+ * not its purpose — that is only in the instrument — so the buyer says, from
+ * the title or the LIM. Until they do it is "unknown", and unknown is treated
+ * as a right of way: nothing goes on it.
+ */
+type EasementUse = "unknown" | "row" | "services";
+
+/**
+ * What may sit over a drainage or services easement: a small structure with no
+ * foundations that can be lifted off if the pipe or cable needs digging up. The
+ * 10m² line is Schedule 1's no-setback size, where these are built on skids or
+ * blocks rather than footings.
+ */
+const REMOVABLE = new Set(["garden_shed", "wood_shed", "greenhouse", "closed_shed"]);
+const REMOVABLE_MAX_SQM = 10;
+const isRemovable = (id: string, sqm: number) => REMOVABLE.has(id) && sqm <= REMOVABLE_MAX_SQM;
+const isEasement = (kind: string) => /^easement/i.test(kind);
 const TILE = 256;
+
+function inPoly(p: { x: number; y: number }, r: { x: number; y: number }[]): boolean {
+  let inside = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    if (r[i].y > p.y !== r[j].y > p.y && p.x < ((r[j].x - r[i].x) * (p.y - r[i].y)) / (r[j].y - r[i].y) + r[i].x) inside = !inside;
+  }
+  return inside;
+}
 
 /** Web Mercator pixel coordinates at a given zoom. */
 function toPixels(lat: number, lng: number, z: number): { px: number; py: number } {
@@ -102,6 +129,19 @@ export function AddStructure({
   const W = plan.extent.width;
   const H = plan.extent.length;
 
+  // Which easements the buyer has said are drainage or services. A removable
+  // structure may sit over those; nothing sits over a right of way, a
+  // covenant, or an easement nobody has identified.
+  const [uses, setUses] = useState<Record<number, EasementUse>>({});
+  const removable = isRemovable(choiceId, sqm);
+  const placing = useMemo(
+    () => ({
+      ...plan,
+      burdens: (plan.burdens ?? []).filter((b, i) => !(removable && isEasement(b.kind) && uses[i] === "services")),
+    }),
+    [plan, uses, removable]
+  );
+
   // Degrees, anticlockwise from square-to-north. Turning is held to the same
   // rule as dragging: it won't turn into a position the setbacks don't allow.
   const [angle, setAngle] = useState(0);
@@ -110,12 +150,23 @@ export function AddStructure({
   // Somewhere legal to start, recomputed whenever the shape changes so a new
   // choice never lands on the house.
   const home = useMemo(
-    () => firstFit(plan, size, boundary, building, angle),
-    [plan, size.width, size.length, boundary, building] // eslint-disable-line react-hooks/exhaustive-deps
+    () => firstFit(placing, size, boundary, building, angle),
+    [placing, size.width, size.length, boundary, building] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const at = pos ?? home;
-  const legal = at ? canPlace(plan, { ...at, ...size, angle }, boundary, building) : false;
+  const legal = at ? canPlace(placing, { ...at, ...size, angle }, boundary, building) : false;
+
+  // Sitting over an easement the buyer said is drainage or services: allowed,
+  // for something removable, and said plainly every time.
+  const overServices = useMemo(() => {
+    if (!at) return [] as string[];
+    const outline = rectOutline({ ...at, ...size, angle });
+    return (plan.burdens ?? [])
+      .filter((b, i) => isEasement(b.kind) && uses[i] === "services")
+      .filter((b) => outline.some((p) => inPoly(p, b.ring)) || b.ring.some((p) => inPoly(p, outline)))
+      .map((b) => b.appellation ?? "the easement");
+  }, [at, size.width, size.length, angle, plan.burdens, uses]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Turn to `next`, where it stands if it fits there, otherwise nudged to the
@@ -125,7 +176,7 @@ export function AddStructure({
   function turnTo(next: number) {
     const a = ((Math.round(next) % 180) + 180) % 180;
     if (!at) return;
-    if (canPlace(plan, { ...at, ...size, angle: a }, boundary, building)) {
+    if (canPlace(placing, { ...at, ...size, angle: a }, boundary, building)) {
       setAngle(a);
       setTurnBlocked(false);
       return;
@@ -135,7 +186,7 @@ export function AddStructure({
       for (let dy = -4; dy <= 4; dy += 0.5) {
         const p = { x: at.x + dx, y: at.y + dy };
         const d = Math.hypot(dx, dy);
-        if ((!best || d < best.d) && canPlace(plan, { ...p, ...size, angle: a }, boundary, building)) best = { ...p, d };
+        if ((!best || d < best.d) && canPlace(placing, { ...p, ...size, angle: a }, boundary, building)) best = { ...p, d };
       }
     }
     if (best) {
@@ -218,16 +269,16 @@ export function AddStructure({
     // REFUSE the move rather than allowing it and colouring it red. A footprint
     // that can be left sitting somewhere illegal is one a reader will screenshot
     // and take to a builder.
-    if (canPlace(plan, { ...want, ...size, angle }, boundary, building)) {
+    if (canPlace(placing, { ...want, ...size, angle }, boundary, building)) {
       setPos(want);
       return;
     }
     // Let it slide along a boundary it's pressed against, which is how a real
     // drag should feel — refusing the whole move makes corners impossible.
     const slideX = { x: want.x, y: at.y };
-    if (canPlace(plan, { ...slideX, ...size, angle }, boundary, building)) return setPos(slideX);
+    if (canPlace(placing, { ...slideX, ...size, angle }, boundary, building)) return setPos(slideX);
     const slideY = { x: at.x, y: want.y };
-    if (canPlace(plan, { ...slideY, ...size, angle }, boundary, building)) return setPos(slideY);
+    if (canPlace(placing, { ...slideY, ...size, angle }, boundary, building)) return setPos(slideY);
   }
 
   const stop = () => { dragging.current = false; };
@@ -542,9 +593,59 @@ export function AddStructure({
             can&apos;t be built on
           </strong>{" "}
           — {plan.burdens.map((b) => `${b.kind.toLowerCase()}${b.appellation ? ` (${b.appellation})` : ""}`).join(", ")}. The
-          footprint won&apos;t cross them. We can see WHERE they run but not what they permit, so give those references to your
+          footprint won&apos;t cross them, unless you mark an easement below as drainage or services — and then only with
+          something small and removable. We can see WHERE they run but not what they permit, so give those references to your
           solicitor. And an absence of shading is not an all-clear: many easements are described in words on the title with no
           surveyed extent at all.
+        </p>
+      )}
+
+      {/* What each easement is FOR. LINZ doesn't publish it — the instrument
+          does — so the buyer says, from the title or the LIM. A drainage or
+          services easement can take a small removable structure; a right of
+          way, a covenant or an unidentified easement takes nothing. */}
+      {(plan.burdens ?? []).some((b) => isEasement(b.kind)) && (
+        <div className="mt-2 rounded-lg p-2.5 text-[11px]" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+          <div className="font-semibold" style={{ color: "var(--text-primary)" }}>What is each easement for?</div>
+          <div className="mt-0.5">
+            It&apos;s on the title or the LIM. A right of way has to stay clear. Over drainage or services — pipes or cables — a
+            small removable structure can usually sit: a garden shed, woodshed, greenhouse or closed shed up to {REMOVABLE_MAX_SQM}m²,
+            on skids or blocks rather than foundations.
+          </div>
+          <div className="mt-2 space-y-1.5">
+            {(plan.burdens ?? []).map((b, i) =>
+              isEasement(b.kind) ? (
+                <label key={i} className="flex flex-wrap items-center justify-between gap-2">
+                  <span>{b.appellation ?? `Easement ${i + 1}`}</span>
+                  <select
+                    value={uses[i] ?? "unknown"}
+                    onChange={(e) => { setUses((u) => ({ ...u, [i]: e.target.value as EasementUse })); setPos(null); }}
+                    className="rounded-md px-2 py-1 text-[11px]"
+                    style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+                  >
+                    <option value="unknown">Don&apos;t know — keep it clear</option>
+                    <option value="row">Right of way — keep it clear</option>
+                    <option value="services">Drainage or services (pipes, cables)</option>
+                  </select>
+                </label>
+              ) : null
+            )}
+          </div>
+          {Object.values(uses).includes("services") && !removable && (
+            <div className="mt-2" style={{ color: "var(--text-muted)" }}>
+              A {sqm}m² {choice.label.toLowerCase()} still can&apos;t go over it — only a removable garden shed, woodshed, greenhouse
+              or closed shed up to {REMOVABLE_MAX_SQM}m² can.
+            </div>
+          )}
+        </div>
+      )}
+
+      {overServices.length > 0 && (
+        <p className="text-[11px] mt-2 rounded-lg p-2.5" style={{ background: "var(--warn-wash)", color: "var(--text-secondary)" }}>
+          <strong style={{ color: "var(--warn)" }}>Over a drainage or services easement ({overServices.join(", ")}).</strong>{" "}
+          Usually allowed only because it can be moved: if the pipe or cable needs work it comes off, at your cost. Keep it on
+          skids or blocks, not foundations. Check the instrument&apos;s wording, and if it&apos;s a public drain, the council&apos;s
+          rules for building near it.
         </p>
       )}
 

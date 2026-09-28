@@ -1209,6 +1209,17 @@ polygon counts only when one of its corners is inside the parcel or it swallows
 one of the parcel's. No setback is applied round a burden either: its own edge is
 where it stops.
 
+**What an easement is FOR is not published — the buyer says.** LINZ's survey
+areas only say "Easement"; the memorial rows carry a code, and the memorial
+text table is restricted. The purpose is in the instrument. So the plan asks
+per easement: Don't know (default) / Right of way / Drainage or services. Only
+"drainage or services" relaxes anything, and only for a removable structure —
+garden shed, woodshed, greenhouse or closed shed up to 10m² (Schedule 1's
+no-setback size, built on skids or blocks). It then says plainly that it sits
+over the easement and comes off at the owner's cost if the pipe needs work.
+Never infer the purpose from the strip's shape: that would be inventing a rule
+that lets people build.
+
 **And an absence of shading is NOT an all-clear.** Easements in gross, some
 service easements and older ones are described in words on the title with no
 surveyed extent at all. The copy says so, the same way the unpublished-register
