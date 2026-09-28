@@ -37,7 +37,7 @@ export const DEFAULT_VARIABLES: UserVariables = {
 };
 
 /**
- * Selling, ongoing and growth figures are not the reader's to set: each
+ * The building report, selling, ongoing and growth figures are not the reader's to set: each
  * property's report works them out for that property, and the map uses the
  * standard figures below. They were once editable, so a value saved back then
  * is overwritten here rather than quietly steering the map forever.
@@ -45,6 +45,7 @@ export const DEFAULT_VARIABLES: UserVariables = {
  */
 const REPORT_SET: Pick<
   UserVariables,
+  | "buildingReport"
   | "agentCommissionPct"
   | "sellingLegalCosts"
   | "propertyMgmtFeePct"
@@ -54,6 +55,7 @@ const REPORT_SET: Pick<
   | "capitalGrowthPct"
   | "rentalGrowthPct"
 > = {
+  buildingReport: DEFAULT_VARIABLES.buildingReport,
   agentCommissionPct: DEFAULT_VARIABLES.agentCommissionPct,
   sellingLegalCosts: DEFAULT_VARIABLES.sellingLegalCosts,
   propertyMgmtFeePct: DEFAULT_VARIABLES.propertyMgmtFeePct,

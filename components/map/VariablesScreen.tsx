@@ -155,7 +155,6 @@ export function VariablesScreen({
             <Slider label="Loan term" unit="yrs" value={v.loanTermYears} onChange={(n) => set("loanTermYears", n)} />
             <Slider label="Hold period" unit="yrs" value={v.holdPeriodYears} onChange={(n) => set("holdPeriodYears", n)} />
             <Money label="Buying costs" hint="legal + LIM" value={v.buyingCosts} onChange={(n) => set("buyingCosts", n)} />
-            <Money label="Building report" value={v.buildingReport} onChange={(n) => set("buildingReport", n)} />
           </Section>
 
           {/* Selling, ongoing costs and growth are NOT the reader's to set here:
@@ -163,7 +162,7 @@ export function VariablesScreen({
               suburb's growth, its own insurance and rates). The map uses the
               standard figures in lib/map/variables.ts for them. */}
           <p className="text-xs px-1" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>
-            Selling costs, running costs and growth aren&apos;t set here — each property&apos;s report works them out for
+            The building report, selling costs, running costs and growth aren&apos;t set here — each property&apos;s report works them out for
             that property.
           </p>
 
