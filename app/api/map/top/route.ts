@@ -46,8 +46,9 @@ export async function GET(req: NextRequest) {
 
   const mode: MapMode = url.searchParams.get("mode") === "investor" ? "investor" : "homebuyer";
   const bbox = parseBBox(url.searchParams.get("bounds"));
-  const types = parseTypes(url.searchParams.get("types"));
   const vars = await resolveVariables(req);
+  // The map sends its filter; without one, the reader's saved types still apply.
+  const types = parseTypes(url.searchParams.get("types")) ?? parseTypes(vars.propertyTypes?.join(",") || null);
 
   const inBox = (l: MapListing) =>
     !bbox || (l.lat >= bbox.minLat && l.lat <= bbox.maxLat && l.lng >= bbox.minLng && l.lng <= bbox.maxLng);

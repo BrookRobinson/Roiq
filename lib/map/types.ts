@@ -119,6 +119,13 @@ export interface UserVariables {
   rentalGrowthPct: number;         // % pa
 
   defaultMode: MapMode;
+
+  /**
+   * The property types this reader is looking for — the map, its pins and the
+   * Top list only show these. Empty means every type. Saved with the rest so
+   * the best deals don't surface on types they'd never buy.
+   */
+  propertyTypes: string[];
 }
 
 /** Everything the map marker + detail sheet need after applying a user's variables. */

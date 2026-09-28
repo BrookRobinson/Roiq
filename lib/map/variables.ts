@@ -33,6 +33,7 @@ export const DEFAULT_VARIABLES: UserVariables = {
   rentalGrowthPct: 3,
 
   defaultMode: "homebuyer",
+  propertyTypes: [], // every type
 };
 
 /** Fill any missing keys with defaults so older saved payloads keep working. */
@@ -126,6 +127,8 @@ export function variablesFromColumns(row: Partial<MapUserColumns> | null | undef
     vacancyRatePct: n(row.map_vacancy_rate_pct, d.vacancyRatePct),
     capitalGrowthPct: row.map_capital_growth_pct ?? null,
     rentalGrowthPct: n(row.map_rental_growth_pct, d.rentalGrowthPct),
+    // Not a users column yet — the device holds it (localStorage), like the map's other preferences.
+    propertyTypes: d.propertyTypes,
     defaultMode: row.map_default_mode === "investor" ? "investor" : row.map_default_mode === "homebuyer" ? "homebuyer" : d.defaultMode,
   };
 }

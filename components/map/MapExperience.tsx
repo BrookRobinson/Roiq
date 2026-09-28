@@ -8,7 +8,7 @@ import { ModeToggle } from "@/components/map/ModeToggle";
 import { MapLegend } from "@/components/map/MapLegend";
 import { PropertySheet } from "@/components/map/PropertySheet";
 import { VariablesScreen } from "@/components/map/VariablesScreen";
-import { loadVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
+import { loadVariables, saveVariables, DEFAULT_VARIABLES } from "@/lib/map/variables";
 import { TypeFilter } from "./TypeFilter";
 import { TopProperties, type TopItem } from "./TopProperties";
 import { useSession } from "@/lib/auth/session";
@@ -83,6 +83,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
     if (v) {
       setVars(v);
       setMode(v.defaultMode);
+      setTypes(v.propertyTypes);
       setReady(true);
       return;
     }
@@ -113,6 +114,7 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
   function handleSaved(v: UserVariables) {
     setVars(v);
     setMode(v.defaultMode);
+    setTypes(v.propertyTypes);
     setEditing(false);
   }
 
@@ -258,7 +260,19 @@ export function MapExperience({ demo = false }: { demo?: boolean }) {
                 changes what the map contains, so it belongs with the legend that
                 explains what's on it. */}
             <div className="flex items-center gap-2 px-4 pb-2">
-              <TypeFilter selected={types} onChange={setTypes} />
+              {/* The same setting as "Property types you want" in Variables — changing
+                  it here saves it there, so the two can never disagree. */}
+              <TypeFilter
+                selected={types}
+                onChange={(next) => {
+                  setTypes(next);
+                  if (vars) {
+                    const updated = { ...vars, propertyTypes: next };
+                    setVars(updated);
+                    saveVariables(updated);
+                  }
+                }}
+              />
             </div>
 
             <div className="flex-1 min-h-0 relative flex">

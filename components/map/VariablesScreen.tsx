@@ -2,7 +2,8 @@
 
 import { blurOnWheel } from "@/lib/ui/number-input";
 import { useEffect, useState } from "react";
-import { Wallet, Home, TrendingUp, Sprout, ArrowRight, X } from "lucide-react";
+import { Wallet, Home, TrendingUp, Sprout, ArrowRight, X, Search, Check } from "lucide-react";
+import { TYPE_OPTIONS } from "./TypeFilter";
 import type { UserVariables, MapMode } from "@/lib/map/types";
 import { DEFAULT_VARIABLES, saveVariables } from "@/lib/map/variables";
 import { DEFAULT_INTEREST_RATE } from "@/lib/map/interest-rate";
@@ -78,6 +79,44 @@ export function VariablesScreen({
         </div>
 
         <div className="space-y-4 mt-6">
+          {/* What they're shopping for. It narrows the pins and the Top list, so a
+              great deal on a bare section never tops the list for someone who
+              only wants a house. */}
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Search size={15} style={{ color: "var(--brand)" }} />
+              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Property types you want</span>
+            </div>
+            <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+              Only these show on the map and in Top for you. Leave all unticked to see every type.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {TYPE_OPTIONS.map((o) => {
+                const on = v.propertyTypes.includes(o.value);
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() =>
+                      set("propertyTypes", on ? v.propertyTypes.filter((t) => t !== o.value) : [...v.propertyTypes, o.value])
+                    }
+                    aria-pressed={on}
+                    title={o.hint}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer"
+                    style={{
+                      background: on ? "var(--accent-wash)" : "var(--surface-2)",
+                      border: `1px solid ${on ? "var(--brand)" : "var(--border)"}`,
+                      color: on ? "var(--brand)" : "var(--text-secondary)",
+                    }}
+                  >
+                    {on && <Check size={12} />}
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <Section icon={Wallet} title="Purchase">
             <Money label="Budget" hint="max price" value={v.budget} onChange={(n) => set("budget", n)} />
             <Money label="Deposit amount" value={v.depositAmount} onChange={(n) => set("depositAmount", n)} />
