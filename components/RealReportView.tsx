@@ -2055,7 +2055,7 @@ interface RenoLine {
   scopeHint?: string; // real scope for compliance/paperwork lines, which have no costing recipe
   legal?: boolean; // carries a Healthy Homes legal obligation (investor)
   nonExisting?: boolean; // the feature is deteriorated / effectively absent
-  inferred?: boolean; // derived from the build era, not observed — never recommended
+  inferred?: boolean; // not established either way — shown unticked, never recommended
   /** How a single-price line's figure was reached, step by step — shown behind a toggle. */
   working?: string[];
 }
@@ -2299,28 +2299,53 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
   }
 
   if (persona === "investor") {
+    // A standard established to fail whose item the analysis never returned
+    // (say, insulation read from a 1960 build year) would have no line, so the
+    // must-do could be neither ticked nor costed. Give it one, pre-ticked.
+    for (const h of assessHealthyHomes(subItems, listing.buildYear, hhAssessed)) {
+      if (h.compliant !== false || h.key === "hh_draught" || lines.some((l) => l.key === h.renoKey)) continue;
+      lines.push({
+        key: h.renoKey,
+        name: `${h.label} (Healthy Homes)`,
+        detail: "Doesn't meet the standard — required before you tenant",
+        low: h.remediation.low,
+        high: h.remediation.high,
+        urgencyYears: 0,
+        detailColor: "var(--bad)",
+        uplift: 0,
+        notes: h.fix,
+        costing: costThreeTier({ id: h.renoKey, name: h.label, ...ctx, fallback: { low: h.remediation.low, high: h.remediation.high } }),
+        autoInclude: true,
+        legal: true,
+        nonExisting: true,
+      });
+    }
+
     const draught = assessHealthyHomes(subItems, listing.buildYear, hhAssessed).find((h) => h.key === "hh_draught");
     if (draught) {
       const era = listing.buildYear ? `A ${listing.buildYear} house ` : "A house of this era ";
+      // Established to fail = a legal must-do, pre-ticked like the other four
+      // standards (insulation is read from the build year too and always was).
+      // Not established = shown unticked, for the reader to add after checking.
+      const mustDo = draught.compliant === false;
       lines.push({
         key: "hh_draught",
         name: "Draught stopping (Healthy Homes)",
-        detail: draught.compliant !== false
-          ? "Built to an era that meets the standard — confirm at inspection"
-          : `${era}predates draught-stopping requirements — not assessed, check at the viewing`,
+        detail: mustDo
+          ? `${era}predates draught-stopping requirements — required before you tenant`
+          : "Built to an era that meets the standard — confirm at inspection",
         low: draught.remediation.low,
         high: draught.remediation.high,
         urgencyYears: 0,
-        detailColor: "var(--text-muted)",
+        detailColor: mustDo ? "var(--bad)" : "var(--text-muted)",
         uplift: 0,
         notes:
-          "Derived from the build era, not from anything seen. Draughts are found by standing in the house: gaps at skirtings and architraves, doors and windows that don't seal, and an unused open fireplace left open to the sky. Tick this once you've checked.",
+          "Read from the build era, not from anything seen. Draughts are found by standing in the house: gaps at skirtings and architraves, doors and windows that don't seal, and an unused open fireplace left open to the sky. Untick this if the house has already been draught-stopped.",
         costing: costThreeTier({ id: "hh_draught", name: "Draught stopping", ...ctx, fallback: { low: draught.remediation.low, high: draught.remediation.high } }),
-        // Never pre-ticked, and never recommended. An inference is not a defect.
-        autoInclude: false,
-        inferred: true,
+        autoInclude: mustDo,
+        inferred: !mustDo,
         legal: true,
-        nonExisting: false,
+        nonExisting: mustDo,
       });
     }
   }
@@ -2593,8 +2618,8 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   const total = selectedRenoCost(renoLines, renoToggles, withinHold);
   // The plan = items ticked on the Improvements tab (auto-ticked when they score ≤30%).
   //
-  // Plus any `inferred` line, shown UNTICKED. Draught stopping has no Improvements
-  // card to tick it from, so leaving it out of the plan the moment it stopped
+  // Plus any `inferred` line, shown UNTICKED. Draught stopping, when the build
+  // year doesn't establish that it fails, has no Improvements card to tick it from, so leaving it out of the plan the moment it stopped
   // pre-ticking itself made it unreachable — the buyer could neither see what it
   // meant nor add it after checking. Shown and unticked, it costs nothing, states
   // that it is derived from the build era rather than observed, and says what to
