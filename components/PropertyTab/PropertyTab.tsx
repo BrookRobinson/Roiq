@@ -11,7 +11,7 @@ import { CategoryAccordion } from "./CategoryAccordion";
 import { ConditionScore } from "./ConditionScore";
 import { ExtraDwellingCard } from "./ExtraDwellingCard";
 import { buildEraFlags } from "@/lib/scoring/build-era";
-import { Home, AlertTriangle, ArrowRight } from "lucide-react";
+import { Home, AlertTriangle, ArrowRight, ChevronRight } from "lucide-react";
 
 interface Props {
   data: PropertyTabData;
@@ -130,7 +130,7 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
         {data.categories.map((category) => {
           return (
             <CategoryAccordion
-              key={category.id}
+              key={`${category.id}:${openAll}`}
               itemValues={itemValues}
               itemValuations={itemValuations}
               estimates={estimates}
@@ -149,26 +149,93 @@ export function PropertyTab({ data, region, floorSqm, noPhotos, buildYear, perso
         })}
       </div>
 
-      {/* Extra dwellings */}
+      {/* Extra dwellings — folded like a category, with what they add on the
+          header, so the section reads the same as the eight above it. */}
       {data.extraDwellings.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Home size={16} style={{ color: "var(--brand)" }} />
-            <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>
-              Extra Dwellings & Structures
-            </h3>
-            <div
-              className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: "var(--brand-light)", color: "var(--brand)" }}
+        <ExtraDwellingsAccordion
+          key={String(openAll)}
+          defaultOpen={openAll}
+          dwellings={data.extraDwellings}
+          dwellingValues={dwellingValues}
+          noPhotos={noPhotos}
+          renoControls={renoControls}
+          onOpenRenovations={onOpenRenovations}
+        />
+      )}
+    </div>
+  );
+}
+
+function ExtraDwellingsAccordion({ dwellings, dwellingValues, noPhotos, defaultOpen, renoControls, onOpenRenovations }: {
+  dwellings: PropertyTabData["extraDwellings"];
+  dwellingValues?: DwellingValue[];
+  noPhotos?: boolean;
+  defaultOpen: boolean;
+  renoControls?: RenoControls;
+  onOpenRenovations?: () => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  // The same figures each card shows, summed — so the header adds up to them.
+  const values = dwellings.map((d) => dwellingValues?.find((x) => x.id === d.id)).filter((v): v is DwellingValue => !!v);
+  const added = values.reduce((s, v) => s + v.addedValue, 0);
+  const replacement = values.reduce((s, v) => s + v.replacementNew, 0);
+  const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
+    >
+      <button
+        className="w-full text-left p-5 cursor-pointer flex items-center gap-4"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        style={{ borderLeft: "4px solid var(--brand)" }}
+      >
+        <Home size={22} className="flex-shrink-0" style={{ color: "var(--brand)" }} />
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-base mb-1" style={{ color: "var(--text-primary)" }}>
+            Extra dwellings & structures
+          </div>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {dwellings.length} {dwellings.length === 1 ? "structure" : "structures"}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {!noPhotos && values.length > 0 && (
+            <span
+              className="inline-flex flex-col items-end sm:flex-row sm:items-baseline sm:gap-1 rounded-lg font-bold tabular-nums"
+              style={{
+                background: "var(--brand-light)",
+                border: "1px solid var(--brand)",
+                color: "var(--brand)",
+                fontFamily: "Fira Code, monospace",
+                padding: "3px 10px",
+                fontSize: 13,
+              }}
+              title={`What these structures add to the property, against about ${money(replacement)} to build them new.`}
             >
-              Adds value
-            </div>
-          </div>
-          <div className="space-y-4">
-            {data.extraDwellings.map((d) => (
-              <ExtraDwellingCard key={d.id} dwelling={d} noPhotos={noPhotos} value={dwellingValues?.find((x) => x.id === d.id)} renoControls={renoControls} onOpenRenovations={onOpenRenovations} />
-            ))}
-          </div>
+              <span>
+                {money(added)}
+                <span className="font-medium" style={{ fontSize: 10, opacity: 0.8 }}> adds</span>
+              </span>
+              <span className="font-medium" style={{ fontSize: 10, opacity: 0.8 }}>
+                <span className="hidden sm:inline">· </span>{money(replacement)} new
+              </span>
+            </span>
+          )}
+          <ChevronRight
+            size={18}
+            style={{ color: "var(--text-muted)", transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+          />
+        </div>
+      </button>
+
+      {open && (
+        <div className="px-5 pb-5 pt-4 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
+          {dwellings.map((d) => (
+            <ExtraDwellingCard key={d.id} dwelling={d} noPhotos={noPhotos} value={dwellingValues?.find((x) => x.id === d.id)} renoControls={renoControls} onOpenRenovations={onOpenRenovations} />
+          ))}
         </div>
       )}
     </div>
