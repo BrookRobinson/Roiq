@@ -1081,7 +1081,7 @@ export function RealReportView({
               <a href="/report/upload" className="text-xs mt-1.5 inline-block hover:underline" style={{ color: "var(--brand)" }}>Upload additional photos →</a>
             </div>
           )}
-          {tab === "overview" && <OverviewReal locked={locked} report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} propertyValue={propertyValue} dwellingValue={dwellingValue} />}
+          {tab === "overview" && <OverviewReal locked={locked} report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} propertyValue={propertyValue} dwellingValue={dwellingValue} onOpenRenovations={() => setTab("renovations")} />}
           {tab === "improvements" && (
             <div className="space-y-4">
               <PropertyTab shell={improvementValuation.shell} itemValues={new Map(improvementValuation.items.map((v) => [v.id, v]))} itemValuations={itemValuations} estimates={new Map(improvementValuation.estimatedItems.map((e) => [e.id, e]))} data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: 0 }} region={[listing.city, listing.region].filter(Boolean).join(", ") || undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
@@ -1764,8 +1764,9 @@ function sizeWorkingsFor(
   ];
 }
 
-function OverviewReal({ locked, report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation, propertyValue, dwellingValue }: {
+function OverviewReal({ locked, report, subItems, scored, persona, renoLines, renoToggles, askingPrice, improvementValuation, propertyValue, dwellingValue, onOpenRenovations }: {
   locked: boolean;
+  onOpenRenovations: () => void;
   report: StoredReport; subItems: SubItem[]; scored: ScoreResult; persona: Persona;
   renoLines: RenoLine[]; renoToggles: Record<string, RenoToggle>; askingPrice: number | null;
   improvementValuation: ImprovementValueResult;
@@ -1790,6 +1791,14 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
   const repairs = subs
     .filter((s) => isImprovement(s) && ITEM_BY_ID[s.id]?.costBearing && !CHATTELS.has(s.id) && s.score !== null && s.score <= 4)
     .sort((a, b) => (a.score ?? 9) - (b.score ?? 9));
+  // Grouped by the condition word ("Very poor", "Poor", "Below average"), worst first.
+  const repairBands: { word: string; color: string; items: SubItem[] }[] = [];
+  for (const s of repairs) {
+    const word = s.urgencyLabel.split(" — ")[0];
+    const band = repairBands.find((b) => b.word === word);
+    if (band) band.items.push(s);
+    else repairBands.push({ word, color: (s.score ?? 9) <= 2 ? "var(--bad)" : "var(--warn)", items: [s] });
+  }
   const risks = subs
     .filter((s) => !isImprovement(s) && s.score !== null && s.score <= 4)
     .sort((a, b) => (a.score ?? 9) - (b.score ?? 9));
@@ -1882,23 +1891,44 @@ function OverviewReal({ locked, report, subItems, scored, persona, renoLines, re
         ))}
       </div>
 
-      {/* Priority repairs */}
+      {/* What needs work — the worst improvement items, grouped by how bad.
+          No timings or "replace" wording here: when each job is due comes from
+          its life left and lives on the Renovation tab, and a condition score
+          saying "replace within 2–3 years" under a heading saying "before you
+          offer" contradicted itself. Several items share a name ("Flooring" is
+          in four rooms), so each carries its room. */}
       {repairs.length > 0 && (
         <div className="card p-5" style={{ border: "1px solid var(--bad-wash)" }}>
-          <div className="flex items-center gap-2 font-semibold text-sm mb-3" style={{ color: "var(--bad)" }}>
-            <AlertTriangle size={15} /> Priority repairs — act before making an offer
+          <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: "var(--bad)" }}>
+            <AlertTriangle size={15} /> Needs work
           </div>
-          <div className="space-y-2">
-            {repairs.map((s) => (
-              <div key={s.id} className="flex items-start justify-between gap-2 text-sm">
-                <div>
-                  <span className="font-medium" style={{ color: "var(--text-primary)" }}>{s.name}</span>
-                  <span style={{ color: "var(--text-secondary)" }}> — {s.urgencyLabel}</span>
+          <p className="text-xs mt-1 mb-4" style={{ color: "var(--text-muted)" }}>
+            The items in the worst condition in the photos. Factor them into your offer.
+          </p>
+          <div className="space-y-3">
+            {repairBands.map((b) => (
+              <div key={b.word} className="grid sm:grid-cols-[120px_1fr] gap-x-3 gap-y-1.5 items-start">
+                <div className="text-xs font-semibold pt-1" style={{ color: b.color }}>
+                  {b.word} <span className="mono" style={{ color: "var(--text-muted)" }}>· {b.items.length}</span>
                 </div>
-                {/* Cost figures live on the Renovation tab only. */}
+                <div className="flex flex-wrap gap-1.5">
+                  {b.items.map((s) => (
+                    <span key={s.id} className="text-xs rounded-md px-2 py-1" style={{ background: "var(--surface-2)", color: "var(--text-primary)" }}>
+                      {ITEM_BY_ID[s.id]?.category && <span style={{ color: "var(--text-muted)" }}>{ITEM_BY_ID[s.id].category} · </span>}
+                      {s.name}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
+          <button
+            onClick={onOpenRenovations}
+            className="flex items-center gap-1 text-xs font-semibold mt-4 cursor-pointer hover:opacity-80"
+            style={{ color: "var(--brand)" }}
+          >
+            What each costs, and when it&apos;s due <ArrowRight size={13} />
+          </button>
         </div>
       )}
 
