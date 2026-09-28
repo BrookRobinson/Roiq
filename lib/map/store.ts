@@ -165,14 +165,25 @@ export async function getActiveListings(
       return q;
     });
     if (rows.length > 0) return rows.map(rowToMapListing);
+    // Nothing matched. That is only "the map is empty" if the TABLE is — a
+    // filter that matches nothing (no analysed sections, an empty stretch of
+    // sea) is an answer, and falling back from it served the local pins with
+    // the filter ignored: a unit and a house topped a Section-only list.
+    const { data: any } = await supabase.from("map_listings").select("id").limit(1);
+    if (any && any.length > 0) return [];
   } catch {
     /* DB unavailable — fall through to the local pins */
   }
 
   const contributed = (await getUserListings()).filter((l) => l.status === "active");
   const pool = contributed.length > 0 ? contributed : SEED_LISTINGS.filter((l) => l.status === "active");
-  const inView = bbox ? pool.filter((l) => inBBox(l, bbox)) : pool;
-  return analysedOnly ? inView.filter((l) => l.analysed) : inView;
+  // The same filters as the query, or the fallback answers a different question.
+  return pool.filter(
+    (l) =>
+      (!bbox || inBBox(l, bbox)) &&
+      (!analysedOnly || l.analysed) &&
+      (!types?.length || types.includes((l.propertyType ?? "unknown") as MapPropertyType))
+  );
 }
 
 /**
