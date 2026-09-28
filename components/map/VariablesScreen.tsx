@@ -129,9 +129,36 @@ export function VariablesScreen({
               <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Property types you want</span>
             </div>
             <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-              Only these show on the map and in Best deals for you. Leave all unticked to see every type.
+              Browse all, or pick the types you want — only those show on the map and in Best deals for you.
             </p>
             <div className="flex flex-wrap gap-2">
+              {/* The default. Stored as no types at all, which every consumer
+                  already reads as "every type". */}
+              {(() => {
+                const on = v.propertyTypes.length === 0;
+                const total = counts ? Object.values(counts).reduce((t, c) => t + c.mapped, 0) : null;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => set("propertyTypes", [])}
+                    aria-pressed={on}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold cursor-pointer"
+                    style={{
+                      background: on ? "var(--accent-wash)" : "var(--surface-2)",
+                      border: `1px solid ${on ? "var(--brand)" : "var(--border)"}`,
+                      color: on ? "var(--brand)" : "var(--text-secondary)",
+                    }}
+                  >
+                    {on && <Check size={12} />}
+                    Browse all
+                    {total != null && (
+                      <span className="mono text-[11px]" style={{ opacity: 0.7 }}>
+                        {total.toLocaleString("en-NZ")}
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
               {TYPE_OPTIONS.map((o) => {
                 const on = v.propertyTypes.includes(o.value);
                 return (
