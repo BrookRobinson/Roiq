@@ -103,7 +103,43 @@ export interface ChecklistItem {
   room?: UnseenRoom;
   /** An item read room by room: a photo of it has to say which room it's of. */
   rooms?: string[];
+  /** Which of the checklist's sections it sits in — see CHECKLIST_SECTIONS. */
+  section: ChecklistSection;
 }
+
+/**
+ * The checklist in the order a buyer works through it, by WHY each thing is on
+ * it — which decides what to do about it. A blurry photo wants a clearer one;
+ * a room nobody photographed wants photographing; a thing no camera can see
+ * wants a hatch, a question or an inspector; paperwork wants a document.
+ */
+export type ChecklistSection = "unclear" | "not_photographed" | "hidden" | "paperwork";
+
+export const CHECKLIST_SECTIONS: { id: ChecklistSection; title: string; intro: string; empty?: string }[] = [
+  {
+    id: "unclear",
+    title: "Photographed, but not clearly",
+    intro: "The listing shows these, but not well enough to be sure — blurry, dark, too far away or half out of frame. A clear photo of your own settles them.",
+    empty: "Nothing here — everything the listing photographed was clear enough to read.",
+  },
+  {
+    id: "not_photographed",
+    title: "In the house, but not in the photos",
+    intro: "The listing or the public record says these exist, but no photo shows them. Photograph them and they're scored on what you saw instead of estimated.",
+    empty: "Nothing here — the listing photographed every room it mentions.",
+  },
+  {
+    id: "hidden",
+    title: "Things no photo can show",
+    intro: "Behind the linings, under the floor or up in the ceiling — insulation, the subfloor, what's behind the tiles. Look through a hatch, ask, or leave it to your building inspector.",
+    empty: "Nothing here.",
+  },
+  {
+    id: "paperwork",
+    title: "Documents and questions for the agent",
+    intro: "Settled by paperwork or by asking, not by looking.",
+  },
+];
 
 /**
  * What to do in a room nobody photographed. Hand-written like the rest of
@@ -295,6 +331,7 @@ export function buildViewingChecklist(
         why: "No document has been uploaded, so this is unscored — the report has not seen it.",
         guide: CHECK_GUIDE[s.id] ?? fallbackGuide(s),
         source: "document",
+        section: "paperwork",
         canPhotograph: false,
       });
       seen.add(s.id);
@@ -315,6 +352,9 @@ export function buildViewingChecklist(
             : "Not assessed from the listing.",
         guide: CHECK_GUIDE[s.id] ?? fallbackGuide(s),
         source: "ungraded",
+        // Not visible at all is a hidden thing; a listing with no photos is
+        // things not photographed; anything else was shown but couldn't be read.
+        section: s.confidenceTier === 3 ? "hidden" : s.noPhotoNotAssessed ? "not_photographed" : "unclear",
         canPhotograph: isPhotoAssessable(s.id),
         rooms: s.byRoom?.length ? s.byRoom.map((r) => r.room) : undefined,
         priorSummary: s.aiSummary || undefined,
@@ -339,6 +379,7 @@ export function buildViewingChecklist(
         why: `Graded ${band} (${s.score}/10) from ${basis}. ${s.observedDefect || s.aiSummary || ""}`.trim(),
         guide: CHECK_GUIDE[s.id] ?? fallbackGuide(s),
         source: "probable",
+        section: s.confidenceTier === 3 ? "hidden" : "unclear",
         band,
         canPhotograph: isPhotoAssessable(s.id),
         rooms: s.byRoom?.length ? s.byRoom.map((r) => r.room) : undefined,
@@ -363,6 +404,7 @@ export function buildViewingChecklist(
         why: "Estimated in the valuation until it's photographed — one set of photos scores everything in the room.",
         guide: ROOM_GUIDE[r.kind](r.room),
         source: "room",
+        section: "not_photographed",
         canPhotograph: true,
         room: r,
       });
@@ -387,6 +429,7 @@ export function buildViewingChecklist(
         "The foundation type is read from the perimeter, but no listing photograph shows under the floor — so its condition has never been seen.",
       guide: CHECK_GUIDE.ext_foundation,
       source: "ungraded",
+      section: "hidden",
       canPhotograph: true,
       priorSummary: found?.aiSummary || undefined,
     });
@@ -397,7 +440,9 @@ export function buildViewingChecklist(
   // one bedroom in shot is not a report on four bedrooms, and saying nothing
   // about that lets the score stand on a room nobody has seen.
   const bedrooms = report.listing.bedrooms ?? 0;
-  if (bedrooms > 1) {
+  // Reports that read bedrooms room by room get a line per missing room above.
+  const perRoom = subItems.some((s) => s.id.startsWith("bed_") && s.byRoom?.length);
+  if (bedrooms > 1 && !perRoom) {
     const shots = new Set(
       subItems.filter((s) => s.id.startsWith("bed_")).flatMap((s) => s.photoReferences ?? [])
     );
@@ -423,6 +468,7 @@ export function buildViewingChecklist(
           photos: [`One wide shot from the doorway of each bedroom — all ${bedrooms}`],
         },
         source: "gap",
+        section: "not_photographed",
         canPhotograph: false,
       });
     }
@@ -456,6 +502,9 @@ export function buildViewingChecklist(
         photos: photo ? ["It, if you get to see it yourself"] : [],
       },
       source: "gap",
+      // A missing photo is something in the house nobody photographed; the
+      // rest are questions for the agent.
+      section: photo ? "not_photographed" : "paperwork",
       canPhotograph: false,
     });
   }

@@ -600,6 +600,15 @@ report follows the inspector — they were there and the camera wasn't. It used 
 be the third condition on a gate; it is evidence now, and nothing is withheld
 for want of it.
 
+**The checklist is in sections by WHY each line is there**, because that is
+what decides what to do about it: 1 photographed but not clearly (Tier 2 and
+unreadable), 2 in the house but not in the photos (unphotographed rooms, photo
+gaps), 3 things no photo can show (Tier 3 — insulation, the subfloor), 4
+documents and questions for the agent. `CHECKLIST_SECTIONS` in checklist.ts;
+every line carries `section`. Sections 1–3 always show, in that order, with a
+"nothing here" line when empty, so a section's number means the same thing on
+every report. The room or area is a tag on each line instead.
+
 **A room the listing never photographed is one checklist line, and one set
 of photos scores it.** `lib/viewing/rooms.ts` finds them: a null read in an
 item's `byRoom`, or rooms the listing counts beyond those the analysis named

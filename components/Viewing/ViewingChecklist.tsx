@@ -18,6 +18,7 @@ import {
   ANSWER_LABEL,
   checklistStatus,
   type ChecklistItem,
+  CHECKLIST_SECTIONS,
   type ViewingAnswer,
   type ViewingState,
 } from "@/lib/viewing/checklist";
@@ -52,13 +53,6 @@ const ANSWER_COLOR: Record<ViewingAnswer, string> = {
   not_there: "var(--text-muted)",
 };
 
-const SOURCE_NOTE: Record<ChecklistItem["source"], string> = {
-  ungraded: "Not assessed",
-  probable: "Probable — confirm",
-  document: "Document needed",
-  gap: "Not in the listing",
-  room: "Not in the photos",
-};
 
 
 export function ViewingChecklist({
@@ -106,15 +100,17 @@ export function ViewingChecklist({
 }) {
   const status = useMemo(() => checklistStatus(items, state), [items, state]);
 
-  const groups = useMemo(() => {
-    const map = new Map<string, ChecklistItem[]>();
-    for (const it of items) {
-      const list = map.get(it.group) ?? [];
-      list.push(it);
-      map.set(it.group, list);
-    }
-    return [...map.entries()];
-  }, [items]);
+  // By WHY each thing is on the list, which is what decides what to do about
+  // it — not by room. The room is on each line instead.
+  const sections = useMemo(
+    () =>
+      // The three main sections always show, in the same order, so "section 2"
+      // means the same thing on every report; paperwork only when there is some.
+      CHECKLIST_SECTIONS.map((sec) => ({ ...sec, rows: items.filter((it) => it.section === sec.id) })).filter(
+        (sec) => sec.rows.length > 0 || sec.empty
+      ),
+    [items]
+  );
 
 
   // Photographed items that are no longer on the list, because photographing
@@ -320,16 +316,26 @@ export function ViewingChecklist({
         </div>
       )}
 
-      {groups.map(([group, groupItems]) => (
-        <section key={group} className="card p-0 overflow-hidden">
-          <h3
-            className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider"
-            style={{ background: "var(--surface-2)", color: "var(--text-muted)", borderBottom: "1px solid var(--rule)" }}
-          >
-            {group}
-          </h3>
+      {sections.map((sec, n) => (
+        <section key={sec.id} className="card p-0 overflow-hidden">
+          <div className="px-5 py-3.5" style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--rule)" }}>
+            <h3 className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+              <span
+                className="mono flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                style={{ background: "var(--accent-wash)", color: "var(--accent-text)" }}
+              >
+                {n + 1}
+              </span>
+              {sec.title}
+              <span className="text-[12px] font-normal" style={{ color: "var(--text-muted)" }}>· {sec.rows.length}</span>
+            </h3>
+            <p className="mt-1 text-[12.5px]" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>{sec.intro}</p>
+          </div>
+          {sec.rows.length === 0 && (
+            <p className="px-5 py-3 text-[13px]" style={{ color: "var(--text-muted)" }}>{sec.empty}</p>
+          )}
           <div>
-            {groupItems.map((it, i) => (
+            {sec.rows.map((it, i) => (
               <Row
                 key={it.key}
                 item={it}
@@ -478,7 +484,7 @@ function Row({
                 border: "1px solid var(--rule)",
               }}
             >
-              {item.band ? `Graded ${item.band}` : SOURCE_NOTE[item.source]}
+              {item.band ? `${item.group} · graded ${item.band}` : item.group}
             </span>
           </div>
 
