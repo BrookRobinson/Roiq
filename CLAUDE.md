@@ -1,7 +1,7 @@
 # Working on Tectara
 
-NZ property analysis: paste a listing URL → scrape → Claude vision → a scored,
-persona-aware report out of 1,000. Next.js 14 App Router, TypeScript, Tailwind,
+NZ property analysis: paste a listing URL → scrape → Claude vision → a
+persona-aware report that values the property component by component. Next.js 14 App Router, TypeScript, Tailwind,
 Supabase, Mapbox.
 
 This file is **operating rules that stay true across features**. Current state —
@@ -103,7 +103,7 @@ somebody deciding what to bid on a house.
 | `components/map/` | `MapExperience.tsx` is the whole map; `/map` and `/map/demo` are thin wrappers around it with a `demo` flag. Don't fork it. |
 | `components/Viewing/`, `lib/viewing/` | The viewing checklist — what the photos couldn't settle. `status.ts` is dependency-free on purpose. |
 | `lib/billing/` | `plans.ts` is pure and safe to import anywhere; `stripe.ts` is server-only. |
-| `lib/scoring/` | The 1,000-point engine. `model.ts` is the rubric, `engine.ts` scores, `catalog.ts` is the item list. |
+| `lib/scoring/` | Condition reads and the valuation. `property-value.ts` is the ONE valuation; `model.ts` / `engine.ts` are the old rubric, still used for coverage (the 1,000-point total is retired). `catalog.ts` is the item list. |
 | `lib/map/`, `lib/reports/`, `lib/email/`, `lib/auth/` | Feature libs. Server-only modules say so at the top. |
 | `lib/map/delisting.ts` | When a crawl may conclude a listing has gone. Dependency-free on purpose. |
 | `lib/valuation/` | The scoreboard: our valuations graded against what the market paid. `scoreboard.ts` is dependency-free. |
@@ -874,6 +874,17 @@ it is silently ignored and you get every pin in the country — 37,912 rows and 
 12-second response — which looks like the API being slow rather than the query
 being wrong. `PropertyMap.tsx` passes it correctly; a Hokitika viewport is 4KB
 and 0.4s.
+
+**"Top for you" ranks by the pin's own figure, and the gate is on the server.**
+`/api/map/top` runs the same `computeListing()` against the reader's variables
+(value vs asking for a home buyer, profit over the hold for an investor) and
+returns the best ten with addresses and prices — which is what the map tier
+sells, so it checks `hasFeature("map")` and 402s; blurred pins don't protect
+it. Only analysed pins with a verdict are ranked, filtered in the QUERY
+(`getActiveListings(…, analysedOnly)`) — reading every pin in the country to rank
+five took 7s. One house, one entry: a property analysed twice can carry two pins
+with different valuations, and the list keeps the NEWEST (`lastScoredAt`),
+never the one that ranks higher.
 
 **`MapListing.analysed` is the gate on every displayed number.** A discovered
 pin has no score, valuation or rent, and `rowToMapListing` fills those with
@@ -1848,25 +1859,33 @@ mounts. The effect fills the box only while it is still empty, since overwriting
 a figure somebody typed because a request came back late is the same bug facing
 the other way.
 
-**The plan says whose idea each line was.** Once work started joining it because
-it falls due inside the hold, a single list headed "the work you've chosen" was
-simply untrue — and a reader sliding from five years to ten watched the total
-jump with nothing telling them what had arrived. It is two groups now: **You
-chose these** (an explicit tick) and **Our recommendation for your N-year hold**,
-which names the reason and marks each line "due ~yr 7". Tick something and it
-moves from ours to yours; the heading and the contents re-make themselves as the
-slider moves. The reader's own list leads the summary card; ours sits at the FOOT
-of the tab under "Our recommendation", below the items, with a one-line link
-from the top. On a ten-year hold ours ran to forty-odd lines above the three
-the reader had picked. The total still counts both.
+**The plan has two halves, and a tick means "at purchase".** A box on the
+Improvements tab is pre-ticked ONLY for work needed the day you buy or before
+you can rent it out: the action is a replacement now, the item has
+`UPFRONT_RENO_YEARS` (1) or less of life left, or it is a Healthy Homes
+standard established to fail. **Never on condition alone** — it used to tick
+anything in the bottom 30%, and a 30% roof may well last years. Work that isn't
+needed yet but reaches end of life inside the hold is NOT ticked and IS counted:
+`renoSplit()` returns `atPurchase` (the ticked lines, counted whatever the hold,
+because the reader has said they'll do it) and `duringHold` (the rest, due
+inside the hold, not unticked). Every total reads that one split — Renovations
+shows "Needed at purchase" and "Due during your N-year hold" (by year, with the
+kind of job: Repair / Maintain / Replace / Install / Full refit / Compliance),
+the Financial tab's money-to-buy is exactly the ticked lines, and an unticked
+card due in the hold reads "We've added this to year N of your renovation plan".
+Moving the hold changes the second half and never the ticks.
 
 **An untick has to be reversible where it happens.** Both lists used to render
 `selected`, so unticking an item removed its own checkbox from the page — the
-control you needed to change your mind disappeared with the decision, and the
-only way back was the Improvements tab. Survivable while the plan held two items;
-now that most in-hold work is ticked by default, unticking IS the normal
-interaction. The detail list maps everything in scope for the hold, so an
-excluded line stays visible and unticked.
+control you needed to change your mind disappeared with the decision. The detail
+list maps everything in scope for the hold (plus anything ticked for purchase),
+so an excluded line stays visible and unticked.
+
+**Some lines only ever come in by a tick: `wholeRoom` and `optIn`.** A
+whole-kitchen or whole-bathroom refit REPLACES that room's individual lines, so
+letting it in on the hold default put the same room in the plan twice ($19,312 on
+the demo). Extra-dwelling compliance (pool fence, sleepout) only matters if you
+mean to let it. `renoIncluded` excludes both from the hold default.
 
 **The hold slider appears twice and is ONE control.** `HoldPeriodSlider` reads
 and writes `HoldPeriodContext`, so a second instance at the foot of the walk-away
@@ -1901,17 +1920,16 @@ wins: this changes what happens when nobody has said anything, never what
 somebody chose.
 
 **Then split it by WHEN you pay.** Making the plan hold-aware pushed the ten-year
-figure to $195,729 and every cent of it landed in "Total money needed to buy",
-which read $430,029 — a roof due in year seven counted as settlement cash. Only
-work due inside `UPFRONT_RENO_YEARS` is deposit money; the rest is
-`renoDeferred`, a holding cost over the period. The walk-away is unchanged by the
-split to the dollar at every hold length, which is the check that it reclassified
-money rather than losing or double-counting it.
+figure into "Total money needed to buy" — a roof due in year seven counted as
+settlement cash. The split is now the plan's own two halves (see above): the
+ticked lines are deposit money, the rest is `renoDeferred`, a holding cost over
+the period.
 
-`renoControls.included` is deliberately NOT hold-aware — it is built above
-`HoldPeriodProvider` and cannot read the hold. It only answers for Healthy Homes
-and extra-dwelling compliance items, which are legally required and therefore
-`autoInclude` at any hold length, so nothing it says can disagree with the plan.
+`renoControls.included` answers "ticked" — at purchase — and is not hold-aware
+on purpose. `dueInHold(id, withinHold)` answers the other half; it takes the hold
+as an argument because the controls are built above `HoldPeriodProvider`.
+`autoTicked(id)` tells a tick we made from one the reader made, which is what
+the wording beside the box turns on.
 
 **Zero is a claim too, and the walk-away figure was making it.** Renovations
 were subtracted from cash in and the projected sale price did not move a cent —
@@ -2062,6 +2080,12 @@ floor area and $795,000 asking price, which were merged into a section's report 
 presented as its own — the wrong-house failure, but silent. `identifiesOneProperty()`
 requires a street number leading the first component, and the lookup is skipped
 entirely when the listing has no dwelling.
+
+**An item's photo list includes every photo its own text cites.** The model
+fills `photo_references` and writes its prose separately, and they drift — the
+ventilation card said "assessed from photos 6, 11" over a finding citing Photo 5
+(a roof photo). `citedPhotos()` (`lib/photo-refs.ts`) merges the cited numbers
+in when the analysis is read.
 
 **Read the listing description — it is evidence, and it was being thrown away.**
 OneRoof's JSON-LD `description` carries only the marketing HEADLINE ("A Smart
