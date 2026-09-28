@@ -253,7 +253,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
   const costItem = getCostItem(item, region, floorSqm);
   // Renovation plan: this item can be added if it has a costed reno line.
   const canReno = renoControls?.has(item.id) ?? false;
-  const inPlan = canReno && (renoControls?.included(item.id) ?? false);
+  const inPlan = canReno && (renoControls?.included(item.id, withinHold) ?? false);
 
   return (
     <div

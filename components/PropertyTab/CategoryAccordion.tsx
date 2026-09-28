@@ -11,6 +11,7 @@ import { isRefused, type AnyValuation } from "./valuation-types";
 import type { Persona } from "@/lib/scoring/model";
 import type { RenoControls } from "@/lib/property-tab/types";
 import { alpha } from "@/lib/ui/color";
+import { useHoldPeriod } from "@/lib/hold-period/context";
 
 interface Props {
   category: Category;
@@ -28,6 +29,7 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
   const roomKey =
     category.name === "Kitchen" ? "room_kitchen" : category.name === "Bathroom" ? "room_bathroom" : null;
   const [open, setOpen] = useState(defaultOpen);
+  const { withinHold } = useHoldPeriod();
   const worst = worstSubItemScore(category);
   const accentColor = conditionScoreColor(worst);
 
@@ -171,13 +173,13 @@ export function CategoryAccordion({ category, defaultOpen = false, region, floor
             <label
               className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 cursor-pointer"
               style={{
-                background: renoControls.included(roomKey) ? "var(--accent-wash)" : "var(--surface-2)",
-                border: `1px solid ${renoControls.included(roomKey) ? "var(--brand)" : "var(--border)"}`,
+                background: renoControls.included(roomKey, withinHold) ? "var(--accent-wash)" : "var(--surface-2)",
+                border: `1px solid ${renoControls.included(roomKey, withinHold) ? "var(--brand)" : "var(--border)"}`,
               }}
             >
               <input
                 type="checkbox"
-                checked={renoControls.included(roomKey)}
+                checked={renoControls.included(roomKey, withinHold)}
                 onChange={(e) => renoControls.toggle(roomKey, e.target.checked)}
                 className="cursor-pointer"
               />

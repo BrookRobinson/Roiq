@@ -931,14 +931,12 @@ export function RealReportView({
     const byId = new Map(renoLines.filter((l) => !l.key.endsWith("_rem")).map((l) => [l.key, l]));
     return {
       has: (id) => byId.has(id),
-      // Deliberately NOT hold-aware: this is built above HoldPeriodProvider, so
-      // the hold isn't readable here. It only serves the Healthy Homes and
-      // extra-dwelling compliance controls, whose items are legally required and
-      // therefore `autoInclude` at any hold length — so nothing it answers for
-      // can disagree with the plan.
-      included: (id) => {
+      // The same rule the Renovations tab counts by, so a ticked box always
+      // means "in the total". Built above HoldPeriodProvider, so the caller
+      // passes the hold in; without it only urgent / legal work reads ticked.
+      included: (id, withinHold) => {
         const l = byId.get(id);
-        return l ? renoIncluded(l, renoToggles) : false;
+        return l ? renoIncluded(l, renoToggles, withinHold?.(l.urgencyYears) ?? false) : false;
       },
       toggle: (id, on) => setRenoToggle(id, { included: on }),
     };
@@ -3656,8 +3654,9 @@ function HealthyHomesCard({ r, item, note, cost, buildYear, renoControls, onOpen
   renoControls: RenoControls; onOpenRenovations: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { withinHold } = useHoldPeriod();
   const canReno = renoControls.has(r.renoKey);
-  const inPlan = canReno && renoControls.included(r.renoKey);
+  const inPlan = canReno && renoControls.included(r.renoKey, withinHold);
   // Three states, not two. Showing "Compliant" for a standard nobody
   // established could put a landlord into a tenancy with a house that isn't.
   const state =
