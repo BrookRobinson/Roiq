@@ -17,6 +17,7 @@ export const DEFAULT_VARIABLES: UserVariables = {
   depositAmount: 200_000,
   interestRatePct: DEFAULT_INTEREST_RATE,
   loanTermYears: 30,
+  repaymentType: "pi", // principal & interest
   holdPeriodYears: 5,
   buyingCosts: 3_000,
   buildingReport: 600,
@@ -37,7 +38,7 @@ export const DEFAULT_VARIABLES: UserVariables = {
 };
 
 /**
- * The building report, selling, ongoing and growth figures are not the reader's to set: each
+ * Buying costs, the building report, selling, ongoing and growth figures are not the reader's to set: each
  * property's report works them out for that property, and the map uses the
  * standard figures below. They were once editable, so a value saved back then
  * is overwritten here rather than quietly steering the map forever.
@@ -45,6 +46,7 @@ export const DEFAULT_VARIABLES: UserVariables = {
  */
 const REPORT_SET: Pick<
   UserVariables,
+  | "buyingCosts"
   | "buildingReport"
   | "agentCommissionPct"
   | "sellingLegalCosts"
@@ -55,6 +57,7 @@ const REPORT_SET: Pick<
   | "capitalGrowthPct"
   | "rentalGrowthPct"
 > = {
+  buyingCosts: DEFAULT_VARIABLES.buyingCosts,
   buildingReport: DEFAULT_VARIABLES.buildingReport,
   agentCommissionPct: DEFAULT_VARIABLES.agentCommissionPct,
   sellingLegalCosts: DEFAULT_VARIABLES.sellingLegalCosts,
@@ -150,6 +153,8 @@ function variablesFromRow(row: Partial<MapUserColumns> | null | undefined): User
     depositAmount: n(row.map_deposit_amount, d.depositAmount),
     interestRatePct: n(row.map_interest_rate, d.interestRatePct),
     loanTermYears: n(row.map_loan_term_years, d.loanTermYears),
+    // Not a users column yet — held on the device like property types.
+    repaymentType: d.repaymentType,
     holdPeriodYears: n(row.map_hold_period_years, d.holdPeriodYears),
     buyingCosts: n(row.map_buying_costs, d.buyingCosts),
     buildingReport: n(row.map_building_report, d.buildingReport),

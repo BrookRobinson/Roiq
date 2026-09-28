@@ -2,6 +2,8 @@
 // Property Map — shared types (client + server).
 // ============================================================
 
+import type { LoanType } from "@/lib/finance/calculator";
+
 export type MapMode = "homebuyer" | "investor";
 export type DealColour = "green" | "orange" | "red";
 
@@ -100,6 +102,8 @@ export interface UserVariables {
   depositAmount: number;      // NZD
   interestRatePct: number;    // e.g. 6.5
   loanTermYears: number;      // 1–30
+  /** How the loan is repaid: principal & interest, or interest only. */
+  repaymentType: LoanType;
   holdPeriodYears: number;    // 1–30
   buyingCosts: number;        // NZD (legal + LIM)
   buildingReport: number;     // NZD

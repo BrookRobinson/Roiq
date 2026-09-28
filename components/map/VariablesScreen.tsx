@@ -154,7 +154,32 @@ export function VariablesScreen({
             <Pct label="Interest rate" note={rateNote} noteTitle={rateSource} value={v.interestRatePct} onChange={(n) => set("interestRatePct", n)} />
             <Slider label="Loan term" unit="yrs" value={v.loanTermYears} onChange={(n) => set("loanTermYears", n)} />
             <Slider label="Hold period" unit="yrs" value={v.holdPeriodYears} onChange={(n) => set("holdPeriodYears", n)} />
-            <Money label="Buying costs" hint="legal + LIM" value={v.buyingCosts} onChange={(n) => set("buyingCosts", n)} />
+            {/* How the loan is paid off. Interest only costs less each month but
+                leaves the whole loan owing at sale; P&I pays it down. */}
+            <FieldShell label="Loan repayments">
+              <div className="flex rounded-lg p-0.5" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                {(
+                  [
+                    ["pi", "Principal & interest"],
+                    ["io", "Interest only"],
+                  ] as const
+                ).map(([t, label]) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => set("repaymentType", t)}
+                    aria-pressed={v.repaymentType === t}
+                    className="flex-1 px-2 py-1.5 rounded-md text-xs font-semibold cursor-pointer"
+                    style={{
+                      background: v.repaymentType === t ? "var(--brand-light)" : "transparent",
+                      color: v.repaymentType === t ? "var(--brand)" : "var(--text-muted)",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </FieldShell>
           </Section>
 
           {/* Selling, ongoing costs and growth are NOT the reader's to set here:
@@ -162,7 +187,7 @@ export function VariablesScreen({
               suburb's growth, its own insurance and rates). The map uses the
               standard figures in lib/map/variables.ts for them. */}
           <p className="text-xs px-1" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>
-            The building report, selling costs, running costs and growth aren&apos;t set here — each property&apos;s report works them out for
+            Buying costs, the building report, selling costs, running costs and growth aren&apos;t set here — each property&apos;s report works them out for
             that property.
           </p>
 

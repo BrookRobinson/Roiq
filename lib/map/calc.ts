@@ -5,6 +5,7 @@
 // ============================================================
 
 import { projectValue, isScorable } from "@/lib/scoring/investment";
+import { monthlyRepayment as repaymentFor, remainingBalance } from "@/lib/finance/calculator";
 import type { MapListing, UserVariables, MapMode, DealColour, PinColour, ComputedListing } from "./types";
 
 // ±15% bands for green / orange / red (both modes, per spec).
@@ -77,16 +78,19 @@ export function computeListing(listing: MapListing, vars: UserVariables, mode: M
   const deposit = vars.depositAmount;
   const loanAmount = Math.max(0, adjustedPrice - deposit);
 
-  const monthlyRate = vars.interestRatePct / 100 / 12;
-  const payments = vars.loanTermYears * 12;
-  const monthlyRepayment =
-    payments <= 0
-      ? 0
-      : monthlyRate > 0
-        ? (loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, payments))) /
-          (Math.pow(1 + monthlyRate, payments) - 1)
-        : loanAmount / payments;
-  const annualMortgage = monthlyRepayment * 12;
+  // The report's own loan maths (lib/finance/calculator.ts), so a property
+  // costs the same on the map as on its Financial tab. Interest only pays the
+  // interest and leaves the whole loan owing; P&I pays it down.
+  const repaymentType = vars.repaymentType ?? "pi";
+  const annualMortgage =
+    vars.loanTermYears > 0 ? repaymentFor(loanAmount, vars.interestRatePct, vars.loanTermYears, repaymentType) * 12 : 0;
+  // What's still owed when you sell. It used to be the whole original loan
+  // even on P&I — every repayment counted as a cost and none of it came off
+  // the balance, which understated a P&I profit by the principal repaid.
+  const loanAtSale =
+    vars.loanTermYears > 0
+      ? remainingBalance(loanAmount, vars.interestRatePct, vars.loanTermYears, holdYears, repaymentType)
+      : loanAmount;
 
   const grossAnnualRent = listing.estimatedWeeklyRent * 52 * (1 - vars.vacancyRatePct / 100);
   const managementFee = grossAnnualRent * (vars.propertyMgmtFeePct / 100);
@@ -98,7 +102,7 @@ export function computeListing(listing: MapListing, vars: UserVariables, mode: M
   const salePrice = projectValue(adjustedPrice, growthRate, holdYears);
   const capitalGain = salePrice - adjustedPrice;
   const agentFee = salePrice * (vars.agentCommissionPct / 100);
-  const netSaleProceeds = salePrice - agentFee - vars.sellingLegalCosts - loanAmount;
+  const netSaleProceeds = salePrice - agentFee - vars.sellingLegalCosts - loanAtSale;
 
   const totalCashflow = annualCashflow * holdYears;
   const netProfit = totalCashflow + netSaleProceeds - deposit - vars.buyingCosts - vars.buildingReport;
