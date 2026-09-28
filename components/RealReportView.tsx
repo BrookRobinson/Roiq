@@ -36,7 +36,7 @@ import { maintenanceBasis } from "@/lib/finance/maintenance";
 import { landValuePublishable } from "@/lib/scoring/land-quality";
 import { compareFloorArea } from "@/lib/property/floor-area-check";
 import { valueImprovementItems, roomKindOf, DEFAULT_BEDROOMS, SHOWER_MEMBRANE, FLOOR_MEMBRANE, showerTypeOf, floorTypeOf, type ImprovementValueResult } from "@/lib/scoring/improvement-values";
-import { assessHealthyHomes, hhStatusLabel, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
+import { assessHealthyHomes, HH_RENO_KEYS, type HHResult } from "@/lib/scoring/healthy-homes";
 import { assessDevelopment, type DevelopmentPotential } from "@/lib/scoring/development";
 import type { PlacedStructure } from "@/components/PropertyInspections/AddStructure";
 import { assessSectionSize, assessTopography, assessShape, assessAspect, assessFrontage } from "@/lib/scoring/land-quality";
@@ -70,6 +70,8 @@ import {
   categoryKeys,
   isVerifiedDocItem,
 } from "@/lib/scoring/catalog";
+import { Step, EvidenceList } from "@/components/PropertyTab/ItemValuation";
+import { evidenceFor, mergeEvidence } from "@/lib/scoring/condition-evidence";
 import {
   Home, Building2, Wrench, Calculator, ClipboardList, ClipboardCheck, Shield, MapPin, Handshake,
   ExternalLink, AlertTriangle, ImageIcon, Info, Sparkles, ShieldAlert,
@@ -1166,7 +1168,7 @@ export function RealReportView({
           {tab === "improvements" && (
             <div className="space-y-4">
               <PropertyTab shell={improvementValuation.shell} itemValues={new Map(improvementValuation.items.map((v) => [v.id, v]))} itemValuations={itemValuations} estimates={new Map(improvementValuation.estimatedItems.map((e) => [e.id, e]))} data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: 0 }} region={[listing.city, listing.region].filter(Boolean).join(", ") || undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
-              {persona === "investor" && <HealthyHomesSection subItems={effectiveSubItems} buildYear={listing.buildYear} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} hhAssessed={report.context?.healthyHomes} />}
+              {persona === "investor" && <HealthyHomesSection subItems={effectiveSubItems} buildYear={listing.buildYear} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} hhAssessed={report.context?.healthyHomes} renoLines={renoLines} renoToggles={renoToggles} />}
             </div>
           )}
           {tab === "address" && (
@@ -3588,105 +3590,189 @@ function FinanceTab({ listing, persona, marketRent, capitalGrowth, renoLines, re
 // (The old Hazard tab is retired — Land/Legal now live in the Property tab,
 //  rendered with full depth by components/PropertyInspections.)
 
-// ── Healthy Homes (investor only) — the 5 legal standards, scored + reno-tickable
-const HH_TIER_COLOR: Record<string, string> = { deteriorated: "var(--bad)", dated: "var(--text-muted)", modern: "var(--brand)", luxury: "var(--warn)" };
-const hhPointsColor = (f: number): string => (f >= 0.7 ? "var(--good)" : f >= 0.4 ? "var(--warn)" : "var(--bad)");
+// ── Healthy Homes (investor only) — the 5 legal standards, laid out like an
+// Improvements item: what it is, whether it complies and what it costs on the
+// card; the photos, what was seen and the action behind "See breakdown".
+// It used to show a "Points" badge left over from the deleted 1,000-point score.
 
-function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovations, hhAssessed }: {
+function HealthyHomesSection({ subItems, buildYear, renoControls, onOpenRenovations, hhAssessed, renoLines, renoToggles }: {
   subItems: SubItem[]; buildYear: number | null; renoControls: RenoControls; onOpenRenovations: () => void;
   /** The analysis's own read of each standard, against the requirement. */
   hhAssessed?: { standard: string; status: "met" | "not_visible" | "absent"; note?: string }[];
+  renoLines: RenoLine[];
+  renoToggles: Record<string, RenoToggle>;
 }) {
   const results = assessHealthyHomes(subItems, buildYear, hhAssessed);
+  const byId = new Map(subItems.map((s) => [s.id, s]));
+  const lineByKey = new Map(renoLines.filter((l) => !l.key.endsWith("_rem")).map((l) => [l.key, l]));
+  // The same figure the Renovations tab prices the line at, at the option chosen there.
+  const costOf = (key: string) => {
+    const l = lineByKey.get(key);
+    return l ? Math.round(lineCost(l, renoToggles[key])) : null;
+  };
   // Only what we've actually established fails. Unknown is not a failure and it
   // is certainly not a pass.
-  const toFix = results.filter((r) => r.compliant === false).length;
+  const failing = results.filter((r) => r.compliant === false);
+  const toFixCost = failing.reduce((t, r) => t + (costOf(r.renoKey) ?? Math.round((r.remediation.low + r.remediation.high) / 2)), 0);
 
   return (
     <div className="rounded-2xl p-5" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Shield size={16} style={{ color: "var(--brand)" }} />
           <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Healthy Homes — rental compliance</h3>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: toFix ? "var(--bad-wash)" : "var(--good-wash)", color: toFix ? "var(--bad)" : "var(--good)" }}>
-          {toFix ? `${toFix} of 5 to remediate` : "All 5 standards met"}
+        <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap" style={{ background: failing.length ? "var(--bad-wash)" : "var(--good-wash)", color: failing.length ? "var(--bad)" : "var(--good)" }}>
+          {failing.length ? `${failing.length} of 5 to fix · ${fmt(toFixCost)}` : "None to fix"}
         </span>
       </div>
       <p className="text-xs mt-1 mb-4" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>
-        The 5 legal standards for renting a property, scored the same way as the rest of the improvements. Anything non-existing is a <strong style={{ color: "var(--text-secondary)" }}>must-do by law</strong> before you can tenant — tick it to add it to your renovation plan.
+        The 5 legal standards a rental has to meet. Anything that fails is a <strong style={{ color: "var(--text-secondary)" }}>must-do by law</strong> before
+        you can tenant — tick it to add it to your renovation plan.
       </p>
 
       <div className="space-y-3">
-        {results.map((r) => {
-          const canReno = renoControls.has(r.renoKey);
-          const inPlan = canReno && renoControls.included(r.renoKey);
-          const c = hhPointsColor(r.fraction);
-          return (
-            <div key={r.key} className="rounded-xl overflow-hidden" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderLeft: `3px solid ${c}` }}>
-              <div className="p-4 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{r.label}</span>
-                    {/* Three states, not two. Showing "Compliant" for a standard
-                        nobody established could put a landlord into a tenancy
-                        with a house that isn't. */}
-                    <span
-                      className="text-[11px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={
-                        r.compliant === null
-                          ? { background: "var(--surface)", color: "var(--text-muted)", border: "1px solid var(--border)" }
-                          : { background: r.compliant ? "var(--good-wash)" : "var(--bad-wash)", color: r.compliant ? "var(--good)" : "var(--bad)" }
-                      }
-                    >
-                      {r.compliant === null ? "Not established" : r.compliant ? "Compliant" : "⚖️ Must do, by law"}
-                    </span>
-                    {r.basis === "build-era" && (
-                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                        from the build year — not visible in photos
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>{r.requirement}</p>
-                </div>
-                <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
-                  <span className="inline-flex flex-col items-center rounded-lg" style={{ background: `${alpha(c, 12)}`, border: `1px solid ${alpha(c, 33)}`, padding: "2px 10px", minWidth: 64 }}>
-                    <span className="uppercase font-medium" style={{ fontSize: 9, letterSpacing: "0.07em", color: "var(--text-muted)" }}>Points</span>
-                    <span className="font-bold tabular-nums" style={{ color: c, fontFamily: "Fira Code, monospace", fontSize: 13, lineHeight: 1.3 }}>
-                      {r.assessed ? `${r.earned}/${r.maxPoints}` : `—/${r.maxPoints}`}
-                    </span>
-                  </span>
-                  {/* The spec tier used to be shown here as "Status". It is a
-                      judgement about how MODERN the fitting looks, and beside a
-                      legal-compliance badge it read as a second, contradictory
-                      compliance verdict — "Compliant" and "Dated" side by side
-                      invites the reader to think one of them is wrong. The
-                      compliance badge is the status; the points carry the rest. */}
-                </div>
-              </div>
-              {canReno && (
-                <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "var(--accent-wash)" : "transparent" }}>
-                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                    <input type="checkbox" checked={inPlan} onChange={(e) => renoControls.toggle(r.renoKey, e.target.checked)} className="w-4 h-4 cursor-pointer flex-shrink-0" aria-label={`Add ${r.label} to the renovation plan`} />
-                    <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: inPlan ? "var(--brand)" : "var(--text-secondary)" }}>
-                      <Wrench size={11} />
-                      {inPlan ? "In your renovation plan" : "Add to renovation plan"}
-                    </span>
-                  </label>
-                  {inPlan && (
-                    <button onClick={onOpenRenovations} className="inline-flex items-center gap-0.5 text-xs font-medium cursor-pointer hover:underline" style={{ color: "var(--brand)" }}>
-                      View <ArrowRight size={11} />
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {results.map((r) => (
+          <HealthyHomesCard
+            key={r.key}
+            r={r}
+            item={r.sourceItemId ? byId.get(r.sourceItemId) : undefined}
+            note={hhAssessed?.find((h) => h.standard === r.key.replace(/^hh_/, ""))?.note}
+            cost={costOf(r.renoKey)}
+            buildYear={buildYear}
+            renoControls={renoControls}
+            onOpenRenovations={onOpenRenovations}
+          />
+        ))}
       </div>
       <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
-        Indicative from the listing + build era{buildYear ? ` (c.${buildYear})` : ""}. Engage a certified Healthy Homes assessor before tenanting.
+        Read from the listing photos and the build year{buildYear ? ` (c.${buildYear})` : ""}. A certified Healthy Homes assessor signs it off before you tenant.
       </p>
+    </div>
+  );
+}
+
+function HealthyHomesCard({ r, item, note, cost, buildYear, renoControls, onOpenRenovations }: {
+  r: HHResult; item?: SubItem; note?: string; cost: number | null; buildYear: number | null;
+  renoControls: RenoControls; onOpenRenovations: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const canReno = renoControls.has(r.renoKey);
+  const inPlan = canReno && renoControls.included(r.renoKey);
+  // Three states, not two. Showing "Compliant" for a standard nobody
+  // established could put a landlord into a tenancy with a house that isn't.
+  const state =
+    r.compliant === null ? { label: "Not established", color: "var(--text-muted)", bg: "var(--surface)" }
+    : r.compliant ? { label: "Meets the standard", color: "var(--good)", bg: "var(--good-wash)" }
+    : { label: "⚖️ Must do, by law", color: "var(--bad)", bg: "var(--bad-wash)" };
+  const accent = r.compliant === null ? "var(--warn)" : r.compliant ? "var(--good)" : "var(--bad)";
+  const photos = r.basis === "observed" ? item?.photoReferences ?? [] : [];
+  const range = `${fmt(r.remediation.low)}–${fmt(r.remediation.high)}`;
+  const seen = mergeEvidence(
+    [note, item?.observedDefect].filter((x): x is string => !!x),
+    r.basis === "observed" && item ? evidenceFor(item) : [],
+  );
+
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderLeft: `3px solid ${accent}` }}>
+      <button className="w-full text-left p-4 cursor-pointer" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{r.label}</span>
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: state.bg, color: state.color, border: r.compliant === null ? "1px solid var(--border)" : undefined }}>
+                {state.label}
+              </span>
+            </div>
+            <p className="text-xs mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>{r.requirement}</p>
+            <div className="inline-flex items-center gap-1 text-[11px] mt-1.5" style={{ color: "var(--text-muted)" }}>
+              <ImageIcon size={11} />
+              {photos.length > 0
+                ? `Assessed from photo${photos.length > 1 ? "s" : ""} ${photos.join(", ")}`
+                : r.basis === "build-era"
+                  ? `Not in the photos — read from the build year${buildYear ? ` (c.${buildYear})` : ""}`
+                  : "Not shown in any photo"}
+            </div>
+          </div>
+          {r.compliant === false && (
+            <span className="flex-shrink-0 inline-flex flex-col items-end rounded-lg font-bold tabular-nums" style={{ background: "var(--bad-wash)", border: "1px solid var(--bad)", color: "var(--bad)", fontFamily: "Fira Code, monospace", padding: "3px 10px", fontSize: 13 }}>
+              {cost != null ? fmt(cost) : range}
+              <span className="font-medium" style={{ fontSize: 10, opacity: 0.8 }}>to fix</span>
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 mt-2">
+          <span className="text-xs" style={{ color: "var(--brand)" }}>{open ? "Hide detail" : "See breakdown"}</span>
+          <ArrowRight size={11} style={{ color: "var(--brand)", transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
+        </div>
+      </button>
+
+      {canReno && (
+        <div className="px-4 py-2.5 flex items-center justify-between gap-2" style={{ borderTop: "1px solid var(--border)", background: inPlan ? "var(--accent-wash)" : "transparent" }}>
+          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" checked={inPlan} onChange={(e) => renoControls.toggle(r.renoKey, e.target.checked)} className="w-4 h-4 cursor-pointer flex-shrink-0" aria-label={`Add ${r.label} to the renovation plan`} />
+            <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: inPlan ? "var(--brand)" : "var(--text-secondary)" }}>
+              <Wrench size={11} />
+              {inPlan ? "In your renovation plan" : "Add to renovation plan"}
+            </span>
+          </label>
+          {inPlan && (
+            <button onClick={onOpenRenovations} className="inline-flex items-center gap-0.5 text-xs font-medium cursor-pointer hover:underline" style={{ color: "var(--brand)" }}>
+              View <ArrowRight size={11} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {open && (
+        <div className="px-4 pb-4 pt-4 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
+          <Step n={1} title="Listing photos">
+            <div className="text-[13px]" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+              {photos.length > 0 ? (
+                <>Photos {photos.join(", ")}.</>
+              ) : r.basis === "build-era" ? (
+                <>The photos don&apos;t show this. It is read from the build year{buildYear ? ` (c.${buildYear})` : ""}, against when the Building Code started requiring it.</>
+              ) : (
+                <>No photo shows this, and the build year doesn&apos;t settle it.</>
+              )}
+            </div>
+          </Step>
+          <Step n={2} title="What we saw">
+            {seen.concerns.length === 0 && seen.seen.length === 0 && r.basis !== "build-era" ? (
+              <div className="text-[13px]" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                Nothing in the photos bears on this standard.
+              </div>
+            ) : r.basis === "build-era" && seen.concerns.length === 0 ? (
+              <div className="text-[13px]" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                {r.compliant === true
+                  ? `Built under the current Code, so it was required to meet this when it went up.`
+                  : r.compliant === false
+                    ? `Built before the Code required it. Nothing in the photos shows it has been added since.`
+                    : `Built when the Code required it, but to a lower standard than today's minimum.`}
+              </div>
+            ) : (
+              <EvidenceList concerns={seen.concerns} evidence={seen.seen} />
+            )}
+          </Step>
+          <Step n={3} title="Action">
+            <div className="text-[13px]" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+              {r.compliant === false ? (
+                <>
+                  <strong style={{ color: "var(--text-primary)" }}>Required before you tenant.</strong> {r.fix}{" "}
+                  {cost != null ? <>About <span className="mono">{fmt(cost)}</span> at the option chosen in your renovation plan.</> : <>Typically <span className="mono">{range}</span>.</>}
+                </>
+              ) : r.compliant === true ? (
+                <>Nothing to do.</>
+              ) : (
+                <>
+                  We couldn&apos;t establish this from the listing. What settles it: {r.settles.charAt(0).toLowerCase() + r.settles.slice(1)} If it
+                  fails: {r.fix.charAt(0).toLowerCase() + r.fix.slice(1)} Typically <span className="mono">{range}</span>.
+                </>
+              )}
+            </div>
+          </Step>
+        </div>
+      )}
     </div>
   );
 }

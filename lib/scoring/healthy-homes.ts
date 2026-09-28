@@ -40,16 +40,20 @@ export interface HHStandard {
   remediation: { low: number; high: number }; // cost to bring up to standard (draught only; others reuse the item)
   /** Used only when the item itself could not be assessed. */
   era?: EraRule;
+  /** The work that brings it up to the standard, in one sentence. */
+  fix: string;
+  /** What would settle it when neither the photos nor the build year did. */
+  settles: string;
 }
 
 export const HH_STANDARDS: HHStandard[] = [
   // No era rule: a heater is a fitting somebody chose, not a consequence of the
   // build date — and unlike the rest of these, it is visible in a photograph.
-  { key: "hh_heating", label: "Fixed heating", requirement: "A fixed heater in the main living room able to heat it to 18°C.", sourceItemId: "liv_heating", renoKey: "liv_heating", maxPoints: 20, remediation: { low: 2500, high: 4500 } },
-  { key: "hh_insulation", label: "Insulation", requirement: "Ceiling and underfloor insulation meeting the current minimum R-values.", sourceItemId: "liv_insulation", renoKey: "liv_insulation", maxPoints: 15, remediation: { low: 2400, high: 3800 }, era: { modernFrom: 2008, requiredFrom: 1978 } },
-  { key: "hh_ventilation", label: "Ventilation", requirement: "Openable windows plus extractor fans ducted outside in kitchens and bathrooms.", sourceItemId: "bath_ventilation", renoKey: "bath_ventilation", maxPoints: 8, remediation: { low: 700, high: 1400 }, era: { modernFrom: 2008, requiredFrom: 1978 } },
-  { key: "hh_moisture", label: "Moisture & drainage", requirement: "Efficient drainage and a ground moisture barrier under any suspended floor.", sourceItemId: "out_drainage", renoKey: "out_drainage", maxPoints: 6, remediation: { low: 1500, high: 3500 }, era: { modernFrom: 2008, requiredFrom: 1978 } },
-  { key: "hh_draught", label: "Draught stopping", requirement: "No unreasonable gaps or holes; unused open fireplaces blocked off.", renoKey: "hh_draught", maxPoints: 6, remediation: { low: 600, high: 1600 }, era: { modernFrom: 2008, requiredFrom: 1978 } },
+  { key: "hh_heating", label: "Fixed heating", requirement: "A fixed heater in the main living room able to heat it to 18°C.", sourceItemId: "liv_heating", renoKey: "liv_heating", maxPoints: 20, remediation: { low: 2500, high: 4500 }, fix: "Fit a heat pump sized for the main living room, using the Tenancy Services heating calculator.", settles: "Whether the living-room heater's output matches what the Tenancy Services heating calculator asks for that room." },
+  { key: "hh_insulation", label: "Insulation", requirement: "Ceiling and underfloor insulation meeting the current minimum R-values.", sourceItemId: "liv_insulation", renoKey: "liv_insulation", maxPoints: 15, remediation: { low: 2400, high: 3800 }, era: { modernFrom: 2008, requiredFrom: 1978 }, fix: "Top up the ceiling insulation and fit underfloor insulation to the current minimum R-values.", settles: "A look in the ceiling space and under the floor." },
+  { key: "hh_ventilation", label: "Ventilation", requirement: "Openable windows plus extractor fans ducted outside in kitchens and bathrooms.", sourceItemId: "bath_ventilation", renoKey: "bath_ventilation", maxPoints: 8, remediation: { low: 700, high: 1400 }, era: { modernFrom: 2008, requiredFrom: 1978 }, fix: "Fit extractor fans ducted to the outside in the kitchen and every bathroom.", settles: "The kitchen and bathroom ceilings: a fan, and whether it vents outside." },
+  { key: "hh_moisture", label: "Moisture & drainage", requirement: "Efficient drainage and a ground moisture barrier under any suspended floor.", sourceItemId: "out_drainage", renoKey: "out_drainage", maxPoints: 6, remediation: { low: 1500, high: 3500 }, era: { modernFrom: 2008, requiredFrom: 1978 }, fix: "Lay a polythene ground moisture barrier under the suspended floor and clear the gutters and drainage.", settles: "A look under the floor for a polythene sheet on the ground." },
+  { key: "hh_draught", label: "Draught stopping", requirement: "No unreasonable gaps or holes; unused open fireplaces blocked off.", renoKey: "hh_draught", maxPoints: 6, remediation: { low: 600, high: 1600 }, era: { modernFrom: 2008, requiredFrom: 1978 }, fix: "Seal gaps and holes around doors, windows and floors, and block off any unused open fireplace.", settles: "The fireplace, and the gaps around doors and windows." },
 ];
 
 /** The reno-line keys that carry a Healthy Homes legal obligation. */
