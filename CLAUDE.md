@@ -1136,6 +1136,13 @@ coloured-red, because a footprint that can be left sitting somewhere illegal is
 one a reader will screenshot and take to a builder; it slides along a boundary
 it's pressed against so corners stay reachable.
 
+**Turning is held to the same rule as dragging.** A footprint carries an
+`angle` about its centre; `canPlace` tests the TURNED outline (`rectOutline`,
+corners and mid-sides), and the plan draws that same outline. A turn that would
+break a setback nudges to the nearest legal spot within a few metres, or is
+refused and says so. "Line up with nearest boundary" squares it to the closest
+boundary run.
+
 **THERE IS NO SINGLE SETBACK**, which is the whole reason this is worth doing:
 
 | | | |

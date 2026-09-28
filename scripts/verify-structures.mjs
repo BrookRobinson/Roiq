@@ -70,6 +70,21 @@ check("1m off, when 2m is required, is not", canPlace(L.plan, { x: 1, y: 20, ...
 check("2m off is", canPlace(L.plan, { x: 2, y: 20, ...g }, 2, 2), true);
 check("on top of the house is not", canPlace(L.plan, { x: 5, y: 4, ...g }, 2, 2), false);
 check("1m from the house, when 2m is required, is not", canPlace(L.plan, { x: 5, y: 13, ...g }, 2, 2), false);
+
+console.log("\nturning it is held to the same rules");
+const long = { width: 3, length: 17 };
+// 20m wide section, 2m setbacks: a 17m-long shed fits lengthways north–south
+// in the back yard, but turned side-on its length plus two setbacks is 21m.
+check("square to north it fits", canPlace(L.plan, { x: 8, y: 16, ...long, angle: 0 }, 2, 2), true);
+check("turned 90° at the same centre it pokes past the setback", canPlace(L.plan, { x: 8, y: 16, ...long, angle: 90 }, 2, 2), false);
+// A 3m square in the north-east corner, 1m off both boundaries: square it
+// fits exactly; turned 45° its corners reach past the setback.
+check("square in the corner it fits", canPlace(L.plan, { x: 16, y: 31, width: 3, length: 3, angle: 0 }, 1, 1), true);
+check("turned 45° its corners are what's tested", canPlace(L.plan, { x: 16, y: 31, width: 3, length: 3, angle: 45 }, 1, 1), false);
+check("a small shed turns freely in open ground", canPlace(L.plan, { x: 8, y: 22, ...{ width: 3, length: 3 }, angle: 30 }, 1, 1), true);
+check("a turned footprint can't be dropped on the house", canPlace(L.plan, { x: 8, y: 5, ...{ width: 3, length: 3 }, angle: 30 }, 0, 0), false);
+check("no angle is the same as 0°", canPlace(L.plan, { x: 7, y: 20, ...g }, 2, 2), canPlace(L.plan, { x: 7, y: 20, ...g, angle: 0 }, 2, 2));
+ok("somewhere is found for a turned footprint", firstFit(L.plan, { width: 4, length: 6 }, 1, 1, 30));
 check("hanging off the section is not", canPlace(L.plan, { x: 18, y: 20, ...g }, 2, 2), false);
 // The SAME spot, for a structure the rules treat differently.
 ok("a woodshed goes where a granny flat can't", canPlace(L.plan, { x: 0.2, y: 20, width: 1.6, length: 3.2 }, 0, 0));

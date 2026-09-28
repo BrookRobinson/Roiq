@@ -22,7 +22,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SiteLayout } from "@/lib/scoring/site-layout";
-import { canPlace, firstFit } from "@/lib/scoring/site-layout";
+import { canPlace, firstFit, rectOutline } from "@/lib/scoring/site-layout";
 import { IMAGERY_CREDIT, IMAGERY_SOURCE_HEADER, isImagerySource, type ImagerySource } from "@/lib/imagery/source";
 import {
   BUILDABLE,
@@ -102,15 +102,67 @@ export function AddStructure({
   const W = plan.extent.width;
   const H = plan.extent.length;
 
+  // Degrees, anticlockwise from square-to-north. Turning is held to the same
+  // rule as dragging: it won't turn into a position the setbacks don't allow.
+  const [angle, setAngle] = useState(0);
+  const [turnBlocked, setTurnBlocked] = useState(false);
+
   // Somewhere legal to start, recomputed whenever the shape changes so a new
   // choice never lands on the house.
   const home = useMemo(
-    () => firstFit(plan, size, boundary, building),
+    () => firstFit(plan, size, boundary, building, angle),
     [plan, size.width, size.length, boundary, building] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const at = pos ?? home;
-  const legal = at ? canPlace(plan, { ...at, ...size }, boundary, building) : false;
+  const legal = at ? canPlace(plan, { ...at, ...size, angle }, boundary, building) : false;
+
+  /**
+   * Turn to `next`, where it stands if it fits there, otherwise nudged to the
+   * nearest spot within a few metres that does. If nowhere close fits, it
+   * doesn't turn, and says so — the same refusal the drag gives.
+   */
+  function turnTo(next: number) {
+    const a = ((Math.round(next) % 180) + 180) % 180;
+    if (!at) return;
+    if (canPlace(plan, { ...at, ...size, angle: a }, boundary, building)) {
+      setAngle(a);
+      setTurnBlocked(false);
+      return;
+    }
+    let best: { x: number; y: number; d: number } | null = null;
+    for (let dx = -4; dx <= 4; dx += 0.5) {
+      for (let dy = -4; dy <= 4; dy += 0.5) {
+        const p = { x: at.x + dx, y: at.y + dy };
+        const d = Math.hypot(dx, dy);
+        if ((!best || d < best.d) && canPlace(plan, { ...p, ...size, angle: a }, boundary, building)) best = { ...p, d };
+      }
+    }
+    if (best) {
+      setPos({ x: best.x, y: best.y });
+      setAngle(a);
+      setTurnBlocked(false);
+    } else {
+      setTurnBlocked(true);
+    }
+  }
+
+  /** The angle of the boundary nearest the structure, so it can sit square to it. */
+  function nearestBoundaryAngle(): number | null {
+    if (!at) return null;
+    const c = { x: at.x + size.width / 2, y: at.y + size.length / 2 };
+    let best: { a: number; d: number } | null = null;
+    plan.parcel.forEach((p, i) => {
+      const q = plan.parcel[(i + 1) % plan.parcel.length];
+      const vx = q.x - p.x, vy = q.y - p.y;
+      const len2 = vx * vx + vy * vy;
+      if (len2 < 1) return;
+      const t = Math.max(0, Math.min(1, ((c.x - p.x) * vx + (c.y - p.y) * vy) / len2));
+      const d = Math.hypot(c.x - (p.x + t * vx), c.y - (p.y + t * vy));
+      if (!best || d < best.d) best = { a: (Math.atan2(vy, vx) * 180) / Math.PI, d };
+    });
+    return best ? (best as { a: number }).a : null;
+  }
 
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
@@ -166,16 +218,16 @@ export function AddStructure({
     // REFUSE the move rather than allowing it and colouring it red. A footprint
     // that can be left sitting somewhere illegal is one a reader will screenshot
     // and take to a builder.
-    if (canPlace(plan, { ...want, ...size }, boundary, building)) {
+    if (canPlace(plan, { ...want, ...size, angle }, boundary, building)) {
       setPos(want);
       return;
     }
     // Let it slide along a boundary it's pressed against, which is how a real
     // drag should feel — refusing the whole move makes corners impossible.
     const slideX = { x: want.x, y: at.y };
-    if (canPlace(plan, { ...slideX, ...size }, boundary, building)) return setPos(slideX);
+    if (canPlace(plan, { ...slideX, ...size, angle }, boundary, building)) return setPos(slideX);
     const slideY = { x: at.x, y: want.y };
-    if (canPlace(plan, { ...slideY, ...size }, boundary, building)) return setPos(slideY);
+    if (canPlace(plan, { ...slideY, ...size, angle }, boundary, building)) return setPos(slideY);
   }
 
   const stop = () => { dragging.current = false; };
@@ -251,6 +303,8 @@ export function AddStructure({
               setChoiceId(next.id);
               setSqm(next.defaultSqm);
               setPos(null);
+              setAngle(0);
+              setTurnBlocked(false);
             }}
             className="text-sm rounded-lg px-2 py-1.5 cursor-pointer"
             style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
@@ -269,9 +323,43 @@ export function AddStructure({
             max={choice.maxSqm}
             step={1}
             value={sqm}
-            onChange={(e) => { setSqm(Number(e.target.value)); setPos(null); }}
+            onChange={(e) => { setSqm(Number(e.target.value)); setPos(null); setAngle(0); setTurnBlocked(false); }}
             className="w-full cursor-pointer"
           />
+        </label>
+
+        <label className="flex flex-col gap-1 min-w-[160px]">
+          <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+            Rotate — <strong style={{ color: "var(--text-secondary)" }}>{angle}°</strong>
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={179}
+            step={1}
+            value={angle}
+            disabled={!at}
+            onChange={(e) => turnTo(Number(e.target.value))}
+            className="w-full cursor-pointer"
+            aria-label="Rotate the structure"
+          />
+          <span className="flex gap-2 text-[11px]">
+            <button type="button" disabled={!at} onClick={() => turnTo(angle + 90)} className="cursor-pointer underline" style={{ color: "var(--brand)" }}>
+              Turn 90°
+            </button>
+            <button
+              type="button"
+              disabled={!at}
+              onClick={() => {
+                const a = nearestBoundaryAngle();
+                if (a != null) turnTo(a);
+              }}
+              className="cursor-pointer underline"
+              style={{ color: "var(--brand)" }}
+            >
+              Line up with nearest boundary
+            </button>
+          </span>
         </label>
 
         <div className="text-right">
@@ -378,11 +466,10 @@ export function AddStructure({
         {/* The new structure. */}
         {at && (
           <g onPointerDown={onDown} style={{ cursor: dragging.current ? "grabbing" : "grab" }}>
-            <rect
-              x={px({ x: at.x, y: at.y + size.length })[0]}
-              y={px({ x: at.x, y: at.y + size.length })[1]}
-              width={size.width}
-              height={size.length}
+            {/* Drawn from the same turned outline canPlace checks, so what you
+                see is exactly what was tested. */}
+            <path
+              d={ring(rectOutline({ ...at, ...size, angle }))}
               fill={legal ? "var(--brand)" : "var(--bad)"}
               fillOpacity={0.45}
               stroke={legal ? "var(--brand)" : "var(--bad)"}
@@ -467,6 +554,12 @@ export function AddStructure({
           ? `The shaded footprint won't cross within ${boundary}m of a boundary or of what's already built.`
           : "At this size there's no setback to keep, so it can sit against the boundary."}
       </p>
+
+      {turnBlocked && (
+        <p className="text-[11px] mt-2" style={{ color: "var(--warn)" }}>
+          There isn&apos;t room to turn it there without breaking a setback. Drag it somewhere more open and try again.
+        </p>
+      )}
 
       {!at && (
         <p className="text-[11px] mt-2" style={{ color: "var(--bad)" }}>

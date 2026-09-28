@@ -564,17 +564,49 @@ export function readSiteLayout(input: SiteInput): SiteLayout {
  * decides them from what is being built and how big — a 5m² woodshed may sit on
  * the boundary, a 25m² sleepout needs 1m, a granny flat 2m.
  */
+/** A footprint on the plan: its unrotated lower-left corner, size, and a turn about its centre. */
+export interface PlacedRect {
+  x: number;
+  y: number;
+  width: number;
+  length: number;
+  /** Degrees, anticlockwise from square-to-north. 0 when omitted. */
+  angle?: number;
+}
+
+/**
+ * The footprint's outline, turned about its centre — the four corners, in
+ * order. A structure the buyer has rotated to follow a boundary is checked as
+ * the shape it actually is, not the square box it came in.
+ */
+export function rectOutline(r: PlacedRect): Pt[] {
+  const cx = r.x + r.width / 2, cy = r.y + r.length / 2;
+  const t = ((r.angle ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(t), sin = Math.sin(t);
+  const hw = r.width / 2, hl = r.length / 2;
+  return [[-hw, -hl], [hw, -hl], [hw, hl], [-hw, hl]].map(([dx, dy]) => ({
+    x: cx + dx * cos - dy * sin,
+    y: cy + dx * sin + dy * cos,
+  }));
+}
+
 export function canPlace(
   plan: SiteLayout["plan"],
-  rect: { x: number; y: number; width: number; length: number },
+  rect: PlacedRect,
   setback: number,
   gap: number
 ): boolean {
-  const { x, y, width: w, length: l } = rect;
+  const outline = rectOutline(rect);
+  // The corners and the middle of each side: enough to catch a boundary or a
+  // footprint edge cutting across a long wall, turned or not.
   const corners: Pt[] = [
-    { x, y }, { x: x + w, y }, { x: x + w, y: y + l }, { x, y: y + l },
-    { x: x + w / 2, y }, { x: x + w / 2, y: y + l }, { x, y: y + l / 2 }, { x: x + w, y: y + l / 2 },
+    ...outline,
+    ...outline.map((p, i) => {
+      const q = outline[(i + 1) % 4];
+      return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+    }),
   ];
+  const inside = (p: Pt) => pointInRing(p, outline);
   for (const c of corners) {
     if (!pointInRing(c, plan.parcel)) return false;
     if (setback > 0 && distToRing(c, plan.parcel) < setback) return false;
@@ -588,7 +620,7 @@ export function canPlace(
       if (gap > 0 && distToRing(c, b) < gap) return false;
     }
     for (const bp of b) {
-      if (bp.x > x && bp.x < x + w && bp.y > y && bp.y < y + l) return false;
+      if (inside(bp)) return false;
     }
   }
   // AND NOT ACROSS A REGISTERED BURDEN. You cannot build over a right of way or
@@ -599,7 +631,7 @@ export function canPlace(
   for (const { ring: b } of plan.burdens ?? []) {
     for (const c of corners) if (pointInRing(c, b)) return false;
     for (const bp of b) {
-      if (bp.x > x && bp.x < x + w && bp.y > y && bp.y < y + l) return false;
+      if (inside(bp)) return false;
     }
   }
   return true;
@@ -616,14 +648,18 @@ export function firstFit(
   plan: SiteLayout["plan"],
   size: { width: number; length: number },
   setback: number,
-  gap: number
+  gap: number,
+  angle = 0
 ): { x: number; y: number } | null {
   const { width: W, length: H } = plan.extent;
   let best: { x: number; y: number; d: number } | null = null;
   const cx = W / 2, cy = H / 2;
-  for (let x = 0; x <= W - size.width; x += 1) {
-    for (let y = 0; y <= H - size.length; y += 1) {
-      if (!canPlace(plan, { x, y, ...size }, setback, gap)) continue;
+  // A turned footprint's box reaches past its unturned one, so the scan starts
+  // that much further out; canPlace decides what actually fits.
+  const reach = angle ? Math.max(size.width, size.length) / 2 : 0;
+  for (let x = -reach; x <= W - size.width + reach; x += 1) {
+    for (let y = -reach; y <= H - size.length + reach; y += 1) {
+      if (!canPlace(plan, { x, y, ...size, angle }, setback, gap)) continue;
       // Nearest the middle of the section, so it lands somewhere sensible
       // rather than jammed into whichever corner was scanned first.
       const d = Math.hypot(x + size.width / 2 - cx, y + size.length / 2 - cy);
