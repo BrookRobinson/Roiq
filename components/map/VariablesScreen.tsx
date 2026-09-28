@@ -2,7 +2,7 @@
 
 import { blurOnWheel } from "@/lib/ui/number-input";
 import { useEffect, useState } from "react";
-import { Wallet, Home, TrendingUp, Sprout, ArrowRight, X, Search, Check } from "lucide-react";
+import { Wallet, ArrowRight, X, Search, Check } from "lucide-react";
 import { TYPE_OPTIONS } from "@/lib/map/type-options";
 import type { UserVariables, MapMode } from "@/lib/map/types";
 import { DEFAULT_VARIABLES, saveVariables } from "@/lib/map/variables";
@@ -158,47 +158,14 @@ export function VariablesScreen({
             <Money label="Building report" value={v.buildingReport} onChange={(n) => set("buildingReport", n)} />
           </Section>
 
-          <Section icon={Home} title="Selling">
-            <Pct label="Agent commission" value={v.agentCommissionPct} onChange={(n) => set("agentCommissionPct", n)} />
-            <Money label="Selling legal costs" value={v.sellingLegalCosts} onChange={(n) => set("sellingLegalCosts", n)} />
-          </Section>
-
-          <Section icon={TrendingUp} title="Ongoing" note="investor mode">
-            <Pct label="Property management" hint="% of rent" value={v.propertyMgmtFeePct} onChange={(n) => set("propertyMgmtFeePct", n)} />
-            <Money label="Annual insurance" value={v.annualInsurance} onChange={(n) => set("annualInsurance", n)} />
-            <Pct label="Maintenance budget" hint="% of value/yr" value={v.maintenancePct} onChange={(n) => set("maintenancePct", n)} />
-            <Pct label="Vacancy rate" hint="% of year" value={v.vacancyRatePct} onChange={(n) => set("vacancyRatePct", n)} />
-          </Section>
-
-          <Section icon={Sprout} title="Growth">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs" style={{ color: "var(--text-secondary)" }}>Annual capital growth</label>
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "var(--text-muted)" }}>
-                  <input
-                    type="checkbox"
-                    checked={v.capitalGrowthPct === null}
-                    onChange={(e) => set("capitalGrowthPct", e.target.checked ? null : 5)}
-                    style={{ accentColor: "var(--brand)" }}
-                  />
-                  Auto (each suburb)
-                </label>
-                {v.capitalGrowthPct !== null && (
-                  <div className="relative flex-1">
-                    <input
-                      className="input text-sm py-1.5 pr-7 w-full"
-                      type="number" onWheel={blurOnWheel}
-                      step="0.1"
-                      value={v.capitalGrowthPct}
-                      onChange={(e) => set("capitalGrowthPct", Number(e.target.value))}
-                    />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--text-muted)" }}>%</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <Pct label="Rental growth" hint="% pa" value={v.rentalGrowthPct} onChange={(n) => set("rentalGrowthPct", n)} />
-          </Section>
+          {/* Selling, ongoing costs and growth are NOT the reader's to set here:
+              each property's report works them out for that property (its
+              suburb's growth, its own insurance and rates). The map uses the
+              standard figures in lib/map/variables.ts for them. */}
+          <p className="text-xs px-1" style={{ color: "var(--text-muted)", lineHeight: 1.55 }}>
+            Selling costs, running costs and growth aren&apos;t set here — each property&apos;s report works them out for
+            that property.
+          </p>
 
           <div className="card p-4 flex items-center justify-between flex-wrap gap-3">
             <span className="text-xs" style={{ color: "var(--text-secondary)" }}>Default view</span>

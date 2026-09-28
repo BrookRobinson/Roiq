@@ -36,9 +36,37 @@ export const DEFAULT_VARIABLES: UserVariables = {
   propertyTypes: [], // every type
 };
 
+/**
+ * Selling, ongoing and growth figures are not the reader's to set: each
+ * property's report works them out for that property, and the map uses the
+ * standard figures below. They were once editable, so a value saved back then
+ * is overwritten here rather than quietly steering the map forever.
+ * `capitalGrowthPct: null` means each listing's own suburb rate.
+ */
+const REPORT_SET: Pick<
+  UserVariables,
+  | "agentCommissionPct"
+  | "sellingLegalCosts"
+  | "propertyMgmtFeePct"
+  | "annualInsurance"
+  | "maintenancePct"
+  | "vacancyRatePct"
+  | "capitalGrowthPct"
+  | "rentalGrowthPct"
+> = {
+  agentCommissionPct: DEFAULT_VARIABLES.agentCommissionPct,
+  sellingLegalCosts: DEFAULT_VARIABLES.sellingLegalCosts,
+  propertyMgmtFeePct: DEFAULT_VARIABLES.propertyMgmtFeePct,
+  annualInsurance: DEFAULT_VARIABLES.annualInsurance,
+  maintenancePct: DEFAULT_VARIABLES.maintenancePct,
+  vacancyRatePct: DEFAULT_VARIABLES.vacancyRatePct,
+  capitalGrowthPct: null,
+  rentalGrowthPct: DEFAULT_VARIABLES.rentalGrowthPct,
+};
+
 /** Fill any missing keys with defaults so older saved payloads keep working. */
 export function withDefaults(partial: Partial<UserVariables> | null | undefined): UserVariables {
-  return { ...DEFAULT_VARIABLES, ...(partial ?? {}) };
+  return { ...DEFAULT_VARIABLES, ...(partial ?? {}), ...REPORT_SET };
 }
 
 export function loadVariables(): UserVariables | null {
@@ -108,6 +136,10 @@ export function variablesToColumns(v: UserVariables): MapUserColumns {
 
 /** Build UserVariables from a (possibly sparse) users row; missing → default. */
 export function variablesFromColumns(row: Partial<MapUserColumns> | null | undefined): UserVariables {
+  return withDefaults(variablesFromRow(row));
+}
+
+function variablesFromRow(row: Partial<MapUserColumns> | null | undefined): UserVariables {
   if (!row) return DEFAULT_VARIABLES;
   const d = DEFAULT_VARIABLES;
   const n = (val: number | null | undefined, fb: number) => (val == null ? fb : val);
