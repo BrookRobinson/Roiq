@@ -212,7 +212,7 @@ const lineCost = (l: { costing?: ThreeTierCost; low: number; high: number }, t?:
  * true at any hold length.
  */
 const renoIncluded = (
-  l: { key: string; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean },
+  l: { key: string; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean; optIn?: boolean },
   toggles: Record<string, RenoToggle>,
   dueWithinHold = false
 ): boolean =>
@@ -220,7 +220,9 @@ const renoIncluded = (
   // A whole-room refit REPLACES the room's individual lines, which are already
   // in by default — letting it in on the hold too put the same kitchen in the
   // plan twice. It's the reader's call, so it only ever comes in by a tick.
-  (l.autoInclude || (dueWithinHold && !l.stopGap && !l.wholeRoom));
+  // Same for `optIn` lines — making an extra dwelling or pool legally rentable
+  // only matters if you mean to let it, so it's never assumed.
+  (l.autoInclude || (dueWithinHold && !l.stopGap && !l.wholeRoom && !l.optIn));
 
 /**
  * Work due within about a year is money you find at settlement; anything later
@@ -233,7 +235,7 @@ export const UPFRONT_RENO_YEARS = 1;
 
 /** Total of the in-plan reno lines that fall within the hold period. */
 function selectedRenoCost(
-  lines: { key: string; costing?: ThreeTierCost; low: number; high: number; urgencyYears: number; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean }[],
+  lines: { key: string; costing?: ThreeTierCost; low: number; high: number; urgencyYears: number; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean; optIn?: boolean }[],
   toggles: Record<string, RenoToggle>,
   withinHold: (years: number) => boolean
 ): number {
@@ -260,7 +262,7 @@ function selectedRenoCost(
  * usual way people lose money on a renovation.
  */
 function selectedRenoUplift(
-  lines: { key: string; valueGap?: number; urgencyYears: number; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean }[],
+  lines: { key: string; valueGap?: number; urgencyYears: number; autoInclude: boolean; stopGap?: boolean; wholeRoom?: boolean; optIn?: boolean }[],
   toggles: Record<string, RenoToggle>,
   withinHold: (years: number) => boolean
 ): number {
@@ -2057,6 +2059,7 @@ interface RenoLine {
   costing?: ThreeTierCost; // Patch Up / Replace Budget / Replace High End
   autoInclude: boolean; // pre-ticked into the plan (score ≤30% / flagged remedy)
   wholeRoom?: boolean; // a full strip-out and rebuild — never recommended as a patch
+  optIn?: boolean; // only ever in the plan by the reader's tick, whatever the hold
   valueGap?: number; // renovation upside — value reclaimed if brought to modern & as-new
   observedDefect?: string; // what's visible in THIS property's photos — keeps the plan specific
   scopeHint?: string; // real scope for compliance/paperwork lines, which have no costing recipe
@@ -2248,6 +2251,7 @@ function buildRenoLines(subItems: SubItem[], listing: StoredReport["listing"], p
       notes: undefined,
       costing: costThreeTier({ id: `${d.id}_compliance`, name: "Extra dwelling compliance", ...ctx, fallback: { low: work.low, high: work.high } }),
       autoInclude: false,
+      optIn: true,
       // Paperwork, not a visible defect: the WHY is the missing paperwork, the
       // WORK is the scope — the generic costing text would say "full replacement".
       observedDefect: d.consentStatus === "unconsented"
