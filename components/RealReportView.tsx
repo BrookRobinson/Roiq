@@ -2086,7 +2086,6 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
   // ticked for purchase even if its life runs past the hold — you've said
   // you'll do it, so it's counted and it has to be visible to untick.
   const items = renoLines.filter((l) => withinHold(l.urgencyYears) || inAtPurchase(l, renoToggles));
-  const deferred = renoLines.length - items.length;
   const total = selectedRenoCost(renoLines, renoToggles, withinHold);
   // Plus any `inferred` line, shown UNTICKED. Draught stopping, when the build
   // year doesn't establish that it fails, has no Improvements card to tick it
@@ -2140,143 +2139,150 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
     // Otherwise the item's own line, at the option chosen: Patch Up is a repair.
     return (renoToggles[l.key]?.tier ?? "budget") === "patch" ? WORK.repair : WORK.replace;
   };
-  // "Budget" / "High end" — the option, now that the job is its own column.
-  const optionOf = (l: RenoLine) => {
-    if (!l.costing) return "";
-    const r = rowFor(l);
-    const tier = renoToggles[l.key]?.tier ?? "budget";
-    const q = tier === "premium" ? "High end" : tier === "budget" ? "Budget" : "";
-    return [q, r.labour === "diy" ? "DIY" : "", r.pct < 1 ? `${Math.round(r.pct * 100)}%` : ""].filter(Boolean).join(" · ");
-  };
-  const timeline = (rows: RenoLine[]) => {
-    const byYear = new Map<number, RenoLine[]>();
-    for (const l of rows) byYear.set(yearOf(l), [...(byYear.get(yearOf(l)) ?? []), l]);
-    const years = [...byYear.keys()].sort((a, b) => a - b);
+  // One card per job, the same card wherever it sits in the page.
+  const card = (l: RenoLine) => {
+    const t = renoToggles[l.key];
+    const included = renoIncluded(l, renoToggles, withinHold(l.urgencyYears));
     return (
-      <div className="mt-3 space-y-4">
-        {years.map((y) => {
-          const ls = byYear.get(y)!.sort((a, b) => rowFor(b).cost - rowFor(a).cost);
-          return (
-            <div key={y}>
-              <div className="flex items-baseline justify-between gap-2 pb-1 mb-1" style={{ borderBottom: "1px solid var(--border)" }}>
-                <span className="text-xs font-semibold" style={{ color: y === 0 ? "var(--bad)" : "var(--text-primary)" }}>
-                  {y === 0 ? "Now" : `Year ${y}`}
-                  <span className="font-normal ml-1.5" style={{ color: "var(--text-muted)" }}>
-                    {ls.length} job{ls.length > 1 ? "s" : ""}
-                  </span>
-                </span>
-                <span className="text-xs mono font-semibold" style={{ color: "var(--text-primary)" }}>
-                  {fmt(ls.reduce((t, l) => t + rowFor(l).cost, 0))}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                {ls.map((l) => {
-                  const w = workOf(l);
-                  const opt = optionOf(l);
-                  return (
-                    <div key={l.key} className="grid items-baseline gap-x-3 text-xs" style={{ gridTemplateColumns: "5.5rem minmax(0,1fr) auto" }}>
-                      <span className="font-medium" style={{ color: w.color }}>{w.label}</span>
-                      <span className="min-w-0" style={{ color: "var(--text-secondary)", lineHeight: 1.45 }}>
-                        {l.name}
-                        {opt && <span className="ml-1.5" style={{ color: "var(--text-muted)" }}>· {opt}</span>}
-                      </span>
-                      <span className="mono text-right" style={{ color: "var(--text-primary)" }}>{fmt(rowFor(l).cost)}</span>
-                    </div>
-                  );
-                })}
-              </div>
+      <div key={l.key} className="card p-4" style={{ opacity: included ? 1 : 0.8, transition: "opacity 0.15s" }}>
+        <div className="flex items-start gap-3">
+          <input type="checkbox" checked={included} onChange={(e) => setRenoToggle(l.key, { included: e.target.checked })} className="mt-1 w-4 h-4 cursor-pointer flex-shrink-0" aria-label={`Include ${l.name}`} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* What kind of job — Repair, Replace, Maintain… */}
+              <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: workOf(l).color }}>{workOf(l).label}</span>
+              <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{l.name}</span>
+              {l.badge && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--accent-wash)", color: "var(--brand)" }}>{l.badge}{l.key.endsWith("_rem") ? " remedy" : ""}</span>}
+              {persona === "investor" && l.legal && l.nonExisting && (
+                <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold" style={{ background: "var(--bad-wash)", color: "var(--bad)", border: "1px solid var(--bad-wash)" }}>⚖️ Must do, by law</span>
+              )}
+              {l.valueGap != null && l.valueGap > 0 && (
+                <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "var(--good-wash)", color: "var(--good)" }} title="Value reclaimed if this item is brought to modern &amp; as-new">+{fmt(l.valueGap)} value</span>
+              )}
+              {persona === "investor" && included && l.uplift > 0 && (
+                <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "var(--good-wash)", color: "var(--good)" }}>+${l.uplift}/wk rent</span>
+              )}
+              {!included && <span className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>removed</span>}
             </div>
-          );
-        })}
+            <div className="text-xs mt-0.5" style={{ color: l.detailColor }}>{l.detail}</div>
+            {included && (() => {
+              const r = rowFor(l);
+              const isOpen = !!openCards[l.key];
+              const canOpen = !!l.costing || (l.working?.length ?? 0) > 0;
+              return (
+                <div className="flex items-center justify-between gap-3 mt-2 flex-wrap">
+                  <span className="text-sm mono" style={{ color: "var(--brand)" }}>
+                    {l.costing ? (
+                      <>
+                        {fmt(r.cost)}
+                        <span className="text-[11px] ml-1.5" style={{ color: "var(--text-muted)" }}>
+                          {r.tierLabel}{r.labour === "diy" ? " · DIY" : ""}{r.pct < 1 ? ` · ${Math.round(r.pct * 100)}%` : ""}
+                        </span>
+                      </>
+                    ) : (
+                      `${fmt(l.low)}–${fmt(l.high)}`
+                    )}
+                  </span>
+                  {canOpen && (
+                    <button
+                      type="button"
+                      onClick={() => setOpenCards((o) => ({ ...o, [l.key]: !o[l.key] }))}
+                      aria-expanded={isOpen}
+                      className="inline-flex items-center gap-1 text-xs cursor-pointer"
+                      style={{ color: "var(--brand)" }}
+                    >
+                      {l.costing ? (isOpen ? "Hide options" : "Show options") : isOpen ? "Hide how we got this figure" : "How we got this figure"}
+                      {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+            {included && openCards[l.key] && (
+              l.costing ? (
+                <>
+                  <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>Est. quantity: {l.costing.quantityNote || `${l.costing.quantity} ${l.costing.quantityUnit}`}</div>
+                  <ThreeTier line={l} toggle={t}
+                    onTier={(tier) => setRenoToggle(l.key, { tier, labour: l.costing ? l.costing[tier].defaultLabour : "tradie" })}
+                    onLabour={(mode) => setRenoToggle(l.key, { labour: mode })}
+                    onPct={(pct) => setRenoToggle(l.key, { affectedPct: pct })} />
+                </>
+              ) : (
+                <ol className="mt-2 space-y-1 text-xs list-decimal pl-4" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                  {(l.working ?? []).map((w) => <li key={w}>{w}</li>)}
+                </ol>
+              )
+            )}
+          </div>
+        </div>
+        {included && openCards[l.key] && l.costing && surfaceForKind(l.costing.kind) && materialsFor(surfaceForKind(l.costing.kind)!).length > 0 && (
+          <MaterialStudio
+            surface={surfaceForKind(l.costing.kind)!}
+            photoUrls={listing.photoUrls}
+            photoRefs={l.photoRefs}
+            defaultAreaSqm={l.costing.quantity}
+          />
+        )}
       </div>
     );
   };
 
-  const groupList = (heading: string, note: string | null, rows: RenoLine[], showDue: boolean) => (
-    <div>
+  // ── One list, three groups ──────────────────────────────────────────────
+  // Every job appears ONCE. The page used to list them three times over — a
+  // summary list, a card each, then the during-hold jobs again as a timeline.
+  const byYear = new Map<number, RenoLine[]>();
+  for (const l of recommended) byYear.set(yearOf(l), [...(byYear.get(yearOf(l)) ?? []), l]);
+  const years = [...byYear.keys()].sort((a, b) => a - b);
+  // In scope for this hold but not in the plan: unticked, optional (whole-room
+  // refits, extra-dwelling compliance) or not established. Kept reachable —
+  // ticking one adds it to what you'll do at purchase.
+  const notInPlan = items.filter((l) => !atPurchase.includes(l) && !recommended.includes(l));
+  const sum = (ls: RenoLine[]) => ls.reduce((t, l) => t + rowFor(l).cost, 0);
+  const atPurchaseTotal = sum(atPurchase);
+
+  const groupHead = (title: string, amount: number | null, note?: string, id?: string) => (
+    <div id={id} className="pt-2 scroll-mt-24">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>{heading}</span>
-        <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>
-          {fmt(rows.reduce((sum, l) => sum + rowFor(l).cost, 0))}
-        </span>
+        <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "var(--brand)" }}>{title}</span>
+        {amount != null && <span className="text-sm mono font-semibold" style={{ color: "var(--text-primary)" }}>{fmt(amount)}</span>}
       </div>
-      {note && <p className="text-[11px] mt-0.5 mb-1" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>{note}</p>}
-      <div className="space-y-1 mt-1">
-        {rows.map((l) => {
-          const r = rowFor(l);
-          return (
-            <div key={l.key} className="flex items-center justify-between gap-2 text-xs">
-              <span className="truncate" style={{ color: "var(--text-secondary)" }}>
-                {l.name}
-                {showDue && !l.autoInclude && <span style={{ color: "var(--text-muted)" }}> · due ~yr {l.urgencyYears}</span>}
-              </span>
-              <span className="flex items-center gap-2 flex-shrink-0">
-                <span style={{ color: "var(--text-muted)" }}>{r.tierLabel}{r.labour === "diy" ? " · DIY" : ""}{r.pct < 1 ? ` · ${Math.round(r.pct * 100)}%` : ""}</span>
-                <span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(r.cost)}</span>
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      {note && <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>{note}</p>}
     </div>
   );
 
   return (
     <div className="space-y-4">
-      {/* Section 1 — what YOU have chosen. This leads now: a reader arriving
-          on this tab has already ticked items on Improvements, so their own
-          plan is the thing they came back to adjust. */}
       <div>
         <div className="text-[11px] uppercase tracking-widest mb-1.5" style={{ color: "var(--brand)" }}>Your renovation plan</div>
         <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>What you&apos;ll spend over {holdYears} years</h3>
         <p className="text-sm mt-1" style={{ color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          Two parts. <strong style={{ color: "var(--text-primary)" }}>Needed at purchase</strong> is what&apos;s ticked on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab: work needed the day you buy or before you can rent it out, plus anything you tick yourself. <strong style={{ color: "var(--text-primary)" }}>Due during your hold</strong> is work that isn&apos;t needed yet but reaches end of life while you own the place — a roof due in year eight is your cost on a ten-year hold and somebody else&apos;s on a five-year one, so <strong style={{ color: "var(--text-primary)" }}>move the hold slider and it re-makes itself</strong>. Both feed your yield and predicted sale price; untick anything you wouldn&apos;t do.
+          Two parts. <strong style={{ color: "var(--text-primary)" }}>Needed at purchase</strong> is what&apos;s ticked on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab: work needed the day you buy or before you can rent it out, plus anything you tick yourself. <strong style={{ color: "var(--text-primary)" }}>Due during your hold</strong> is work that isn&apos;t needed yet but reaches end of life while you own the place — <strong style={{ color: "var(--text-primary)" }}>move the hold slider and it re-makes itself</strong>. Both feed your yield and predicted sale price; untick anything you wouldn&apos;t do.
         </p>
       </div>
 
-      {/* Renovation Budget Summary — updates live as tiers are chosen */}
+      {/* The totals, and only the totals — the jobs themselves are listed once, below. */}
       <div className="card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div>
-            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Within your {holdYears}-year hold</div>
-            <div className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>{selected.length} of {items.length} selected</div>
-            {deferred > 0 && <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{deferred} more beyond the hold period (hidden)</div>}
+            <div className="text-xs" style={{ color: "var(--text-secondary)" }}>Needed at purchase</div>
+            <div className="text-xl font-bold mono" style={{ color: "var(--text-primary)" }}>{fmt(atPurchaseTotal)}</div>
+            <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{atPurchase.length} {atPurchase.length === 1 ? "job" : "jobs"}</div>
           </div>
-          {persona === "investor" && upliftTotal > 0 && (
-            <div className="text-right">
-              <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Est. rent uplift</div>
-              <div className="text-2xl font-bold mono" style={{ color: "var(--good)" }}>+{fmt(upliftTotal)}<span className="text-sm">/wk</span></div>
-            </div>
-          )}
-          <div className="text-right">
-            <div className="text-sm" style={{ color: "var(--text-secondary)" }}>Total renovation</div>
+          <div>
+            <div className="text-xs" style={{ color: "var(--text-secondary)" }}>Due during your {holdYears}-year hold</div>
+            <div className="text-xl font-bold mono" style={{ color: "var(--text-primary)" }}>{fmt(duringHoldTotal)}</div>
+            <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{recommended.length} {recommended.length === 1 ? "job" : "jobs"}</div>
+          </div>
+          <div className="col-span-2 sm:col-span-1 sm:text-right">
+            <div className="text-xs" style={{ color: "var(--text-secondary)" }}>Total renovation</div>
             <div className="text-2xl font-bold mono" style={{ color: "var(--brand)" }}>{fmt(total)}</div>
+            {persona === "investor" && upliftTotal > 0 && (
+              <div className="text-[11px] mono" style={{ color: "var(--good)" }}>+{fmt(upliftTotal)}/wk rent</div>
+            )}
           </div>
-        </div>
-        {/* The reader's own choices lead. What WE put in the plan is listed at
-            the foot of the page, under the items — it used to sit here, and on
-            a ten-year hold it was forty-odd lines above the three the reader
-            had actually picked. The total still counts both, and says so. */}
-        <div className="mt-3 pt-3 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
-          {atPurchase.length > 0 ? (
-            groupList("Needed at purchase", null, atPurchase, false)
-          ) : (
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Nothing needed at purchase. Tick an item below, or on the Improvements tab, to do it straight away.
-            </p>
-          )}
-          {recommended.length > 0 && (
-            <a href="#our-recommendation" className="flex items-baseline justify-between gap-2 text-xs" style={{ color: "var(--brand)" }}>
-              <span>
-                Due during your {holdYears}-year hold: {recommended.length} {recommended.length === 1 ? "job" : "jobs"}, listed by year at the bottom
-              </span>
-              <span className="mono">{fmt(duringHoldTotal)}</span>
-            </a>
-          )}
         </div>
         {price > 0 && (
           <div className="mt-3 pt-3 space-y-1 text-sm" style={{ borderTop: "1px solid var(--border)" }}>
-            <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Total renovation cost</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(total)}</span></div>
             <div className="flex items-center justify-between"><span style={{ color: "var(--text-secondary)" }}>Purchase price</span><span className="mono" style={{ color: "var(--text-primary)" }}>{fmt(price)}</span></div>
             <div className="flex items-center justify-between font-bold"><span style={{ color: "var(--text-primary)" }}>Total investment</span><span className="mono" style={{ color: "var(--brand)" }}>{fmt(price + total)}</span></div>
             <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>Total investment feeds the yield calc and the predicted sale price.</div>
@@ -2289,116 +2295,52 @@ function RenovationsReal({ renoLines, renoToggles, setRenoToggle, persona, listi
           Nothing due inside a {holdYears}-year hold. Move the slider out to see work that falls due later, or tick any item marked <em>&ldquo;Optional&rdquo;</em> on the <strong style={{ color: "var(--text-primary)" }}>Improvements</strong> tab.
         </div>
       )}
-      {/* EVERY line in scope for this hold, not just the ticked ones.
-          Mapping `selected` here meant unticking something removed its own
-          checkbox from the page — the control you'd need to change your mind
-          disappeared with the decision, and the only way back was the
-          Improvements tab. That was survivable while the plan held two items;
-          now that most in-hold work is ticked by default, unticking is the
-          normal interaction and it has to be reversible where it happens. */}
-      {items.map((l) => {
-        const t = renoToggles[l.key];
-        const included = renoIncluded(l, renoToggles, withinHold(l.urgencyYears));
-        return (
-          <div key={l.key} className="card p-4" style={{ opacity: included ? 1 : 0.8, transition: "opacity 0.15s" }}>
-            <div className="flex items-start gap-3">
-              <input type="checkbox" checked={included} onChange={(e) => setRenoToggle(l.key, { included: e.target.checked })} className="mt-1 w-4 h-4 cursor-pointer flex-shrink-0" aria-label={`Include ${l.name}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{l.name}</span>
-                  {l.badge && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: "var(--accent-wash)", color: "var(--brand)" }}>{l.badge} remedy</span>}
-                  {persona === "investor" && l.legal && l.nonExisting && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded font-semibold" style={{ background: "var(--bad-wash)", color: "var(--bad)", border: "1px solid var(--bad-wash)" }}>⚖️ Must do, by law</span>
-                  )}
-                  {l.valueGap != null && l.valueGap > 0 && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "var(--good-wash)", color: "var(--good)" }} title="Value reclaimed if this item is brought to modern &amp; as-new">+{fmt(l.valueGap)} value</span>
-                  )}
-                  {persona === "investor" && included && l.uplift > 0 && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded mono" style={{ background: "var(--good-wash)", color: "var(--good)" }}>+${l.uplift}/wk rent</span>
-                  )}
-                  {!included && <span className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>removed</span>}
-                </div>
-                <div className="text-xs mt-0.5" style={{ color: l.detailColor }}>{l.detail}</div>
-                {included && (() => {
-                  const r = rowFor(l);
-                  const isOpen = !!openCards[l.key];
-                  const canOpen = !!l.costing || (l.working?.length ?? 0) > 0;
-                  return (
-                    <div className="flex items-center justify-between gap-3 mt-2 flex-wrap">
-                      <span className="text-sm mono" style={{ color: "var(--brand)" }}>
-                        {l.costing ? (
-                          <>
-                            {fmt(r.cost)}
-                            <span className="text-[11px] ml-1.5" style={{ color: "var(--text-muted)" }}>
-                              {r.tierLabel}{r.labour === "diy" ? " · DIY" : ""}{r.pct < 1 ? ` · ${Math.round(r.pct * 100)}%` : ""}
-                            </span>
-                          </>
-                        ) : (
-                          `${fmt(l.low)}–${fmt(l.high)}`
-                        )}
-                      </span>
-                      {canOpen && (
-                        <button
-                          type="button"
-                          onClick={() => setOpenCards((o) => ({ ...o, [l.key]: !o[l.key] }))}
-                          aria-expanded={isOpen}
-                          className="inline-flex items-center gap-1 text-xs cursor-pointer"
-                          style={{ color: "var(--brand)" }}
-                        >
-                          {l.costing ? (isOpen ? "Hide options" : "Show options") : isOpen ? "Hide how we got this figure" : "How we got this figure"}
-                          {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()}
-                {included && openCards[l.key] && (
-                  l.costing ? (
-                    <>
-                      <div className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>Est. quantity: {l.costing.quantityNote || `${l.costing.quantity} ${l.costing.quantityUnit}`}</div>
-                      <ThreeTier line={l} toggle={t}
-                        onTier={(tier) => setRenoToggle(l.key, { tier, labour: l.costing ? l.costing[tier].defaultLabour : "tradie" })}
-                        onLabour={(mode) => setRenoToggle(l.key, { labour: mode })}
-                        onPct={(pct) => setRenoToggle(l.key, { affectedPct: pct })} />
-                    </>
-                  ) : (
-                    <ol className="mt-2 space-y-1 text-xs list-decimal pl-4" style={{ color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                      {(l.working ?? []).map((w) => <li key={w}>{w}</li>)}
-                    </ol>
-                  )
-                )}
-              </div>
-            </div>
-            {included && openCards[l.key] && l.costing && surfaceForKind(l.costing.kind) && materialsFor(surfaceForKind(l.costing.kind)!).length > 0 && (
-              <MaterialStudio
-                surface={surfaceForKind(l.costing.kind)!}
-                photoUrls={listing.photoUrls}
-                photoRefs={l.photoRefs}
-                defaultAreaSqm={l.costing.quantity}
-              />
-            )}
-          </div>
-        );
-      })}
-      {/* Section 2 — what WE would do: the work we put in the plan for this
-          hold, by year. Below the reader's own choices and the items, never
-          above them. */}
-      {recommended.length > 0 && (
-        <div id="our-recommendation" className="pt-3 text-[11px] uppercase tracking-widest scroll-mt-24" style={{ color: "var(--brand)" }}>Our recommendation</div>
+
+      {atPurchase.length > 0 && (
+        <>
+          {groupHead("Needed at purchase", atPurchaseTotal, "Work to do straight after you buy, or before you can rent it out — plus anything you've ticked yourself.")}
+          {atPurchase.map(card)}
+        </>
       )}
+
       {recommended.length > 0 && (
-        <div className="card p-5">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-[11px] uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Due during your {holdYears}-year hold</span>
-            <span className="text-xs mono" style={{ color: "var(--text-muted)" }}>{fmt(duringHoldTotal)}</span>
-          </div>
-          <p className="text-[11px] mt-0.5" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
-            By the year each job falls due. None of it is needed on day one, so it isn&apos;t ticked, but it reaches end of
-            life while you own the place, so it&apos;s counted in the total above. Tick one to do it at purchase instead, or
-            untick it if you wouldn&apos;t do it.
+        <>
+          {groupHead(
+            `Due during your ${holdYears}-year hold`,
+            duringHoldTotal,
+            "Not needed on day one, but it reaches end of life while you own the place, so it's counted in its year. Untick any you wouldn't do.",
+            "our-recommendation"
+          )}
+          {years.map((y) => (
+            <div key={y} className="space-y-3">
+              <div className="flex items-baseline justify-between gap-2 pb-1" style={{ borderBottom: "1px solid var(--border)" }}>
+                <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                  {y <= 1 ? "Within a year" : `Year ${y}`}
+                  <span className="font-normal ml-1.5" style={{ color: "var(--text-muted)" }}>
+                    {byYear.get(y)!.length} {byYear.get(y)!.length === 1 ? "job" : "jobs"}
+                  </span>
+                </span>
+                <span className="text-xs mono" style={{ color: "var(--text-secondary)" }}>{fmt(sum(byYear.get(y)!))}</span>
+              </div>
+              {byYear.get(y)!.map(card)}
+            </div>
+          ))}
+        </>
+      )}
+
+      {notInPlan.length > 0 && (
+        <details>
+          <summary className="cursor-pointer pt-2">
+            <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "var(--text-muted)" }}>
+              Not in your plan · {notInPlan.length} {notInPlan.length === 1 ? "job" : "jobs"}
+            </span>
+          </summary>
+          <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)", lineHeight: 1.5 }}>
+            Optional work — whole-room refits, compliance you only need if you let it out, and anything you&apos;ve unticked.
+            Tick one to add it.
           </p>
-          {timeline(recommended)}
-        </div>
+          <div className="space-y-3 mt-3">{notInPlan.map(card)}</div>
+        </details>
       )}
 
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
