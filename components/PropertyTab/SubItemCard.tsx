@@ -3,7 +3,7 @@
 import { ITEM_BY_ID } from "@/lib/scoring/catalog";
 
 import { useState } from "react";
-import type { SubItem, RenoControls, UrgencyScore } from "@/lib/property-tab/types";
+import type { SubItem, RenoControls, UrgencyScore, ConfidenceTier } from "@/lib/property-tab/types";
 import { conditionScoreColor } from "./ConditionScore";
 import type { ItemValue, EstimatedItem } from "@/lib/scoring/improvement-values";
 import { ItemValuation, ItemValuationWithheld, Step, EvidenceList, ActionBody } from "./ItemValuation";
@@ -14,7 +14,7 @@ import { ITEM_LIFE, expectedLife } from "@/lib/scoring/item-life";
 import { isFactOnly } from "@/lib/scoring/improvement-values";
 import { isRefused, isPerRoom, type AnyValuation, type PerRoomValuation } from "./valuation-types";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
-import { confidenceMeta } from "./ConfidenceBar";
+import { ConfidenceStep } from "./ConfidenceStep";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
 import {
@@ -54,7 +54,7 @@ function Chip({ label, title, children }: { label: string; title?: string; child
  * cost new — each opening to its own seven steps. The lines add up to the
  * card's value; rooms nobody photographed are named, and left out.
  */
-function PerRoomBreakdown({ v, label, unseenEstimate }: { v: PerRoomValuation; label: string; unseenEstimate?: EstimatedItem | null }) {
+function PerRoomBreakdown({ v, label, unseenEstimate, tier }: { v: PerRoomValuation; label: string; unseenEstimate?: EstimatedItem | null; tier: ConfidenceTier }) {
   const [open, setOpen] = useState<string | null>(null);
   const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
   return (
@@ -98,6 +98,7 @@ function PerRoomBreakdown({ v, label, unseenEstimate }: { v: PerRoomValuation; l
                       </div>
                     ),
                   }}
+                  second={{ title: "Confidence", body: <ConfidenceStep tier={tier} photoRefs={p.photoReferences} fromBuyer={p.fromBuyer} /> }}
                 />
               </div>
             )}
@@ -195,6 +196,9 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
       )}
     </div>
   );
+  // Step 2: how sure we are, and whether a photo this was read from looks
+  // edited. It was a chip beside the value; it belongs with the evidence.
+  const confidenceStep = <ConfidenceStep tier={item.confidenceTier} photoRefs={item.photoReferences} />;
   // Life left on the SAME reading the card's valuation uses: its own when it
   // has one, otherwise the itemised value's age against the item's service life.
   const life = ITEM_LIFE[item.id];
@@ -338,13 +342,6 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                     </span>
                   </Chip>
                 )}
-                {item.confidenceTier != null && (
-                  <Chip label="Confidence" title={confidenceMeta(item.confidenceTier).full}>
-                    <span className="font-medium" style={{ color: confidenceMeta(item.confidenceTier).color }}>
-                      {confidenceMeta(item.confidenceTier).short.replace(/ confidence$/, "")}
-                    </span>
-                  </Chip>
-                )}
               </div>
             )}
           </div>
@@ -434,9 +431,9 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               </div>
             )}
             {valuation && !isRefused(valuation) && isPerRoom(valuation) ? (
-              <PerRoomBreakdown v={valuation} label={item.name} unseenEstimate={unseenEstimate} />
+              <PerRoomBreakdown v={valuation} label={item.name} unseenEstimate={unseenEstimate} tier={item.confidenceTier} />
             ) : valuation && !isRefused(valuation) ? (
-              <ItemValuation v={valuation} lead={{ title: "Listing photos", body: photosStep }} evidence={evidenceFor(item)} />
+              <ItemValuation v={valuation} lead={{ title: "Listing photos", body: photosStep }} second={{ title: "Confidence", body: confidenceStep }} evidence={evidenceFor(item)} />
             ) : (
               <div className="space-y-3">
                 {estimate && (
@@ -456,8 +453,9 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                   </div>
                 )}
                 <Step n={1} title="Listing photos">{photosStep}</Step>
+                <Step n={2} title="Confidence">{confidenceStep}</Step>
                 {!item.noPhotoNotAssessed && ITEM_BY_ID[item.id]?.inspection === "improvements" && (
-                  <Step n={2} title="Visual evidence">
+                  <Step n={3} title="Visual evidence">
                     {(() => {
                       const m = mergeEvidence(item.observedDefect ? [item.observedDefect] : [], evidenceFor(item));
                       return <EvidenceList concerns={m.concerns} evidence={m.seen} />;
@@ -465,7 +463,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
                   </Step>
                 )}
                 {!item.noPhotoNotAssessed && ITEM_BY_ID[item.id]?.costBearing && (
-                  <Step n={3} title="Action"><ActionBody action={action} replaceCost={value?.replacementTotal} /></Step>
+                  <Step n={4} title="Action"><ActionBody action={action} replaceCost={value?.replacementTotal} /></Step>
                 )}
                 {valuation && isRefused(valuation) && <ItemValuationWithheld reason={valuation.reason} />}
               </div>

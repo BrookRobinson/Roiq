@@ -8,6 +8,7 @@ import { HoldPeriodProvider, useHoldPeriod, urgencyScoreToYears } from "@/lib/ho
 import { HoldPeriodSlider } from "@/components/HoldPeriodSlider";
 import { ReportGapBanner } from "@/components/ReportGapBanner";
 import { EditedPhotosNotice } from "@/components/EditedPhotosNotice";
+import { EditedPhotosProvider } from "@/components/PropertyTab/ConfidenceStep";
 import type { ReportGap } from "@/lib/property-tab/gaps";
 import { urgencyColor, urgencyLabel, type RenoControls } from "@/lib/property-tab/types";
 import type { SubItem, ExtraDwelling, ShowerType, FloorType } from "@/lib/property-tab/types";
@@ -1092,7 +1093,9 @@ export function RealReportView({
           {tab === "overview" && <OverviewReal locked={locked} report={report} subItems={effectiveSubItems} scored={scored} persona={persona} renoLines={renoLines} renoToggles={renoToggles} askingPrice={askingPrice} improvementValuation={improvementValuation} propertyValue={propertyValue} dwellingValue={dwellingValue} onOpenRenovations={() => setTab("renovations")} />}
           {tab === "improvements" && (
             <div className="space-y-4">
-              <PropertyTab shell={improvementValuation.shell} itemValues={new Map(improvementValuation.items.map((v) => [v.id, v]))} itemValuations={itemValuations} estimates={new Map(improvementValuation.estimatedItems.map((e) => [e.id, e]))} data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: 0 }} region={[listing.city, listing.region].filter(Boolean).join(", ") || undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
+              <EditedPhotosProvider value={report.editedPhotos}>
+                <PropertyTab shell={improvementValuation.shell} itemValues={new Map(improvementValuation.items.map((v) => [v.id, v]))} itemValuations={itemValuations} estimates={new Map(improvementValuation.estimatedItems.map((e) => [e.id, e]))} data={{ categories: improvementsCategories(effectiveSubItems), extraDwellings: report.extraDwellings, overallScore: 0 }} region={[listing.city, listing.region].filter(Boolean).join(", ") || undefined} floorSqm={listing.floorAreaSqm} noPhotos={noPhotos} buildYear={listing.buildYear} persona={persona} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} dwellingValues={dwellingValue.dwellings} />
+              </EditedPhotosProvider>
               {persona === "investor" && <HealthyHomesSection subItems={effectiveSubItems} buildYear={listing.buildYear} renoControls={renoControls} onOpenRenovations={() => setTab("renovations")} hhAssessed={report.context?.healthyHomes} renoLines={renoLines} renoToggles={renoToggles} />}
             </div>
           )}

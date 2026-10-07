@@ -1122,10 +1122,15 @@ like a contradiction rather than "we are sure there is a problem here". They are
 two statements about the item and they get two places. The bar carries no box of
 its own, so nothing suggests it belongs to the score.
 
-The Improvements stat bubble is the same: bar below the bubble, not in it.
-Both tabs draw the bar at ONE height, because the length is the encoding —
-two scales would make a T1 on Improvements shorter than a T2 on Land, which
-is the exact comparison the bar exists to make.
+**On the Improvements tab, confidence is step 2 of the item's drop-down, not on
+the card's face** (moved 8 October 2026 at the owner's request). The order is
+1 Listing photos, 2 Confidence, 3 Material, then the rest. `ConfidenceStep`
+names the level in words and, on the same line, flags any photo the reading
+came from that looks digitally edited, because both answer "how far can this
+be trusted". Three states that must stay distinct: a report never checked for
+edits shows no flag at all, a checked one with no hit says "No photo edits
+flagged", and a "possible" flag is drawn muted because it changed no score. The
+Land tab still draws the bar under its score badge.
 
 **`ConfidenceTierBadge` is deleted, not merely unused.** The pill —
 "T2 — Probable, verify at inspection" — said the same thing as the bar and its

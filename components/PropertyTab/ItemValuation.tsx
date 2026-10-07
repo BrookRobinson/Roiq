@@ -35,19 +35,22 @@ const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
  * `lead` is a step drawn BEFORE the seven — the card passes the photographs the
  * item was read from, so the reader sees the evidence before the arithmetic.
  */
-export function ItemValuation({ v, lead, evidence = [] }: {
+export function ItemValuation({ v, lead, second, evidence = [] }: {
   v: AnyItemValuation;
   lead?: { title: string; body: React.ReactNode };
+  /** Drawn straight after `lead`: the card passes confidence, as step 2. */
+  second?: { title: string; body: React.ReactNode };
   /** What the photographs show that set the condition and the age. */
   evidence?: string[];
 }) {
   // Defects first, in the warning colour; then the rest of what was seen. A
   // line the defect already says is not repeated.
   const merged = mergeEvidence(v.concerns, evidence);
-  const o = lead ? 1 : 0;
+  const o = (lead ? 1 : 0) + (second ? 1 : 0);
   return (
     <div className="space-y-3">
       {lead && <Step n={1} title={lead.title}>{lead.body}</Step>}
+      {second && <Step n={lead ? 2 : 1} title={second.title}>{second.body}</Step>}
       <Step n={1 + o} title="Material">
         <div className="text-[13px] font-medium" style={{ color: "var(--text-primary)" }}>
           {v.material.label}
