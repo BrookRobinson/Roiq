@@ -43,6 +43,7 @@ npm run verify:delisting     # when a crawl has earned the right to say a listin
 npm run verify:scoreboard    # grading our own valuations, and when a run of bad ones is a bias
 npm run verify:valuation-range # how wide the valuation range is, from the property's own evidence
 npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
+npm run verify:edited-photos # what a digitally edited listing photo may and may not do to a score
 npm run verify:quality-curve # score → value multiplier: no cliffs, no invented sixth number
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 npm run build:instruments    # regenerate lib/linz/instrument-types.ts from LINZ
@@ -2130,6 +2131,32 @@ floor area and $795,000 asking price, which were merged into a section's report 
 presented as its own — the wrong-house failure, but silent. `identifiesOneProperty()`
 requires a street number leading the first component, and the lookup is skipped
 entirely when the listing has no dwelling.
+
+**An edited listing photo is weaker evidence, and it must never RAISE a value.**
+Agents virtually stage rooms, show "virtual renovations", use renders, drop in a
+sky or a lawn and paint out stains, and the analysis used to believe every
+pixel: the stain goes, the ceiling scores well, the valuation rises. That is the
+one direction a buyer's report must not be wrong in. The analysis now reports
+`edited_photos` (asked for FIRST in the tool input, so the model decides what it
+trusts before it scores and a truncated response can't lose it), and
+`lib/ai/edited-photos.ts` applies three rules before scoring, to improvements
+items only: shown ONLY in a render or virtual renovation → not seen, score null,
+Tier 3; shown ONLY in otherwise-edited photos → score capped at 8, Tier 1
+becomes 2, luxury becomes modern; also shown in an untouched photo → score kept,
+and the finding says which photo was edited. Each bathroom's and bedroom's own
+read is held to the same rule.
+
+**Only a "likely" flag moves a score.** Detection is not reliable (a good edit
+is built to be invisible, and detectors also flag honest photos), so a
+"possible" flag is shown to the reader and changes nothing: a wrong guess about
+editing must not cost a real house its marks. For the same reason **never write
+copy claiming the app detects edited photos**, and never let an empty list read
+as "these photos are genuine". `EditedPhotosNotice` says we can't catch every
+edit, and a report made before 8 October 2026 has no `editedPhotos` at all,
+which means nobody asked. The foundation is exempt because its score is computed
+from type, era and symptoms rather than read off a picture. A weakened or
+unseen item lands on the viewing checklist by itself (Tier 2 and 3 always do),
+and a buyer's own photograph replaces the listing's, which clears the warning.
 
 **An item's photo list includes every photo its own text cites.** The model
 fills `photo_references` and writes its prose separately, and they drift — the

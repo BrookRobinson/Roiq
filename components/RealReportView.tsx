@@ -7,6 +7,7 @@ import { PropertyTab } from "@/components/PropertyTab/PropertyTab";
 import { HoldPeriodProvider, useHoldPeriod, urgencyScoreToYears } from "@/lib/hold-period/context";
 import { HoldPeriodSlider } from "@/components/HoldPeriodSlider";
 import { ReportGapBanner } from "@/components/ReportGapBanner";
+import { EditedPhotosNotice } from "@/components/EditedPhotosNotice";
 import type { ReportGap } from "@/lib/property-tab/gaps";
 import { urgencyColor, urgencyLabel, type RenoControls } from "@/lib/property-tab/types";
 import type { SubItem, ExtraDwelling, ShowerType, FloorType } from "@/lib/property-tab/types";
@@ -986,6 +987,13 @@ export function RealReportView({
                   rather than running it again. The photos and condition are as they were on that date.
                 </span>
               </div>
+            )}
+
+            {/* Edited listing photos — said up here, before any number is read.
+                Uses the effective sub-items so an item the buyer has since
+                photographed themselves drops out of "what it changed". */}
+            {report.editedPhotos && report.editedPhotos.length > 0 && (
+              <EditedPhotosNotice edited={report.editedPhotos} subItems={effectiveSubItems} />
             )}
 
             {/* Persona toggle */}

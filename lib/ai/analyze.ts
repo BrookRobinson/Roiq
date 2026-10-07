@@ -17,7 +17,7 @@ import { prepareImages, type PreparedImage } from "./images";
 
 import { normAction } from "@/lib/scoring/action-parse";
 import { SCORING_MODEL, LOCATION_PENALTIES, usesSpecTier, SIZE_ITEM_IDS, type ScoringSubItem, type Inspection } from "@/lib/scoring/model";
-import { buildCatalog, INSPECTION_META, SOURCE_TAXONOMY, type CatalogInspection } from "@/lib/scoring/catalog";
+import { buildCatalog, INSPECTION_META, ITEM_BY_ID, SOURCE_TAXONOMY, type CatalogInspection } from "@/lib/scoring/catalog";
 import { scoreBoth, type Assessment } from "@/lib/scoring/report";
 import { resolveTenure } from "@/lib/scoring/title";
 import { ROOM_ITEM_IDS } from "@/lib/scoring/improvement-values";
@@ -57,6 +57,7 @@ import {
   type FoundationType,
 } from "@/lib/scoring/foundation";
 import { citedPhotos, mergePhotoRefs } from "@/lib/photo-refs";
+import { applyEditedPhotos, applyEditedPhotosToRoom, normEditedPhotos, type EditedPhoto } from "./edited-photos";
 
 export interface GapFinding {
   gapType: string;
@@ -82,6 +83,8 @@ export interface AnalysisResult {
   suburbValue?: SuburbValue;
   photosAnalysed: number;
   model: string;
+  /** Listing photos that look digitally altered. Empty is "none seen", not "none edited". */
+  editedPhotos: EditedPhoto[];
 }
 
 // ── value normalisers ──────────────────────────────────────────────────────
@@ -785,7 +788,7 @@ function buildUserMessage(
   const facts = formatFacts(listing);
   const photoLine =
     photoCount > 0
-      ? `${photoCount} listing photo(s) are attached above, numbered 1-${photoCount}.${labelled ? " Each photo is labelled with the area it shows (e.g. \"Photo 3 — Roof\") — assess the matching sub-items from the labelled photo." : ""} Cite photo numbers in your evidence_source and photo_references.`
+      ? `${photoCount} listing photo(s) are attached above, numbered 1-${photoCount}.${labelled ? " Each photo is labelled with the area it shows (e.g. \"Photo 3 — Roof\") — assess the matching sub-items from the labelled photo." : ""} Cite photo numbers in your evidence_source and photo_references. First go through every photo and report any that look digitally altered in edited_photos (see EDITED PHOTOS).`
       : `No listing photos are available. Assess Improvements items as Tier 3 from build era and location (score = null where you cannot infer a condition); still score Location, Land, and Legal from the facts.`;
 
   const today = new Date().toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric" });
@@ -866,6 +869,7 @@ function mergeAnalysis(into: RawAnalysis, next: RawAnalysis, seen: Set<string>):
   }
   // Whole-property fields are emitted AFTER sub_items, so a truncated first call
   // has none of them — take them from whichever response actually carried them.
+  into.edited_photos ??= next.edited_photos;
   into.property_context ??= next.property_context;
   into.extra_dwellings ??= next.extra_dwellings;
   into.information_gaps ??= next.information_gaps;
@@ -975,6 +979,26 @@ export function assembleResult(
   inspections?: Inspection[]
 ): AnalysisResult {
   const assessment = buildAssessment(raw, listing, photosAnalysed > 0, inspections);
+
+  // Edited photos are weaker evidence, and that has to land BEFORE scoring: an
+  // item shown only in a render must drop out of the score, not be subtracted
+  // from it afterwards. Improvements only — land and title items are measured
+  // or read from the register, and no edit to a photo changes them. The
+  // foundation is left alone too: its score is computed from type, era and
+  // symptoms rather than taken from a picture.
+  const editedPhotos = normEditedPhotos(raw.edited_photos, photosAnalysed);
+  if (editedPhotos.length > 0) {
+    assessment.subItems = assessment.subItems.map((s) => {
+      if (ITEM_BY_ID[s.id]?.inspection !== "improvements" || s.id === "ext_foundation") return s;
+      // Each bathroom and bedroom is valued on its own read, so each is held to
+      // the rule on its own photos.
+      const byRoom = s.byRoom?.map((r) => applyEditedPhotosToRoom(r, editedPhotos) as RoomRead);
+      const hit = applyEditedPhotos(s, editedPhotos);
+      if (!hit) return byRoom ? { ...s, byRoom } : s;
+      const score = hit.item.score as UrgencyScore | null;
+      return { ...hit.item, byRoom, score, urgencyLabel: urgencyLabel(score) };
+    });
+  }
   const scores = scoreBoth(assessment);
 
   const gaps: GapFinding[] = (raw.information_gaps ?? []).map((g) => ({
@@ -993,6 +1017,7 @@ export function assembleResult(
     gaps,
     photosAnalysed,
     model: VISION_MODEL,
+    editedPhotos,
   };
 }
 
@@ -1153,6 +1178,7 @@ function crossLeaseAsk(listing: ScrapedListing): string {
 
 function metaInstruction(listing: ScrapedListing, photoCount: number): string {
   return `For this New Zealand property, call ${ANALYSIS_TOOL_NAME} but return sub_items as an EMPTY array. Populate ONLY:
+- edited_photos: every photo that looks digitally altered or that the listing says is (see EDITED PHOTOS). Go through all ${photoCount} photos.
 - property_context: title_type, has_chimney, has_solar, has_retaining_walls, has_pool, has_body_corporate (infer from photos + facts).${crossLeaseAsk(listing)}
 - extra_dwellings: any separate sleepout, minor dwelling, pole shed, or standalone garage of material value (with replacement_cost and a 1-10 condition score).
 - location_penalties: objective location NEGATIVES for THIS exact address (busy road/motorway, flight path, rail, industry, pylons, no sun), each with a severity 0-10 scaled by proximity. Include only those that genuinely apply; omit the rest.
@@ -1227,6 +1253,7 @@ export async function analysePropertyFast(listing: ScrapedListing): Promise<Anal
   );
 
   const raw: RawAnalysis = {
+    edited_photos: meta.edited_photos,
     sub_items: perInspection.flat(),
     extra_dwellings: meta.extra_dwellings ?? [],
     information_gaps: meta.information_gaps ?? [],

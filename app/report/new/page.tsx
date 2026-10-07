@@ -168,6 +168,7 @@ function NewReportInner() {
         capitalGrowth: data.capitalGrowth,
         suburbValue: data.suburbValue,
         photosAnalysed: data.photosAnalysed ?? 0,
+        editedPhotos: data.editedPhotos ?? [],
         model: data.model,
         // Bare land — the view locks Improvements and shows a land score.
         landOnly: data.landOnly === true,

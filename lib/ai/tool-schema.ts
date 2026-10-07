@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { ALL_V31_IDS } from "@/lib/scoring/catalog";
 import { LOCATION_PENALTIES } from "@/lib/scoring/model";
+import type { RawEditedPhoto } from "./edited-photos";
 
 const LOCATION_PENALTY_IDS = LOCATION_PENALTIES.map((p) => p.id);
 
@@ -151,6 +152,8 @@ export interface RawLocationPenalty {
 }
 
 export interface RawAnalysis {
+  /** Photos that look digitally altered. See lib/ai/edited-photos.ts. */
+  edited_photos?: RawEditedPhoto[];
   sub_items: RawSubItem[];
   extra_dwellings?: RawExtraDwelling[];
   information_gaps?: RawInformationGap[];
@@ -352,6 +355,38 @@ const informationGapsSchema = {
   },
 } as const;
 
+// Asked for FIRST in the tool input, ahead of sub_items, for two reasons: the
+// model should decide which photos it trusts before it scores from them, and a
+// response truncated at max_tokens loses its tail — this must not be the tail.
+const editedPhotosSchema = {
+  type: "array" as const,
+  description:
+    "Every photo that looks digitally altered, or that the listing itself says is. Omit photos that look like ordinary photographs. See EDITED PHOTOS in the instructions.",
+  items: {
+    type: "object" as const,
+    properties: {
+      photo: { type: "integer" as const, description: "The photo number, as numbered in the user message." },
+      kind: {
+        type: "string" as const,
+        enum: ["virtual_staging", "virtual_renovation", "render", "replaced_exterior", "retouched"],
+        description:
+          "virtual_staging = furniture/decor added to a real room. virtual_renovation = surfaces, fittings or rooms shown as they COULD be. render = an artist's impression or CGI, not a photograph. replaced_exterior = sky, lawn, planting or view swapped in. retouched = marks, damage or clutter removed, or heavy enhancement.",
+      },
+      confidence: {
+        type: "string" as const,
+        enum: ["likely", "possible"],
+        description:
+          "likely = the listing says so, or the tell is unmistakable. possible = it looks off but an ordinary photograph could look like this.",
+      },
+      evidence: {
+        type: "string" as const,
+        description: "One sentence a buyer can check: exactly what gave it away, or the listing's own wording.",
+      },
+    },
+    required: ["photo", "kind", "confidence", "evidence"],
+  },
+};
+
 export const ANALYSIS_TOOL: Anthropic.Tool = {
   name: ANALYSIS_TOOL_NAME,
   description:
@@ -359,6 +394,7 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
   input_schema: {
     type: "object",
     properties: {
+      edited_photos: editedPhotosSchema,
       sub_items: {
         type: "array",
         description:
@@ -577,6 +613,7 @@ export const ANALYSIS_META_TOOL: Anthropic.Tool = {
   input_schema: {
     type: "object",
     properties: {
+      edited_photos: editedPhotosSchema,
       property_context: propertyContextSchema,
       extra_dwellings: extraDwellingsSchema,
       information_gaps: informationGapsSchema,

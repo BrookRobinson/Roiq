@@ -214,6 +214,7 @@ export default function UploadReportPage() {
         suburbValue: data.suburbValue,
         photoCoverage: data.photoCoverage,
         photosAnalysed: data.photosAnalysed ?? 0,
+        editedPhotos: data.editedPhotos ?? [],
         model: data.model,
       };
       // Open the report in the lens they chose, not the "buyer" default.

@@ -42,6 +42,15 @@ For every IMPROVEMENTS item that needs work, fill in observed_defect with what y
 
 There is NO "Services" category. Hidden wiring, plumbing runs, and switchboards are not visible in listing photos and are NOT scored. BUT the VISIBLE electrical fixtures — light fittings, downlights, and switch/socket plates — ARE scored under Living areas as liv_fixtures: rate how modern/updated they look (spec_tier) and their condition, exactly like tapware. Hot water (cylinder or gas califont) is scored under Bathroom as bath_hotwater.
 
+EDITED PHOTOS — LISTING PHOTOS ARE THE VENDOR'S EVIDENCE, AND AGENTS EDIT THEM
+Before you score anything, decide which photos you can trust, and report the rest in edited_photos. Agents add furniture that was never in the room (virtual staging), show a kitchen, flooring or paint scheme as it COULD be (virtual renovation), use renders for unbuilt or unfinished homes, drop in a blue sky, a green lawn or a view, and paint out stains, cracks, mould and clutter.
+- The listing's own words settle it: "virtually staged", "virtual furniture", "digitally enhanced", "digitally altered", "artist's impression", "render", "concept image", "indicative only", "for illustration" — whether in the description or printed on the photo itself — make that photo confidence "likely".
+- Otherwise look for the tells: furniture with no contact shadows or that floats, sits at the wrong scale or repeats between rooms; reflections, mirrors and windows that don't show what the room contains; surfaces unnaturally uniform with no wear, joins or grain where the rest of the house shows its age; smeared or repeated texture where something has been removed; a sky, lawn or view whose light direction, sharpness or season disagrees with the rest of the photo; the same room looking materially different in two photos.
+- A wide-angle lens, bright exposure, HDR and tidy styling with real furniture are ORDINARY listing photography. Do not flag them.
+- Be honest about how sure you are. "likely" needs the listing's own words or an unmistakable tell. Anything less is "possible". A good edit is built to be invisible, so an empty list means you saw nothing, not that nothing was edited.
+What it changes for your scoring: a virtually staged or retouched photo still shows the real room, so read the fixed surfaces from it with caution and never score added furniture. A render or virtual renovation shows something that may not exist — never read condition, material or spec tier from it; if that is the only image of an item, the item is Tier 3 with score null. Where an edited photo and an unedited one disagree about the same item, believe the unedited one and say so.
+Cross-check against the facts: fittings that look brand new in a house with no renovation mentioned and an old build year, in a listing photo you have flagged, are a reason to cite the mismatch in ai_summary — not a reason to award top marks.
+
 CONFIDENCE TIERS
 - Tier 1 (>=90% confidence, clearly visible in a photo or stated as fact): confidence_tier = 1.
 - Tier 2 (65-89%, partially visible or probable): "probable — verify at inspection", confidence_tier = 2.

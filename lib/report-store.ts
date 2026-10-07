@@ -5,6 +5,7 @@
 // session. This is NOT real persistence (that needs the Supabase reports table);
 // it's enough to wire the real paste → analyse → full-report flow for now.
 
+import type { EditedPhoto } from "@/lib/ai/edited-photos";
 import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
 import type { PropertyContext, ScoreResult, PenaltyInput } from "@/lib/scoring/engine";
 import type { Persona } from "@/lib/scoring/model";
@@ -51,6 +52,12 @@ export interface StoredReport {
   gaps: StoredGap[];
   photosAnalysed: number;
   model: string;
+  /**
+   * Listing photos the analysis flagged as digitally altered. Absent on reports
+   * made before 8 October 2026, and absent is NOT "none were edited" — those
+   * reports were never asked.
+   */
+  editedPhotos?: EditedPhoto[];
   /** Verified document analyses keyed by sub-item id (leg_lim / leg_consents / leg_eqc / leg_title). */
   verifiedDocs?: Record<string, DocAnalysis>;
   /** Web-sourced (or AI-estimated) market rent for the yield calc. */
