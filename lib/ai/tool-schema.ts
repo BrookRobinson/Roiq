@@ -598,7 +598,10 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
       property_context: propertyContextSchema,
       location_penalties: locationPenaltiesSchema,
     },
-    required: ["sub_items"],
+    // edited_photos is required (an empty list is a fine answer) so the input
+    // always opens with a plain top-level field. When it was optional, a real
+    // run skipped it and wrote the whole answer as a string inside sub_items.
+    required: ["edited_photos", "sub_items"],
   },
 };
 

@@ -108,5 +108,22 @@ console.log("\nPer-room reads");
   check("room also in a clean photo unchanged", applyEditedPhotosToRoom(room({ photoReferences: [5, 6] }), [flag(5, "render")]).score, 10);
 }
 
+console.log("\nReading a tool input the model stringified");
+{
+  const { normaliseToolInput } = await import(join(root, "lib/ai/tool-input.ts"));
+  const items = [{ id: "ext_roof", score: 6 }];
+  check("a normal input passes through", normaliseToolInput({ edited_photos: [], sub_items: items }), { edited_photos: [], sub_items: items });
+  check("sub_items as a JSON string of a list", normaliseToolInput({ sub_items: JSON.stringify(items) }).sub_items, items);
+  // The real failure: 172 Park Street, 11 October 2026.
+  const wrapped = normaliseToolInput({ sub_items: JSON.stringify({ sub_items: items, property_context: { has_pool: false }, edited_photos: [{ photo: 1 }] }) });
+  check("the whole answer as a string inside sub_items", wrapped.sub_items, items);
+  check("…and its other fields are lifted out", [wrapped.property_context, wrapped.edited_photos], [{ has_pool: false }, [{ photo: 1 }]]);
+  check("the whole answer nested as an object", normaliseToolInput({ sub_items: { sub_items: items } }).sub_items, items);
+  check("an outer field beats the nested one", normaliseToolInput({ edited_photos: [], sub_items: { sub_items: items, edited_photos: [{ photo: 2 }] } }).edited_photos, []);
+  check("text that isn't JSON is dropped, not iterated", "sub_items" in normaliseToolInput({ sub_items: "sorry, I could not" }), false);
+  check("a stringified property_context is parsed", normaliseToolInput({ sub_items: [], property_context: '{"has_pool":true}' }).property_context, { has_pool: true });
+  check("not an object at all → empty", normaliseToolInput(null), {});
+}
+
 console.log(failures ? `\n${failures} FAILED\n` : "\nAll edited-photo rules hold.\n");
 process.exit(failures ? 1 : 0);

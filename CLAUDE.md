@@ -2163,6 +2163,19 @@ from type, era and symptoms rather than read off a picture. A weakened or
 unseen item lands on the viewing checklist by itself (Tier 2 and 3 always do),
 and a buyer's own photograph replaces the listing's, which clears the warning.
 
+**The model can return its whole answer as a STRING, and that used to produce an
+empty report with no error.** 172 Park Street, Hokitika (11 October 2026): 19
+photos read, four minutes, and the tool input came back as
+`{ sub_items: "{\"sub_items\":[ …60 findings… ]}" }`. Nothing threw; the code
+looked for objects in a string, found none, and showed sixty "didn't return a
+finding" placeholders. `lib/ai/tool-input.ts` now unwraps a stringified or
+nested answer on both analysis paths, `edited_photos` is REQUIRED so the input
+always opens with a plain top-level field (it was optional when this happened),
+and `runClaude` THROWS when no finding at all came back, so the reader gets an
+error to retry instead of a blank report, and nothing is saved or charged. This
+is a third way to reach "nothing assessed", beside truncation and an
+interrupted run. `verify:edited-photos` covers the unwrapping.
+
 **An item's photo list includes every photo its own text cites.** The model
 fills `photo_references` and writes its prose separately, and they drift — the
 ventilation card said "assessed from photos 6, 11" over a finding citing Photo 5

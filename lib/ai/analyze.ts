@@ -58,6 +58,7 @@ import {
 } from "@/lib/scoring/foundation";
 import { citedPhotos, mergePhotoRefs } from "@/lib/photo-refs";
 import { applyEditedPhotos, applyEditedPhotosToRoom, normEditedPhotos, type EditedPhoto } from "./edited-photos";
+import { normaliseToolInput } from "./tool-input";
 
 export interface GapFinding {
   gapType: string;
@@ -915,7 +916,9 @@ async function callAnalysis(
   if (!toolUse) {
     throw new Error(`${PRODUCT_NAME} did not return a structured analysis (no tool_use block)`);
   }
-  const raw = toolUse.input as RawAnalysis;
+  // The model sometimes stringifies part of the input, or nests the whole
+  // answer inside sub_items. See lib/ai/tool-input.ts.
+  const raw = normaliseToolInput(toolUse.input) as unknown as RawAnalysis;
   raw.sub_items ??= [];
   return { raw, truncated: resp.stop_reason === "max_tokens" };
 }
@@ -964,6 +967,15 @@ async function runClaude(
     onlyIds = new Set(missing);
   }
 
+  // An answer with NO findings is not a report. Returning it produced a page of
+  // "the analysis didn't return a finding" placeholders that looked like a house
+  // nobody could assess; failing here shows the reader an error they can retry,
+  // and the route does not save or charge for a report that never arrived.
+  if (requested.size > 0 && seen.size === 0) {
+    throw new Error(
+      `${PRODUCT_NAME} analysed the listing but the result came back empty. Nothing was saved. Please try again.`
+    );
+  }
   return merged;
 }
 
@@ -1138,7 +1150,7 @@ async function runFanCall(
   const tu = resp.content.find(
     (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use" && b.name === ANALYSIS_TOOL_NAME
   );
-  return tu ? (tu.input as RawAnalysis) : { sub_items: [] };
+  return tu ? (normaliseToolInput(tu.input) as unknown as RawAnalysis) : { sub_items: [] };
 }
 
 function inspectionInstruction(listing: ScrapedListing, insp: CatalogInspection, photoCount: number): string {
