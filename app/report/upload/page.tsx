@@ -1,5 +1,6 @@
 "use client";
 
+import { analyzeFetch } from "@/lib/analyze-fetch";
 import Navbar from "@/components/Navbar";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -185,11 +186,7 @@ export default function UploadReportPage() {
         photos: Object.entries(photos).flatMap(([category, arr]) => arr.map((s) => ({ category, dataUrl: s.dataUrl }))),
         prefetched: prefetch.current?.key === address.trim() ? prefetch.current?.data : undefined,
       };
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await analyzeFetch(payload);
       const data = await res.json();
       if (!res.ok) {
         setError(res.status === 503

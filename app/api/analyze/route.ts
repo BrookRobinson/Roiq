@@ -1,3 +1,4 @@
+import { heartbeatJson, type HeartbeatResult } from "@/lib/http/heartbeat";
 import { NextRequest, NextResponse } from "next/server";
 
 import { type ScrapedListing } from "@/lib/scraper";
@@ -238,25 +239,34 @@ export async function POST(req: NextRequest) {
       ? { marketRent: body.prefetched.marketRent, capitalGrowth: body.prefetched.capitalGrowth, suburbValue: body.prefetched.suburbValue }
       : undefined;
 
-    // Default to the robust single call (no Files API, one request — best on a
-    // Tier-1 key). The parallel fan-out only helps on Tier 2+; the upload path
-    // always uses the single call so it carries the per-photo area labels.
-    const useFanout = process.env.ANALYZE_FANOUT === "true";
-    const result =
-      photos.length > 0 || inspections || !useFanout
-        ? await analyseProperty(listing, { inspections, photoLabels, prefetched, landOnly })
-        : await analysePropertyFast(listing);
-    const photoCoverage = photos.length > 0 ? coverageFor(photos.map((p) => p.category)) : undefined;
-    return NextResponse.json({
-      ok: true,
-      listing,
-      ...result,
-      // The report view needs this to hide the Improvements tab and value the
-      // section on its own terms rather than as a building.
-      landOnly,
-      photoCoverage,
-      quota: { ...quota, used: quota.used + 1, remaining: quota.remaining - 1 },
-    });
+    // Everything quick has been answered above with an ordinary response. From
+    // here the work takes minutes, so the answer is sent as a heartbeat stream:
+    // a silent connection gets cut by whatever sits between the reader and us.
+    // See lib/http/heartbeat.ts.
+    return heartbeatJson(async () => {
+      // Default to the robust single call (no Files API, one request — best on a
+      // Tier-1 key). The parallel fan-out only helps on Tier 2+; the upload path
+      // always uses the single call so it carries the per-photo area labels.
+      const useFanout = process.env.ANALYZE_FANOUT === "true";
+      const result =
+        photos.length > 0 || inspections || !useFanout
+          ? await analyseProperty(listing, { inspections, photoLabels, prefetched, landOnly })
+          : await analysePropertyFast(listing);
+      const photoCoverage = photos.length > 0 ? coverageFor(photos.map((p) => p.category)) : undefined;
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          listing,
+          ...result,
+          // The report view needs this to hide the Improvements tab and value the
+          // section on its own terms rather than as a building.
+          landOnly,
+          photoCoverage,
+          quota: { ...quota, used: quota.used + 1, remaining: quota.remaining - 1 },
+        },
+      };
+    }, analysisFailure);
   } catch (err) {
     if (err instanceof ListingNotFoundError) {
       return NextResponse.json(
@@ -264,17 +274,23 @@ export async function POST(req: NextRequest) {
         { status: 422 }
       );
     }
-    console.error("[analyze]", err);
-    const message = err instanceof Error ? err.message : "Analysis failed.";
-    const overloaded = /overloaded|temporarily unavailable|rate.?limit|\b429\b|\b503\b|\b529\b/i.test(message);
-    return NextResponse.json(
-      {
-        error: overloaded ? "overloaded" : "analysis_failed",
-        message: overloaded
-          ? `The ${PRODUCT_NAME} analysis service is temporarily overloaded (or rate-limited) — wait a few seconds and try again.`
-          : message,
-      },
-      { status: overloaded ? 503 : 500 }
-    );
+    const failure = analysisFailure(err);
+    return NextResponse.json(failure.body, { status: failure.status });
   }
+}
+
+/** What a failed analysis answers with, whether it failed before or during the stream. */
+function analysisFailure(err: unknown): HeartbeatResult {
+  console.error("[analyze]", err);
+  const message = err instanceof Error ? err.message : "Analysis failed.";
+  const overloaded = /overloaded|temporarily unavailable|rate.?limit|\b429\b|\b503\b|\b529\b/i.test(message);
+  return {
+    status: overloaded ? 503 : 500,
+    body: {
+      error: overloaded ? "overloaded" : "analysis_failed",
+      message: overloaded
+        ? `The ${PRODUCT_NAME} analysis service is temporarily overloaded (or rate-limited) — wait a few seconds and try again.`
+        : message,
+    },
+  };
 }

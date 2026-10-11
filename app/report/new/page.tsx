@@ -1,4 +1,5 @@
 "use client";
+import { analyzeFetch } from "@/lib/analyze-fetch";
 import { CopyUrlHelp } from "@/components/CopyUrlHelp";
 
 import Navbar from "@/components/Navbar";
@@ -103,11 +104,7 @@ function NewReportInner() {
     }, 9000);
 
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await analyzeFetch(payload);
       const data = await res.json();
       clearInterval(timer);
 

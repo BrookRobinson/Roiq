@@ -1,5 +1,6 @@
 "use client";
 
+import { analyzeFetch } from "@/lib/analyze-fetch";
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import { PropertyTab } from "@/components/PropertyTab/PropertyTab";
@@ -63,11 +64,7 @@ export default function AnalyzePage() {
     setError(null);
     setResult(null);
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: trimmed }),
-      });
+      const res = await analyzeFetch({ url: trimmed });
       const json: AnalyzeResponse = await res.json();
       if (!res.ok) {
         if (res.status === 503) {

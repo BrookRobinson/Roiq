@@ -2176,6 +2176,20 @@ error to retry instead of a blank report, and nothing is saved or charged. This
 is a third way to reach "nothing assessed", beside truncation and an
 interrupted run. `verify:edited-photos` covers the unwrapping.
 
+**`/api/analyze` answers a full analysis as a heartbeat stream, always HTTP 200.**
+A report takes three to five minutes and used to arrive as one JSON body with
+nothing sent before it. A Cloudflare tunnel cut every run at about two minutes
+(11 October 2026) and the page blamed the reader's connection. Hosting
+platforms and mobile carriers drop silent connections the same way.
+`heartbeatJson()` (`lib/http/heartbeat.ts`) opens the response at once and
+sends a space every 10 seconds, then the JSON; the real status rides in the body
+as `_status`. **Call it through `analyzeFetch()`** (`lib/analyze-fetch.ts`),
+which turns that back into an ordinary Response so `res.ok` and `res.status`
+still work; a raw `fetch` would see 200 on a failed analysis. Everything that
+can be refused quickly (bad input, a farm, no credits, a reused report) is still
+an ordinary response sent BEFORE the stream starts. `Cache-Control:
+no-transform` is load-bearing: without it compression holds the heartbeat back.
+
 **An item's photo list includes every photo its own text cites.** The model
 fills `photo_references` and writes its prose separately, and they drift — the
 ventilation card said "assessed from photos 6, 11" over a finding citing Photo 5
