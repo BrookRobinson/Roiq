@@ -212,6 +212,8 @@ export default function UploadReportPage() {
         photoCoverage: data.photoCoverage,
         photosAnalysed: data.photosAnalysed ?? 0,
         editedPhotos: data.editedPhotos ?? [],
+        photoGaps: data.photoGaps ?? [],
+        aerialPhoto: data.aerialPhoto,
         model: data.model,
       };
       // Open the report in the lens they chose, not the "buyer" default.

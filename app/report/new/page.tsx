@@ -166,6 +166,8 @@ function NewReportInner() {
         suburbValue: data.suburbValue,
         photosAnalysed: data.photosAnalysed ?? 0,
         editedPhotos: data.editedPhotos ?? [],
+        photoGaps: data.photoGaps ?? [],
+        aerialPhoto: data.aerialPhoto,
         model: data.model,
         // Bare land — the view locks Improvements and shows a land score.
         landOnly: data.landOnly === true,

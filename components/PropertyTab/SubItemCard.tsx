@@ -14,7 +14,7 @@ import { ITEM_LIFE, expectedLife } from "@/lib/scoring/item-life";
 import { isFactOnly } from "@/lib/scoring/improvement-values";
 import { isRefused, isPerRoom, type AnyValuation, type PerRoomValuation } from "./valuation-types";
 import { SIZE_ITEM_IDS, type Persona } from "@/lib/scoring/model";
-import { ConfidenceStep } from "./ConfidenceStep";
+import { ConfidenceStep, photoRefsLabel, useReportEvidence } from "./ConfidenceStep";
 import { CostWorkings } from "@/components/CostWorkings";
 import { useHoldPeriod } from "@/lib/hold-period/context";
 import {
@@ -54,7 +54,8 @@ function Chip({ label, title, children }: { label: string; title?: string; child
  * cost new — each opening to its own seven steps. The lines add up to the
  * card's value; rooms nobody photographed are named, and left out.
  */
-function PerRoomBreakdown({ v, label, unseenEstimate, tier }: { v: PerRoomValuation; label: string; unseenEstimate?: EstimatedItem | null; tier: ConfidenceTier }) {
+function PerRoomBreakdown({ v, label, unseenEstimate, tier, itemId }: { v: PerRoomValuation; label: string; unseenEstimate?: EstimatedItem | null; tier: ConfidenceTier; itemId: string }) {
+  const { aerialNumber } = useReportEvidence();
   const [open, setOpen] = useState<string | null>(null);
   const money = (n: number) => `$${Math.round(n).toLocaleString("en-NZ")}`;
   return (
@@ -91,14 +92,14 @@ function PerRoomBreakdown({ v, label, unseenEstimate, tier }: { v: PerRoomValuat
                         {p.fromBuyer ? (
                           <span className="inline-flex items-center gap-1" style={{ color: "var(--good)" }}><Camera size={12} /> Photographed at the property by you</span>
                         ) : p.photoReferences.length > 0 ? (
-                          <span className="inline-flex items-center gap-1"><Camera size={12} style={{ color: "var(--text-muted)" }} /> Photos: {p.photoReferences.join(", ")}</span>
+                          <span className="inline-flex items-center gap-1"><Camera size={12} style={{ color: "var(--text-muted)" }} /> {photoRefsLabel(p.photoReferences, aerialNumber)}</span>
                         ) : (
                           <span style={{ color: "var(--text-muted)" }}>Read from the listing photos of this {v.noun}.</span>
                         )}
                       </div>
                     ),
                   }}
-                  second={{ title: "Confidence", body: <ConfidenceStep tier={tier} photoRefs={p.photoReferences} fromBuyer={p.fromBuyer} /> }}
+                  second={{ title: "Confidence", body: <ConfidenceStep tier={tier} photoRefs={p.photoReferences} fromBuyer={p.fromBuyer} itemId={itemId} /> }}
                 />
               </div>
             )}
@@ -159,6 +160,7 @@ function getCostItem(item: SubItem, region = "", floorSqm?: number | null) {
 
 export function SubItemCard({ item, region, floorSqm, showCost = false, persona = "buyer", renoControls, onOpenRenovations, value, valuation, estimate, unseenEstimate }: { item: SubItem; region?: string; floorSqm?: number | null; showCost?: boolean; persona?: Persona; renoControls?: RenoControls; onOpenRenovations?: () => void; value?: ItemValue | null; valuation?: AnyValuation | null; estimate?: EstimatedItem | null; unseenEstimate?: EstimatedItem | null }) {
   const [expanded, setExpanded] = useState(false);
+  const { aerialNumber } = useReportEvidence();
   const { holdYears, withinHold } = useHoldPeriod();
   // v6 — the card shows what the item is WORTH, not what it scored. Colour
   // follows the condition read, which is the thing the colour was always really
@@ -189,7 +191,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
       {item.photoReferences.length > 0 ? (
         <span className="inline-flex items-center gap-1">
           <Camera size={12} style={{ color: "var(--text-muted)" }} />
-          Photos: {item.photoReferences.join(", ")}
+          {photoRefsLabel(item.photoReferences, aerialNumber)}
         </span>
       ) : (
         <span style={{ color: "var(--text-muted)" }}>No photograph shows this item.</span>
@@ -198,7 +200,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
   );
   // Step 2: how sure we are, and whether a photo this was read from looks
   // edited. It was a chip beside the value; it belongs with the evidence.
-  const confidenceStep = <ConfidenceStep tier={item.confidenceTier} photoRefs={item.photoReferences} />;
+  const confidenceStep = <ConfidenceStep tier={item.confidenceTier} photoRefs={item.photoReferences} itemId={item.id} />;
   // Life left on the SAME reading the card's valuation uses: its own when it
   // has one, otherwise the itemised value's age against the item's service life.
   const life = ITEM_LIFE[item.id];
@@ -431,7 +433,7 @@ export function SubItemCard({ item, region, floorSqm, showCost = false, persona 
               </div>
             )}
             {valuation && !isRefused(valuation) && isPerRoom(valuation) ? (
-              <PerRoomBreakdown v={valuation} label={item.name} unseenEstimate={unseenEstimate} tier={item.confidenceTier} />
+              <PerRoomBreakdown v={valuation} label={item.name} unseenEstimate={unseenEstimate} tier={item.confidenceTier} itemId={item.id} />
             ) : valuation && !isRefused(valuation) ? (
               <ItemValuation v={valuation} lead={{ title: "Listing photos", body: photosStep }} second={{ title: "Confidence", body: confidenceStep }} evidence={evidenceFor(item)} />
             ) : (

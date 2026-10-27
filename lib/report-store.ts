@@ -6,6 +6,8 @@
 // it's enough to wire the real paste → analyse → full-report flow for now.
 
 import type { EditedPhoto } from "@/lib/ai/edited-photos";
+import type { PhotoGap } from "@/lib/ai/photo-gaps";
+import type { AerialPhoto } from "@/lib/imagery/aerial-plan";
 import type { SubItem, ExtraDwelling } from "@/lib/property-tab/types";
 import type { PropertyContext, ScoreResult, PenaltyInput } from "@/lib/scoring/engine";
 import type { Persona } from "@/lib/scoring/model";
@@ -58,6 +60,10 @@ export interface StoredReport {
    * reports were never asked.
    */
   editedPhotos?: EditedPhoto[];
+  /** What the listing photos avoid. Absent on reports made before 27 October 2026. */
+  photoGaps?: PhotoGap[];
+  /** The LINZ aerial view the analysis read, when there was one. */
+  aerialPhoto?: AerialPhoto;
   /** Verified document analyses keyed by sub-item id (leg_lim / leg_consents / leg_eqc / leg_title). */
   verifiedDocs?: Record<string, DocAnalysis>;
   /** Web-sourced (or AI-estimated) market rent for the yield calc. */

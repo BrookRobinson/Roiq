@@ -17,7 +17,7 @@
 // Pure, no imports — scripts/verify-edited-photos.mjs loads it directly.
 // ============================================================
 
-const LIST_FIELDS = ["sub_items", "edited_photos", "extra_dwellings", "information_gaps", "location_penalties"] as const;
+const LIST_FIELDS = ["sub_items", "edited_photos", "photo_gaps", "extra_dwellings", "information_gaps", "location_penalties"] as const;
 const OBJECT_FIELDS = ["property_context"] as const;
 
 function parse(v: unknown): unknown {
@@ -61,4 +61,40 @@ export function normaliseToolInput(input: unknown): Record<string, unknown> {
     else delete out[f];
   }
   return out;
+}
+
+interface SummaryFields {
+  ai_summary?: unknown;
+  observed_defect?: unknown;
+  condition_evidence?: unknown;
+}
+
+/**
+ * Give a sub-item with no `ai_summary` one built from its own evidence.
+ *
+ * The summary is how an item is recognised as COMPLETE (an item cut off at
+ * max_tokens usually stops before it), so an item without one is dropped and
+ * shown as "didn't return a finding". On 27 October 2026 the model left the
+ * summary off 38 of 45 otherwise complete items (172 Park Street: roof scored
+ * 5/10 with four lines of evidence, citing the aerial view) and the report came
+ * back with one item scored. A response that finished normally has no cut-off
+ * item, so every item in it may be filled. A truncated one may end on a
+ * half-written item, so its LAST item is never filled and stays dropped.
+ */
+export function fillMissingSummaries<T extends SummaryFields>(items: T[], truncated: boolean): number {
+  let filled = 0;
+  const limit = truncated ? items.length - 1 : items.length;
+  for (let i = 0; i < limit; i++) {
+    const it = items[i];
+    if (!it || (typeof it.ai_summary === "string" && it.ai_summary.trim() !== "")) continue;
+    const defect = typeof it.observed_defect === "string" ? it.observed_defect.trim() : "";
+    const evidence = Array.isArray(it.condition_evidence)
+      ? it.condition_evidence.filter((e): e is string => typeof e === "string" && e.trim() !== "").slice(0, 2)
+      : [];
+    const text = [defect, ...evidence].filter(Boolean).join(" ");
+    if (!text) continue;
+    it.ai_summary = text;
+    filled++;
+  }
+  return filled;
 }

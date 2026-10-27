@@ -40,7 +40,8 @@
     "verify:sun": "node --no-warnings scripts/verify-sun.mjs",
     "verify:applies": "node --no-warnings scripts/verify-applies.mjs",
     "verify:valuation-range": "node scripts/verify-valuation-range.mjs",
-    "verify:edited-photos": "node --no-warnings scripts/verify-edited-photos.mjs"
+    "verify:edited-photos": "node --no-warnings scripts/verify-edited-photos.mjs",
+    "verify:photo-evidence": "node --no-warnings scripts/verify-photo-evidence.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",

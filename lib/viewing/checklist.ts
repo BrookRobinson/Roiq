@@ -474,6 +474,30 @@ export function buildViewingChecklist(
     }
   }
 
+  // What the listing photos avoid (lib/ai/photo-gaps.ts). These are things in
+  // the house the agent chose not to show, so the errand is to go and look:
+  // section 2, beside the rooms nobody photographed.
+  for (const [i, g] of (report.photoGaps ?? []).entries()) {
+    out.push({
+      key: `photogap:${g.area || i}`,
+      label: g.area,
+      group: "Not in the listing photos",
+      why: g.missing,
+      guide: {
+        concern: `${g.missing} Anything it affects is marked probable rather than confirmed until somebody has looked.`,
+        ask: `Can you send me a photo of the ${g.area.toLowerCase()}?`,
+        steps: [
+          `At the viewing, go and look at the ${g.area.toLowerCase()} yourself.`,
+          "Note anything the rest of the listing didn't prepare you for.",
+        ],
+        photos: [`The ${g.area.toLowerCase()}, wide enough to see all of it`],
+      },
+      source: "gap",
+      section: "not_photographed",
+      canPhotograph: false,
+    });
+  }
+
   // The analysis's own flagged gaps. These are questions for the agent rather
   // than things to go and look at — the listing didn't show it, so the fastest
   // route is usually to ask the person selling the house. Grouped separately for

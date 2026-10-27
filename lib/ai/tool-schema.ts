@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { ALL_V31_IDS } from "@/lib/scoring/catalog";
 import { LOCATION_PENALTIES } from "@/lib/scoring/model";
 import type { RawEditedPhoto } from "./edited-photos";
+import type { RawPhotoGap } from "./photo-gaps";
 
 const LOCATION_PENALTY_IDS = LOCATION_PENALTIES.map((p) => p.id);
 
@@ -154,6 +155,8 @@ export interface RawLocationPenalty {
 export interface RawAnalysis {
   /** Photos that look digitally altered. See lib/ai/edited-photos.ts. */
   edited_photos?: RawEditedPhoto[];
+  /** What the listing photos avoid. See lib/ai/photo-gaps.ts. */
+  photo_gaps?: RawPhotoGap[];
   sub_items: RawSubItem[];
   extra_dwellings?: RawExtraDwelling[];
   information_gaps?: RawInformationGap[];
@@ -387,6 +390,23 @@ const editedPhotosSchema = {
   },
 };
 
+// What a buyer would expect the listing to show and it doesn't. Asked for
+// beside edited_photos, ahead of sub_items, for the same two reasons.
+const photoGapsSchema = {
+  type: "array" as const,
+  description:
+    "Parts of THIS house a buyer would expect a listing to show that the photos avoid or crop out. At most 8. Not things no listing ever shows (insulation, wiring, the subfloor). See PHOTO GAPS in the instructions.",
+  items: {
+    type: "object" as const,
+    properties: {
+      area: { type: "string" as const, description: "Where, in a buyer's words: 'Rear of the house', 'Second bathroom', 'Roof'." },
+      missing: { type: "string" as const, description: "One sentence: what you'd expect to see and can't, e.g. 'The listing mentions two bathrooms but only one is photographed.'" },
+      item_ids: { type: "array" as const, items: { type: "string" as const, enum: ALL_V31_IDS }, description: "The checklist items this gap leaves you less sure of." },
+    },
+    required: ["area", "missing"],
+  },
+};
+
 export const ANALYSIS_TOOL: Anthropic.Tool = {
   name: ANALYSIS_TOOL_NAME,
   description:
@@ -395,6 +415,7 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
     type: "object",
     properties: {
       edited_photos: editedPhotosSchema,
+      photo_gaps: photoGapsSchema,
       sub_items: {
         type: "array",
         description:
@@ -601,7 +622,7 @@ export const ANALYSIS_TOOL: Anthropic.Tool = {
     // edited_photos is required (an empty list is a fine answer) so the input
     // always opens with a plain top-level field. When it was optional, a real
     // run skipped it and wrote the whole answer as a string inside sub_items.
-    required: ["edited_photos", "sub_items"],
+    required: ["edited_photos", "photo_gaps", "sub_items"],
   },
 };
 
@@ -617,6 +638,7 @@ export const ANALYSIS_META_TOOL: Anthropic.Tool = {
     type: "object",
     properties: {
       edited_photos: editedPhotosSchema,
+      photo_gaps: photoGapsSchema,
       property_context: propertyContextSchema,
       extra_dwellings: extraDwellingsSchema,
       information_gaps: informationGapsSchema,

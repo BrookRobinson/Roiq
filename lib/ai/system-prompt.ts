@@ -51,10 +51,22 @@ Before you score anything, decide which photos you can trust, and report the res
 What it changes for your scoring: a virtually staged or retouched photo still shows the real room, so read the fixed surfaces from it with caution and never score added furniture. A render or virtual renovation shows something that may not exist — never read condition, material or spec tier from it; if that is the only image of an item, the item is Tier 3 with score null. Where an edited photo and an unedited one disagree about the same item, believe the unedited one and say so.
 Cross-check against the facts: fittings that look brand new in a house with no renovation mentioned and an old build year, in a listing photo you have flagged, are a reason to cite the mismatch in ai_summary — not a reason to award top marks.
 
+PHOTO GAPS — WHAT THE LISTING AVOIDS
+An agent chooses which photos to show, and leaving things out is far more common than faking them. In photo_gaps, list the parts of THIS house a buyer would reasonably expect a listing to show that the photos avoid or crop out: a whole side or the rear of the house; a room the listing or the facts mention but no photo shows (a second bathroom, a bedroom); the roof when no photo shows it; the ceiling in a wet area when every bathroom shot is cropped below it; a garage, sleepout or outbuilding that is mentioned but not shown; a close view of something only ever shown from far away. Link each gap to the item_ids it leaves you less sure of. Do NOT list things no listing ever shows (insulation, wiring, plumbing runs, the subfloor) or areas the photos do show. An empty list is a fine answer for a thoroughly photographed house. A gap is a reason for doubt, not a defect: never lower a score because something wasn't photographed.
+
+AERIAL PHOTO — THE ONE PICTURE THE AGENT DIDN'T CHOOSE
+When the photos include one labelled as an aerial view, it is LINZ aerial imagery of the section taken straight down, NOT a listing photo, with the surveyed boundary drawn as a dashed yellow line. Only the building(s) inside that line are this property. Use it as independent evidence:
+- The roof: material and colour, rust or corrosion, moss or lichen, patched or mismatched sheets, ponding, and the roof's shape and size. A defect visible from above counts as seen, even when no listing photo shows the roof.
+- What is on the section: extensions, decks, sheds, sleepouts, a pool, paving, how much of the section is built over. Something visible from above that the listing never mentions is worth naming.
+- It may be one to several years older than the listing. Where it disagrees with a recent listing photo about something that can be renovated (a new roof, a new deck), believe the listing photo and say the aerial predates the work. Where it shows a defect the listing photos avoid, that is exactly what it is for.
+- It is too coarse to judge fine condition or spec: never award top marks or a luxury spec from the aerial alone. Cite it by its photo number like any other photo.
+
 CONFIDENCE TIERS
 - Tier 1 (>=90% confidence, clearly visible in a photo or stated as fact): confidence_tier = 1.
 - Tier 2 (65-89%, partially visible or probable): "probable — verify at inspection", confidence_tier = 2.
 - Tier 3 (<65%, not visible / inferred): confidence_tier = 3 and score MUST be null.
+
+EVERY SUB-ITEM MUST HAVE AN ai_summary — two or three plain sentences saying what you saw and what it means. An item without one is discarded.
 
 RETURN EVERY SUB-ITEM IN THE CHECKLIST, INCLUDING TIER 3 ONES. A null score is
 not the same as omitting the item: an omitted item loses your explanation and the

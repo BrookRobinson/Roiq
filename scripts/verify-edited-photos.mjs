@@ -125,5 +125,21 @@ console.log("\nReading a tool input the model stringified");
   check("not an object at all → empty", normaliseToolInput(null), {});
 }
 
+console.log("\nItems that came back with no summary");
+{
+  const { fillMissingSummaries } = await import(join(root, "lib/ai/tool-input.ts"));
+  const roof = () => ({ id: "ext_roof", score: 5, confidence_tier: 2, observed_defect: "Flashings unchecked.", condition_evidence: ["Photo 16 shows a long-run roof.", "The aerial shows no rust.", "Third line."] });
+  const done = [roof()];
+  check("a finished answer: the summary is built from the item's own evidence", [fillMissingSummaries(done, false), done[0].ai_summary], [1, "Flashings unchecked. Photo 16 shows a long-run roof. The aerial shows no rust."]);
+  const cut = [roof(), roof()];
+  fillMissingSummaries(cut, true);
+  check("a truncated answer: every item but the last is filled", [typeof cut[0].ai_summary, typeof cut[1].ai_summary], ["string", "undefined"]);
+  const kept = [{ ...roof(), ai_summary: "Its own words." }];
+  fillMissingSummaries(kept, false);
+  check("an existing summary is never replaced", kept[0].ai_summary, "Its own words.");
+  const empty = [{ id: "ext_roof", score: 5, confidence_tier: 2 }];
+  check("no evidence to build from: left alone, still dropped", fillMissingSummaries(empty, false), 0);
+}
+
 console.log(failures ? `\n${failures} FAILED\n` : "\nAll edited-photo rules hold.\n");
 process.exit(failures ? 1 : 0);

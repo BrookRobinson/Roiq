@@ -13,7 +13,7 @@ import {
   type RawDwellingHealthyHomes,
   type RawCrossLeaseSharing,
 } from "./tool-schema";
-import { prepareImages, type PreparedImage } from "./images";
+import { MAX_IMAGES, prepareImages, type PreparedImage } from "./images";
 
 import { normAction } from "@/lib/scoring/action-parse";
 import { SCORING_MODEL, LOCATION_PENALTIES, usesSpecTier, SIZE_ITEM_IDS, type ScoringSubItem, type Inspection } from "@/lib/scoring/model";
@@ -58,7 +58,10 @@ import {
 } from "@/lib/scoring/foundation";
 import { citedPhotos, mergePhotoRefs } from "@/lib/photo-refs";
 import { applyEditedPhotos, applyEditedPhotosToRoom, normEditedPhotos, type EditedPhoto } from "./edited-photos";
-import { normaliseToolInput } from "./tool-input";
+import { fillMissingSummaries, normaliseToolInput } from "./tool-input";
+import { applyPhotoGaps, normPhotoGaps, type PhotoGap } from "./photo-gaps";
+import { fetchAerialCrop } from "@/lib/imagery/aerial-crop";
+import type { AerialPhoto } from "@/lib/imagery/aerial-plan";
 
 export interface GapFinding {
   gapType: string;
@@ -86,7 +89,12 @@ export interface AnalysisResult {
   model: string;
   /** Listing photos that look digitally altered. Empty is "none seen", not "none edited". */
   editedPhotos: EditedPhoto[];
+  /** What the listing photos avoid, in the analysis's own words. */
+  photoGaps: PhotoGap[];
+  /** The LINZ aerial view the analysis was shown, when there was one. */
+  aerialPhoto?: AerialPhoto;
 }
+
 
 // ── value normalisers ──────────────────────────────────────────────────────
 
@@ -784,12 +792,13 @@ function buildUserMessage(
   inspections?: Inspection[],
   labelled?: boolean,
   onlyIds?: Set<string>,
-  landOnly?: boolean
+  landOnly?: boolean,
+  aerialNumber?: number
 ): string {
   const facts = formatFacts(listing);
   const photoLine =
     photoCount > 0
-      ? `${photoCount} listing photo(s) are attached above, numbered 1-${photoCount}.${labelled ? " Each photo is labelled with the area it shows (e.g. \"Photo 3 — Roof\") — assess the matching sub-items from the labelled photo." : ""} Cite photo numbers in your evidence_source and photo_references. First go through every photo and report any that look digitally altered in edited_photos (see EDITED PHOTOS).`
+      ? `${photoCount} listing photo(s) are attached above, numbered 1-${photoCount}.${labelled ? " Each photo is labelled with the area it shows (e.g. \"Photo 3 — Roof\") — assess the matching sub-items from the labelled photo." : ""} Cite photo numbers in your evidence_source and photo_references.${aerialNumber ? ` Photo ${aerialNumber} is NOT a listing photo: it is a LINZ aerial view of the section (see AERIAL PHOTO).` : ""} First go through every listing photo and report any that look digitally altered in edited_photos (see EDITED PHOTOS), then list what the listing photos avoid in photo_gaps (see PHOTO GAPS).`
       : `No listing photos are available. Assess Improvements items as Tier 3 from build era and location (score = null where you cannot infer a condition); still score Location, Land, and Legal from the facts.`;
 
   const today = new Date().toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric" });
@@ -817,10 +826,13 @@ ${
 
 // ── main entry point ───────────────────────────────────────────────────────
 
-function base64ImageContent(images: PreparedImage[], labels?: string[]): Anthropic.ContentBlockParam[] {
+/** How the aerial picture is introduced to the model, wherever it is shown. */
+export const AERIAL_LABEL = "AERIAL VIEW from LINZ, not a listing photo (see AERIAL PHOTO); the dashed yellow line is this property's surveyed boundary";
+
+function base64ImageContent(images: PreparedImage[], labels?: string[], aerialNumber?: number): Anthropic.ContentBlockParam[] {
   const content: Anthropic.ContentBlockParam[] = [];
   for (const img of images) {
-    const label = labels?.[img.number - 1]; // labels align to original 1-based order
+    const label = img.number === aerialNumber ? AERIAL_LABEL : labels?.[img.number - 1]; // labels align to original 1-based order
     content.push({ type: "text", text: `Photo ${img.number}${label ? ` — ${label}` : ""}:` });
     content.push({
       type: "image",
@@ -863,6 +875,16 @@ function isCompleteSubItem(s: RawSubItem | undefined | null): boolean {
 
 /** Fold a continuation response into the accumulating analysis. */
 function mergeAnalysis(into: RawAnalysis, next: RawAnalysis, seen: Set<string>): void {
+  // Say what is thrown away. An item dropped here becomes a "didn't return a
+  // finding" placeholder, and without this line that is indistinguishable from
+  // the model leaving it out.
+  const dropped = (next.sub_items ?? []).filter((s) => !isCompleteSubItem(s));
+  if (dropped.length > 0) {
+    console.warn(
+      `[analyze] dropped ${dropped.length} incomplete sub-item(s):`,
+      JSON.stringify(dropped.slice(0, 3)).slice(0, 800)
+    );
+  }
   for (const s of next.sub_items ?? []) {
     if (!isCompleteSubItem(s) || seen.has(s.id)) continue;
     seen.add(s.id);
@@ -871,6 +893,7 @@ function mergeAnalysis(into: RawAnalysis, next: RawAnalysis, seen: Set<string>):
   // Whole-property fields are emitted AFTER sub_items, so a truncated first call
   // has none of them — take them from whichever response actually carried them.
   into.edited_photos ??= next.edited_photos;
+  into.photo_gaps ??= next.photo_gaps;
   into.property_context ??= next.property_context;
   into.extra_dwellings ??= next.extra_dwellings;
   into.information_gaps ??= next.information_gaps;
@@ -884,11 +907,13 @@ async function callAnalysis(
   inspections?: Inspection[],
   photoLabels?: string[],
   onlyIds?: Set<string>,
-  landOnly?: boolean
+  landOnly?: boolean,
+  aerialNumber?: number
 ): Promise<{ raw: RawAnalysis; truncated: boolean }> {
+  const listingPhotos = images.filter((i) => i.number !== aerialNumber).length;
   const content: Anthropic.ContentBlockParam[] = [
-    ...base64ImageContent(images, photoLabels),
-    { type: "text", text: buildUserMessage(listing, images.length, inspections, !!photoLabels?.length, onlyIds, landOnly) },
+    ...base64ImageContent(images, photoLabels, aerialNumber),
+    { type: "text", text: buildUserMessage(listing, listingPhotos, inspections, !!photoLabels?.length, onlyIds, landOnly, aerialNumber) },
   ];
 
   // Stream and assemble the final message. A full report at this max_tokens
@@ -920,6 +945,11 @@ async function callAnalysis(
   // answer inside sub_items. See lib/ai/tool-input.ts.
   const raw = normaliseToolInput(toolUse.input) as unknown as RawAnalysis;
   raw.sub_items ??= [];
+  const filled = fillMissingSummaries(raw.sub_items, resp.stop_reason === "max_tokens");
+  if (filled > 0) console.warn(`[analyze] ${filled} sub-item(s) came back with no ai_summary; built one from their own evidence`);
+  console.info(
+    `[analyze] stop=${resp.stop_reason} output_tokens=${resp.usage?.output_tokens} sub_items=${raw.sub_items.length} edited=${raw.edited_photos?.length ?? "-"} gaps=${raw.photo_gaps?.length ?? "-"}`
+  );
   return { raw, truncated: resp.stop_reason === "max_tokens" };
 }
 
@@ -935,7 +965,8 @@ async function runClaude(
   images: PreparedImage[],
   inspections?: Inspection[],
   photoLabels?: string[],
-  landOnly?: boolean
+  landOnly?: boolean,
+  aerialNumber?: number
 ): Promise<RawAnalysis> {
   const client = getAnthropic();
   const requested = new Set(
@@ -947,15 +978,22 @@ async function runClaude(
   let onlyIds: Set<string> | undefined;
 
   for (let attempt = 0; ; attempt++) {
-    const { raw, truncated } = await callAnalysis(client, listing, images, inspections, photoLabels, onlyIds, landOnly);
+    const { raw, truncated } = await callAnalysis(client, listing, images, inspections, photoLabels, onlyIds, landOnly, aerialNumber);
     mergeAnalysis(merged, raw, seen);
-    if (!truncated) break;
 
     // Conditional items the model deliberately skipped land in `missing` too;
     // re-asking for them is harmless — they stay marked "(only if present)".
     const missing = [...requested].filter((id) => !seen.has(id));
+    // A response that finished normally can still leave required items out:
+    // on 27 October 2026 one returned 45 of 60 and stopped, and every skipped
+    // item became a "didn't return a finding" placeholder. Re-ask for the
+    // REQUIRED ones only; a conditional item it left out is usually absent.
+    const missingCore = missing.filter((id) => !SCORING_MODEL.find((i) => i.id === id)?.conditional);
+    if (!truncated && missingCore.length === 0) break;
     console.warn(
-      `[analyze] output truncated at max_tokens — ${seen.size}/${requested.size} sub-items complete, ${missing.length} missing`
+      truncated
+        ? `[analyze] output truncated at max_tokens — ${seen.size}/${requested.size} sub-items complete, ${missing.length} missing`
+        : `[analyze] response finished but left out ${missingCore.length} required sub-item(s): ${missingCore.join(", ")}`
     );
     if (missing.length === 0) break;
     if (attempt >= MAX_CONTINUATIONS) {
@@ -964,7 +1002,7 @@ async function runClaude(
       );
       break;
     }
-    onlyIds = new Set(missing);
+    onlyIds = new Set(truncated ? missing : missingCore);
   }
 
   // An answer with NO findings is not a report. Returning it produced a page of
@@ -998,7 +1036,11 @@ export function assembleResult(
   // or read from the register, and no edit to a photo changes them. The
   // foundation is left alone too: its score is computed from type, era and
   // symptoms rather than taken from a picture.
-  const editedPhotos = normEditedPhotos(raw.edited_photos, photosAnalysed);
+  // Photo numbers follow the listing's own order, so the highest valid one is
+  // the number of listing photos sent, not the number that downloaded.
+  const maxListingPhoto = Math.min(listing.photoUrls?.length ?? 0, MAX_IMAGES);
+  const editedPhotos = normEditedPhotos(raw.edited_photos, Math.max(photosAnalysed, maxListingPhoto));
+  const photoGaps = normPhotoGaps(raw.photo_gaps, new Set(Object.keys(ITEM_BY_ID)));
   if (editedPhotos.length > 0) {
     assessment.subItems = assessment.subItems.map((s) => {
       if (ITEM_BY_ID[s.id]?.inspection !== "improvements" || s.id === "ext_foundation") return s;
@@ -1010,6 +1052,14 @@ export function assembleResult(
       const score = hit.item.score as UrgencyScore | null;
       return { ...hit.item, byRoom, score, urgencyLabel: urgencyLabel(score) };
     });
+  }
+  // A gap in the listing's photos lowers CONFIDENCE in the items it is about,
+  // never their score: not being photographed is a reason for doubt, not a
+  // defect. Same scope as the edited-photo rules.
+  if (photoGaps.length > 0) {
+    assessment.subItems = assessment.subItems.map((s) =>
+      ITEM_BY_ID[s.id]?.inspection !== "improvements" || s.id === "ext_foundation" ? s : applyPhotoGaps(s, photoGaps) ?? s
+    );
   }
   const scores = scoreBoth(assessment);
 
@@ -1030,6 +1080,7 @@ export function assembleResult(
     photosAnalysed,
     model: VISION_MODEL,
     editedPhotos,
+    photoGaps,
   };
 }
 
@@ -1070,17 +1121,30 @@ export async function analyseProperty(
         console.warn("[suburb-value] lookup failed:", (e as Error)?.message);
         return undefined;
       });
-  const images = await prepareImages(listing.photoUrls ?? []);
+  // The listing photos and the aerial view are fetched side by side. The aerial
+  // is the one picture the agent didn't choose (lib/imagery/aerial-plan.ts);
+  // bare land has no roof to read, so it isn't fetched there.
+  const [listingImages, aerial] = await Promise.all([
+    prepareImages(listing.photoUrls ?? []),
+    opts?.landOnly ? Promise.resolve(null) : fetchAerialCrop(listing.linz?.site).catch(() => null),
+  ]);
+  const aerialNumber = aerial ? Math.min(listing.photoUrls?.length ?? 0, MAX_IMAGES) + 1 : undefined;
+  const images = aerial && aerialNumber
+    ? [...listingImages, { number: aerialNumber, media: aerial.media, buf: aerial.buf }]
+    : listingImages;
   // A section has no improvements to inspect. Narrowing here means the checklist,
   // the closing instruction and the assembled result all agree.
   const inspections: Inspection[] | undefined = opts?.landOnly
     ? ["land", "legal"]
     : opts?.inspections;
-  const raw = await runClaude(listing, images, inspections, opts?.photoLabels, opts?.landOnly);
-  const result = assembleResult(raw, listing, images.length, inspections);
+  const raw = await runClaude(listing, images, inspections, opts?.photoLabels, opts?.landOnly, aerialNumber);
+  const result = assembleResult(raw, listing, listingImages.length, inspections);
   const market = await marketP;
   const suburbValue = await suburbP;
-  return { ...result, marketRent: market.marketRent, capitalGrowth: market.capitalGrowth, suburbValue };
+  const aerialPhoto = aerial && aerialNumber
+    ? { number: aerialNumber, dataUrl: `data:${aerial.media};base64,${aerial.buf.toString("base64")}` }
+    : undefined;
+  return { ...result, aerialPhoto, marketRent: market.marketRent, capitalGrowth: market.capitalGrowth, suburbValue };
 }
 
 // ── Fast path: Files-API upload + parallel per-inspection fan-out ─────────────
@@ -1150,7 +1214,10 @@ async function runFanCall(
   const tu = resp.content.find(
     (b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use" && b.name === ANALYSIS_TOOL_NAME
   );
-  return tu ? (normaliseToolInput(tu.input) as unknown as RawAnalysis) : { sub_items: [] };
+  if (!tu) return { sub_items: [] };
+  const raw = normaliseToolInput(tu.input) as unknown as RawAnalysis;
+  fillMissingSummaries(raw.sub_items ?? [], resp.stop_reason === "max_tokens");
+  return raw;
 }
 
 function inspectionInstruction(listing: ScrapedListing, insp: CatalogInspection, photoCount: number): string {
@@ -1191,6 +1258,7 @@ function crossLeaseAsk(listing: ScrapedListing): string {
 function metaInstruction(listing: ScrapedListing, photoCount: number): string {
   return `For this New Zealand property, call ${ANALYSIS_TOOL_NAME} but return sub_items as an EMPTY array. Populate ONLY:
 - edited_photos: every photo that looks digitally altered or that the listing says is (see EDITED PHOTOS). Go through all ${photoCount} photos.
+- photo_gaps: what the listing photos avoid (see PHOTO GAPS).
 - property_context: title_type, has_chimney, has_solar, has_retaining_walls, has_pool, has_body_corporate (infer from photos + facts).${crossLeaseAsk(listing)}
 - extra_dwellings: any separate sleepout, minor dwelling, pole shed, or standalone garage of material value (with replacement_cost and a 1-10 condition score).
 - location_penalties: objective location NEGATIVES for THIS exact address (busy road/motorway, flight path, rail, industry, pylons, no sun), each with a severity 0-10 scaled by proximity. Include only those that genuinely apply; omit the rest.
@@ -1266,6 +1334,7 @@ export async function analysePropertyFast(listing: ScrapedListing): Promise<Anal
 
   const raw: RawAnalysis = {
     edited_photos: meta.edited_photos,
+    photo_gaps: meta.photo_gaps,
     sub_items: perInspection.flat(),
     extra_dwellings: meta.extra_dwellings ?? [],
     information_gaps: meta.information_gaps ?? [],

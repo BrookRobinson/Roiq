@@ -44,6 +44,7 @@ npm run verify:scoreboard    # grading our own valuations, and when a run of bad
 npm run verify:valuation-range # how wide the valuation range is, from the property's own evidence
 npm run verify:completeness  # when a grey pin has earned the right to become a coloured one
 npm run verify:edited-photos # what a digitally edited listing photo may and may not do to a score
+npm run verify:photo-evidence # the aerial crop lands on the right section; a photo gap lowers confidence, never a score
 npm run verify:quality-curve # score → value multiplier: no cliffs, no invented sixth number
 npm run build:zoning         # regenerate lib/zoning/councils.ts from district-plans.nz
 npm run build:instruments    # regenerate lib/linz/instrument-types.ts from LINZ
@@ -2175,6 +2176,41 @@ and `runClaude` THROWS when no finding at all came back, so the reader gets an
 error to retry instead of a blank report, and nothing is saved or charged. This
 is a third way to reach "nothing assessed", beside truncation and an
 interrupted run. `verify:edited-photos` covers the unwrapping.
+
+**Two checks on the agent's choice of photos: what they avoid, and a picture
+nobody staged.** Agents rarely fake a house; they leave things out. The analysis
+lists `photo_gaps` (the rear of the house, a second bathroom, the roof, a wet-area
+ceiling cropped out) and `lib/ai/photo-gaps.ts` drops a Tier 1 read on any item a
+gap names to Tier 2 with a sentence saying why. **The score never moves**: not
+being photographed is a reason for doubt, not a defect. Each gap is also a line
+in checklist section 2.
+
+The picture nobody staged is a **LINZ aerial view of the section**
+(`lib/imagery/aerial-crop.ts`, planned by the pure `aerial-plan.ts`): tiles at
+zoom 20 (about 11 cm a pixel in town) stepping down to 18, stitched, cropped to
+the surveyed boundary plus 8 m, the boundary drawn as a dashed yellow line so the
+model knows which roof is this one. It is sent as the photo numbered one past the
+last listing photo, labelled `AERIAL_LABEL`, and stored on the report as a small
+data URL (`aerialPhoto`) so the reader sees exactly what was read. **LINZ only,
+never the Mapbox fallback**: LINZ Basemaps is CC BY 4.0 and the credit is printed
+wherever the picture is shown. Not fetched for bare land. The prompt treats it as
+possibly years old (a recent listing photo of new work wins) and too coarse for
+top marks. `/api/health/aerial?address=…` returns the JPEG for an address, for a
+person to look at.
+
+**The model can leave the summary off a complete item, and skip required items
+in an answer that finished normally.** Both happened on 27 October 2026, straight
+after this schema change: 38 of 45 items had no `ai_summary`, so the
+completeness check threw them away, and 16 location, land and legal items were
+simply absent. One item in the report was scored. Now `fillMissingSummaries()`
+(`lib/ai/tool-input.ts`) builds a summary from the item's own evidence (never for
+the last item of a TRUNCATED answer, which may be half written), and `runClaude`
+re-asks for missing REQUIRED items even when the answer was not truncated. Both
+log what they did; `[analyze] dropped N incomplete sub-item(s)` names anything
+still thrown away. **After any change to the analysis prompt or schema, run one
+live listing and read the `[analyze]` log lines**, because each of the last three
+schema changes broke the output in a new way that `tsc` and the unit checks
+could not see.
 
 **`/api/analyze` answers a full analysis as a heartbeat stream, always HTTP 200.**
 A report takes three to five minutes and used to arrive as one JSON body with
